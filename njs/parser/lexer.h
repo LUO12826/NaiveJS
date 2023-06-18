@@ -26,7 +26,7 @@ class Lexer {
   Lexer(const Lexer&) = delete;
   Lexer(Lexer&&) = delete;
 
-  Token next() {
+  Token& next() {
 
     line_term_before = false;
     Token token(TokenType::NONE, u"", 0, 0);
@@ -373,7 +373,8 @@ class Lexer {
     return curr_token;
   }
 
-  inline Token current_token() { return curr_token; }
+  inline const Token& current() const { return curr_token; }
+  inline const Token* current_token_ptr() const { return &curr_token; }
   inline u32 current_pos() { return cursor; }
 
   void checkpoint() {
@@ -409,15 +410,21 @@ class Lexer {
     return false;
   }
 
+  // Try skipping a semicolon. This is actually used to detect if a statement is finished,
+  // so if there is a line break, it is also considered as meeting a semicolon. If the semicolon
+  // is successfully skipped, the lexer's `curr_token` will point to the next token, and
+  // `line_term_before` will be set to True.
   bool try_skip_semicolon() {
-    Token token = peek();
+    Token token = next();
     if (token.is_semicolon()) {
       next();
       return true;
     }
-    // 7.9 Automatic Semicolon Insertion
-    if (token.type == TokenType::EOS || token.type == TokenType::RIGHT_BRACE || line_term_ahead())
+    // 11.9 Automatic Semicolon Insertion
+    if (token.type == TokenType::EOS || token.type == TokenType::RIGHT_BRACE || line_term_before) {
       return true;
+    }
+    
     return false;
   }
 

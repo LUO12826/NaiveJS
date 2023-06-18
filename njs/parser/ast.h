@@ -330,9 +330,9 @@ class LHS : public AST {
 
 class Function : public AST {
  public:
-  Function(std::vector<std::u16string> params, AST* body,
-           std::u16string source, u32 start, u32 end) :
-    Function(Token(TokenType::NONE, u"", 0, 0), params, body, source, start, end) {}
+  // Function(std::vector<std::u16string> params, AST* body,
+  //          std::u16string source, u32 start, u32 end) :
+  //   Function(Token::none, params, body, source, start, end) {}
 
   Function(Token name, std::vector<std::u16string> params, AST* body,
            std::u16string source, u32 start, u32 end) :
