@@ -10,5 +10,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # 添加可执行文件
 add_executable(njs njs/main.cpp)
 
+target_compile_options(njs PRIVATE -Wno-deprecated-declarations)
 target_include_directories(njs PRIVATE .)
 # target_include_directories(njs PRIVATE include/)

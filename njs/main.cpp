@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     ASTNode* ast = parser.ParseProgram();
     if (ast->is_illegal()) {
     	std::cout << "illegal program at: " << debug::to_utf8_string(ast->source_ref())
-      << ", start: " << ast->start() << ", end: " << ast->end() << std::endl;
+      << ", start: " << ast->start_pos() << ", end: " << ast->end_pos() << std::endl;
     }
     
   }
