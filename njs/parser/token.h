@@ -28,14 +28,14 @@ class Token {
     this->line = line;
   }
 
-  std::string to_string() {
+  std::string to_string() const {
     std::ostringstream oss;
     oss << "token type: " << type_names[(int)type] << ", text: "
         << debug::to_utf8_string(text) << ", start: " << start << ", end: " << end;
     return oss.str();
   }
 
-  inline bool is_assignment_operator() {
+  inline bool is_assignment_operator() const {
     switch(type) {
       case ASSIGN:      // =
       case ADD_ASSIGN:  // +=
@@ -56,27 +56,27 @@ class Token {
     }
   }
 
-  inline bool is_line_terminator() { return type == LINE_TERM; }
+  inline bool is_line_terminator() const { return type == LINE_TERM; }
 
-  inline bool is_identifier_name() {
+  inline bool is_identifier_name() const {
     return type == IDENTIFIER || type == KEYWORD ||
            type == FUTURE_KW || type == STRICT_FUTURE_KW ||
            type == TK_NULL || type == TK_BOOL;
   }
 
-  inline bool is_property_name() {
+  inline bool is_property_name() const {
     return is_identifier_name() || type == STRING || type == NUMBER;
   }
 
-  inline bool is_semicolon() { return type == SEMICOLON; }
+  inline bool is_semicolon() const { return type == SEMICOLON; }
 
-  inline bool is_identifier() { return type == IDENTIFIER || type == STRICT_FUTURE_KW; }
+  inline bool is_identifier() const { return type == IDENTIFIER || type == STRICT_FUTURE_KW; }
 
-  inline bool is_binary_logical() { return type == LOGICAL_AND || type == LOGICAL_OR; }
+  inline bool is_binary_logical() const { return type == LOGICAL_AND || type == LOGICAL_OR; }
 
-  inline bool is_compound_assign() { return ADD_ASSIGN <= type && type <= XOR_ASSIGN; }
+  inline bool is_compound_assign() const { return ADD_ASSIGN <= type && type <= XOR_ASSIGN; }
 
-  inline int binary_priority(bool no_in) {
+  inline int binary_priority(bool no_in) const {
     switch (type) {
       // Binary
       case LOGICAL_OR:  // ||
@@ -124,7 +124,7 @@ class Token {
     }
   }
 
-  inline int unary_priority() {
+  inline int unary_priority() const {
     switch (type) {
       // Prefix
       case INC:
@@ -145,7 +145,7 @@ class Token {
     }
   }
 
-  inline int postfix_priority() {
+  inline int postfix_priority() const {
     switch (type) {
       case INC:
       case DEC:
@@ -155,7 +155,7 @@ class Token {
     }
   }
 
-  Token compound_assign_to_binary() {
+  Token compound_assign_to_binary() const {
     assert(is_compound_assign());
     return Token((TokenType)(type - ADD_ASSIGN + ADD),
                   text.substr(0, text.size() - 1),
@@ -163,7 +163,7 @@ class Token {
                   end - 1);
   }
 
-  inline const std::u16string_view& getSourceRef() { return text; }
+  inline const std::u16string_view& get_text_ref() const { return text; }
 
   TokenType type;
   std::u16string_view text;

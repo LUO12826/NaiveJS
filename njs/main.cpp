@@ -7,6 +7,7 @@
 #include <njs/parser/lexer.h>
 #include <njs/parser/token.h>
 #include <njs/parser/parser.h>
+#include "njs/utils/helper.h"
 
 using namespace njs;
 
@@ -35,22 +36,23 @@ int main(int argc, char *argv[]) {
     Lexer lexer(source_code);
     Token token = Token::none;
 
-    while (token.type != EOS) {
-      token = lexer.next();
+    // while (token.type != EOS) {
+    //   token = lexer.next();
 
-      printf("%s\n", token.to_string().c_str());
+    //   printf("%s\n", token.to_string().c_str());
 
-      if (token.type == ILLEGAL) {
-        printf("illegal token encountered at line %u.\n", token.line + 1);
-        break;
-      }
-    }
-
-    // Parser parser(source_code);
-    // AST* ast = parser.ParseProgram();
-    // if (ast->IsIllegal()) {
-    // 	std::cout << "illegal program." << std::endl;
+    //   if (token.type == ILLEGAL) {
+    //     printf("illegal token encountered at line %u.\n", token.line + 1);
+    //     break;
+    //   }
     // }
+
+    Parser parser(source_code);
+    ASTNode* ast = parser.ParseProgram();
+    if (ast->is_illegal()) {
+    	std::cout << "illegal program at: " << debug::to_utf8_string(ast->source_ref())
+      << ", start: " << ast->start() << ", end: " << ast->end() << std::endl;
+    }
     
   }
   catch (const std::ifstream::failure& e) {

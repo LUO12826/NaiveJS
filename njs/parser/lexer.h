@@ -373,40 +373,54 @@ class Lexer {
     return curr_token;
   }
 
-  inline const Token& current() const { return curr_token; }
-  inline const Token* current_token_ptr() const { return &curr_token; }
-  inline u32 current_pos() { return cursor; }
-
   void checkpoint() {
-    LexerState state {cursor, ch, curr_token, curr_line, curr_line_start_pos};
-    rewind_stack.emplace_back(state);
+    saved_state = {cursor, ch, curr_token, line_term_before, curr_line, curr_line_start_pos};
   }
 
-  void rewind() {
-    assert(rewind_stack.size() > 0);
+  void back() {
+    if (curr_token.type == TokenType::LEFT_BRACE) brace_stack.pop_back();
+    else if (curr_token.type == TokenType::RIGHT_BRACE) brace_stack.push_back(BraceType::LEFT);
 
-    LexerState& last_state = rewind_stack.back();
-    cursor = last_state.cursor;
-    curr_token = last_state.curr_token;
-    ch = last_state.ch;
-    curr_line = last_state.curr_line;
-    curr_line_start_pos = last_state.curr_line_start_pos;
+    cursor = saved_state.cursor;
+    ch = saved_state.ch;
+    curr_token = saved_state.curr_token;
+    line_term_before = saved_state.line_term_before;
+    curr_line = saved_state.curr_line;
+    curr_line_start_pos = saved_state.curr_line_start_pos;
+  }
+
+  // void rewind() {
+  //   assert(rewind_stack.size() > 0);
+
+  //   LexerState& last_state = rewind_stack.back();
+  //   cursor = last_state.cursor;
+  //   curr_token = last_state.curr_token;
+  //   ch = last_state.ch;
+  //   curr_line = last_state.curr_line;
+  //   curr_line_start_pos = last_state.curr_line_start_pos;
     
-    rewind_stack.pop_back();
-  }
+  //   rewind_stack.pop_back();
+  // }
 
-  Token peek() {
-    checkpoint();
-    Token next_token = next();
-    rewind();
+  // Token peek() {
+  //   checkpoint();
+  //   Token next_token = next();
+  //   rewind();
     
-    return next_token;
-  }
+  //   return next_token;
+  // }
 
   bool line_term_ahead() {
     skip_whitespace();
+    if (cursor == length) return true;
     if (character::is_line_terminator(ch)) return true;
     if (peek_char(1) == u'/' && peek_char(2) == u'/') return true;
+    return false;
+  }
+
+  bool maybe_statement_term_ahead() {
+    if (line_term_ahead()) return true;
+    if (ch == u'}' || ch == u';') return true;
     return false;
   }
 
@@ -415,16 +429,16 @@ class Lexer {
   // is successfully skipped, the lexer's `curr_token` will point to the next token, and
   // `line_term_before` will be set to True.
   bool try_skip_semicolon() {
+    checkpoint();
     Token token = next();
-    if (token.is_semicolon()) {
-      next();
+
+    if (token.is_semicolon() || token.type == TokenType::EOS) {
       return true;
     }
-    // 11.9 Automatic Semicolon Insertion
-    if (token.type == TokenType::EOS || token.type == TokenType::RIGHT_BRACE || line_term_before) {
+    if (token.type == TokenType::RIGHT_BRACE || line_term_before) {
+      back();
       return true;
     }
-    
     return false;
   }
 
@@ -499,6 +513,10 @@ error:
     cursor -= 1;
     ch = source[cursor];
   }
+
+  inline const Token& current() const { return curr_token; }
+  inline const Token* current_token_ptr() const { return &curr_token; }
+  inline u32 current_pos() { return cursor; }
 
  private:
   inline char16_t peek_char(int distance = 1) {
@@ -825,8 +843,6 @@ error:
       }
     }
 
-    
-
     if (id_text == u"null") {
       if (cursor - start != id_text.size()) goto error;
       return Token(TokenType::TK_NULL, u"null", start, cursor);
@@ -861,10 +877,17 @@ error:
   struct LexerState {
     u32 cursor;
     char16_t ch;
-    Token curr_token;
+    Token curr_token {Token::none};
+    bool line_term_before;
 
     u32 curr_line;
     u32 curr_line_start_pos;
+  };
+
+  enum BraceType {
+    LEFT = 0,
+    DOLLAR_LEFT,
+    RIGHT,
   };
 
   std::u16string source;
@@ -874,13 +897,13 @@ error:
   u32 length;
   bool line_term_before {false};
 
-  Token curr_token = Token::none;
-  Token next_token = Token::none;
+  Token curr_token {Token::none};
 
   u32 curr_line{0};
   u32 curr_line_start_pos{0};
 
-  std::vector<LexerState> rewind_stack;
+  LexerState saved_state;
+  std::vector<BraceType> brace_stack;
   std::unordered_set<u16string> string_pool;
 };
 
