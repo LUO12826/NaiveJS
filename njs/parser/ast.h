@@ -6,16 +6,75 @@
 #include <vector>
 #include <unordered_map>
 #include <utility>
+#include <cstdio>
 
 #include "token.h"
 #include "njs/utils/macros.h"
 
 namespace njs {
 
+const u32 PRINT_TREE_INDENT = 2;
+
+const char *ast_type_names[] = {
+  "AST_EXPR_THIS",
+  "AST_EXPR_IDENT",
+  "AST_EXPR_STRICT_FUTURE",
+
+  "AST_EXPR_NULL",
+  "AST_EXPR_BOOL",
+  "AST_EXPR_NUMBER",
+  "AST_EXPR_STRING",
+  "AST_EXPR_REGEXP",
+
+  "AST_EXPR_ARRAY",
+  "AST_EXPR_OBJ",
+
+  "AST_EXPR_PAREN",  // ( Expression )
+
+  "AST_EXPR_BINARY",
+  "AST_EXPR_UNARY",
+  "AST_EXPR_TRIPLE",
+
+  "AST_EXPR_ARGS",
+  "AST_EXPR_LHS",
+
+  "AST_EXPR",
+
+  "AST_FUNC",
+
+  "AST_STMT_EMPTY",
+  "AST_STMT_BLOCK",
+  "AST_STMT_IF",
+  "AST_STMT_WHILE",
+  "AST_STMT_FOR",
+  "AST_STMT_FOR_IN",
+  "AST_STMT_WITH",
+  "AST_STMT_DO_WHILE",
+  "AST_STMT_TRY",
+
+  "AST_STMT_VAR",
+  "AST_STMT_VAR_DECL",
+
+  "AST_STMT_CONTINUE",
+  "AST_STMT_BREAK",
+  "AST_STMT_RETURN",
+  "AST_STMT_THROW",
+
+  "AST_STMT_SWITCH",
+
+  "AST_STMT_LABEL",
+  "AST_STMT_DEBUG",
+
+  "AST_PROGRAM",
+  "AST_FUNC_BODY",
+
+  "AST_ILLEGAL"
+};
+
 class ASTNode {
  public:
   enum Type {
-    AST_EXPR_THIS,
+    AST_EXPR_THIS = 0,
     AST_EXPR_IDENT,
     AST_EXPR_STRICT_FUTURE,
 
@@ -89,6 +148,23 @@ class ASTNode {
     this->line_start = line_start;
   }
 
+  void add_child(ASTNode *node) {
+    children.push_back(node);
+  }
+
+  void print_tree(int level) {
+    std::string spaces(level * PRINT_TREE_INDENT, ' ');
+    std::string desc = description();
+    printf("%s%s\n", spaces.c_str(), desc.c_str());
+    for (ASTNode *child : children) {
+      if (child) child->print_tree(level + 1);
+    }
+  }
+
+  std::string description() {
+    return std::string(ast_type_names[(int)type]);
+  }
+
   bool is_illegal() { return type == AST_ILLEGAL; }
 
  private:
@@ -97,6 +173,7 @@ class ASTNode {
   u32 start;
   u32 end;
   u32 line_start;
+  std::vector<ASTNode*> children;
 };
 
 class RegExpLiteral : public ASTNode {
@@ -338,6 +415,7 @@ class Function : public ASTNode {
     ASTNode(AST_FUNC, source, start, end, line_start), name_(name), params_(params) {
       ASSERT(body->get_type() == ASTNode::AST_FUNC_BODY);
       body_ = body;
+      add_child(body);
     }
 
   ~Function() override {
@@ -355,7 +433,23 @@ class Function : public ASTNode {
   ASTNode* body_;
 };
 
-class VarDecl;
+class VarDecl : public ASTNode {
+ public:
+  VarDecl(Token ident, std::u16string_view source, u32 start, u32 end, u32 line_start) :
+    VarDecl(ident, nullptr, source, start, end, line_start) {}
+
+  VarDecl(Token ident, ASTNode* init, std::u16string_view source, u32 start, u32 end, u32 line_start) :
+    ASTNode(AST_STMT_VAR_DECL, source, start, end, line_start), ident_(ident), init_(init) {}
+  ~VarDecl() { delete init_; }
+
+  Token& ident() { return ident_; }
+  ASTNode* init() { return init_; }
+
+ private:
+  Token ident_;
+  ASTNode* init_;
+};
+
 class ProgramOrFunctionBody : public ASTNode {
  public:
   ProgramOrFunctionBody(Type type, bool strict) : ASTNode(type), strict_(strict) {}
@@ -366,12 +460,14 @@ class ProgramOrFunctionBody : public ASTNode {
       delete stmt;
   }
 
-  void AddFunctionDecl(ASTNode* func) {
+  void add_function_decl(ASTNode* func) {
     ASSERT(func->get_type() == AST_FUNC);
     func_decls_.emplace_back(static_cast<Function*>(func));
+    add_child(func);
   }
-  void AddStatement(ASTNode* stmt) {
+  void add_statement(ASTNode* stmt) {
     stmts_.emplace_back(stmt);
+    add_child(stmt);
   }
 
   bool strict() { return strict_; }
@@ -379,7 +475,7 @@ class ProgramOrFunctionBody : public ASTNode {
   std::vector<ASTNode*> statements() { return stmts_; }
 
   std::vector<VarDecl*>& var_decls() { return var_decls_; }
-  void SetVarDecls(std::vector<VarDecl*>&& var_decls) { var_decls_ = var_decls; }
+  void set_var_decls(std::vector<VarDecl*>&& var_decls) { this->var_decls_ = var_decls; }
 
  private:
   bool strict_;
@@ -449,23 +545,6 @@ class ThrowStatement : public ASTNode {
   ASTNode* expr_;
 };
 
-class VarDecl : public ASTNode {
- public:
-  VarDecl(Token ident, std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    VarDecl(ident, nullptr, source, start, end, line_start) {}
-
-  VarDecl(Token ident, ASTNode* init, std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(AST_STMT_VAR_DECL, source, start, end, line_start), ident_(ident), init_(init) {}
-  ~VarDecl() { delete init_; }
-
-  Token& ident() { return ident_; }
-  ASTNode* init() { return init_; }
-
- private:
-  Token ident_;
-  ASTNode* init_;
-};
-
 class VarStatement : public ASTNode {
  public:
   VarStatement() : ASTNode(AST_STMT_VAR) {}
@@ -489,18 +568,20 @@ class Block : public ASTNode {
  public:
   Block() : ASTNode(AST_STMT_BLOCK) {}
   ~Block() {
-    for (auto stmt : stmts_)
+    for (auto stmt : stmts) {
       delete stmt;
+    }
   }
 
-  void AddStatement(ASTNode* stmt) {
-    stmts_.emplace_back(stmt);
+  void add_statement(ASTNode* stmt) {
+    stmts.emplace_back(stmt);
+    add_child(stmt);
   }
 
-  std::vector<ASTNode*> statements() { return stmts_; }
+  std::vector<ASTNode*> statements() { return stmts; }
 
  public:
-  std::vector<ASTNode*> stmts_;
+  std::vector<ASTNode*> stmts;
 };
 
 class TryStatement : public ASTNode {
@@ -511,31 +592,36 @@ class TryStatement : public ASTNode {
 
   TryStatement(ASTNode* try_block, ASTNode* finally_block,
       std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    TryStatement(try_block, Token(TokenType::NONE, u"", 0, 0), nullptr, finally_block, source, start, end, line_start) {}
+    TryStatement(try_block, Token(TokenType::NONE, u"", 0, 0),
+                  nullptr, finally_block, source, start, end, line_start) {}
 
   TryStatement(ASTNode* try_block, Token catch_ident, ASTNode* catch_block, ASTNode* finally_block,
       std::u16string_view source, u32 start, u32 end, u32 line_start)
-    : ASTNode(AST_STMT_TRY, source, start, end, line_start), try_block_(try_block), catch_ident_(catch_ident),
-      catch_block_(catch_block), finally_block_(finally_block) {}
-
-  ~TryStatement() {
-    delete try_block_;
-    if (catch_block_ != nullptr)
-      delete catch_block_;
-    if (finally_block_ != nullptr)
-      delete finally_block_;
+    : ASTNode(AST_STMT_TRY, source, start, end, line_start),
+                try_block(try_block), catch_ident(catch_ident),
+                catch_block(catch_block), finally_block(finally_block) {
+    
+    add_child(try_block);
+    add_child(catch_block);
+    add_child(finally_block);
   }
 
-  ASTNode* try_block() { return try_block_; }
-  std::u16string_view catch_ident() { return catch_ident_.text; };
-  ASTNode* catch_block() { return catch_block_; }
-  ASTNode* finally_block() { return finally_block_; }
+  ~TryStatement() {
+    delete try_block;
+    if (catch_block != nullptr) delete catch_block;
+    if (finally_block != nullptr) delete finally_block;
+  }
+
+  ASTNode* get_try_block() { return try_block; }
+  std::u16string_view get_catch_identifier() { return catch_ident.text; };
+  ASTNode* get_catch_block() { return catch_block; }
+  ASTNode* get_finally_block() { return finally_block; }
 
  public:
-  ASTNode* try_block_;
-  Token catch_ident_;
-  ASTNode* catch_block_;
-  ASTNode* finally_block_;
+  ASTNode* try_block;
+  Token catch_ident;
+  ASTNode* catch_block;
+  ASTNode* finally_block;
 };
 
 class IfStatement : public ASTNode {
@@ -546,7 +632,13 @@ class IfStatement : public ASTNode {
   IfStatement(ASTNode* cond, ASTNode* if_block, ASTNode* else_block,
               std::u16string_view source, u32 start, u32 end, u32 line_start) :
               ASTNode(AST_STMT_IF, source, start, end, line_start),
-              cond_(cond), if_block_(if_block), else_block_(else_block) {}
+              cond_(cond), if_block_(if_block), else_block_(else_block) {
+    
+    add_child(cond);
+    add_child(if_block);
+    add_child(else_block);
+  }
+
   ~IfStatement() {
     delete cond_;
     delete if_block_;

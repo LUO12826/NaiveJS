@@ -101,7 +101,7 @@ enum TokenType {
   ILLEGAL,
 };
 
-const char *type_names[] = {
+const char *token_type_names[] = {
   "IDENTIFIER",
   "KEYWORD",
   "FUTURE_KW",

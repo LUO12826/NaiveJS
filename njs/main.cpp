@@ -53,6 +53,9 @@ int main(int argc, char *argv[]) {
 
     Parser parser(source_code);
     ASTNode* ast = parser.ParseProgram();
+
+    // ast->print_tree(0);
+
     if (ast->is_illegal()) {
     	std::cout << "illegal program at: " << test::to_utf8_string(ast->source_ref())
       << ", line: " << ast->get_line_start() + 1 << ", start: " << ast->start_pos()

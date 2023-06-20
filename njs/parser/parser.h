@@ -199,12 +199,6 @@ error:
         if ((token.text == u"get" || token.text == u"set") && lexer.peek().is_property_name()) {
           START_POS;
 
-          // if (lexer.next().is_property_name()) {
-          // }
-          // else {
-          //   delete obj;
-          //   return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
-          // }
           ObjectLiteral::Property::Type type 
             = token.text == u"get" ? ObjectLiteral::Property::GET : ObjectLiteral::Property::SET;
 
@@ -219,32 +213,6 @@ error:
             goto error;
           }
 
-          // if (lexer.next().type != TokenType::LEFT_PAREN) {
-          //   goto error;
-          // }
-          // std::vector<std::u16string> params;
-          // if (type == ObjectLiteral::Property::SET) {
-          //   if (!lexer.next().is_identifier()) {
-          //     goto error;
-          //   }
-          //   params.emplace_back(lexer.current().text);
-          // }
-          // if (lexer.next().type != TokenType::RIGHT_PAREN) { // Skip )
-          //   goto error;
-          // }
-          // if (lexer.next().type != TokenType::LEFT_BRACE) { // Skip {
-          //   goto error;
-          // }
-          // ASTNode* body = ParseFunctionBody();
-          // if (body->is_illegal()) {
-          //   delete obj;
-          //   return body;
-          // }
-          // if (lexer.next().type != TokenType::RIGHT_BRACE) { // Skip }
-          //   delete body;
-          //   goto error;
-          // }
-          // Function* value = new Function(Token::none, params, body, SOURCE_PARSED_EXPR);
           obj->set_property(ObjectLiteral::Property(key, get_set_func, type));
         }
         else {
@@ -314,10 +282,8 @@ error:
       return lhs;
     }
     
-    // lexer.checkpoint();
     Token op = lexer.peek();
     if (!op.is_assignment_operator()) {
-      // lexer.back();
       return lhs;
     }
     
@@ -337,9 +303,8 @@ error:
     ASTNode* cond = ParseBinaryAndUnaryExpression(no_in, 0);
     if (cond->is_illegal())
       return cond;
-    // lexer.checkpoint();
+
     if (lexer.peek().type != TokenType::QUESTION) {
-      // lexer.back();
       return cond;
     }
       
@@ -389,7 +354,7 @@ error:
       //
       // Because the priority of postfix operators are higher than prefix ones,
       // they won't be parsed at the same time.
-      // lexer.checkpoint();
+      
       const Token& postfix_op = lexer.peek();
       if (!lexer.line_term_ahead() && postfix_op.postfix_priority() > priority) {
         lexer.next();
@@ -402,16 +367,13 @@ error:
           return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
         }
       }
-      // else {
-      //   lexer.back();
-      // }
     }
 
     while (true) {
-      // lexer.checkpoint();
+      
       Token binary_op = lexer.peek();
       if (binary_op.binary_priority(no_in) > priority) {
-        // lexer.checkpoint();
+        
         lexer.next();
         lexer.next();
         rhs = ParseBinaryAndUnaryExpression(no_in, binary_op.binary_priority(no_in));
@@ -421,7 +383,6 @@ error:
       }
       else {
         // TODO: make sure this is correct.
-        // lexer.back();
         break;
       }
     }
@@ -454,7 +415,7 @@ error:
     LeftHandSideExpr* lhs = new LeftHandSideExpr(base, new_count);
 
     while (true) {
-      // lexer.checkpoint();
+      
       token = lexer.peek();
       switch (token.type) {
         case TokenType::LEFT_PAREN: {  // (
@@ -497,7 +458,7 @@ error:
           break;
         }
         default:
-          // lexer.back();
+
           lhs->set_source(SOURCE_PARSED_EXPR);
           return lhs;
       }
@@ -580,7 +541,7 @@ error:
           delete prog;
           return element;
         }
-        prog->AddFunctionDecl(element);
+        prog->add_function_decl(element);
       }
       else {
         element = ParseStatement();
@@ -588,12 +549,12 @@ error:
           delete prog;
           return element;
         }
-        prog->AddStatement(element);
+        prog->add_statement(element);
       }
       lexer.next();
     }
     assert(lexer.current().type == ending_token_type);
-    prog->SetVarDecls(std::move(var_decl_stack.top()));
+    prog->set_var_decls(std::move(var_decl_stack.top()));
     var_decl_stack.pop();
     prog->set_source(SOURCE_PARSED_EXPR);
     return prog;
@@ -632,9 +593,8 @@ error:
       }
       case TokenType::STRICT_FUTURE_KW:
       case TokenType::IDENTIFIER: {
-        // lexer.checkpoint();
+        
         Token colon = lexer.peek();
-        // lexer.back();
         if (colon.type == TokenType::COLON) {
           return ParseLabelledStatement();
         }
@@ -658,7 +618,7 @@ error:
         delete block;
         return stmt;
       }
-      block->AddStatement(stmt);
+      block->add_statement(stmt);
       lexer.next();
     }
     assert(lexer.current().type == TokenType::RIGHT_BRACE);
@@ -712,9 +672,6 @@ error:
       }
       var_stmt->AddDecl(decl);
     }
-    // if (!lexer.try_skip_semicolon()) {
-    //   goto error;
-    // }
 
     var_stmt->set_source(SOURCE_PARSED_EXPR);
     return var_stmt;

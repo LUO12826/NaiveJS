@@ -31,7 +31,7 @@ class Token {
 
   std::string to_string() const {
     std::ostringstream oss;
-    oss << "token type: " << type_names[(int)type] << ", text: "
+    oss << "token type: " << token_type_names[(int)type] << ", text: "
         << test::to_utf8_string(text) << ", start: " << start << ", end: " << end;
     return oss.str();
   }
