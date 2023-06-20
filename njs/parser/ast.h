@@ -1,5 +1,5 @@
-#ifndef NJS_PARSER_AST_H
-#define NJS_PARSER_AST_H
+#ifndef NJS_AST_H
+#define NJS_AST_H
 
 #include <string>
 #include <string_view>
@@ -182,10 +182,6 @@ class RegExpLiteral : public ASTNode {
                 std::u16string_view source, u32 start, u32 end, u32 line_start) :
     ASTNode(AST_EXPR_REGEXP, source, start, end, line_start), pattern(pattern), flag(flag) {}
 
-  std::u16string get_pattern() { return pattern; }
-  std::u16string get_flag() { return flag; }
-
- private:
   std::u16string pattern;
   std::u16string flag;
 };
@@ -518,70 +514,57 @@ class ContinueOrBreak : public ASTNode {
 class ReturnStatement : public ASTNode {
  public:
   ReturnStatement(ASTNode* expr, std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(AST_STMT_RETURN, source, start, end, line_start), expr_(expr) {}
+    ASTNode(AST_STMT_RETURN, source, start, end, line_start), expr(expr) {}
   ~ReturnStatement() {
-    if (expr_ != nullptr)
-      delete expr_;
+    if (expr != nullptr)
+      delete expr;
   }
 
-  ASTNode* expr() { return expr_; }
-
- private:
-  ASTNode* expr_;
+  ASTNode* expr;
 };
 
 class ThrowStatement : public ASTNode {
  public:
   ThrowStatement(ASTNode* expr, std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(AST_STMT_THROW, source, start, end, line_start), expr_(expr) {}
+    ASTNode(AST_STMT_THROW, source, start, end, line_start), expr(expr) {}
   ~ThrowStatement() {
-    if (expr_ != nullptr)
-      delete expr_;
+    if (expr != nullptr)
+      delete expr;
   }
 
-  ASTNode* expr() { return expr_; }
-
- private:
-  ASTNode* expr_;
+  ASTNode* expr;
 };
 
 class VarStatement : public ASTNode {
  public:
   VarStatement() : ASTNode(AST_STMT_VAR) {}
   ~VarStatement() {
-    for (auto decl : decls_)
-      delete decl;
+    for (auto decl : declarations) delete decl;
   }
 
-  void AddDecl(ASTNode* decl) {
+  void add_decl(ASTNode* decl) {
     ASSERT(decl->get_type() == AST_STMT_VAR_DECL);
-    decls_.emplace_back(static_cast<VarDecl*>(decl));
+    declarations.emplace_back(static_cast<VarDecl*>(decl));
   }
 
-  std::vector<VarDecl*> decls() { return decls_; }
-
- public:
-  std::vector<VarDecl*> decls_;
+  std::vector<VarDecl*> declarations;
 };
 
 class Block : public ASTNode {
  public:
   Block() : ASTNode(AST_STMT_BLOCK) {}
   ~Block() {
-    for (auto stmt : stmts) {
+    for (auto stmt : statements) {
       delete stmt;
     }
   }
 
   void add_statement(ASTNode* stmt) {
-    stmts.emplace_back(stmt);
+    statements.emplace_back(stmt);
     add_child(stmt);
   }
 
-  std::vector<ASTNode*> statements() { return stmts; }
-
- public:
-  std::vector<ASTNode*> stmts;
+  std::vector<ASTNode*> statements;
 };
 
 class TryStatement : public ASTNode {
@@ -612,12 +595,8 @@ class TryStatement : public ASTNode {
     if (finally_block != nullptr) delete finally_block;
   }
 
-  ASTNode* get_try_block() { return try_block; }
   std::u16string_view get_catch_identifier() { return catch_ident.text; };
-  ASTNode* get_catch_block() { return catch_block; }
-  ASTNode* get_finally_block() { return finally_block; }
 
- public:
   ASTNode* try_block;
   Token catch_ident;
   ASTNode* catch_block;
@@ -632,7 +611,7 @@ class IfStatement : public ASTNode {
   IfStatement(ASTNode* cond, ASTNode* if_block, ASTNode* else_block,
               std::u16string_view source, u32 start, u32 end, u32 line_start) :
               ASTNode(AST_STMT_IF, source, start, end, line_start),
-              cond_(cond), if_block_(if_block), else_block_(else_block) {
+              condition_expr(cond), if_block(if_block), else_block(else_block) {
     
     add_child(cond);
     add_child(if_block);
@@ -640,83 +619,66 @@ class IfStatement : public ASTNode {
   }
 
   ~IfStatement() {
-    delete cond_;
-    delete if_block_;
-    if (else_block_ != nullptr)
-      delete else_block_;
+    delete condition_expr;
+    delete if_block;
+    if (else_block != nullptr)
+      delete else_block;
   }
 
-  ASTNode* cond() { return cond_; }
-  ASTNode* if_block() { return if_block_; }
-  ASTNode* else_block() { return else_block_; }
-
- public:
-  ASTNode* cond_;
-  ASTNode* if_block_;
-  ASTNode* else_block_;
+  ASTNode* condition_expr;
+  ASTNode* if_block;
+  ASTNode* else_block;
 };
 
-class WhileOrWith : public ASTNode {
+class WhileStatement : public ASTNode {
  public:
-  WhileOrWith(Type type, ASTNode* expr, ASTNode* stmt,
-              std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(type, source, start, end, line_start), expr_(expr), stmt_(stmt) {}
-  ~WhileOrWith() {
-    delete expr_;
-    delete stmt_;
+  WhileStatement(ASTNode* condition_expr, ASTNode* body_stmt, std::u16string_view source,
+                  u32 start, u32 end, u32 line_start) :
+                  ASTNode(AST_STMT_WHILE, source, start, end, line_start),
+                           condition_expr(condition_expr), body_stmt(body_stmt) {}
+
+  ~WhileStatement() {
+    delete condition_expr;
+    delete body_stmt;
   }
 
-  ASTNode* expr() { return expr_; }
-  ASTNode* stmt() { return stmt_; }
+  ASTNode* condition_expr;
+  ASTNode* body_stmt;
+};
 
+class WithStatement : public ASTNode {
  public:
-  ASTNode* expr_;
-  ASTNode* stmt_;
+  WithStatement(ASTNode* expr, ASTNode* stmt, std::u16string_view source,
+                u32 start, u32 end, u32 line_start) :
+                ASTNode(AST_STMT_WITH, source, start, end, line_start), expr(expr), stmt(stmt) {}
+
+  ~WithStatement() {
+    delete expr;
+    delete stmt;
+  }
+
+  ASTNode* expr;
+  ASTNode* stmt;
 };
 
 class DoWhileStatement : public ASTNode {
  public:
-  DoWhileStatement(ASTNode* expr, ASTNode* stmt, std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(AST_STMT_DO_WHILE, source, start, end, line_start), expr_(expr), stmt_(stmt) {}
+  DoWhileStatement(ASTNode* condition_expr, ASTNode* body_stmt,
+                  std::u16string_view source, u32 start, u32 end, u32 line_start) :
+                  ASTNode(AST_STMT_DO_WHILE, source, start, end, line_start),
+                  condition_expr(condition_expr), body_stmt(body_stmt) {}
+
   ~DoWhileStatement() {
-    delete expr_;
-    delete stmt_;
+    delete condition_expr;
+    delete body_stmt;
   }
 
-  ASTNode* expr() { return expr_; }
-  ASTNode* stmt() { return stmt_; }
-
- public:
-  ASTNode* expr_;
-  ASTNode* stmt_;
+  ASTNode* condition_expr;
+  ASTNode* body_stmt;
 };
 
 class SwitchStatement : public ASTNode {
  public:
-  SwitchStatement() : ASTNode(AST_STMT_SWITCH) {}
-
-  ~SwitchStatement() override {
-    for (CaseClause clause : before_default_case_clauses_) {
-      delete clause.expr;
-      for (auto stmt : clause.stmts) {
-        delete stmt;
-      }
-    }
-    for (CaseClause clause : after_default_case_clauses_) {
-      delete clause.expr;
-      for (auto stmt : clause.stmts) {
-        delete stmt;
-      }
-    }
-    for (auto stmt : default_clause_.stmts) {
-      delete  stmt;
-    }
-  }
-
-  void SetExpr(ASTNode* expr) {
-    expr_ = expr;
-  }
-
   struct DefaultClause {
     std::vector<ASTNode*> stmts;
   };
@@ -727,73 +689,78 @@ class SwitchStatement : public ASTNode {
     std::vector<ASTNode*> stmts;
   };
 
+  SwitchStatement() : ASTNode(AST_STMT_SWITCH) {}
+
+  ~SwitchStatement() override {
+    for (CaseClause clause : before_default_case_clauses) {
+      delete clause.expr;
+      for (auto stmt : clause.stmts) {
+        delete stmt;
+      }
+    }
+    for (CaseClause clause : after_default_case_clauses) {
+      delete clause.expr;
+      for (auto stmt : clause.stmts) {
+        delete stmt;
+      }
+    }
+    for (auto stmt : default_clause.stmts) {
+      delete  stmt;
+    }
+  }
+
+  void SetExpr(ASTNode* expr) {
+    condition_expr = expr;
+  }
+
   void SetDefaultClause(std::vector<ASTNode*> stmts) {
-    ASSERT(!has_default_clause());
-    has_default_clause_ = true;
-    default_clause_.stmts = stmts;
+    ASSERT(!has_default_clause);
+    has_default_clause = true;
+    default_clause.stmts = stmts;
   }
 
   void AddBeforeDefaultCaseClause(CaseClause c) {
-    before_default_case_clauses_.emplace_back(c);
+    before_default_case_clauses.emplace_back(c);
   }
 
   void AddAfterDefaultCaseClause(CaseClause c) {
-    after_default_case_clauses_.emplace_back(c);
+    after_default_case_clauses.emplace_back(c);
   }
 
-  ASTNode* expr() { return expr_; }
-  std::vector<CaseClause> before_default_case_clauses() { return before_default_case_clauses_; }
-  bool has_default_clause() { return has_default_clause_; }
-  DefaultClause default_clause() {
-    ASSERT(has_default_clause());
-    return default_clause_;
-  }
-  std::vector<CaseClause> after_default_case_clauses() { return after_default_case_clauses_; }
-
- private:
-  ASTNode* expr_;
-  bool has_default_clause_ = false;
-  DefaultClause default_clause_;
-  std::vector<CaseClause> before_default_case_clauses_;
-  std::vector<CaseClause> after_default_case_clauses_;
+  ASTNode* condition_expr;
+  bool has_default_clause = false;
+  DefaultClause default_clause;
+  std::vector<CaseClause> before_default_case_clauses;
+  std::vector<CaseClause> after_default_case_clauses;
 };
 
 class ForStatement : public ASTNode {
  public:
-  ForStatement(std::vector<ASTNode*> expr0s, ASTNode* expr1, ASTNode* expr2, ASTNode* stmt,
-      std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(AST_STMT_FOR, source, start, end, line_start), expr0s_(expr0s), expr1_(expr1), expr2_(expr2), stmt_(stmt) {}
+  ForStatement(std::vector<ASTNode*> init_expr, ASTNode* condition_expr, ASTNode* increment_expr,
+              ASTNode* body_stmt, std::u16string_view source, u32 start, u32 end, u32 line_start) :
+              ASTNode(AST_STMT_FOR, source, start, end, line_start), init_expr(init_expr),
+              condition_expr(condition_expr), increment_expr(increment_expr), body_stmt(body_stmt) {}
 
-  std::vector<ASTNode*> expr0s() { return expr0s_; }
-  ASTNode* expr1() { return expr1_; }
-  ASTNode* expr2() { return expr2_; }
-  ASTNode* statement() { return stmt_; }
+  std::vector<ASTNode*> init_expr;
+  ASTNode* condition_expr;
+  ASTNode* increment_expr;
 
- private:
-  std::vector<ASTNode*> expr0s_;
-  ASTNode* expr1_;
-  ASTNode* expr2_;
-
-  ASTNode* stmt_;
+  ASTNode* body_stmt;
 };
 
 class ForInStatement : public ASTNode {
  public:
-  ForInStatement(ASTNode* expr0, ASTNode* expr1, ASTNode* stmt,
-        std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(AST_STMT_FOR_IN, source, start, end, line_start), expr0_(expr0), expr1_(expr1), stmt_(stmt) {}
+  ForInStatement(ASTNode* element_expr, ASTNode* collection_expr, ASTNode* body_stmt,
+                std::u16string_view source, u32 start, u32 end, u32 line_start) :
+                ASTNode(AST_STMT_FOR_IN, source, start, end, line_start), element_expr(element_expr),
+                collection_expr(collection_expr), body_stmt(body_stmt) {}
 
-  ASTNode* expr0() { return expr0_; }
-  ASTNode* expr1() { return expr1_; }
-  ASTNode* statement() { return stmt_; }
+  ASTNode* element_expr;
+  ASTNode* collection_expr;
 
- private:
-  ASTNode* expr0_;
-  ASTNode* expr1_;
-
-  ASTNode* stmt_;
+  ASTNode* body_stmt;
 };
 
 }  // namespace njs
 
-#endif  // NJS_PARSER_AST_H
+#endif  // NJS_AST_H

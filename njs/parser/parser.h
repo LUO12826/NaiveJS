@@ -514,7 +514,7 @@ error:
     return ParseProgramOrFunctionBody(TokenType::EOS, ASTNode::AST_PROGRAM);
   }
 
-  ASTNode* ParseProgramOrFunctionBody(TokenType ending_token_type, ASTNode::Type program_or_function) {
+  ASTNode* ParseProgramOrFunctionBody(TokenType ending_token_type, ASTNode::Type syntax_type) {
     START_POS;
     // 14.1
     bool strict = false;
@@ -529,7 +529,7 @@ error:
       // else, `curr_token` will be 'use strict' (a string).
     }
 
-    ProgramOrFunctionBody* prog = new ProgramOrFunctionBody(program_or_function, strict);
+    ProgramOrFunctionBody* prog = new ProgramOrFunctionBody(syntax_type, strict);
     var_decl_stack.push({});
 
     ASTNode* element;
@@ -660,7 +660,7 @@ error:
       delete var_stmt;
       return decl;
     }
-    var_stmt->AddDecl(decl);
+    var_stmt->add_decl(decl);
 
     while (!lexer.try_skip_semicolon()) {
       if (lexer.next().text != u",") goto error;
@@ -670,7 +670,7 @@ error:
         delete var_stmt;
         return decl;
       }
-      var_stmt->AddDecl(decl);
+      var_stmt->add_decl(decl);
     }
 
     var_stmt->set_source(SOURCE_PARSED_EXPR);
@@ -777,15 +777,16 @@ error:
   }
 
   ASTNode* ParseWhileStatement() {
-    return ParseWhileOrWithStatement(u"while", ASTNode::AST_STMT_WHILE);
+    return ParseWhileOrWithStatement(ASTNode::AST_STMT_WHILE);
   }
 
   ASTNode* ParseWithStatement() {
-    return ParseWhileOrWithStatement(u"with", ASTNode::AST_STMT_WITH);
+    return ParseWhileOrWithStatement(ASTNode::AST_STMT_WITH);
   }
 
-  ASTNode* ParseWhileOrWithStatement(std::u16string keyword, ASTNode::Type type) {
+  ASTNode* ParseWhileOrWithStatement(ASTNode::Type type) {
     START_POS;
+    std::u16string keyword = type == ASTNode::AST_STMT_WHILE ? u"while" : u"with";
     assert(lexer.current().text == keyword);
     ASTNode* expr;
     ASTNode* stmt;
@@ -806,7 +807,10 @@ error:
       delete expr;
       return stmt;
     }
-    return new WhileOrWith(type, expr, stmt, SOURCE_PARSED_EXPR);
+    if (type == ASTNode::AST_STMT_WHILE) {
+      return new WhileStatement(expr, stmt, SOURCE_PARSED_EXPR);
+    }
+    return new WithStatement(expr, stmt, SOURCE_PARSED_EXPR);
 error:
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
@@ -1075,7 +1079,7 @@ error:
       }
       else if (type == u"default") {
         // can only have one default.
-        if (switch_stmt->has_default_clause()) goto error;
+        if (switch_stmt->has_default_clause) goto error;
       }
       else {
         goto error;
@@ -1101,7 +1105,7 @@ error:
         lexer.next();
       }
       if (type == u"case") {
-        if (switch_stmt->has_default_clause()) {
+        if (switch_stmt->has_default_clause) {
           switch_stmt->AddAfterDefaultCaseClause(SwitchStatement::CaseClause(case_expr, stmts));
         }
         else {
