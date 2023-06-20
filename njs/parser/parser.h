@@ -1242,7 +1242,8 @@ error:
   ASTNode* ParseLabelledStatement() {
     START_POS;
     Token id = lexer.current();  // skip identifier
-    assert(lexer.next().type == TokenType::COLON);  // skip colon
+    lexer.next();
+    assert(lexer.current().type == TokenType::COLON);  // skip colon
     lexer.next();
     ASTNode* stmt = ParseStatement();
     if (stmt->is_illegal()) {
