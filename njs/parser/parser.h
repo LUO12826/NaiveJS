@@ -25,27 +25,20 @@ class Parser {
     switch (token.type) {
       case TokenType::KEYWORD:
         if (token.text == u"this") {
-          // lexer.next();
           return new ASTNode(ASTNode::AST_EXPR_THIS, TOKEN_SOURCE_EXPR);
         }
         goto error;
       case TokenType::STRICT_FUTURE_KW:
-        // lexer.next();
         return new ASTNode(ASTNode::AST_EXPR_STRICT_FUTURE, TOKEN_SOURCE_EXPR);
       case TokenType::IDENTIFIER:
-        // lexer.next();
         return new ASTNode(ASTNode::AST_EXPR_IDENT, TOKEN_SOURCE_EXPR);
       case TokenType::TK_NULL:
-        // lexer.next();
         return new ASTNode(ASTNode::AST_EXPR_NULL, TOKEN_SOURCE_EXPR);
       case TokenType::TK_BOOL:
-        // lexer.next();
         return new ASTNode(ASTNode::AST_EXPR_BOOL, TOKEN_SOURCE_EXPR);
       case TokenType::NUMBER:
-        // lexer.next();
         return new ASTNode(ASTNode::AST_EXPR_NUMBER, TOKEN_SOURCE_EXPR);
       case TokenType::STRING:
-        // lexer.next();
         return new ASTNode(ASTNode::AST_EXPR_STRING, TOKEN_SOURCE_EXPR);
       case TokenType::LEFT_BRACK:  // [
         return ParseArrayLiteral();
@@ -68,7 +61,6 @@ class Parser {
           lexer.cursor_back();
         std::u16string pattern, flag;
         token = lexer.scan_regexp_literal(pattern, flag);
-        // lexer.next();
         if (token.type == TokenType::REGEX) {
           return new RegExpLiteral(pattern, flag, TOKEN_SOURCE_EXPR);
         }
@@ -129,7 +121,6 @@ error:
     if (lexer.next().type != TokenType::LEFT_PAREN) {
       goto error;
     }
-    // token = lexer.next();
     if (lexer.next().is_identifier()) {
       if (!ParseFormalParameterList(params)) {
         goto error;
@@ -138,7 +129,6 @@ error:
     if (lexer.current().type != TokenType::RIGHT_PAREN) {
       goto error;
     }
-    // token = lexer.next();
     if (lexer.next().type != TokenType::LEFT_BRACE) {
       goto error;
     }
@@ -179,13 +169,12 @@ error:
             return element;
           }
       }
-      // token = lexer.peek();
+      token = lexer.next();
     }
     if (element != nullptr) {
       array->add_element(element);
     }
     assert(token.type == TokenType::RIGHT_BRACK);
-    // lexer.next();
     array->set_source(SOURCE_PARSED_EXPR);
     return array;
   }
@@ -198,7 +187,6 @@ error:
     Token token = lexer.next();
     while (token.type != TokenType::RIGHT_BRACE) {
       if (token.is_property_name()) {
-        // lexer.next();
         if ((token.text == u"get" || token.text == u"set")) {
           START_POS;
 
@@ -277,9 +265,8 @@ error:
       return element;
     }
     // NOTE(zhuzilin) If expr has only one element, then just return the element.
-    lexer.checkpoint();
-    if (lexer.next().type != TokenType::COMMA) {
-      lexer.back();
+    // lexer.checkpoint();
+    if (lexer.peek().type != TokenType::COMMA) {
       return element;
     }
 
@@ -311,13 +298,14 @@ error:
       return lhs;
     }
     
-    lexer.checkpoint();
-    Token op = lexer.next();
+    // lexer.checkpoint();
+    Token op = lexer.peek();
     if (!op.is_assignment_operator()) {
-      lexer.back();
+      // lexer.back();
       return lhs;
     }
     
+    lexer.next();
     lexer.next();
     ASTNode* rhs = ParseAssignmentExpression(no_in);
     if (rhs->is_illegal()) {
@@ -333,12 +321,13 @@ error:
     ASTNode* cond = ParseBinaryAndUnaryExpression(no_in, 0);
     if (cond->is_illegal())
       return cond;
-    lexer.checkpoint();
-    if (lexer.next().type != TokenType::QUESTION) {
-      lexer.back();
+    // lexer.checkpoint();
+    if (lexer.peek().type != TokenType::QUESTION) {
+      // lexer.back();
       return cond;
     }
       
+    lexer.next();
     lexer.next();
     ASTNode* lhs = ParseAssignmentExpression(no_in);
     if (lhs->is_illegal()) {
@@ -378,16 +367,16 @@ error:
       lhs = new UnaryExpr(lhs, prefix_op, true);
     }
     else {
-      // lexer.next();
       lhs = ParseLeftHandSideExpression();
       if (lhs->is_illegal()) return lhs;
       // Postfix Operators.
       //
       // Because the priority of postfix operators are higher than prefix ones,
       // they won't be parsed at the same time.
-      lexer.checkpoint();
-      const Token& postfix_op = lexer.next();
+      // lexer.checkpoint();
+      const Token& postfix_op = lexer.peek();
       if (!lexer.line_term_ahead() && postfix_op.postfix_priority() > priority) {
+        lexer.next();
         if (lhs->get_type() != ASTNode::AST_EXPR_BINARY && lhs->get_type() != ASTNode::AST_EXPR_UNARY) {
           lhs = new UnaryExpr(lhs, postfix_op, false);
           lhs->set_source(SOURCE_PARSED_EXPR);
@@ -398,16 +387,17 @@ error:
           return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
         }
       }
-      else {
-        lexer.back();
-      }
+      // else {
+      //   lexer.back();
+      // }
     }
 
     while (true) {
-      lexer.checkpoint();
-      Token binary_op = lexer.next();
+      // lexer.checkpoint();
+      Token binary_op = lexer.peek();
       if (binary_op.binary_priority(no_in) > priority) {
-        lexer.checkpoint();
+        // lexer.checkpoint();
+        lexer.next();
         lexer.next();
         rhs = ParseBinaryAndUnaryExpression(no_in, binary_op.binary_priority(no_in));
         if (rhs->is_illegal())
@@ -416,7 +406,7 @@ error:
       }
       else {
         // TODO: make sure this is correct.
-        lexer.back();
+        // lexer.back();
         break;
       }
     }
@@ -449,10 +439,11 @@ error:
     LeftHandSideExpr* lhs = new LeftHandSideExpr(base, new_count);
 
     while (true) {
-      lexer.checkpoint();
-      token = lexer.next();
+      // lexer.checkpoint();
+      token = lexer.peek();
       switch (token.type) {
         case TokenType::LEFT_PAREN: {  // (
+          lexer.next();
           ASTNode* ast = ParseArguments();
           if (ast->is_illegal()) {
             delete lhs;
@@ -465,6 +456,7 @@ error:
         }
         case TokenType::LEFT_BRACK: {  // [
           lexer.next();  // skip [
+          lexer.next();
           ASTNode* index = ParseExpression(false);
           if (index->is_illegal()) {
             delete lhs;
@@ -480,6 +472,7 @@ error:
           break;
         }
         case TokenType::DOT: {  // .
+          lexer.next();
           token = lexer.next();  // read identifier name
           if (!token.is_identifier_name()) {
             delete lhs;
@@ -489,7 +482,7 @@ error:
           break;
         }
         default:
-          lexer.back();
+          // lexer.back();
           lhs->set_source(SOURCE_PARSED_EXPR);
           return lhs;
       }
@@ -623,11 +616,12 @@ error:
       }
       case TokenType::STRICT_FUTURE_KW:
       case TokenType::IDENTIFIER: {
-        lexer.checkpoint();
-        Token colon = lexer.next();
-        lexer.back();
-        if (colon.type == TokenType::COLON)
+        // lexer.checkpoint();
+        Token colon = lexer.peek();
+        // lexer.back();
+        if (colon.type == TokenType::COLON) {
           return ParseLabelledStatement();
+        }
       }
       default:
         break;
@@ -652,7 +646,6 @@ error:
       lexer.next();
     }
     assert(lexer.current().type == TokenType::RIGHT_BRACE);
-    // lexer.next();
     block->set_source(SOURCE_PARSED_EXPR);
     return block;
   }
@@ -662,15 +655,16 @@ error:
     Token id = lexer.current();
     
     assert(id.is_identifier());
-    lexer.checkpoint();
-    if (lexer.next().type != TokenType::ASSIGN) {
-      lexer.back();
+    // lexer.checkpoint();
+    if (lexer.peek().type != TokenType::ASSIGN) {
+      // lexer.p();
       VarDecl* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
       var_decl_stack.top().emplace_back(var_decl);
       return var_decl;
     }
     // now `curr_token` is ASSIGN
     // in the original version, now `curr_token` is identifier
+    lexer.next();
     ASTNode* init = ParseAssignmentExpression(no_in);
     if (init->is_illegal()) return init;
     
@@ -721,7 +715,6 @@ error:
     START_POS;
     const Token& token = lexer.current();
     if (token.text == u"function") {
-      // lexer.next();
       return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
     }
     // already handled LEFT_BRACE case in caller.
@@ -757,9 +750,9 @@ error:
       delete cond;
       return if_block;
     }
-    lexer.checkpoint();
-    if (lexer.next().text == u"else") {
-      lexer.next();
+    // lexer.checkpoint();
+    if (lexer.peek().text == u"else") {
+      // lexer.next();
       ASTNode* else_block = ParseStatement();
       if (else_block->is_illegal()) {
         delete cond;
@@ -851,8 +844,7 @@ error:
   ASTNode* ParseForStatement() {
     START_POS;
     assert(lexer.current().text == u"for");
-    // Token token = lexer.next();
-    // lexer.next();
+
     ASTNode* expr0;
     if (lexer.next().type != TokenType::LEFT_PAREN)
       goto error;
@@ -940,7 +932,6 @@ error:
     }
 
     if (!lexer.next().is_semicolon()) {  // read the second ;
-      // lexer.next();
       goto error;
     }
 
@@ -997,7 +988,6 @@ error:
     }
 
     if (lexer.next().type != TokenType::RIGHT_PAREN) {  // skip )
-      // lexer.next();
       goto error;
     }
 
@@ -1032,7 +1022,6 @@ error:
         return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
       }
       if (!lexer.try_skip_semicolon()) {
-        // lexer.next();
         return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
       }
       return new ContinueOrBreak(type, id, SOURCE_PARSED_EXPR);
@@ -1118,7 +1107,6 @@ error:
         if (switch_stmt->has_default_clause()) goto error;
       }
       else {
-        // lexer.next();
         goto error;
       }
       if (lexer.next().type != TokenType::COLON) { // skip :
@@ -1152,7 +1140,6 @@ error:
       else {
         switch_stmt->SetDefaultClause(stmts);
       }
-      // lexer.next();
     }
 
     assert(lexer.current().type == TokenType::RIGHT_BRACE);
@@ -1258,4 +1245,4 @@ error:
 
 }  // namespace njs
 
-#endif  // NJS_PARSER_PARSER_H
+#endif  // NJS_PARSER_H

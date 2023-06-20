@@ -3,6 +3,7 @@
 
 #include <string>
 #include <string_view>
+#include <cstdio>
 
 #include "njs/parser/character.h"
 #include "njs/parser/token.h"
@@ -27,6 +28,11 @@ class Lexer {
   Lexer(Lexer&&) = delete;
 
   Token& next() {
+
+    if (peeking) {
+      peeking = false;
+      return curr_token;
+    }
 
     line_term_before = false;
     Token token(TokenType::NONE, u"", 0, 0);
@@ -389,28 +395,21 @@ class Lexer {
     curr_line_start_pos = saved_state.curr_line_start_pos;
   }
 
-  // void rewind() {
-  //   assert(rewind_stack.size() > 0);
-
-  //   LexerState& last_state = rewind_stack.back();
-  //   cursor = last_state.cursor;
-  //   curr_token = last_state.curr_token;
-  //   ch = last_state.ch;
-  //   curr_line = last_state.curr_line;
-  //   curr_line_start_pos = last_state.curr_line_start_pos;
+  const Token& peek() {
+    if (peeking) {
+      return curr_token;
+    }
+    checkpoint();
+    next();
+    peeking = true;
     
-  //   rewind_stack.pop_back();
-  // }
-
-  // Token peek() {
-  //   checkpoint();
-  //   Token next_token = next();
-  //   rewind();
-    
-  //   return next_token;
-  // }
+    return curr_token;
+  }
 
   bool line_term_ahead() {
+    if (peeking) {
+      return line_term_before;
+    }
     skip_whitespace();
     if (cursor == length) return true;
     if (character::is_line_terminator(ch)) return true;
@@ -418,17 +417,12 @@ class Lexer {
     return false;
   }
 
-  bool maybe_statement_term_ahead() {
-    if (line_term_ahead()) return true;
-    if (ch == u'}' || ch == u';') return true;
-    return false;
-  }
-
   // Try skipping a semicolon. This is actually used to detect if a statement is finished,
   // so if there is a line break, it is also considered as meeting a semicolon. If the semicolon
-  // is successfully skipped, the lexer's `curr_token` will point to the next token, and
-  // `line_term_before` will be set to True.
+  // is successfully skipped, the call of `next` will obtain the next nonblank token except semicolon
+  // (it will skip semicolon).
   bool try_skip_semicolon() {
+    printf("[warning] calling `try_skip_semicolon` while peeking.\n");
     checkpoint();
     Token token = next();
 
@@ -443,6 +437,7 @@ class Lexer {
   }
 
   bool scan_regexp_pattern(std::u16string& pattern) {
+    printf("[warning] calling `scan_regexp_pattern` while peeking.\n");
     ASSERT(ch == u'/');
     next_char();
     if (!character::is_regular_expression_first_char(ch)) {
@@ -473,6 +468,7 @@ class Lexer {
   }
 
   bool scan_regexp_flag(std::u16string& flag) {
+    printf("[warning] calling `scan_regexp_flag` while peeking.\n");
     if (ch == u'/') {
       next_char();
       // RegularExpressionFlags
@@ -494,6 +490,7 @@ class Lexer {
   }
 
   Token scan_regexp_literal(std::u16string& pattern, std::u16string& flag) {
+    printf("[warning] calling `scan_regexp_literal` while peeking.\n");
     u32 start = cursor;
     if (!scan_regexp_pattern(pattern)) {
       goto error;
@@ -509,13 +506,21 @@ error:
 
   // For regex
   inline void cursor_back() {
+    printf("[warning] calling `cursor_back` while peeking.\n");
     if (cursor == 0) return;
     cursor -= 1;
     ch = source[cursor];
   }
 
-  inline const Token& current() const { return curr_token; }
-  inline const Token* current_token_ptr() const { return &curr_token; }
+  inline const Token& current() {
+    if (peeking) {
+      printf("[log] calling `current` while peeking.\n");
+      peeking = false;
+      back();
+    }
+    return curr_token; 
+  }
+  inline const Token* current_token_ptr() { return &current(); }
   inline u32 current_pos() { return cursor; }
 
  private:
@@ -896,11 +901,12 @@ error:
   char16_t ch;
   u32 length;
   bool line_term_before {false};
+  bool peeking {false};
 
   Token curr_token {Token::none};
 
-  u32 curr_line{0};
-  u32 curr_line_start_pos{0};
+  u32 curr_line {0};
+  u32 curr_line_start_pos {0};
 
   LexerState saved_state;
   std::vector<BraceType> brace_stack;
