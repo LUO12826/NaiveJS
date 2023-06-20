@@ -7,9 +7,11 @@
 #include "njs/parser/ast.h"
 #include "njs/utils/helper.h"
 
-#define START_POS u32 start = lexer.current_pos()
-#define SOURCE_PARSED_EXPR source.substr(start, lexer.current_pos() - start), start, lexer.current_pos()
-#define TOKEN_SOURCE_EXPR token.text, token.start, token.end
+#define START_POS u32 start = lexer.current().start, line_start = lexer.current().line
+#define SOURCE_PARSED_EXPR std::u16string_view(source.data() + start, lexer.current_pos() - start), \
+                            start, lexer.current_pos(), line_start
+
+#define TOKEN_SOURCE_EXPR token.text, token.start, token.end, token.line
 
 namespace njs {
 
@@ -52,7 +54,8 @@ class Parser {
           delete value;
           goto error;
         }
-        return new ParenthesisExpr(value, value->source(), value->start_pos(), value->end_pos());
+        return new ParenthesisExpr(value, value->source(),value->start_pos(), value->end_pos(),
+                                    value->get_line_start());
       }
       case TokenType::DIV_ASSIGN:
       case TokenType::DIV: {  // /
@@ -77,7 +80,6 @@ error:
     return new ASTNode(ASTNode::AST_ILLEGAL, TOKEN_SOURCE_EXPR);
   }
 
-  // done
   bool ParseFormalParameterList(std::vector<std::u16string>& params) {
     // if (!lexer.current_token().is_identifier()) {
     //   // This only happens in new Function(...)
@@ -103,25 +105,32 @@ error:
     return true;
   }
 
-  // done
-  ASTNode* ParseFunction(bool must_be_named) {
+  ASTNode* ParseFunction(bool name_required, bool func_keyword_required = true) {
     START_POS;
-    assert(lexer.current().text == u"function");
+    if (func_keyword_required) {
+      assert(lexer.current().text == u"function");
+      lexer.next();
+    }
+    else {
+      assert(lexer.current().is_identifier());
+    }
 
     Token name = Token::none;
     std::vector<std::u16string> params;
     ASTNode* body;
 
-    if (lexer.next().is_identifier()) {
+    if (lexer.current().is_identifier()) {
       name = lexer.current();
+      lexer.next();
     }
-    else if (must_be_named) {
+    else if (name_required) {
       goto error;
     }
-    if (lexer.next().type != TokenType::LEFT_PAREN) {
+    if (lexer.current().type != TokenType::LEFT_PAREN) {
       goto error;
     }
-    if (lexer.next().is_identifier()) {
+    lexer.next();
+    if (lexer.current().is_identifier()) {
       if (!ParseFormalParameterList(params)) {
         goto error;
       }
@@ -158,7 +167,6 @@ error:
     while (token.type != TokenType::RIGHT_BRACK) {
       switch (token.type) {
         case TokenType::COMMA:
-          lexer.next();
           array->add_element(element);
           element = nullptr;
           break;
@@ -187,47 +195,57 @@ error:
     Token token = lexer.next();
     while (token.type != TokenType::RIGHT_BRACE) {
       if (token.is_property_name()) {
-        if ((token.text == u"get" || token.text == u"set")) {
+        // getter or setter
+        if ((token.text == u"get" || token.text == u"set") && lexer.peek().is_property_name()) {
           START_POS;
 
-          if (!lexer.next().is_property_name()) {
-            delete obj;
-            return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
-          }
+          // if (lexer.next().is_property_name()) {
+          // }
+          // else {
+          //   delete obj;
+          //   return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+          // }
           ObjectLiteral::Property::Type type 
             = token.text == u"get" ? ObjectLiteral::Property::GET : ObjectLiteral::Property::SET;
 
-          Token key = lexer.current();  // skip property name
+          Token key = lexer.next();  // skip property name
           if (!key.is_property_name()) {
             goto error;
           }
-          if (lexer.next().type != TokenType::LEFT_PAREN) {
+
+          ASTNode* get_set_func = ParseFunction(true, false);
+          if (get_set_func->is_illegal()) {
+            delete get_set_func;
             goto error;
           }
-          std::vector<std::u16string> params;
-          if (type == ObjectLiteral::Property::SET) {
-            if (!lexer.next().is_identifier()) {
-              goto error;
-            }
-            params.emplace_back(lexer.current().text);
-          }
-          if (lexer.next().type != TokenType::RIGHT_PAREN) { // Skip )
-            goto error;
-          }
-          if (lexer.next().type != TokenType::LEFT_BRACE) { // Skip {
-            goto error;
-          }
-          ASTNode* body = ParseFunctionBody();
-          if (body->is_illegal()) {
-            delete obj;
-            return body;
-          }
-          if (lexer.next().type != TokenType::RIGHT_BRACE) { // Skip }
-            delete body;
-            goto error;
-          }
-          Function* value = new Function(Token::none, params, body, SOURCE_PARSED_EXPR);
-          obj->set_property(ObjectLiteral::Property(key, value, type));
+
+          // if (lexer.next().type != TokenType::LEFT_PAREN) {
+          //   goto error;
+          // }
+          // std::vector<std::u16string> params;
+          // if (type == ObjectLiteral::Property::SET) {
+          //   if (!lexer.next().is_identifier()) {
+          //     goto error;
+          //   }
+          //   params.emplace_back(lexer.current().text);
+          // }
+          // if (lexer.next().type != TokenType::RIGHT_PAREN) { // Skip )
+          //   goto error;
+          // }
+          // if (lexer.next().type != TokenType::LEFT_BRACE) { // Skip {
+          //   goto error;
+          // }
+          // ASTNode* body = ParseFunctionBody();
+          // if (body->is_illegal()) {
+          //   delete obj;
+          //   return body;
+          // }
+          // if (lexer.next().type != TokenType::RIGHT_BRACE) { // Skip }
+          //   delete body;
+          //   goto error;
+          // }
+          // Function* value = new Function(Token::none, params, body, SOURCE_PARSED_EXPR);
+          obj->set_property(ObjectLiteral::Property(key, get_set_func, type));
         }
         else {
           if (lexer.next().type != TokenType::COLON) goto error;
@@ -241,12 +259,9 @@ error:
       else {
         goto error;
       }
-      lexer.next();
+      token = lexer.next();
       if (lexer.current().type == TokenType::COMMA) {
         token = lexer.next();  // Skip ,
-      }
-      else {
-        goto error;
       }
     }
     assert(token.type == TokenType::RIGHT_BRACE);
@@ -272,15 +287,16 @@ error:
 
     Expression* expr = new Expression();
     expr->add_element(element);
-    while (lexer.current().type == TokenType::COMMA) {
-      lexer.next();  // skip ,
+    
+    while (lexer.peek().type == TokenType::COMMA) {
+      lexer.next();
+      lexer.next();
       element = ParseAssignmentExpression(no_in);
       if (element->is_illegal()) {
         delete expr;
         return element;
       }
       expr->add_element(element);
-      lexer.next();
     }
     expr->set_source(SOURCE_PARSED_EXPR);
     return expr;
@@ -380,7 +396,6 @@ error:
         if (lhs->get_type() != ASTNode::AST_EXPR_BINARY && lhs->get_type() != ASTNode::AST_EXPR_UNARY) {
           lhs = new UnaryExpr(lhs, postfix_op, false);
           lhs->set_source(SOURCE_PARSED_EXPR);
-          lexer.next();
         }
         else {
           delete lhs;
@@ -606,6 +621,7 @@ error:
         else if (token.text == u"switch") return ParseSwitchStatement();
         else if (token.text == u"throw") return ParseThrowStatement();
         else if (token.text == u"try") return ParseTryStatement();
+        else if (token.text == u"function") return ParseFunction(true, true);
         else if (token.text == u"debugger") {
           if (!lexer.try_skip_semicolon()) {
             goto error;
@@ -655,16 +671,13 @@ error:
     Token id = lexer.current();
     
     assert(id.is_identifier());
-    // lexer.checkpoint();
+
     if (lexer.peek().type != TokenType::ASSIGN) {
-      // lexer.p();
       VarDecl* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
       var_decl_stack.top().emplace_back(var_decl);
       return var_decl;
     }
-    // now `curr_token` is ASSIGN
-    // in the original version, now `curr_token` is identifier
-    lexer.next();
+    
     ASTNode* init = ParseAssignmentExpression(no_in);
     if (init->is_illegal()) return init;
     
@@ -678,8 +691,7 @@ error:
     assert(lexer.current().text == u"var");
     VarStatement* var_stmt = new VarStatement();
     ASTNode* decl;
-    Token token = lexer.next();
-    if (!token.is_identifier()) {
+    if (!lexer.next().is_identifier()) {
       goto error;
     }
     // Similar to ParseExpression
@@ -689,8 +701,9 @@ error:
       return decl;
     }
     var_stmt->AddDecl(decl);
-    token = lexer.next();
-    while (token.type == TokenType::COMMA) {
+
+    while (!lexer.try_skip_semicolon()) {
+      if (lexer.next().text != u",") goto error;
       lexer.next();
       decl = ParseVariableDeclaration(no_in);
       if (decl->is_illegal()) {
@@ -698,11 +711,10 @@ error:
         return decl;
       }
       var_stmt->AddDecl(decl);
-      token = lexer.current();
     }
-    if (!lexer.try_skip_semicolon()) {
-      goto error;
-    }
+    // if (!lexer.try_skip_semicolon()) {
+    //   goto error;
+    // }
 
     var_stmt->set_source(SOURCE_PARSED_EXPR);
     return var_stmt;
@@ -750,9 +762,10 @@ error:
       delete cond;
       return if_block;
     }
-    // lexer.checkpoint();
+    
     if (lexer.peek().text == u"else") {
-      // lexer.next();
+      lexer.next();
+      lexer.next();
       ASTNode* else_block = ParseStatement();
       if (else_block->is_illegal()) {
         delete cond;
@@ -761,9 +774,7 @@ error:
       }
       return new IfStatement(cond, if_block, else_block, SOURCE_PARSED_EXPR);
     }
-    else {
-      lexer.back();
-    }
+
     return new IfStatement(cond, if_block, SOURCE_PARSED_EXPR);
     
 error:
@@ -821,16 +832,18 @@ error:
     assert(lexer.current().text == keyword);
     ASTNode* expr;
     ASTNode* stmt;
-    if (lexer.next().type != TokenType::LEFT_PAREN) { // skip (
+    if (lexer.next().type != TokenType::LEFT_PAREN) { // read (
       goto error;
     }
+    lexer.next();
     expr = ParseExpression(false);
     if (expr->is_illegal())
       return expr;
-    if (lexer.next().type != TokenType::RIGHT_PAREN) {  // skip )
+    if (lexer.next().type != TokenType::RIGHT_PAREN) {  // read )
       delete expr;
       goto error;
     }
+    lexer.next();
     stmt = ParseStatement();
     if (stmt->is_illegal()) {
       delete expr;
@@ -846,11 +859,11 @@ error:
     assert(lexer.current().text == u"for");
 
     ASTNode* expr0;
-    if (lexer.next().type != TokenType::LEFT_PAREN)
-      goto error;
+    if (lexer.next().type != TokenType::LEFT_PAREN) goto error;
+
     lexer.next();
     if (lexer.current().is_semicolon()) {
-      return ParseForStatement({}, start);  // for (;
+      return ParseForStatement({}, start, line_start);  // for (;
     }
     else if (lexer.current().text == u"var") {
       lexer.next();  // skip var
@@ -868,11 +881,10 @@ error:
       // expect `in`, `,`
       // the `in` case
       if (lexer.next().text == u"in")  // var VariableDeclarationNoIn in
-        return ParseForInStatement(expr0, start);
+        return ParseForInStatement(expr0, start, line_start);
 
       // the `,` case
       expr0s.emplace_back(expr0);
-      lexer.next();
       while (!lexer.current().is_semicolon()) {
         // NOTE(zhuzilin) the starting token for ParseVariableDeclaration
         // must be identifier. This is for better error code.
@@ -891,7 +903,7 @@ error:
         expr0s.emplace_back(expr0);
         lexer.next();
       }
-      return ParseForStatement(expr0s, start);  // for (var VariableDeclarationListNoIn; ...)
+      return ParseForStatement(expr0s, start, line_start);  // for (var VariableDeclarationListNoIn; ...)
     }
     else {
       expr0 = ParseExpression(true);
@@ -900,11 +912,11 @@ error:
       }
       lexer.next();
       if (lexer.current().is_semicolon()) {
-        return ParseForStatement({expr0}, start);  // for ( ExpressionNoIn;
+        return ParseForStatement({expr0}, start, line_start);  // for ( ExpressionNoIn;
       }
       // for ( LeftHandSideExpression in
       else if (lexer.current().text == u"in" && expr0->get_type() == ASTNode::AST_EXPR_LHS) {
-        return ParseForInStatement(expr0, start);  
+        return ParseForInStatement(expr0, start, line_start);  
       }
       else {
         delete expr0;
@@ -915,13 +927,14 @@ error:
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* ParseForStatement(std::vector<ASTNode*> expr0s, u32 start) {
+  ASTNode* ParseForStatement(std::vector<ASTNode*> expr0s, u32 start, u32 line_start) {
     assert(lexer.current().is_semicolon());
     ASTNode* expr1 = nullptr;
     ASTNode* expr2 = nullptr;
     ASTNode* stmt;
-    // Token token = lexer.peek();
-    if (!lexer.next().is_semicolon()) {
+
+    if (!lexer.peek().is_semicolon()) {
+      lexer.next();
       expr1 = ParseExpression(false);  // for (xxx; Expression
       if (expr1->is_illegal()) {
         for (auto expr : expr0s) {
@@ -935,8 +948,8 @@ error:
       goto error;
     }
 
-    // token = lexer.peek();
-    if (lexer.next().type != TokenType::RIGHT_PAREN) {
+    if (lexer.peek().type != TokenType::RIGHT_PAREN) {
+      lexer.next();
       expr2 = ParseExpression(false);  // for (xxx; xxx; Expression
       if (expr2->is_illegal()) {
         for (auto expr : expr0s) {
@@ -977,7 +990,7 @@ error:
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* ParseForInStatement(ASTNode* expr0, u32 start) {
+  ASTNode* ParseForInStatement(ASTNode* expr0, u32 start, u32 line_start) {
     assert(lexer.current().text == u"in");
     lexer.next();
     ASTNode* expr1 = ParseExpression(false);  // for ( xxx in Expression
@@ -1035,6 +1048,7 @@ error:
     ASTNode* expr = nullptr;
     
     if (!lexer.try_skip_semicolon()) {
+      lexer.next();
       expr = ParseExpression(false);
       if (expr->is_illegal()) {
         return expr;
@@ -1052,6 +1066,7 @@ error:
     assert(lexer.current().text == u"throw");
     ASTNode* expr = nullptr;
     if (!lexer.try_skip_semicolon()) {
+      lexer.next();
       expr = ParseExpression(false);
       if (expr->is_illegal()) {
         return expr;
@@ -1102,7 +1117,6 @@ error:
         }
       }
       else if (type == u"default") {
-        lexer.next();  // skip default
         // can only have one default.
         if (switch_stmt->has_default_clause()) goto error;
       }
@@ -1166,9 +1180,9 @@ error:
     if (try_block->is_illegal())
       return try_block;
     
-    if (lexer.next().text == u"catch") {
-      lexer.next();  // skip catch
-      if (lexer.current().type != TokenType::LEFT_PAREN) {  // skip (
+    if (lexer.peek().text == u"catch") {
+      lexer.next();
+      if (lexer.next().type != TokenType::LEFT_PAREN) {  // skip (
         delete try_block;
         goto error;
       }
@@ -1187,7 +1201,8 @@ error:
         return catch_block;
       }
     }
-    if (lexer.next().text == u"finally") {
+    if (lexer.peek().text == u"finally") {
+      lexer.next();
       if (lexer.next().type != TokenType::LEFT_BRACE) {
         goto error;
       }

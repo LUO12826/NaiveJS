@@ -1,8 +1,9 @@
 #ifndef NJS_UTILS_HELPER_H
 #define NJS_UTILS_HELPER_H
 
-#include <math.h>
-#include <string.h>
+#include <cmath>
+#include <cstring>
+#include <cstdio>
 
 #include <iostream>
 #include <sstream>
@@ -13,8 +14,23 @@
 
 #include "njs/utils/macros.h"
 
+#ifdef DEBUG
+#define DEBUG_PRINT(...) printf(__VA_ARGS__)
+#else
+#define DEBUG_PRINT(...) do {} while (0)
+#endif
+
+void debug_printf(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+
+    DEBUG_PRINT(format, args);
+
+    va_end(args);
+}
+
 namespace njs {
-namespace debug {
+namespace test {
 
 class Debugger {
  public:
@@ -80,7 +96,7 @@ std::string to_utf8_string(const void *ptr) {
 
 }  // namespace test
 
-std::u16string StrCat(std::vector<std::u16string> vals) {
+std::u16string str_cat(std::vector<std::u16string> vals) {
   u32 size = 0;
   for (auto val : vals) {
     size += val.size();
@@ -94,7 +110,7 @@ std::u16string StrCat(std::vector<std::u16string> vals) {
   return res;
 }
 
-bool HaveDuplicate(std::vector<std::u16string> vals) {
+bool have_duplicate(std::vector<std::u16string> vals) {
   for (u32 i = 0; i < vals.size(); i++) {
     for (u32 j = 0; j < vals.size(); j++) {
       if (i != j && vals[i] == vals[j])

@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include "token_type.h"
 #include "njs/utils/helper.h"
+#include "njs/utils/common_types.h"
 
 namespace njs {
 
@@ -31,7 +32,7 @@ class Token {
   std::string to_string() const {
     std::ostringstream oss;
     oss << "token type: " << type_names[(int)type] << ", text: "
-        << debug::to_utf8_string(text) << ", start: " << start << ", end: " << end;
+        << test::to_utf8_string(text) << ", start: " << start << ", end: " << end;
     return oss.str();
   }
 
@@ -171,6 +172,9 @@ class Token {
   u32 end;
 
   u32 line;
+
+  SourceLocation start_loc;
+  SourceLocation end_loc;
 };
 
 const Token Token::none = Token(TokenType::NONE, u"", 0, 0);

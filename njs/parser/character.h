@@ -163,6 +163,7 @@ inline u32 u16_char_to_digit(char16_t c) {
         return c - u'a' + 10;
       assert(false);
   }
+  __builtin_unreachable();
 }
 
 inline char16_t to_lower_case(char16_t c) {

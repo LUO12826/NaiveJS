@@ -3,6 +3,9 @@
 #include <string>
 #include <codecvt>
 #include <cstdio>
+#include <chrono>
+
+// #define DEBUG
 
 #include <njs/parser/lexer.h>
 #include <njs/parser/token.h>
@@ -10,7 +13,6 @@
 #include "njs/utils/helper.h"
 
 using namespace njs;
-
 using std::string;
 using std::u16string;
 
@@ -33,8 +35,10 @@ int main(int argc, char *argv[]) {
 
   try {
     u16string source_code = read_file(file_path);
-    Lexer lexer(source_code);
-    Token token = Token::none;
+    auto startTime = std::chrono::steady_clock::now();
+
+    // Lexer lexer(source_code);
+    // Token token = Token::none;
 
     // while (token.type != EOS) {
     //   token = lexer.next();
@@ -50,10 +54,14 @@ int main(int argc, char *argv[]) {
     Parser parser(source_code);
     ASTNode* ast = parser.ParseProgram();
     if (ast->is_illegal()) {
-    	std::cout << "illegal program at: " << debug::to_utf8_string(ast->source_ref())
-      << ", start: " << ast->start_pos() << ", end: " << ast->end_pos() << std::endl;
+    	std::cout << "illegal program at: " << test::to_utf8_string(ast->source_ref())
+      << ", line: " << ast->get_line_start() + 1 << ", start: " << ast->start_pos()
+      << ", end: " << ast->end_pos() << std::endl;
     }
     
+    auto endTime = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+    std::cout << "parsed in " << duration.count() << " ms." << std::endl;
   }
   catch (const std::ifstream::failure& e) {
     fprintf(stderr, "%s\n", e.what());
