@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     // }
 
     Parser parser(source_code);
-    ASTNode* ast = parser.ParseProgram();
+    ASTNode* ast = parser.parse_program();
 
     // ast->print_tree(0);
 
