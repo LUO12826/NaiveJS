@@ -310,17 +310,17 @@ class LeftHandSideExpr : public ASTNode {
 
   void AddArguments(uni_ptr<Arguments> args) {
     postfix_order.emplace_back(CALL, args_list.size());
-    args_list.emplace_back(std::move(args));
+    args_list.push_back(std::move(args));
   }
 
   void AddIndex(uni_ptr<ASTNode> index) {
     postfix_order.emplace_back(INDEX, index_list.size());
-    index_list.emplace_back(std::move(index));
+    index_list.push_back(std::move(index));
   }
 
   void AddProp(Token prop_name) {
     postfix_order.emplace_back(PROP, prop_names_list.size());
-    prop_names_list.emplace_back(prop_name.text);
+    prop_names_list.push_back(prop_name.text);
   }
 
   uni_ptr<ASTNode> base;
@@ -329,14 +329,11 @@ class LeftHandSideExpr : public ASTNode {
   vector<std::pair<PostfixType, u32>> postfix_order;
   vector<uni_ptr<Arguments>> args_list;
   vector<uni_ptr<ASTNode>> index_list;
-  vector<std::u16string> prop_names_list;
+  vector<std::u16string_view> prop_names_list;
 };
 
 class Function : public ASTNode {
  public:
-  // Function(vector<std::u16string> params, AST* body,
-  //          u16string_view source, u32 start, u32 end) :
-  //   Function(Token::none, params, body, source, start, end, line_start) {}
 
   Function(Token name, vector<std::u16string> params, uni_ptr<ASTNode> body,
            u16string_view source, u32 start, u32 end, u32 line_start) :
@@ -374,11 +371,11 @@ class ProgramOrFunctionBody : public ASTNode {
 
   void add_function_decl(uni_ptr<ASTNode> func) {
     ASSERT(func->get_type() == AST_FUNC);
-    func_decls.emplace_back(static_ptr_cast<Function>(std::move(func)));
+    func_decls.push_back(static_ptr_cast<Function>(std::move(func)));
     add_child(func.get());
   }
   void add_statement(uni_ptr<ASTNode> stmt) {
-    stmts.emplace_back(std::move(stmt));
+    stmts.push_back(std::move(stmt));
     add_child(stmt.get());
   }
 
@@ -437,7 +434,7 @@ class VarStatement : public ASTNode {
 
   void add_decl(uni_ptr<ASTNode> decl) {
     ASSERT(decl->get_type() == AST_STMT_VAR_DECL);
-    declarations.emplace_back(static_ptr_cast<VarDecl>(std::move(decl)));
+    declarations.push_back(static_ptr_cast<VarDecl>(std::move(decl)));
   }
 
   vector<uni_ptr<VarDecl>> declarations;
@@ -541,24 +538,6 @@ class SwitchStatement : public ASTNode {
   };
 
   SwitchStatement() : ASTNode(AST_STMT_SWITCH) {}
-
-  // ~SwitchStatement() override {
-  //   for (CaseClause clause : before_default_case_clauses) {
-  //     delete clause.expr;
-  //     for (auto stmt : clause.stmts) {
-  //       delete stmt;
-  //     }
-  //   }
-  //   for (CaseClause clause : after_default_case_clauses) {
-  //     delete clause.expr;
-  //     for (auto stmt : clause.stmts) {
-  //       delete stmt;
-  //     }
-  //   }
-  //   for (auto stmt : default_clause.stmts) {
-  //     delete  stmt;
-  //   }
-  // }
 
   void SetExpr(uni_ptr<ASTNode> expr) {
     condition_expr = std::move(expr);

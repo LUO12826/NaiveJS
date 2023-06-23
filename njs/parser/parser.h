@@ -445,7 +445,7 @@ error:
         arg = parse_assignment_expression(false);
 
         if (arg->is_illegal()) return arg;
-        args.emplace_back(std::move(arg));
+        args.push_back(std::move(arg));
       }
 
       lexer.next();
