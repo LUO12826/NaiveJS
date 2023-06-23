@@ -63,8 +63,8 @@ int main(int argc, char *argv[]) {
     }
     
     auto endTime = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-    std::cout << "parsed in " << duration.count() << " ms." << std::endl;
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+    std::cout << "parsed in " << duration.count() << " microseconds." << std::endl;
   }
   catch (const std::ifstream::failure& e) {
     fprintf(stderr, "%s\n", e.what());
