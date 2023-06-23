@@ -177,20 +177,20 @@ inline char16_t to_lower_case(char16_t c) {
   // suppress compiler warnings
   {
     const u32 index = c - 192;
-    if (index < kLowerCaseCache.size()) {
-      ASSERT(index < kLowerCaseCache.size());
-      return kUpperCaseCache[index];
+    if (index < k_lower_case_cache.size()) {
+      ASSERT(index < k_lower_case_cache.size());
+      return k_upper_case_cache[index];
     }
   }
   std::array<char16_t, 101>::const_iterator it =
-      std::upper_bound(kLowerCaseKeys.begin(),
-                       kLowerCaseKeys.end(), c) - 1;
-  const int result = static_cast<int>(it - kLowerCaseKeys.begin());
+        std::upper_bound(k_lower_case_keys.begin(), k_lower_case_keys.end(), c) - 1;
+  
+  const int result = static_cast<int>(it - k_lower_case_keys.begin());
   ASSERT(result < 101);
   if (result >= 0) {
     bool by2 = false;
-    const char16_t start = kLowerCaseKeys[result];
-    char16_t end = kLowerCaseValues[result * 2];
+    const char16_t start = k_lower_case_keys[result];
+    char16_t end = k_lower_case_values[result * 2];
     if ((start & 0x8000) != (end & 0x8000)) {
         end ^= 0x8000;
         by2 = true;
@@ -199,7 +199,7 @@ inline char16_t to_lower_case(char16_t c) {
       if (by2 && (c & 1) != (start & 1)) {
         return c;
       }
-      const char16_t mapping = kLowerCaseValues[result * 2 + 1];
+      const char16_t mapping = k_lower_case_values[result * 2 + 1];
       return c + mapping;
     }
   }
@@ -218,20 +218,21 @@ inline char16_t to_upper_case(char16_t c) {
   // suppress compiler warnings
   {
     const u32 index = c - 181;
-    if (index < kUpperCaseCache.size()) {
-      ASSERT(index < kUpperCaseCache.size());
-      return kUpperCaseCache[index];
+    if (index < k_upper_case_cache.size()) {
+      ASSERT(index < k_upper_case_cache.size());
+      return k_upper_case_cache[index];
     }
   }
   std::array<char16_t, 113>::const_iterator it =
-      std::upper_bound(kUpperCaseKeys.begin(),
-                       kUpperCaseKeys.end(), c) - 1;
-  const int result = static_cast<int>(it - kUpperCaseKeys.begin());
+          std::upper_bound(k_upper_case_keys.begin(), k_upper_case_keys.end(), c) - 1;
+
+  const int result = static_cast<int>(it - k_upper_case_keys.begin());
   ASSERT(result < 113);
+
   if (result >= 0) {
     bool by2 = false;
     const char16_t start = *it;
-    char16_t end = kUpperCaseValues[result * 2];
+    char16_t end = k_upper_case_values[result * 2];
     if ((start & 0x8000) != (end & 0x8000)) {
       end ^= 0x8000;
       by2 = true;
@@ -240,7 +241,7 @@ inline char16_t to_upper_case(char16_t c) {
       if (by2 && (c & 1) != (start & 1)) {
         return c;
       }
-      const char16_t mapping = kUpperCaseValues[result * 2 + 1];
+      const char16_t mapping = k_upper_case_values[result * 2 + 1];
       return c + mapping;
     }
   }
