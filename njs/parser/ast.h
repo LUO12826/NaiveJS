@@ -256,6 +256,10 @@ class ParenthesisExpr : public ASTNode {
   ParenthesisExpr(ASTNode* expr, std::u16string_view source, u32 start, u32 end, u32 line_start) :
     ASTNode(AST_EXPR_PAREN, source, start, end, line_start), expr(expr) {}
 
+  ~ParenthesisExpr() {
+    delete expr;
+  }
+
   ASTNode* get_expr() { return expr; }
 
  private:
@@ -351,23 +355,24 @@ class LeftHandSideExpr : public ASTNode {
     ASTNode(AST_EXPR_LHS), base(base), new_count(new_count) {}
 
   ~LeftHandSideExpr() override {
+    delete base;
     for (auto args : args_list) delete args;
     for (auto index : index_list) delete index;
   }
 
   void AddArguments(Arguments* args) {
     postfix_order.emplace_back(CALL, args_list.size());
-    args_list.emplace_back(args);
+    args_list.push_back(args);
   }
 
   void AddIndex(ASTNode* index) {
     postfix_order.emplace_back(INDEX, index_list.size());
-    index_list.emplace_back(index);
+    index_list.push_back(index);
   }
 
   void AddProp(Token prop_name) {
     postfix_order.emplace_back(PROP, prop_names_list.size());
-    prop_names_list.emplace_back(prop_name.text);
+    prop_names_list.push_back(prop_name.text);
   }
 
   ASTNode* base;
@@ -376,7 +381,7 @@ class LeftHandSideExpr : public ASTNode {
   std::vector<std::pair<PostfixType, u32>> postfix_order;
   std::vector<Arguments*> args_list;
   std::vector<ASTNode*> index_list;
-  std::vector<std::u16string> prop_names_list;
+  std::vector<std::u16string_view> prop_names_list;
 };
 
 class Function : public ASTNode {
@@ -389,7 +394,7 @@ class Function : public ASTNode {
            std::u16string_view source, u32 start, u32 end, u32 line_start) :
     ASTNode(AST_FUNC, source, start, end, line_start), name(name), params(params) {
       ASSERT(body->get_type() == ASTNode::AST_FUNC_BODY);
-      body = body;
+      this->body = body;
       add_child(body);
     }
 
@@ -513,6 +518,7 @@ class VarStatement : public ASTNode {
 class Block : public ASTNode {
  public:
   Block() : ASTNode(AST_STMT_BLOCK) {}
+
   ~Block() {
     for (auto stmt : statements) {
       delete stmt;
@@ -581,7 +587,7 @@ class IfStatement : public ASTNode {
   ~IfStatement() {
     delete condition_expr;
     delete if_block;
-    if (else_block != nullptr) delete else_block;
+    if (else_block) delete else_block;
   }
 
   ASTNode* condition_expr;
@@ -651,6 +657,7 @@ class SwitchStatement : public ASTNode {
   SwitchStatement() : ASTNode(AST_STMT_SWITCH) {}
 
   ~SwitchStatement() override {
+    delete condition_expr;
     for (CaseClause clause : before_default_case_clauses) {
       delete clause.expr;
       for (auto stmt : clause.stmts) {
@@ -664,7 +671,7 @@ class SwitchStatement : public ASTNode {
       }
     }
     for (auto stmt : default_clause.stmts) {
-      delete  stmt;
+      delete stmt;
     }
   }
 
@@ -700,10 +707,16 @@ class ForStatement : public ASTNode {
               ASTNode(AST_STMT_FOR, source, start, end, line_start), init_expr(init_expr),
               condition_expr(condition_expr), increment_expr(increment_expr), body_stmt(body_stmt) {}
 
+  ~ForStatement() {
+    for (auto expr : init_expr) delete expr;
+    if (condition_expr) delete condition_expr;
+    if (increment_expr) delete increment_expr;
+    if (body_stmt) delete body_stmt;
+  }
+
   std::vector<ASTNode*> init_expr;
   ASTNode* condition_expr;
   ASTNode* increment_expr;
-
   ASTNode* body_stmt;
 };
 
@@ -714,9 +727,14 @@ class ForInStatement : public ASTNode {
                 ASTNode(AST_STMT_FOR_IN, source, start, end, line_start), element_expr(element_expr),
                 collection_expr(collection_expr), body_stmt(body_stmt) {}
 
+  ~ForInStatement() {
+    delete element_expr;
+    delete collection_expr;
+    delete body_stmt;
+  }
+
   ASTNode* element_expr;
   ASTNode* collection_expr;
-
   ASTNode* body_stmt;
 };
 

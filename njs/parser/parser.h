@@ -141,12 +141,13 @@ error:
     if (lexer.next().type != TokenType::LEFT_BRACE) {
       goto error;
     }
+    
     lexer.next();
     body = parse_function_body();
-    if (body->is_illegal())
-      return body;
+    if (body->is_illegal()) return body;
 
     if (lexer.current().type != TokenType::RIGHT_BRACE) {
+      delete body;
       goto error;
     }
 
@@ -267,8 +268,7 @@ error:
     START_POS;
 
     ASTNode* lhs = parse_conditional_expression(no_in);
-    if (lhs->is_illegal())
-      return lhs;
+    if (lhs->is_illegal()) return lhs;
 
     // Not LeftHandSideExpression
     if (lhs->get_type() != ASTNode::AST_EXPR_LHS) {
@@ -276,9 +276,7 @@ error:
     }
     
     Token op = lexer.peek();
-    if (!op.is_assignment_operator()) {
-      return lhs;
-    }
+    if (!op.is_assignment_operator()) return lhs;
     
     lexer.next();
     lexer.next();
@@ -294,8 +292,7 @@ error:
   ASTNode* parse_conditional_expression(bool no_in) {
     START_POS;
     ASTNode* cond = parse_binary_and_unary_expression(no_in, 0);
-    if (cond->is_illegal())
-      return cond;
+    if (cond->is_illegal()) return cond;
 
     if (lexer.peek().type != TokenType::QUESTION) {
       return cond;
@@ -370,7 +367,10 @@ error:
       lexer.next();
       lexer.next();
       rhs = parse_binary_and_unary_expression(no_in, binary_op.binary_priority(no_in));
-      if (rhs->is_illegal()) return rhs;
+      if (rhs->is_illegal()) {
+        delete lhs;
+        return rhs;
+      }
       lhs = new BinaryExpr(lhs, rhs, binary_op, SOURCE_PARSED_EXPR);
       
       binary_op = lexer.peek();

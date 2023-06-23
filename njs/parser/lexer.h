@@ -409,7 +409,7 @@ class Lexer {
   // is successfully skipped, the call of `next` will obtain the next nonblank token except semicolon
   // (it will skip semicolon).
   bool try_skip_semicolon() {
-    debug_printf("[warning] calling `try_skip_semicolon` while peeking.\n");
+    // debug_printf("[warning] calling `try_skip_semicolon` while peeking.\n");
 
     if (!peeking) {
       checkpoint();
@@ -428,7 +428,7 @@ class Lexer {
   }
 
   bool scan_regexp_pattern(std::u16string& pattern) {
-    debug_printf("[warning] calling `scan_regexp_pattern` while peeking.\n");
+    // debug_printf("[warning] calling `scan_regexp_pattern` while peeking.\n");
 
     ASSERT(ch == u'/');
     next_char();
@@ -460,7 +460,7 @@ class Lexer {
   }
 
   bool scan_regexp_flag(std::u16string& flag) {
-    debug_printf("[warning] calling `scan_regexp_flag` while peeking.\n");
+    // debug_printf("[warning] calling `scan_regexp_flag` while peeking.\n");
     if (ch == u'/') {
       next_char();
       // RegularExpressionFlags
@@ -482,7 +482,7 @@ class Lexer {
   }
 
   Token scan_regexp_literal(std::u16string& pattern, std::u16string& flag) {
-    debug_printf("[warning] calling `scan_regexp_literal` while peeking.\n");
+    // debug_printf("[warning] calling `scan_regexp_literal` while peeking.\n");
     u32 start = cursor;
     if (!scan_regexp_pattern(pattern)) {
       goto error;
@@ -498,7 +498,7 @@ error:
 
   // For regex
   inline void cursor_back() {
-    debug_printf("[warning] calling `cursor_back` while peeking.\n");
+    // debug_printf("[warning] calling `cursor_back` while peeking.\n");
     if (cursor == 0) return;
     cursor -= 1;
     ch = source[cursor];
@@ -506,7 +506,7 @@ error:
 
   inline const Token& current() {
     if (peeking) {
-      debug_printf("[log] calling `current` while peeking.\n");
+      // debug_printf("[log] calling `current` while peeking.\n");
       return saved_state.curr_token;
     }
     return curr_token; 
