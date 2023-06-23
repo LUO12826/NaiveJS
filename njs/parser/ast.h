@@ -157,6 +157,7 @@ class ASTNode {
   }
 
   void add_child(ASTNode *node) {
+
     children.push_back(node);
   }
 
@@ -290,7 +291,7 @@ class Expression : public ASTNode {
 
 class Arguments : public ASTNode {
  public:
-  Arguments(vector<uni_ptr<ASTNode>> args) : ASTNode(AST_EXPR_ARGS), args(std::move(args)) {}
+  Arguments(vector<uni_ptr<ASTNode>>&& args) : ASTNode(AST_EXPR_ARGS), args(std::move(args)) {}
 
   vector<uni_ptr<ASTNode>> args;
 };
@@ -533,7 +534,7 @@ class SwitchStatement : public ASTNode {
   };
 
   struct CaseClause {
-    CaseClause(uni_ptr<ASTNode> expr, vector<uni_ptr<ASTNode>> stmts) :
+    CaseClause(uni_ptr<ASTNode> expr, vector<uni_ptr<ASTNode>>&& stmts) :
                 expr(std::move(expr)), stmts(std::move(stmts)) {}
     uni_ptr<ASTNode> expr;
     vector<uni_ptr<ASTNode>> stmts;
@@ -563,7 +564,7 @@ class SwitchStatement : public ASTNode {
     condition_expr = std::move(expr);
   }
 
-  void SetDefaultClause(vector<uni_ptr<ASTNode>> stmts) {
+  void SetDefaultClause(vector<uni_ptr<ASTNode>>&& stmts) {
     ASSERT(!has_default_clause);
     has_default_clause = true;
     default_clause.stmts = std::move(stmts);
@@ -586,7 +587,7 @@ class SwitchStatement : public ASTNode {
 
 class ForStatement : public ASTNode {
  public:
-  ForStatement(vector<uni_ptr<ASTNode>> init_expr, uni_ptr<ASTNode> condition_expr, uni_ptr<ASTNode> increment_expr,
+  ForStatement(vector<uni_ptr<ASTNode>>&& init_expr, uni_ptr<ASTNode>&& condition_expr, uni_ptr<ASTNode>&& increment_expr,
               uni_ptr<ASTNode> body_stmt, u16string_view source, u32 start, u32 end, u32 line_start) :
               ASTNode(AST_STMT_FOR, source, start, end, line_start), init_expr(std::move(init_expr)),
               condition_expr(std::move(condition_expr)), increment_expr(std::move(increment_expr)), body_stmt(std::move(body_stmt)) {}
