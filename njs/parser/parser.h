@@ -1,7 +1,7 @@
 #ifndef NJS_PARSER_H
 #define NJS_PARSER_H
 
-#include <stack>
+#include <vector>
 
 #include "njs/parser/lexer.h"
 #include "njs/parser/ast.h"
@@ -15,47 +15,49 @@
 
 namespace njs {
 
+using std::make_unique;
+using std::vector;
+
 class Parser {
  public:
   Parser(std::u16string source) : source(source), lexer(source) {
     // For test
-    var_decl_stack.push({});
+    var_decl_stack.push_back({});
   }
 
-  ASTNode* parse_primary_expression() {
+  uni_ptr<ASTNode> parse_primary_expression() {
     Token token = lexer.current();
     switch (token.type) {
       case TokenType::KEYWORD:
         if (token.text == u"this") {
-          return new ASTNode(ASTNode::AST_EXPR_THIS, TOKEN_SOURCE_EXPR);
+          return make_unique<ASTNode>(ASTNode::AST_EXPR_THIS, TOKEN_SOURCE_EXPR);
         }
         goto error;
       case TokenType::STRICT_FUTURE_KW:
-        return new ASTNode(ASTNode::AST_EXPR_STRICT_FUTURE, TOKEN_SOURCE_EXPR);
+        return make_unique<ASTNode>(ASTNode::AST_EXPR_STRICT_FUTURE, TOKEN_SOURCE_EXPR);
       case TokenType::IDENTIFIER:
-        return new ASTNode(ASTNode::AST_EXPR_IDENT, TOKEN_SOURCE_EXPR);
+        return make_unique<ASTNode>(ASTNode::AST_EXPR_IDENT, TOKEN_SOURCE_EXPR);
       case TokenType::TK_NULL:
-        return new ASTNode(ASTNode::AST_EXPR_NULL, TOKEN_SOURCE_EXPR);
+        return make_unique<ASTNode>(ASTNode::AST_EXPR_NULL, TOKEN_SOURCE_EXPR);
       case TokenType::TK_BOOL:
-        return new ASTNode(ASTNode::AST_EXPR_BOOL, TOKEN_SOURCE_EXPR);
+        return make_unique<ASTNode>(ASTNode::AST_EXPR_BOOL, TOKEN_SOURCE_EXPR);
       case TokenType::NUMBER:
-        return new ASTNode(ASTNode::AST_EXPR_NUMBER, TOKEN_SOURCE_EXPR);
+        return make_unique<ASTNode>(ASTNode::AST_EXPR_NUMBER, TOKEN_SOURCE_EXPR);
       case TokenType::STRING:
-        return new ASTNode(ASTNode::AST_EXPR_STRING, TOKEN_SOURCE_EXPR);
+        return make_unique<ASTNode>(ASTNode::AST_EXPR_STRING, TOKEN_SOURCE_EXPR);
       case TokenType::LEFT_BRACK:  // [
         return parse_array_literal();
       case TokenType::LEFT_BRACE:  // {
         return parse_object_literal();
       case TokenType::LEFT_PAREN: { // (
         lexer.next();   // skip (
-        ASTNode* value = parse_expression(false);
+        uni_ptr<ASTNode> value = parse_expression(false);
         if (value->is_illegal()) return value;
         if (lexer.next().type != TokenType::RIGHT_PAREN) {
-          delete value;
           goto error;
         }
-        return new ParenthesisExpr(value, value->source(),value->start_pos(), value->end_pos(),
-                                    value->get_line_start());
+        return  make_unique<ParenthesisExpr>(std::move(value), value->source(),value->start_pos(),
+                                              value->end_pos(), value->get_line_start());
       }
       case TokenType::DIV_ASSIGN:
       case TokenType::DIV: {  // /
@@ -65,7 +67,7 @@ class Parser {
         std::u16string pattern, flag;
         token = lexer.scan_regexp_literal(pattern, flag);
         if (token.type == TokenType::REGEX) {
-          return new RegExpLiteral(pattern, flag, TOKEN_SOURCE_EXPR);
+          return make_unique<RegExpLiteral>(pattern, flag, TOKEN_SOURCE_EXPR);
         }
         else {
           goto error;
@@ -77,7 +79,7 @@ class Parser {
     }
 
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, TOKEN_SOURCE_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, TOKEN_SOURCE_EXPR);
   }
 
   bool parse_formal_parameter_list(std::vector<std::u16string>& params) {
@@ -105,7 +107,7 @@ error:
     return true;
   }
 
-  ASTNode* parse_function(bool name_required, bool func_keyword_required = true) {
+  uni_ptr<ASTNode> parse_function(bool name_required, bool func_keyword_required = true) {
     START_POS;
     if (func_keyword_required) {
       assert(lexer.current().text == u"function");
@@ -117,7 +119,7 @@ error:
 
     Token name = Token::none;
     std::vector<std::u16string> params;
-    ASTNode* body;
+    uni_ptr<ASTNode> body;
 
     if (lexer.current().is_identifier()) {
       name = lexer.current();
@@ -143,34 +145,33 @@ error:
     }
     lexer.next();
     body = parse_function_body();
-    if (body->is_illegal())
-      return body;
+
+    if (body->is_illegal()) return body;
 
     if (lexer.current().type != TokenType::RIGHT_BRACE) {
       goto error;
     }
 
-    return new Function(name, params, body, SOURCE_PARSED_EXPR);
+    return make_unique<Function>(name, std::move(params), std::move(body), SOURCE_PARSED_EXPR);
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_array_literal() {
+  uni_ptr<ASTNode> parse_array_literal() {
     START_POS;
     assert(lexer.current().type == TokenType::LEFT_BRACK);
 
-    ArrayLiteral* array = new ArrayLiteral();
+    auto array = make_unique<ArrayLiteral>();
 
     // get the token after `[`
     Token token = lexer.next();
     while (token.type != TokenType::RIGHT_BRACK) {
       if (token.type != TokenType::COMMA) {
-        ASTNode *element = parse_assignment_expression(false);
+        uni_ptr<ASTNode> element = parse_assignment_expression(false);
         if (element->get_type() == ASTNode::AST_ILLEGAL) {
-          delete array;
           return element;
         }
-        array->add_element(element);
+        array->add_element((std::move(element)));
       }
       token = lexer.next();
     }
@@ -180,13 +181,13 @@ error:
     return array;
   }
 
-  ASTNode* parse_object_literal() {
+  uni_ptr<ASTNode> parse_object_literal() {
     using ObjectProp = ObjectLiteral::Property;
 
     START_POS;
     assert(lexer.current().type == TokenType::LEFT_BRACE);
 
-    ObjectLiteral* obj = new ObjectLiteral();
+    uni_ptr<ObjectLiteral> obj = make_unique<ObjectLiteral>();
     Token token = lexer.next();
     while (token.type != TokenType::RIGHT_BRACE) {
       if (token.is_property_name()) {
@@ -194,27 +195,26 @@ error:
         if ((token.text == u"get" || token.text == u"set") && lexer.peek().is_property_name()) {
           START_POS;
 
-          ObjectProp::Type type = token.text == u"get" ? ObjectLiteral::Property::GET
-                                                       : ObjectLiteral::Property::SET;
+          ObjectProp::Type type = token.text == u"get" ? ObjectLiteral::Property::GETTER
+                                                       : ObjectLiteral::Property::SETTER;
 
           Token key = lexer.next();  // skip property name
           if (!key.is_property_name()) goto error;
 
-          ASTNode* get_set_func = parse_function(true, false);
+          uni_ptr<ASTNode> get_set_func = parse_function(true, false);
           if (get_set_func->is_illegal()) {
-            delete get_set_func;
             goto error;
           }
 
-          obj->set_property(ObjectProp(key, get_set_func, type));
+          obj->set_property(ObjectProp(key, std::move(get_set_func), type));
         }
         else {
           if (lexer.next().type != TokenType::COLON) goto error;
           
           lexer.next();
-          ASTNode* value = parse_assignment_expression(false);
+          uni_ptr<ASTNode> value = parse_assignment_expression(false);
           if (value->get_type() == ASTNode::AST_ILLEGAL) goto error;
-          obj->set_property(ObjectProp(token, value, ObjectProp::NORMAL));
+          obj->set_property(ObjectProp(token, std::move(value), ObjectProp::NORMAL));
         }
       }
       else {
@@ -229,14 +229,13 @@ error:
     obj->set_source(SOURCE_PARSED_EXPR);
     return obj;
 error:
-    delete obj;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_expression(bool no_in) {
+  uni_ptr<ASTNode> parse_expression(bool no_in) {
     START_POS;
 
-    ASTNode* element = parse_assignment_expression(no_in);
+    uni_ptr<ASTNode> element = parse_assignment_expression(no_in);
     if (element->is_illegal()) {
       return element;
     }
@@ -246,90 +245,74 @@ error:
       return element;
     }
 
-    Expression* expr = new Expression();
-    expr->add_element(element);
+    auto expr = make_unique<Expression>();
+    expr->add_element(std::move(element));
     
     while (lexer.peek().type == TokenType::COMMA) {
       lexer.next();
       lexer.next();
       element = parse_assignment_expression(no_in);
       if (element->is_illegal()) {
-        delete expr;
         return element;
       }
-      expr->add_element(element);
+      expr->add_element(std::move(element));
     }
     expr->set_source(SOURCE_PARSED_EXPR);
     return expr;
   }
 
-  ASTNode* parse_assignment_expression(bool no_in) {
+  uni_ptr<ASTNode> parse_assignment_expression(bool no_in) {
     START_POS;
 
-    ASTNode* lhs = parse_conditional_expression(no_in);
-    if (lhs->is_illegal())
-      return lhs;
+    uni_ptr<ASTNode> lhs = parse_conditional_expression(no_in);
+    if (lhs->is_illegal()) return lhs;
 
     // Not LeftHandSideExpression
-    if (lhs->get_type() != ASTNode::AST_EXPR_LHS) {
-      return lhs;
-    }
+    if (lhs->get_type() != ASTNode::AST_EXPR_LHS) return lhs;
     
     Token op = lexer.peek();
-    if (!op.is_assignment_operator()) {
-      return lhs;
-    }
+    if (!op.is_assignment_operator()) return lhs;
     
     lexer.next();
     lexer.next();
-    ASTNode* rhs = parse_assignment_expression(no_in);
+    uni_ptr<ASTNode> rhs = parse_assignment_expression(no_in);
     if (rhs->is_illegal()) {
-      delete lhs;
       return rhs;
     }
 
-    return new BinaryExpr(lhs, rhs, op, SOURCE_PARSED_EXPR);
+    return make_unique<BinaryExpr>(std::move(lhs), std::move(rhs), std::move(op), SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_conditional_expression(bool no_in) {
+  uni_ptr<ASTNode> parse_conditional_expression(bool no_in) {
     START_POS;
-    ASTNode* cond = parse_binary_and_unary_expression(no_in, 0);
-    if (cond->is_illegal())
-      return cond;
+    uni_ptr<ASTNode> cond = parse_binary_and_unary_expression(no_in, 0);
+    if (cond->is_illegal()) return cond;
 
-    if (lexer.peek().type != TokenType::QUESTION) {
-      return cond;
-    }
+    if (lexer.peek().type != TokenType::QUESTION) return cond;
       
     lexer.next();
     lexer.next();
-    ASTNode* lhs = parse_assignment_expression(no_in);
-    if (lhs->is_illegal()) {
-      delete cond;
-      return lhs;
-    }
+    uni_ptr<ASTNode> lhs = parse_assignment_expression(no_in);
+
+    if (lhs->is_illegal()) return lhs;
     
     if (lexer.next().type != TokenType::COLON) {
-      delete cond;
-      delete lhs;
-      return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+      return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
     }
+
     lexer.next();
-    ASTNode* rhs = parse_assignment_expression(no_in);
-    if (lhs->is_illegal()) {
-      delete cond;
-      delete lhs;
-      return rhs;
-    }
-    ASTNode* triple = new TernaryExpr(cond, lhs, rhs);
+    uni_ptr<ASTNode> rhs = parse_assignment_expression(no_in);
+    if (lhs->is_illegal()) return rhs;
+
+    auto triple = make_unique<TernaryExpr>(std::move(cond), std::move(lhs), std::move(rhs));
     triple->set_source(SOURCE_PARSED_EXPR);
     return triple;
   }
 
-  ASTNode* parse_binary_and_unary_expression(bool no_in, int priority) {
+  uni_ptr<ASTNode> parse_binary_and_unary_expression(bool no_in, int priority) {
     START_POS;
-    ASTNode* lhs = nullptr;
-    ASTNode* rhs = nullptr;
+    uni_ptr<ASTNode> lhs;
+    uni_ptr<ASTNode> rhs;
     // Prefix Operators.
     Token prefix_op = lexer.current();
     // NOTE(zhuzilin) !!a = !(!a)
@@ -338,7 +321,7 @@ error:
       lhs = parse_binary_and_unary_expression(no_in, prefix_op.unary_priority());
       if (lhs->is_illegal()) return lhs;
 
-      lhs = new UnaryExpr(lhs, prefix_op, true);
+      lhs = make_unique<UnaryExpr>(std::move(lhs), prefix_op, true);
     }
     else {
       lhs = parse_left_hand_side_expression();
@@ -354,12 +337,11 @@ error:
         auto lhs_type = lhs->get_type();
 
         if (lhs_type != ASTNode::AST_EXPR_BINARY && lhs_type != ASTNode::AST_EXPR_UNARY) {
-          lhs = new UnaryExpr(lhs, postfix_op, false);
+          lhs = make_unique<UnaryExpr>(std::move(lhs), postfix_op, false);
           lhs->set_source(SOURCE_PARSED_EXPR);
         }
         else {
-          delete lhs;
-          return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+          return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
         }
       }
     }
@@ -371,7 +353,7 @@ error:
       lexer.next();
       rhs = parse_binary_and_unary_expression(no_in, binary_op.binary_priority(no_in));
       if (rhs->is_illegal()) return rhs;
-      lhs = new BinaryExpr(lhs, rhs, binary_op, SOURCE_PARSED_EXPR);
+      lhs = make_unique<BinaryExpr>(std::move(lhs), std::move(rhs), binary_op, SOURCE_PARSED_EXPR);
       
       binary_op = lexer.peek();
     }
@@ -380,10 +362,10 @@ error:
     return lhs;
   }
 
-  ASTNode* parse_left_hand_side_expression() {
+  uni_ptr<ASTNode> parse_left_hand_side_expression() {
     START_POS;
     Token token = lexer.current();
-    ASTNode* base;
+    uni_ptr<ASTNode> base;
     u32 new_count = 0;
 
     // need test
@@ -401,7 +383,7 @@ error:
     if (base->is_illegal()) {
       return base;
     }
-    LeftHandSideExpr* lhs = new LeftHandSideExpr(base, new_count);
+    auto lhs = make_unique<LeftHandSideExpr>(std::move(base), new_count);
 
     while (true) {
       
@@ -409,38 +391,33 @@ error:
       switch (token.type) {
         case TokenType::LEFT_PAREN: {  // (
           lexer.next();
-          ASTNode* ast = parse_arguments();
+          uni_ptr<ASTNode> ast = parse_arguments();
           if (ast->is_illegal()) {
-            delete lhs;
             return ast;
           }
+
           assert(ast->get_type() == ASTNode::AST_EXPR_ARGS);
-          Arguments* args = static_cast<Arguments*>(ast);
-          lhs->AddArguments(args);
+          lhs->AddArguments(static_ptr_cast<Arguments>(std::move(ast)));
           break;
         }
         case TokenType::LEFT_BRACK: {  // [
           lexer.next();  // skip [
           lexer.next();
-          ASTNode* index = parse_expression(false);
+          uni_ptr<ASTNode> index = parse_expression(false);
           if (index->is_illegal()) {
-            delete lhs;
             return index;
           }
           token = lexer.next();  // skip ]
           if (token.type != TokenType::RIGHT_BRACK) {
-            delete lhs;
-            delete index;
             goto error;
           }
-          lhs->AddIndex(index);
+          lhs->AddIndex(std::move(index));
           break;
         }
         case TokenType::DOT: {  // .
           lexer.next();
           token = lexer.next();  // read identifier name
           if (!token.is_identifier_name()) {
-            delete lhs;
             goto error;
           }
           lhs->AddProp(token);
@@ -453,48 +430,45 @@ error:
       }
     }
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_arguments() {
+  uni_ptr<ASTNode> parse_arguments() {
     START_POS;
     assert(lexer.current().type == TokenType::LEFT_PAREN);
-    std::vector<ASTNode*> args;
-    ASTNode* arg;
+    std::vector<uni_ptr<ASTNode>> args;
+    uni_ptr<ASTNode> arg;
 
     lexer.next();
     while (lexer.current().type != TokenType::RIGHT_PAREN) {
       if (lexer.current().type != TokenType::COMMA) {
         arg = parse_assignment_expression(false);
-        if (arg->is_illegal()) {
-          for (auto arg : args) delete arg;
-          return arg;
-        }
-        args.emplace_back(arg);
+
+        if (arg->is_illegal()) return arg;
+        args.emplace_back(std::move(arg));
       }
 
       lexer.next();
     }
 
     assert(lexer.current().type == TokenType::RIGHT_PAREN);
-    Arguments* arg_ast = new Arguments(args);
+    auto arg_ast = make_unique<Arguments>(std::move(args));
     arg_ast->set_source(SOURCE_PARSED_EXPR);
     return arg_ast;
 error:
-    for (auto arg : args) delete arg;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_function_body() {
+  uni_ptr<ASTNode> parse_function_body() {
     return parse_program_or_function_body(TokenType::RIGHT_BRACE, ASTNode::AST_FUNC_BODY);
   }
 
-  ASTNode* parse_program() {
+  uni_ptr<ASTNode> parse_program() {
     lexer.next();
     return parse_program_or_function_body(TokenType::EOS, ASTNode::AST_PROGRAM);
   }
 
-  ASTNode* parse_program_or_function_body(TokenType ending_token_type, ASTNode::Type syntax_type) {
+  uni_ptr<ASTNode> parse_program_or_function_body(TokenType ending_token_type, ASTNode::Type syntax_type) {
     START_POS;
     // 14.1
     bool strict = false;
@@ -509,38 +483,36 @@ error:
       // else, `curr_token` will be 'use strict' (a string).
     }
 
-    ProgramOrFunctionBody* prog = new ProgramOrFunctionBody(syntax_type, strict);
-    var_decl_stack.push({});
+    auto prog = make_unique<ProgramOrFunctionBody>(syntax_type, strict);
+    var_decl_stack.push_back({});
 
-    ASTNode* element;
+    uni_ptr<ASTNode> element;
     
     while (lexer.current().type != ending_token_type) {
       if (lexer.current().text == u"function") {
         element = parse_function(true);
         if (element->is_illegal()) {
-          delete prog;
           return element;
         }
-        prog->add_function_decl(element);
+        prog->add_function_decl(std::move(element));
       }
       else {
         element = parse_statement();
         if (element->is_illegal()) {
-          delete prog;
           return element;
         }
-        prog->add_statement(element);
+        prog->add_statement(std::move(element));
       }
       lexer.next();
     }
     assert(lexer.current().type == ending_token_type);
-    prog->set_var_decls(std::move(var_decl_stack.top()));
-    var_decl_stack.pop();
+    prog->set_var_decls(std::move(var_decl_stack.back()));
+    var_decl_stack.pop_back();
     prog->set_source(SOURCE_PARSED_EXPR);
     return prog;
   }
 
-  ASTNode* parse_statement() {
+  uni_ptr<ASTNode> parse_statement() {
     START_POS;
     const Token& token = lexer.current();
 
@@ -548,7 +520,7 @@ error:
       case TokenType::LEFT_BRACE:  // {
         return parse_block_statement();
       case TokenType::SEMICOLON:  // ;
-        return new ASTNode(ASTNode::AST_STMT_EMPTY, TOKEN_SOURCE_EXPR);
+        return make_unique<ASTNode>(ASTNode::AST_STMT_EMPTY, TOKEN_SOURCE_EXPR);
       case TokenType::KEYWORD: {
         if (token.text == u"var") return parse_variable_statement(false);
         else if (token.text == u"if") return parse_if_statement();
@@ -567,7 +539,7 @@ error:
           if (!lexer.try_skip_semicolon()) {
             goto error;
           }
-          return new ASTNode(ASTNode::AST_STMT_DEBUG, SOURCE_PARSED_EXPR);
+          return make_unique<ASTNode>(ASTNode::AST_STMT_DEBUG, SOURCE_PARSED_EXPR);
         }
         break;
       }
@@ -584,104 +556,99 @@ error:
     }
     return parse_expression_statement();
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_block_statement() {
+  uni_ptr<ASTNode> parse_block_statement() {
     START_POS;
     assert(lexer.current().type == TokenType::LEFT_BRACE);
-    Block* block = new Block();
+    auto block = make_unique<Block>();
     lexer.next();
     while (lexer.current().type != TokenType::RIGHT_BRACE) {
-      ASTNode* stmt = parse_statement();
+      uni_ptr<ASTNode> stmt = parse_statement();
       if (stmt->is_illegal()) {
-        delete block;
         return stmt;
       }
-      block->add_statement(stmt);
+      block->add_statement(std::move(stmt));
       lexer.next();
     }
+
     assert(lexer.current().type == TokenType::RIGHT_BRACE);
     block->set_source(SOURCE_PARSED_EXPR);
     return block;
   }
 
-  ASTNode* parse_variable_declaration(bool no_in) {
+  uni_ptr<ASTNode> parse_variable_declaration(bool no_in) {
     START_POS;
     Token id = lexer.current();
     
     assert(id.is_identifier());
 
     if (lexer.peek().type != TokenType::ASSIGN) {
-      VarDecl* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
-      var_decl_stack.top().emplace_back(var_decl);
+      auto var_decl = make_unique<VarDecl>(id, SOURCE_PARSED_EXPR);
+      var_decl_stack.back().push_back(var_decl.get());
       return var_decl;
     }
     
-    ASTNode* init = parse_assignment_expression(no_in);
+    uni_ptr<ASTNode> init = parse_assignment_expression(no_in);
     if (init->is_illegal()) return init;
     
-    VarDecl* var_decl =  new VarDecl(id, init, SOURCE_PARSED_EXPR);
-    var_decl_stack.top().emplace_back(var_decl);
+    auto var_decl =  make_unique<VarDecl>(id, std::move(init), SOURCE_PARSED_EXPR);
+    var_decl_stack.back().push_back(var_decl.get());
     return var_decl;
   }
 
-  ASTNode* parse_variable_statement(bool no_in) {
+  uni_ptr<ASTNode> parse_variable_statement(bool no_in) {
     START_POS;
     assert(lexer.current().text == u"var");
-    VarStatement* var_stmt = new VarStatement();
-    ASTNode* decl;
+    auto var_stmt = make_unique<VarStatement>();
+    uni_ptr<ASTNode> decl;
     if (!lexer.next().is_identifier()) {
       goto error;
     }
     // Similar to parse_expression
     decl = parse_variable_declaration(no_in);
-    if (decl->is_illegal()) {
-      delete var_stmt;
-      return decl;
-    }
-    var_stmt->add_decl(decl);
+    if (decl->is_illegal()) return decl;
+
+    var_stmt->add_decl(std::move(decl));
 
     while (!lexer.try_skip_semicolon()) {
       if (lexer.next().text != u",") goto error;
       lexer.next();
       decl = parse_variable_declaration(no_in);
-      if (decl->is_illegal()) {
-        delete var_stmt;
-        return decl;
-      }
-      var_stmt->add_decl(decl);
+      if (decl->is_illegal()) return decl;
+
+      var_stmt->add_decl(std::move(decl));
     }
 
     var_stmt->set_source(SOURCE_PARSED_EXPR);
     return var_stmt;
 error:
-    delete var_stmt;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_expression_statement() {
+  uni_ptr<ASTNode> parse_expression_statement() {
     START_POS;
     const Token& token = lexer.current();
     if (token.text == u"function") {
-      return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+      return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
     }
     // already handled LEFT_BRACE case in caller.
     assert(token.type != TokenType::LEFT_BRACE);
-    ASTNode* exp = parse_expression(false);
+    uni_ptr<ASTNode> exp = parse_expression(false);
     if (exp->is_illegal()) return exp;
 
     if (!lexer.try_skip_semicolon()) {
-      delete exp;
-      return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+      return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
     }
     return exp;
   }
 
-  ASTNode* parse_if_statement() {
+  uni_ptr<ASTNode> parse_if_statement() {
     START_POS;
-    ASTNode* cond;
-    ASTNode* if_block;
+    uni_ptr<ASTNode> cond;
+    uni_ptr<ASTNode> if_block;
+    uni_ptr<ASTNode> else_block;
 
     assert(lexer.current().text == u"if");
     lexer.next();
@@ -690,86 +657,76 @@ error:
     if (cond->is_illegal()) return cond;
 
     if (lexer.next().type != TokenType::RIGHT_PAREN) {
-      delete cond;
       goto error;
     }
     lexer.next();
     if_block = parse_statement();
     if (if_block->is_illegal()) {
-      delete cond;
       return if_block;
     }
-    
+
     if (lexer.peek().text == u"else") {
       lexer.next();
       lexer.next();
-      ASTNode* else_block = parse_statement();
+      else_block = parse_statement();
       if (else_block->is_illegal()) {
-        delete cond;
-        delete if_block;
         return else_block;
       }
-      return new IfStatement(cond, if_block, else_block, SOURCE_PARSED_EXPR);
     }
-
-    return new IfStatement(cond, if_block, SOURCE_PARSED_EXPR);
+    return make_unique<IfStatement>(std::move(cond), std::move(if_block),
+                                    std::move(else_block), SOURCE_PARSED_EXPR);
     
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_do_while_statement() {
+  uni_ptr<ASTNode> parse_do_while_statement() {
     START_POS;
     assert(lexer.current().text == u"do");
-    ASTNode* cond;
-    ASTNode* loop_block;
+    uni_ptr<ASTNode> cond;
+    uni_ptr<ASTNode> loop_block;
     lexer.next();
     loop_block = parse_statement();
     if (loop_block->is_illegal()) {
       return loop_block;
     }
     if (lexer.next().text != u"while") {  // skip while
-      delete loop_block;
       goto error;
     }
     if (lexer.next().type != TokenType::LEFT_PAREN) {  // skip (
-      delete loop_block;
       goto error;
     }
+
     lexer.next();
     cond = parse_expression(false);
     if (cond->is_illegal()) {
-      delete loop_block;
       return cond;
     }
     if (lexer.next().type != TokenType::RIGHT_PAREN) {  // skip )
-      delete cond;
       goto error;
     }
     if (!lexer.try_skip_semicolon()) {
-      delete cond;
-      delete loop_block;
       goto error;
     }
-    return new DoWhileStatement(cond, loop_block, SOURCE_PARSED_EXPR);
+    return make_unique<DoWhileStatement>(std::move(cond), std::move(loop_block), SOURCE_PARSED_EXPR);
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_while_statement() {
+  uni_ptr<ASTNode> parse_while_statement() {
     return parse_while_or_with_statement(ASTNode::AST_STMT_WHILE);
   }
 
-  ASTNode* parse_with_statement() {
+  uni_ptr<ASTNode> parse_with_statement() {
     return parse_while_or_with_statement(ASTNode::AST_STMT_WITH);
   }
 
-  ASTNode* parse_while_or_with_statement(ASTNode::Type type) {
+  uni_ptr<ASTNode> parse_while_or_with_statement(ASTNode::Type type) {
     START_POS;
     std::u16string keyword = type == ASTNode::AST_STMT_WHILE ? u"while" : u"with";
     assert(lexer.current().text == keyword);
-    ASTNode* expr;
-    ASTNode* stmt;
+    uni_ptr<ASTNode> expr;
+    uni_ptr<ASTNode> stmt;
     if (lexer.next().type != TokenType::LEFT_PAREN) { // read (
       goto error;
     }
@@ -779,28 +736,29 @@ error:
     if (expr->is_illegal()) return expr;
 
     if (lexer.next().type != TokenType::RIGHT_PAREN) {  // read )
-      delete expr;
       goto error;
     }
+
     lexer.next();
     stmt = parse_statement();
     if (stmt->is_illegal()) {
-      delete expr;
       return stmt;
     }
     if (type == ASTNode::AST_STMT_WHILE) {
-      return new WhileStatement(expr, stmt, SOURCE_PARSED_EXPR);
+      return make_unique<WhileStatement>(std::move(expr), std::move(stmt), SOURCE_PARSED_EXPR);
     }
-    return new WithStatement(expr, stmt, SOURCE_PARSED_EXPR);
+    return make_unique<WithStatement>(std::move(expr), std::move(stmt), SOURCE_PARSED_EXPR);
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_for_statement() {
+  uni_ptr<ASTNode> parse_for_statement() {
     START_POS;
     assert(lexer.current().text == u"for");
 
-    ASTNode* init_expr;
+    uni_ptr<ASTNode> init;
+    std::vector<uni_ptr<ASTNode>> init_exprs;
+
     if (lexer.next().type != TokenType::LEFT_PAREN) goto error;
 
     lexer.next();
@@ -809,79 +767,74 @@ error:
     }
     else if (lexer.current().text == u"var") {
       lexer.next();  // skip var
-      std::vector<ASTNode*> init_expressions;
-
       // NOTE(zhuzilin) the starting token for parse_variable_declaration
       // must be identifier. This is for better error code.
       if (!lexer.current().is_identifier()) goto error;
 
-      init_expr = parse_variable_declaration(true);
-      if (init_expr->is_illegal()) return init_expr;
+      init = parse_variable_declaration(true);
+      if (init->is_illegal()) return init;
 
       // expect `in`, `,`
       // the `in` case
       // var VariableDeclarationNoIn in
-      if (lexer.next().text == u"in") return parse_for_in_statement(init_expr, start, line_start);
-
+      if (lexer.next().text == u"in") {
+        return parse_for_in_statement(std::move(init), start, line_start);
+      }
+      
       // the `,` case
-      init_expressions.emplace_back(init_expr);
+      init_exprs.push_back(std::move(init));
       while (!lexer.current().is_semicolon()) {
         // NOTE(zhuzilin) the starting token for parse_variable_declaration
         // must be identifier. This is for better error code.
         if (lexer.current().type != TokenType::COMMA || !lexer.next().is_identifier()) {
-          for (auto expr : init_expressions) {
-            delete expr;
-          }
           goto error;
         }
 
-        init_expr = parse_variable_declaration(true);
-        if (init_expr->is_illegal()) {
-          for (auto expr : init_expressions)
-            delete expr;
-          return init_expr;
-        }
-        init_expressions.emplace_back(init_expr);
+        init = parse_variable_declaration(true);
+        if (init->is_illegal()) return init;
+        
+        init_exprs.push_back(std::move(init));
         lexer.next();
       } 
       // for (var VariableDeclarationListNoIn; ...)
-      return parse_for_statement(init_expressions, start, line_start);
+      return parse_for_statement(std::move(init_exprs), start, line_start);
     }
     else {
-      init_expr = parse_expression(true);
-      if (init_expr->is_illegal()) {
-        return init_expr;
+      init = parse_expression(true);
+      if (init->is_illegal()) {
+        return init;
       }
       lexer.next();
       if (lexer.current().is_semicolon()) {
-        return parse_for_statement({init_expr}, start, line_start);  // for ( ExpressionNoIn;
+        // for ( ExpressionNoIn;
+        init_exprs.push_back(std::move(init));
+        return parse_for_statement(std::move(init_exprs), start, line_start);
       }
+
       // for ( LeftHandSideExpression in
-      else if (lexer.current().text == u"in" && init_expr->get_type() == ASTNode::AST_EXPR_LHS) {
-        return parse_for_in_statement(init_expr, start, line_start);  
+      else if (lexer.current().text == u"in" && init->get_type() == ASTNode::AST_EXPR_LHS) {
+        return parse_for_in_statement(std::move(init), start, line_start);  
       }
       else {
-        delete init_expr;
         goto error;
       }
     }
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_for_statement(std::vector<ASTNode*> init_expressions, u32 start, u32 line_start) {
+  uni_ptr<ASTNode>
+  parse_for_statement(std::vector<uni_ptr<ASTNode>> init_exprs, u32 start, u32 line_start) {
+
     assert(lexer.current().is_semicolon());
-    ASTNode* expr1 = nullptr;
-    ASTNode* expr2 = nullptr;
-    ASTNode* stmt;
+    uni_ptr<ASTNode> expr1;
+    uni_ptr<ASTNode> expr2;
+    uni_ptr<ASTNode> stmt;
 
     if (!lexer.peek().is_semicolon()) {
       lexer.next();
       expr1 = parse_expression(false);  // for (xxx; Expression
       if (expr1->is_illegal()) {
-        for (auto expr : init_expressions) {
-          delete expr;
-        }
         return expr1;
       }
     }
@@ -893,14 +846,8 @@ error:
     if (lexer.peek().type != TokenType::RIGHT_PAREN) {
       lexer.next();
       expr2 = parse_expression(false);  // for (xxx; xxx; Expression
-      if (expr2->is_illegal()) {
-        for (auto expr : init_expressions) {
-          delete expr;
-        }
-        if (expr1 != nullptr)
-          delete expr1;
-        return expr2;
-      }
+
+      if (expr2->is_illegal()) return expr2;
     }
 
     if (lexer.next().type != TokenType::RIGHT_PAREN) {  // read the )
@@ -909,34 +856,21 @@ error:
 
     lexer.next();
     stmt = parse_statement();
-    if (stmt->is_illegal()) {
-      for (auto expr : init_expressions) {
-        delete expr;
-      }
-      if (expr1 != nullptr) delete expr1;
-      if (expr2 != nullptr) delete expr2;
-      return stmt;
-    }
+    if (stmt->is_illegal()) return stmt;
 
-    return new ForStatement(init_expressions, expr1, expr2, stmt, SOURCE_PARSED_EXPR);
+    return make_unique<ForStatement>(std::move(init_exprs), std::move(expr1), std::move(expr2),
+                                      std::move(stmt), SOURCE_PARSED_EXPR);
 error:
-    for (auto expr : init_expressions) {
-      delete expr;
-    }
-    if (expr1 != nullptr) delete expr1;
-    if (expr2 != nullptr) delete expr2;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_for_in_statement(ASTNode* expr0, u32 start, u32 line_start) {
+  uni_ptr<ASTNode> parse_for_in_statement(uni_ptr<ASTNode> expr0, u32 start, u32 line_start) {
     assert(lexer.current().text == u"in");
     lexer.next();
-    ASTNode* expr1 = parse_expression(false);  // for ( xxx in Expression
-    ASTNode* stmt;
-    if (expr1->is_illegal()) {
-      delete expr0;
-      return expr1;
-    }
+    uni_ptr<ASTNode> expr1 = parse_expression(false);  // for ( xxx in Expression
+    uni_ptr<ASTNode> stmt;
+
+    if (expr1->is_illegal()) return expr1;
 
     if (lexer.next().type != TokenType::RIGHT_PAREN) {  // skip )
       goto error;
@@ -944,47 +878,42 @@ error:
 
     lexer.next();
     stmt = parse_statement();
-    if (stmt->is_illegal()) {
-      delete expr0;
-      delete expr1;
-      return stmt;
-    }
-    return new ForInStatement(expr0, expr1, stmt, SOURCE_PARSED_EXPR);
+    if (stmt->is_illegal()) return stmt;
+
+    return make_unique<ForInStatement>(std::move(expr0), std::move(expr1), std::move(stmt), SOURCE_PARSED_EXPR);
 error:
-    delete expr0;
-    delete expr1;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_continue_statement() {
+  uni_ptr<ASTNode> parse_continue_statement() {
     return parse_continue_or_break_statement(ASTNode::AST_STMT_CONTINUE);
   }
 
-  ASTNode* parse_break_statement() {
+  uni_ptr<ASTNode> parse_break_statement() {
     return parse_continue_or_break_statement(ASTNode::AST_STMT_BREAK);
   }
 
-  ASTNode* parse_continue_or_break_statement(ASTNode::Type type) {
+  uni_ptr<ASTNode> parse_continue_or_break_statement(ASTNode::Type type) {
     START_POS;
     std::u16string_view keyword = type == ASTNode::AST_STMT_CONTINUE ? u"continue" : u"break";
     assert(lexer.current().text == keyword);
     if (!lexer.try_skip_semicolon()) {
       Token id = lexer.next();
       if (!id.is_identifier()) {
-        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+        return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
       }
       if (!lexer.try_skip_semicolon()) {
-        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+        return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
       }
-      return new ContinueOrBreak(type, id, SOURCE_PARSED_EXPR);
+      return make_unique<ContinueOrBreak>(type, id, SOURCE_PARSED_EXPR);
     }
-    return new ContinueOrBreak(type, SOURCE_PARSED_EXPR);
+    return make_unique<ContinueOrBreak>(type, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_return_statement() {
+  uni_ptr<ASTNode> parse_return_statement() {
     START_POS;
     assert(lexer.current().text == u"return");
-    ASTNode* expr = nullptr;
+    uni_ptr<ASTNode> expr;
     
     if (!lexer.try_skip_semicolon()) {
       lexer.next();
@@ -993,65 +922,61 @@ error:
         return expr;
       }
       if (!lexer.try_skip_semicolon()) {
-        delete expr;
-        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+        return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
       }
     }
-    return new ReturnStatement(expr, SOURCE_PARSED_EXPR);
+    return make_unique<ReturnStatement>(std::move(expr), SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_throw_statement() {
+  uni_ptr<ASTNode> parse_throw_statement() {
     START_POS;
     assert(lexer.current().text == u"throw");
-    ASTNode* expr = nullptr;
+    uni_ptr<ASTNode> expr;
     if (!lexer.try_skip_semicolon()) {
+
       lexer.next();
       expr = parse_expression(false);
-      if (expr->is_illegal()) {
-        return expr;
-      }
+      if (expr->is_illegal()) return expr;
+
       if (!lexer.try_skip_semicolon()) {
-        delete expr;
-        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+        return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
       }
     }
-    return new ThrowStatement(expr, SOURCE_PARSED_EXPR);
+    return make_unique<ThrowStatement>(std::move(expr), SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_switch_statement() {
+  uni_ptr<ASTNode> parse_switch_statement() {
     START_POS;
-    SwitchStatement* switch_stmt = new SwitchStatement();
-    ASTNode* expr;
+    auto switch_stmt = make_unique<SwitchStatement>();
+    uni_ptr<ASTNode> expr;
     // Token token = lexer.current();
     assert(lexer.current().text == u"switch");
     if (lexer.next().type != TokenType::LEFT_PAREN) { // skip (
       goto error;
     }
+
     lexer.next();
     expr = parse_expression(false);
-    if (expr->is_illegal()) {
-      delete switch_stmt;
-      return expr;
-    }
+    if (expr->is_illegal()) return expr;
+
     if (lexer.next().type != TokenType::RIGHT_PAREN) {  // skip )
-      delete expr;
       goto error;
     }
-    switch_stmt->SetExpr(expr);
+    switch_stmt->SetExpr(std::move(expr));
     if (lexer.next().type != TokenType::LEFT_BRACE) { // skip {
       goto error;
     }
     // Loop for parsing CaseClause
     lexer.next();
     while (lexer.current().type != TokenType::RIGHT_BRACE) {
-      ASTNode* case_expr = nullptr;
-      std::vector<ASTNode*> stmts;
+      uni_ptr<ASTNode> case_expr;
+      std::vector<uni_ptr<ASTNode>> stmts;
       std::u16string_view type = lexer.current().text;
+
       if (type == u"case") {
         lexer.next();  // skip case
         case_expr = parse_expression(false);
         if (case_expr->is_illegal()) {
-          delete switch_stmt;
           return case_expr;
         }
       }
@@ -1062,8 +987,8 @@ error:
       else {
         goto error;
       }
+
       if (lexer.next().type != TokenType::COLON) { // skip :
-        delete case_expr;
         goto error;
       }
       // parse StatementList
@@ -1071,27 +996,24 @@ error:
       // the statements in each case
       while (lexer.current().text != u"case" && lexer.current().text != u"default" &&
               lexer.current().type != TokenType::RIGHT_BRACE) {
-        ASTNode* stmt = parse_statement();
-        if (stmt->is_illegal()) {
-          for (auto s : stmts) {
-            delete s;
-          }
-          delete switch_stmt;
-          return stmt;
-        }
-        stmts.emplace_back(stmt);
+
+        uni_ptr<ASTNode> stmt = parse_statement();
+        if (stmt->is_illegal()) return stmt;
+
+        stmts.push_back(std::move(stmt));
         lexer.next();
       }
+
       if (type == u"case") {
         if (switch_stmt->has_default_clause) {
-          switch_stmt->AddAfterDefaultCaseClause(SwitchStatement::CaseClause(case_expr, stmts));
+          switch_stmt->AddAfterDefaultCaseClause(SwitchStatement::CaseClause(std::move(case_expr), std::move(stmts)));
         }
         else {
-          switch_stmt->AddBeforeDefaultCaseClause(SwitchStatement::CaseClause(case_expr, stmts));
+          switch_stmt->AddBeforeDefaultCaseClause(SwitchStatement::CaseClause(std::move(case_expr), std::move(stmts)));
         }
       }
       else {
-        switch_stmt->SetDefaultClause(stmts);
+        switch_stmt->SetDefaultClause(std::move(stmts));
       }
     }
 
@@ -1099,18 +1021,17 @@ error:
     switch_stmt->set_source(SOURCE_PARSED_EXPR);
     return switch_stmt;
 error:
-    delete switch_stmt;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_try_statement() {
+  uni_ptr<ASTNode> parse_try_statement() {
     START_POS;
     assert(lexer.current().text == u"try");
 
-    ASTNode* try_block = nullptr;
-    Token catch_id(TokenType::NONE, source, 0, 0);
-    ASTNode* catch_block = nullptr;
-    ASTNode* finally_block = nullptr;
+    Token catch_id = Token::none;
+    uni_ptr<ASTNode> try_block;
+    uni_ptr<ASTNode> catch_block;
+    uni_ptr<ASTNode> finally_block;
 
     if (lexer.next().type != TokenType::LEFT_BRACE) {
       goto error;
@@ -1122,7 +1043,6 @@ error:
     if (lexer.peek().text == u"catch") {
       lexer.next();
       if (lexer.next().type != TokenType::LEFT_PAREN) {  // skip (
-        delete try_block;
         goto error;
       }
       catch_id = lexer.next();  // skip identifier
@@ -1130,16 +1050,16 @@ error:
         goto error;
       }
       if (lexer.next().type != TokenType::RIGHT_PAREN) {  // skip )
-        delete try_block;
         goto error;
       }
+
       lexer.next();
       catch_block = parse_block_statement();
       if (catch_block->is_illegal()) {
-        delete try_block;
         return catch_block;
       }
     }
+
     if (lexer.peek().text == u"finally") {
       lexer.next();
       if (lexer.next().type != TokenType::LEFT_BRACE) {
@@ -1147,9 +1067,6 @@ error:
       }
       finally_block = parse_block_statement();
       if (finally_block->is_illegal()) {
-        delete try_block;
-
-        if (catch_block != nullptr) delete catch_block;
         return finally_block;
       }
     }
@@ -1157,44 +1074,34 @@ error:
     if (catch_block == nullptr && finally_block == nullptr) {
       goto error;
     }
-    else if (finally_block == nullptr) {
-      assert(catch_block != nullptr && catch_id.is_identifier());
-      return new TryStatement(try_block, catch_id, catch_block, SOURCE_PARSED_EXPR);
+
+    if (catch_block != nullptr) {
+      assert(catch_id.is_identifier());
     }
-    else if (catch_block == nullptr) {
-      assert(finally_block != nullptr);
-      return new TryStatement(try_block, finally_block, SOURCE_PARSED_EXPR);
-    }
-    assert(catch_block != nullptr && catch_id.is_identifier());
-    assert(finally_block != nullptr);
-    return new TryStatement(try_block, catch_id, catch_block, finally_block, SOURCE_PARSED_EXPR);
+
+    return make_unique<TryStatement>(std::move(try_block), catch_id, std::move(catch_block),
+                                      std::move(finally_block), SOURCE_PARSED_EXPR);
 error:
-    if (try_block != nullptr)
-      delete try_block;
-    if (catch_block != nullptr)
-      delete try_block;
-    if (finally_block != nullptr)
-      delete finally_block;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return make_unique<ASTNode>(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_labelled_statement() {
+  uni_ptr<ASTNode> parse_labelled_statement() {
     START_POS;
     Token id = lexer.current();  // skip identifier
     lexer.next();
     assert(lexer.current().type == TokenType::COLON);  // skip colon
     lexer.next();
-    ASTNode* stmt = parse_statement();
+    uni_ptr<ASTNode> stmt = parse_statement();
 
     if (stmt->is_illegal()) return stmt;
-    return new LabelledStatement(id, stmt, SOURCE_PARSED_EXPR);
+    return make_unique<LabelledStatement>(id, std::move(stmt), SOURCE_PARSED_EXPR);
   }
 
  private:
   std::u16string source;
   Lexer lexer;
 
-  std::stack<std::vector<VarDecl*>> var_decl_stack;
+  vector<vector<VarDecl*>> var_decl_stack;
 };
 
 }  // namespace njs

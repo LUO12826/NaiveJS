@@ -11,10 +11,15 @@
 
 #include "token.h"
 #include "njs/utils/macros.h"
+#include "njs/utils/helper.h"
 
 namespace njs {
 
-using std::unique_ptr;
+template<typename T>
+using uni_ptr = std::unique_ptr<T>;
+using std::vector;
+using std::pair;
+using std::u16string_view;
 
 const u32 PRINT_TREE_INDENT = 2;
 
@@ -133,18 +138,18 @@ class ASTNode {
   };
 
   ASTNode(Type type) : type(type) {}
-  ASTNode(Type type, std::u16string_view source, u32 start, u32 end, u32 line_start) :
+  ASTNode(Type type, u16string_view source, u32 start, u32 end, u32 line_start) :
     type(type), text(source), start(start), end(end), line_start(line_start) {}
   virtual ~ASTNode() {};
 
   Type get_type() { return type; }
-  std::u16string_view source() { return text; }
-  const std::u16string_view& source_ref() { return text; }
+  u16string_view source() { return text; }
+  const u16string_view& source_ref() { return text; }
   u32 start_pos() { return start; }
   u32 end_pos() { return end; }
   u32 get_line_start() { return line_start; }
 
-  void set_source(const std::u16string_view& source, u32 start, u32 end, u32 line_start) {
+  void set_source(const u16string_view& source, u32 start, u32 end, u32 line_start) {
     this->text = source;
     this->start = start;
     this->end = end;
@@ -170,19 +175,18 @@ class ASTNode {
 
   bool is_illegal() { return type == AST_ILLEGAL; }
 
- private:
   Type type;
-  std::u16string_view text;
+  u16string_view text;
   u32 start;
   u32 end;
   u32 line_start;
-  std::vector<ASTNode*> children;
+  vector<ASTNode*> children;
 };
 
 class RegExpLiteral : public ASTNode {
  public:
   RegExpLiteral(std::u16string pattern, std::u16string flag,
-                std::u16string_view source, u32 start, u32 end, u32 line_start) :
+                u16string_view source, u32 start, u32 end, u32 line_start) :
     ASTNode(AST_EXPR_REGEXP, source, start, end, line_start), pattern(pattern), flag(flag) {}
 
   std::u16string pattern;
@@ -191,151 +195,104 @@ class RegExpLiteral : public ASTNode {
 
 class ArrayLiteral : public ASTNode {
  public:
-  ArrayLiteral() : ASTNode(AST_EXPR_ARRAY), len(0) {}
+  ArrayLiteral() : ASTNode(AST_EXPR_ARRAY) {}
 
-  ~ArrayLiteral() override {
-    for (auto pair : elements) {
-      delete pair.second;
-    }
-  }
+  u32 get_length() { return elements.size(); }
+  const vector<uni_ptr<ASTNode>>& get_elements() { return elements; }
 
-  u32 get_length() { return len; }
-  std::vector<std::pair<u32, ASTNode*>> get_elements() { return elements; }
-
-  void add_element(ASTNode* element) {
+  void add_element(uni_ptr<ASTNode> element) {
     if (element == nullptr) {
       printf("warning: null element added to array literal.\n");
     }
-    elements.emplace_back(len, element);
-    len++;
+    elements.push_back(std::move(element));
   }
 
- private:
-  std::vector<std::pair<u32, ASTNode*>> elements;
-  u32 len;
+  vector<uni_ptr<ASTNode>> elements;
 };
 
 class ObjectLiteral : public ASTNode {
  public:
   ObjectLiteral() : ASTNode(AST_EXPR_OBJ) {}
 
-  ~ObjectLiteral() override {
-    for (auto property : properties) {
-      delete property.value;
-    }
-  }
-
   struct Property {
     enum Type {
       NORMAL = 0,
-      GET,
-      SET,
+      GETTER,
+      SETTER,
     };
 
-    Property(Token k, ASTNode* v, Type t) : key(k), value(v), type(t) {}
+    Property(Token key, uni_ptr<ASTNode> value, Type t)
+              : key(key), value(std::move(value)), type(t) {}
 
-    Token key;
-    ASTNode* value;
     Type type;
+    Token key;
+    uni_ptr<ASTNode> value;
   };
 
-  void set_property(const Property& p) {
-    properties.emplace_back(p);
+  void set_property(Property p) {
+    properties.push_back(std::move(p));
   }
-
-  std::vector<Property> get_properties() { return properties; }
 
   u32 length() { return properties.size(); }
 
- private:
-  std::vector<Property> properties;
+  vector<Property> properties;
 };
 
 class ParenthesisExpr : public ASTNode {
  public:
-  ParenthesisExpr(ASTNode* expr, std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(AST_EXPR_PAREN, source, start, end, line_start), expr(expr) {}
+  ParenthesisExpr(uni_ptr<ASTNode> expr, u16string_view source, u32 start, u32 end, u32 line_start) :
+    ASTNode(AST_EXPR_PAREN, source, start, end, line_start), expr(std::move(expr)) {}
 
-  ASTNode* get_expr() { return expr; }
-
- private:
-  ASTNode* expr;
+  uni_ptr<ASTNode> expr;
 };
 
 class BinaryExpr : public ASTNode {
  public:
-  BinaryExpr(ASTNode* lhs, ASTNode* rhs, Token op, std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(AST_EXPR_BINARY, source, start, end, line_start), lhs(lhs), rhs(rhs), op(op) {}
+  BinaryExpr(uni_ptr<ASTNode> lhs, uni_ptr<ASTNode> rhs, Token op,
+              u16string_view source, u32 start, u32 end, u32 line_start)
+              : ASTNode(AST_EXPR_BINARY, source, start, end, line_start),
+              lhs(std::move(lhs)), rhs(std::move(lhs)), op(op) {}
 
-  ~BinaryExpr() override {
-    delete lhs;
-    delete rhs;
-  }
-
-  ASTNode* get_lhs() { return lhs; }
-  ASTNode* get_rhs() { return rhs; }
-  Token& get_op() { return op; }
-
- private:
-  ASTNode* lhs;
-  ASTNode* rhs;
+  uni_ptr<ASTNode> lhs;
+  uni_ptr<ASTNode> rhs;
   Token op;
 };
 
 class UnaryExpr : public ASTNode {
  public:
-  UnaryExpr(ASTNode* node, Token op, bool prefix) :
-    ASTNode(AST_EXPR_UNARY), operand(node), op(op), is_prefix_op(prefix) {}
+  UnaryExpr(uni_ptr<ASTNode> operand, Token op, bool prefix) :
+    ASTNode(AST_EXPR_UNARY), operand(std::move(operand)), op(op), is_prefix_op(prefix) {}
 
-  ~UnaryExpr() override {
-    delete operand;
-  }
-
-  ASTNode* operand;
+  uni_ptr<ASTNode> operand;
   Token op;
   bool is_prefix_op;
 };
 
 class TernaryExpr : public ASTNode {
  public:
-  TernaryExpr(ASTNode* cond, ASTNode* true_expr, ASTNode* false_expr) :
-    ASTNode(AST_EXPR_TRIPLE), cond_expr(cond), true_expr(true_expr), false_expr(false_expr) {}
+  TernaryExpr(uni_ptr<ASTNode> cond, uni_ptr<ASTNode> true_expr, uni_ptr<ASTNode> false_expr) :
+    ASTNode(AST_EXPR_TRIPLE), cond_expr(std::move(cond)), true_expr(std::move(true_expr)),
+    false_expr(std::move(false_expr)) {}
 
-  ~TernaryExpr() override {
-    delete cond_expr;
-    delete true_expr;
-    delete false_expr;
-  }
-
-  ASTNode* cond_expr;
-  ASTNode* true_expr;
-  ASTNode* false_expr;
+  uni_ptr<ASTNode> cond_expr;
+  uni_ptr<ASTNode> true_expr;
+  uni_ptr<ASTNode> false_expr;
 };
 
 class Expression : public ASTNode {
  public:
   Expression() : ASTNode(AST_EXPR) {}
-  ~Expression() override {
-    for (auto element : elements) {
-      delete element;
-    }
-  }
 
-  void add_element(ASTNode* element) { elements.push_back(element); }
+  void add_element(uni_ptr<ASTNode> element) { elements.push_back(std::move(element)); }
 
-  std::vector<ASTNode*> elements;
+  vector<uni_ptr<ASTNode>> elements;
 };
 
 class Arguments : public ASTNode {
  public:
-  Arguments(std::vector<ASTNode*> args) : ASTNode(AST_EXPR_ARGS), args(args) {}
+  Arguments(vector<uni_ptr<ASTNode>> args) : ASTNode(AST_EXPR_ARGS), args(std::move(args)) {}
 
-  ~Arguments() override {
-    for (auto arg : args)
-      delete arg;
-  }
-
-  std::vector<ASTNode*> args;
+  vector<uni_ptr<ASTNode>> args;
 };
 
 class LeftHandSideExpr : public ASTNode {
@@ -347,22 +304,17 @@ class LeftHandSideExpr : public ASTNode {
     PROP,
   };
 
-  LeftHandSideExpr(ASTNode* base, u32 new_count) :
-    ASTNode(AST_EXPR_LHS), base(base), new_count(new_count) {}
+  LeftHandSideExpr(uni_ptr<ASTNode> base, u32 new_count) :
+    ASTNode(AST_EXPR_LHS), base(std::move(base)), new_count(new_count) {}
 
-  ~LeftHandSideExpr() override {
-    for (auto args : args_list) delete args;
-    for (auto index : index_list) delete index;
-  }
-
-  void AddArguments(Arguments* args) {
+  void AddArguments(uni_ptr<Arguments> args) {
     postfix_order.emplace_back(CALL, args_list.size());
-    args_list.emplace_back(args);
+    args_list.emplace_back(std::move(args));
   }
 
-  void AddIndex(ASTNode* index) {
+  void AddIndex(uni_ptr<ASTNode> index) {
     postfix_order.emplace_back(INDEX, index_list.size());
-    index_list.emplace_back(index);
+    index_list.emplace_back(std::move(index));
   }
 
   void AddProp(Token prop_name) {
@@ -370,101 +322,93 @@ class LeftHandSideExpr : public ASTNode {
     prop_names_list.emplace_back(prop_name.text);
   }
 
-  ASTNode* base;
+  uni_ptr<ASTNode> base;
   u32 new_count;
 
-  std::vector<std::pair<PostfixType, u32>> postfix_order;
-  std::vector<Arguments*> args_list;
-  std::vector<ASTNode*> index_list;
-  std::vector<std::u16string> prop_names_list;
+  vector<std::pair<PostfixType, u32>> postfix_order;
+  vector<uni_ptr<Arguments>> args_list;
+  vector<uni_ptr<ASTNode>> index_list;
+  vector<std::u16string> prop_names_list;
 };
 
 class Function : public ASTNode {
  public:
-  // Function(std::vector<std::u16string> params, AST* body,
-  //          std::u16string_view source, u32 start, u32 end) :
+  // Function(vector<std::u16string> params, AST* body,
+  //          u16string_view source, u32 start, u32 end) :
   //   Function(Token::none, params, body, source, start, end, line_start) {}
 
-  Function(Token name, std::vector<std::u16string> params, ASTNode* body,
-           std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(AST_FUNC, source, start, end, line_start), name(name), params(params) {
+  Function(Token name, vector<std::u16string> params, uni_ptr<ASTNode> body,
+           u16string_view source, u32 start, u32 end, u32 line_start) :
+           ASTNode(AST_FUNC, source, start, end, line_start), name(name), params(std::move(params)) {
+
       ASSERT(body->get_type() == ASTNode::AST_FUNC_BODY);
-      body = body;
-      add_child(body);
+      this->body = std::move(body);
+      add_child(body.get());
     }
 
-  ~Function() override {
-    delete body;
-  }
 
   bool has_name() { return name.type != TokenType::NONE; }
-  std::u16string_view get_name() { return name.text; }
+  u16string_view get_name() { return name.text; }
 
   Token name;
-  std::vector<std::u16string> params;
-  ASTNode* body;
+  vector<std::u16string> params;
+  uni_ptr<ASTNode> body;
 };
 
 class VarDecl : public ASTNode {
  public:
-  VarDecl(Token id, std::u16string_view source, u32 start, u32 end, u32 line_start) :
+  VarDecl(Token id, u16string_view source, u32 start, u32 end, u32 line_start) :
     VarDecl(id, nullptr, source, start, end, line_start) {}
 
-  VarDecl(Token id, ASTNode* var_init, std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(AST_STMT_VAR_DECL, source, start, end, line_start), id(id), var_init(var_init) {}
-  ~VarDecl() { delete var_init; }
+  VarDecl(Token id, uni_ptr<ASTNode> var_init, u16string_view source, u32 start, u32 end, u32 line_start) :
+    ASTNode(AST_STMT_VAR_DECL, source, start, end, line_start), id(id), var_init(std::move(var_init)) {}
 
   Token id;
-  ASTNode* var_init;
+  uni_ptr<ASTNode> var_init;
 };
 
 class ProgramOrFunctionBody : public ASTNode {
  public:
   ProgramOrFunctionBody(Type type, bool strict) : ASTNode(type), strict(strict) {}
 
-  ~ProgramOrFunctionBody() override {
-    for (auto func_decl : func_decls) delete func_decl;
-    for (auto stmt : stmts) delete stmt;
-  }
-
-  void add_function_decl(ASTNode* func) {
+  void add_function_decl(uni_ptr<ASTNode> func) {
     ASSERT(func->get_type() == AST_FUNC);
-    func_decls.emplace_back(static_cast<Function*>(func));
-    add_child(func);
+    func_decls.emplace_back(static_ptr_cast<Function>(std::move(func)));
+    add_child(func.get());
   }
-  void add_statement(ASTNode* stmt) {
-    stmts.emplace_back(stmt);
-    add_child(stmt);
+  void add_statement(uni_ptr<ASTNode> stmt) {
+    stmts.emplace_back(std::move(stmt));
+    add_child(stmt.get());
   }
 
-  void set_var_decls(std::vector<VarDecl*>&& var_decls) { this->var_decls = var_decls; }
+  void set_var_decls(vector<VarDecl*> var_decls) {
+    this->var_decls = std::move(var_decls);
+  }
 
   bool strict;
-  std::vector<Function*> func_decls;
-  std::vector<ASTNode*> stmts;
+  vector<uni_ptr<Function>> func_decls;
+  vector<uni_ptr<ASTNode>> stmts;
 
-  std::vector<VarDecl*> var_decls;
+  vector<VarDecl*> var_decls;
 };
 
 class LabelledStatement : public ASTNode {
  public:
-  LabelledStatement(Token label, ASTNode* stmt, std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(AST_STMT_LABEL, source, start, end, line_start), label(label), statement(stmt) {}
-  
-  ~LabelledStatement() {
-    delete statement;
-  }
+  LabelledStatement(Token label, uni_ptr<ASTNode> stmt, u16string_view source,
+                    u32 start, u32 end, u32 line_start) :
+                    ASTNode(AST_STMT_LABEL, source, start, end, line_start),
+                            label(label), statement(std::move(stmt)) {}
 
   Token label;
-  ASTNode* statement;
+  uni_ptr<ASTNode> statement;
 };
 
 class ContinueOrBreak : public ASTNode {
  public:
-  ContinueOrBreak(Type type, std::u16string_view source, u32 start, u32 end, u32 line_start) :
+  ContinueOrBreak(Type type, u16string_view source, u32 start, u32 end, u32 line_start) :
     ContinueOrBreak(type, Token(TokenType::NONE, u"", 0, 0), source, start, end, line_start) {}
 
-  ContinueOrBreak(Type type, Token id, std::u16string_view source, u32 start, u32 end, u32 line_start) :
+  ContinueOrBreak(Type type, Token id, u16string_view source, u32 start, u32 end, u32 line_start) :
     ASTNode(type, source, start, end, line_start), id(id) {}
 
   Token id;
@@ -472,252 +416,199 @@ class ContinueOrBreak : public ASTNode {
 
 class ReturnStatement : public ASTNode {
  public:
-  ReturnStatement(ASTNode* expr, std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(AST_STMT_RETURN, source, start, end, line_start), expr(expr) {}
-  
-  ~ReturnStatement() {
-    if (expr != nullptr)
-      delete expr;
-  }
+  ReturnStatement(uni_ptr<ASTNode> expr, u16string_view source, u32 start, u32 end, u32 line_start) :
+    ASTNode(AST_STMT_RETURN, source, start, end, line_start), expr(std::move(expr)) {}
 
-  ASTNode* expr;
+  uni_ptr<ASTNode> expr;
 };
 
 class ThrowStatement : public ASTNode {
  public:
-  ThrowStatement(ASTNode* expr, std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    ASTNode(AST_STMT_THROW, source, start, end, line_start), expr(expr) {}
-  
-  ~ThrowStatement() {
-    if (expr != nullptr) delete expr;
-  }
+  ThrowStatement(uni_ptr<ASTNode> expr, u16string_view source, u32 start, u32 end, u32 line_start) :
+    ASTNode(AST_STMT_THROW, source, start, end, line_start), expr(std::move(expr)) {}
 
-  ASTNode* expr;
+  uni_ptr<ASTNode> expr;
 };
 
 class VarStatement : public ASTNode {
  public:
   VarStatement() : ASTNode(AST_STMT_VAR) {}
-  ~VarStatement() {
-    for (auto decl : declarations) delete decl;
-  }
 
-  void add_decl(ASTNode* decl) {
+  void add_decl(uni_ptr<ASTNode> decl) {
     ASSERT(decl->get_type() == AST_STMT_VAR_DECL);
-    declarations.emplace_back(static_cast<VarDecl*>(decl));
+    declarations.emplace_back(static_ptr_cast<VarDecl>(std::move(decl)));
   }
 
-  std::vector<VarDecl*> declarations;
+  vector<uni_ptr<VarDecl>> declarations;
 };
 
 class Block : public ASTNode {
  public:
   Block() : ASTNode(AST_STMT_BLOCK) {}
-  ~Block() {
-    for (auto stmt : statements) {
-      delete stmt;
-    }
+
+  void add_statement(uni_ptr<ASTNode> stmt) {
+    statements.push_back(std::move(stmt));
+    add_child(stmt.get());
   }
 
-  void add_statement(ASTNode* stmt) {
-    statements.emplace_back(stmt);
-    add_child(stmt);
-  }
-
-  std::vector<ASTNode*> statements;
+  vector<uni_ptr<ASTNode>> statements;
 };
 
 class TryStatement : public ASTNode {
  public:
-  TryStatement(ASTNode* try_block, Token catch_ident, ASTNode* catch_block,
-      std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    TryStatement(try_block, catch_ident, catch_block, nullptr, source, start, end, line_start) {}
 
-  TryStatement(ASTNode* try_block, ASTNode* finally_block,
-      std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    TryStatement(try_block, Token(TokenType::NONE, u"", 0, 0),
-                  nullptr, finally_block, source, start, end, line_start) {}
-
-  TryStatement(ASTNode* try_block, Token catch_ident, ASTNode* catch_block, ASTNode* finally_block,
-      std::u16string_view source, u32 start, u32 end, u32 line_start)
-    : ASTNode(AST_STMT_TRY, source, start, end, line_start),
-                try_block(try_block), catch_ident(catch_ident),
-                catch_block(catch_block), finally_block(finally_block) {
+  TryStatement(uni_ptr<ASTNode> try_block, Token catch_ident, uni_ptr<ASTNode> catch_block,
+              uni_ptr<ASTNode> finally_block, u16string_view source, u32 start, u32 end, u32 line_start)
+              : ASTNode(AST_STMT_TRY, source, start, end, line_start),
+                  try_block(std::move(try_block)), catch_ident(std::move(catch_ident)),
+                  catch_block(std::move(catch_block)), finally_block(std::move(finally_block)) {
     
-    add_child(try_block);
-    add_child(catch_block);
-    add_child(finally_block);
+    add_child(try_block.get());
+    add_child(catch_block.get());
+    add_child(finally_block.get());
   }
 
-  ~TryStatement() {
-    delete try_block;
-    if (catch_block != nullptr) delete catch_block;
-    if (finally_block != nullptr) delete finally_block;
-  }
+  u16string_view get_catch_identifier() { return catch_ident.text; };
 
-  std::u16string_view get_catch_identifier() { return catch_ident.text; };
-
-  ASTNode* try_block;
+  uni_ptr<ASTNode> try_block;
   Token catch_ident;
-  ASTNode* catch_block;
-  ASTNode* finally_block;
+  uni_ptr<ASTNode> catch_block;
+  uni_ptr<ASTNode> finally_block;
 };
 
 class IfStatement : public ASTNode {
  public:
-  IfStatement(ASTNode* cond, ASTNode* if_block, std::u16string_view source, u32 start, u32 end, u32 line_start) :
-    IfStatement(cond, if_block, nullptr, source, start, end, line_start) {}
-
-  IfStatement(ASTNode* cond, ASTNode* if_block, ASTNode* else_block,
-              std::u16string_view source, u32 start, u32 end, u32 line_start) :
-              ASTNode(AST_STMT_IF, source, start, end, line_start),
-              condition_expr(cond), if_block(if_block), else_block(else_block) {
+  IfStatement(uni_ptr<ASTNode> cond, uni_ptr<ASTNode> if_block, uni_ptr<ASTNode> else_block,
+              u16string_view source, u32 start, u32 end, u32 line_start) :
+              ASTNode(AST_STMT_IF, source, start, end, line_start), condition_expr(std::move(cond)),
+              if_block(std::move(if_block)), else_block(std::move(else_block)) {
     
-    add_child(cond);
-    add_child(if_block);
-    add_child(else_block);
+    add_child(cond.get());
+    add_child(if_block.get());
+    add_child(else_block.get());
   }
 
-  ~IfStatement() {
-    delete condition_expr;
-    delete if_block;
-    if (else_block != nullptr) delete else_block;
-  }
-
-  ASTNode* condition_expr;
-  ASTNode* if_block;
-  ASTNode* else_block;
+  uni_ptr<ASTNode> condition_expr;
+  uni_ptr<ASTNode> if_block;
+  uni_ptr<ASTNode> else_block;
 };
 
 class WhileStatement : public ASTNode {
  public:
-  WhileStatement(ASTNode* condition_expr, ASTNode* body_stmt, std::u16string_view source,
+  WhileStatement(uni_ptr<ASTNode> condition_expr, uni_ptr<ASTNode> body_stmt, u16string_view source,
                   u32 start, u32 end, u32 line_start) :
                   ASTNode(AST_STMT_WHILE, source, start, end, line_start),
-                           condition_expr(condition_expr), body_stmt(body_stmt) {}
+                           condition_expr(std::move(condition_expr)), body_stmt(std::move(body_stmt)) {}
 
-  ~WhileStatement() {
-    delete condition_expr;
-    delete body_stmt;
-  }
-
-  ASTNode* condition_expr;
-  ASTNode* body_stmt;
+  uni_ptr<ASTNode> condition_expr;
+  uni_ptr<ASTNode> body_stmt;
 };
 
 class WithStatement : public ASTNode {
  public:
-  WithStatement(ASTNode* expr, ASTNode* stmt, std::u16string_view source,
+  WithStatement(uni_ptr<ASTNode> expr, uni_ptr<ASTNode> stmt, u16string_view source,
                 u32 start, u32 end, u32 line_start) :
-                ASTNode(AST_STMT_WITH, source, start, end, line_start), expr(expr), stmt(stmt) {}
+                ASTNode(AST_STMT_WITH, source, start, end, line_start),
+                expr(std::move(expr)), stmt(std::move(stmt)) {}
 
-  ~WithStatement() {
-    delete expr;
-    delete stmt;
-  }
-
-  ASTNode* expr;
-  ASTNode* stmt;
+  uni_ptr<ASTNode> expr;
+  uni_ptr<ASTNode> stmt;
 };
 
 class DoWhileStatement : public ASTNode {
  public:
-  DoWhileStatement(ASTNode* condition_expr, ASTNode* body_stmt,
-                  std::u16string_view source, u32 start, u32 end, u32 line_start) :
+  DoWhileStatement(uni_ptr<ASTNode> condition_expr, uni_ptr<ASTNode> body_stmt,
+                  u16string_view source, u32 start, u32 end, u32 line_start) :
                   ASTNode(AST_STMT_DO_WHILE, source, start, end, line_start),
-                  condition_expr(condition_expr), body_stmt(body_stmt) {}
+                  condition_expr(std::move(condition_expr)), body_stmt(std::move(body_stmt)) {}
 
-  ~DoWhileStatement() {
-    delete condition_expr;
-    delete body_stmt;
-  }
-
-  ASTNode* condition_expr;
-  ASTNode* body_stmt;
+  uni_ptr<ASTNode> condition_expr;
+  uni_ptr<ASTNode> body_stmt;
 };
 
 class SwitchStatement : public ASTNode {
  public:
   struct DefaultClause {
-    std::vector<ASTNode*> stmts;
+    vector<uni_ptr<ASTNode>> stmts;
   };
 
   struct CaseClause {
-    CaseClause(ASTNode* expr, std::vector<ASTNode*> stmts) : expr(expr), stmts(stmts) {}
-    ASTNode* expr;
-    std::vector<ASTNode*> stmts;
+    CaseClause(uni_ptr<ASTNode> expr, vector<uni_ptr<ASTNode>> stmts) :
+                expr(std::move(expr)), stmts(std::move(stmts)) {}
+    uni_ptr<ASTNode> expr;
+    vector<uni_ptr<ASTNode>> stmts;
   };
 
   SwitchStatement() : ASTNode(AST_STMT_SWITCH) {}
 
-  ~SwitchStatement() override {
-    for (CaseClause clause : before_default_case_clauses) {
-      delete clause.expr;
-      for (auto stmt : clause.stmts) {
-        delete stmt;
-      }
-    }
-    for (CaseClause clause : after_default_case_clauses) {
-      delete clause.expr;
-      for (auto stmt : clause.stmts) {
-        delete stmt;
-      }
-    }
-    for (auto stmt : default_clause.stmts) {
-      delete  stmt;
-    }
+  // ~SwitchStatement() override {
+  //   for (CaseClause clause : before_default_case_clauses) {
+  //     delete clause.expr;
+  //     for (auto stmt : clause.stmts) {
+  //       delete stmt;
+  //     }
+  //   }
+  //   for (CaseClause clause : after_default_case_clauses) {
+  //     delete clause.expr;
+  //     for (auto stmt : clause.stmts) {
+  //       delete stmt;
+  //     }
+  //   }
+  //   for (auto stmt : default_clause.stmts) {
+  //     delete  stmt;
+  //   }
+  // }
+
+  void SetExpr(uni_ptr<ASTNode> expr) {
+    condition_expr = std::move(expr);
   }
 
-  void SetExpr(ASTNode* expr) {
-    condition_expr = expr;
-  }
-
-  void SetDefaultClause(std::vector<ASTNode*> stmts) {
+  void SetDefaultClause(vector<uni_ptr<ASTNode>> stmts) {
     ASSERT(!has_default_clause);
     has_default_clause = true;
-    default_clause.stmts = stmts;
+    default_clause.stmts = std::move(stmts);
   }
 
   void AddBeforeDefaultCaseClause(CaseClause c) {
-    before_default_case_clauses.emplace_back(c);
+    before_default_clauses.push_back(std::move(c));
   }
 
   void AddAfterDefaultCaseClause(CaseClause c) {
-    after_default_case_clauses.emplace_back(c);
+    after_default_clauses.push_back(std::move(c));
   }
 
-  ASTNode* condition_expr;
+  uni_ptr<ASTNode> condition_expr;
   bool has_default_clause = false;
   DefaultClause default_clause;
-  std::vector<CaseClause> before_default_case_clauses;
-  std::vector<CaseClause> after_default_case_clauses;
+  vector<CaseClause> before_default_clauses;
+  vector<CaseClause> after_default_clauses;
 };
 
 class ForStatement : public ASTNode {
  public:
-  ForStatement(std::vector<ASTNode*> init_expr, ASTNode* condition_expr, ASTNode* increment_expr,
-              ASTNode* body_stmt, std::u16string_view source, u32 start, u32 end, u32 line_start) :
-              ASTNode(AST_STMT_FOR, source, start, end, line_start), init_expr(init_expr),
-              condition_expr(condition_expr), increment_expr(increment_expr), body_stmt(body_stmt) {}
+  ForStatement(vector<uni_ptr<ASTNode>> init_expr, uni_ptr<ASTNode> condition_expr, uni_ptr<ASTNode> increment_expr,
+              uni_ptr<ASTNode> body_stmt, u16string_view source, u32 start, u32 end, u32 line_start) :
+              ASTNode(AST_STMT_FOR, source, start, end, line_start), init_expr(std::move(init_expr)),
+              condition_expr(std::move(condition_expr)), increment_expr(std::move(increment_expr)), body_stmt(std::move(body_stmt)) {}
 
-  std::vector<ASTNode*> init_expr;
-  ASTNode* condition_expr;
-  ASTNode* increment_expr;
+  vector<uni_ptr<ASTNode>> init_expr;
+  uni_ptr<ASTNode> condition_expr;
+  uni_ptr<ASTNode> increment_expr;
 
-  ASTNode* body_stmt;
+  uni_ptr<ASTNode> body_stmt;
 };
 
 class ForInStatement : public ASTNode {
  public:
-  ForInStatement(ASTNode* element_expr, ASTNode* collection_expr, ASTNode* body_stmt,
-                std::u16string_view source, u32 start, u32 end, u32 line_start) :
-                ASTNode(AST_STMT_FOR_IN, source, start, end, line_start), element_expr(element_expr),
-                collection_expr(collection_expr), body_stmt(body_stmt) {}
+  ForInStatement(uni_ptr<ASTNode> element_expr, uni_ptr<ASTNode> collection_expr, uni_ptr<ASTNode> body_stmt,
+                u16string_view source, u32 start, u32 end, u32 line_start) :
+                ASTNode(AST_STMT_FOR_IN, source, start, end, line_start), element_expr(std::move(element_expr)),
+                collection_expr(std::move(collection_expr)), body_stmt(std::move(body_stmt)) {}
 
-  ASTNode* element_expr;
-  ASTNode* collection_expr;
+  uni_ptr<ASTNode> element_expr;
+  uni_ptr<ASTNode> collection_expr;
 
-  ASTNode* body_stmt;
+  uni_ptr<ASTNode> body_stmt;
 };
 
 }  // namespace njs
