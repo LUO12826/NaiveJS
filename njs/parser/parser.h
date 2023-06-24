@@ -416,7 +416,7 @@ error:
           }
           assert(ast->get_type() == ASTNode::AST_EXPR_ARGS);
           Arguments* args = static_cast<Arguments*>(ast);
-          lhs->AddArguments(args);
+          lhs->add_arguments(args);
           break;
         }
         case TokenType::LEFT_BRACK: {  // [
@@ -433,7 +433,7 @@ error:
             delete index;
             goto error;
           }
-          lhs->AddIndex(index);
+          lhs->add_index(index);
           break;
         }
         case TokenType::DOT: {  // .
@@ -443,7 +443,7 @@ error:
             delete lhs;
             goto error;
           }
-          lhs->AddProp(token);
+          lhs->add_prop(token);
           break;
         }
         default:
@@ -1037,7 +1037,7 @@ error:
       delete expr;
       goto error;
     }
-    switch_stmt->SetExpr(expr);
+    switch_stmt->set_expr(expr);
     if (lexer.next().type != TokenType::LEFT_BRACE) { // skip {
       goto error;
     }
@@ -1084,14 +1084,14 @@ error:
       }
       if (type == u"case") {
         if (switch_stmt->has_default_clause) {
-          switch_stmt->AddAfterDefaultCaseClause(SwitchStatement::CaseClause(case_expr, stmts));
+          switch_stmt->add_after_default_clause(SwitchStatement::CaseClause(case_expr, stmts));
         }
         else {
-          switch_stmt->AddBeforeDefaultCaseClause(SwitchStatement::CaseClause(case_expr, stmts));
+          switch_stmt->add_before_default_clause(SwitchStatement::CaseClause(case_expr, stmts));
         }
       }
       else {
-        switch_stmt->SetDefaultClause(stmts);
+        switch_stmt->set_default_clause(stmts);
       }
     }
 

@@ -362,17 +362,17 @@ class LeftHandSideExpr : public ASTNode {
     for (auto index : index_list) delete index;
   }
 
-  void AddArguments(Arguments* args) {
+  void add_arguments(Arguments* args) {
     postfix_order.emplace_back(CALL, args_list.size());
     args_list.push_back(args);
   }
 
-  void AddIndex(ASTNode* index) {
+  void add_index(ASTNode* index) {
     postfix_order.emplace_back(INDEX, index_list.size());
     index_list.push_back(index);
   }
 
-  void AddProp(Token prop_name) {
+  void add_prop(Token prop_name) {
     postfix_order.emplace_back(PROP, prop_names_list.size());
     prop_names_list.push_back(prop_name.text);
   }
@@ -676,21 +676,21 @@ class SwitchStatement : public ASTNode {
     }
   }
 
-  void SetExpr(ASTNode* expr) {
+  void set_expr(ASTNode* expr) {
     condition_expr = expr;
   }
 
-  void SetDefaultClause(vector<ASTNode*> stmts) {
+  void set_default_clause(vector<ASTNode*> stmts) {
     ASSERT(!has_default_clause);
     has_default_clause = true;
     default_clause.stmts = stmts;
   }
 
-  void AddBeforeDefaultCaseClause(CaseClause c) {
+  void add_before_default_clause(CaseClause c) {
     before_default_case_clauses.emplace_back(c);
   }
 
-  void AddAfterDefaultCaseClause(CaseClause c) {
+  void add_after_default_clause(CaseClause c) {
     after_default_case_clauses.emplace_back(c);
   }
 

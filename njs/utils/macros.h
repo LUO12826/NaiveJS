@@ -7,15 +7,6 @@ namespace njs {
 
 using u32 = uint32_t;
 
-constexpr u32 kIntSize = sizeof(int);
-constexpr u32 kSizeTSize = sizeof(u32);
-constexpr u32 kBoolSize = sizeof(bool);
-constexpr u32 kDoubleSize = sizeof(double);
-constexpr u32 kCharSize = sizeof(char);
-constexpr u32 kChar16Size = sizeof(char16_t);
-constexpr u32 kPtrSize = sizeof(void*);
-constexpr u32 kFuncPtrSize = sizeof(void* (*));
-
 #define PTR(ptr, offset) \
   (reinterpret_cast<char*>(ptr) + offset)
 

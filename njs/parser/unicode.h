@@ -79,26 +79,26 @@ enum CategoryFlag {
 };
 
 // unicode bidirectional constant
-static const int kDirectionalityUndefined = -1;
-static const int kDirectionalityLeftToRight = 0;                // L
-static const int kDirectionalityRightToLeft = 1;                // R
-static const int kDirectionalityRightToLeftArabic = 2;          // AL
-static const int kDirectionalityEnuropeanNumber = 3;            // EN
-static const int kDirectionalityEnuropeanNumberSeparator = 4;   // ES
-static const int kDirectionalityEnuropeanNumberTerminator = 5;  // ET
-static const int kDirectionalityEnuropeanArabicNumber = 6;      // AN
-static const int kDirectionalityCommonNumberSeparator = 7;      // CS
-static const int kDirectionalityNonspacingMark = 8;             // NSM
-static const int kDirectionalityBoundaryNeutral = 9;            // BN
-static const int kDirectionalityParagraphSeparator = 10;        // B
-static const int kDirectionalitySegmentSeparator = 11;          // S
-static const int kDirectionalityWhiteSpace = 12;                // WS
-static const int kDirectionalityOtherNeutrals = 13;             // ON
-static const int kDirectionalityLeftToRightEmbedding = 14;      // LRE
-static const int kDirectionalityLeftToRightOverride = 15;       // LRO
-static const int kDirectionalityRightToLeftEmbedding = 16;      // RLE
-static const int kDirectionalityRightToLeftOverride = 17;       // RLO
-static const int kDirectionalityPopDirectionalFormat = 18;      // PDF
+static const int DIR_UNDEFINED = -1;
+static const int DIR_LEFT_TO_RIGHT = 0;                // L
+static const int DIR_RIGHT_TO_LEFT = 1;                // R
+static const int DIR_RIGHT_TO_LEFT_ARABIC = 2;          // AL
+static const int DIR_ENUROPEAN_NUMBER = 3;            // EN
+static const int DIR_ENUROPEAN_NUMBER_SEPARATOR = 4;   // ES
+static const int DIR_ENUROPEAN_NUMBER_TERMINATOR = 5;  // ET
+static const int DIR_ENUROPEAN_ARABIC_NUMBER = 6;      // AN
+static const int DIR_COMMON_NUMBER_SEPARATOR = 7;      // CS
+static const int DIR_NONSPACING_MARK = 8;             // NSM
+static const int DIR_BOUNDARY_NEUTRAL = 9;            // BN
+static const int DIR_PARAGRAPH_SEPARATOR = 10;        // B
+static const int DIR_SEGMENT_SEPARATOR = 11;          // S
+static const int DIR_WHITE_SPACE = 12;                // WS
+static const int DIR_OTHER_NEUTRALS = 13;             // ON
+static const int DIR_LEFT_TO_RIGHT_EMBEDDING = 14;      // LRE
+static const int DIR_LEFT_TO_RIGHT_OVERRIDE = 15;       // LRO
+static const int DIR_RIGHT_TO_LEFT_EMBEDDING = 16;      // RLE
+static const int DIR_RIGHT_TO_LEFT_OVERRIDE = 17;       // RLO
+static const int DIR_POP_DIRECTIONAL_FORMAT = 18;      // PDF
 
 
 static const std::array<uint8_t, 1000> k_category_cache = { {
