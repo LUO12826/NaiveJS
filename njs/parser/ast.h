@@ -43,6 +43,7 @@ const char *ast_type_names[] = {
 
   "AST_EXPR_ARGS",
   "AST_EXPR_LHS",
+  "AST_EXPR_NEW",
 
   "AST_EXPR",
 
@@ -101,6 +102,7 @@ class ASTNode {
 
     AST_EXPR_ARGS,
     AST_EXPR_LHS,
+    AST_EXPR_NEW,
 
     AST_EXPR,
 
@@ -296,9 +298,19 @@ class BinaryExpr : public ASTNode {
 class UnaryExpr : public ASTNode {
  public:
   UnaryExpr(ASTNode *node, Token op, bool prefix)
-      : ASTNode(AST_EXPR_UNARY), operand(node), op(op), is_prefix_op(prefix) {}
+      : ASTNode(AST_EXPR_UNARY), operand(node), op(op), is_prefix_op(prefix) {
+
+    add_child(operand);
+  }
 
   ~UnaryExpr() override { delete operand; }
+
+  std::string description() override {
+    std::string desc = ASTNode::description();
+    desc += "  op: " + op.get_text_utf8();
+    desc += is_prefix_op ? " (prefix)" : " (suffix)";
+    return desc;
+  }
 
   ASTNode *operand;
   Token op;
@@ -348,6 +360,23 @@ class Arguments : public ASTNode {
   vector<ASTNode *> args;
 };
 
+class NewExpr : public ASTNode {
+ public:
+  template <typename... Args>
+  NewExpr(ASTNode *callee, Args &&...args)
+      : ASTNode(AST_EXPR_NEW, std::forward<Args>(args)...), callee(callee) {
+    add_child(callee);
+  }
+
+  ~NewExpr() override { delete callee; }
+
+  std::string description() override {
+    return ASTNode::description() + "  \"" + to_utf8_string(get_source_ref()) + "\"";
+  }
+
+  ASTNode *callee;
+};
+
 class LeftHandSideExpr : public ASTNode {
  public:
   enum PostfixType {
@@ -365,6 +394,10 @@ class LeftHandSideExpr : public ASTNode {
     delete base;
     for (auto args : args_list) delete args;
     for (auto index : index_list) delete index;
+  }
+
+  std::string description() override {
+    return ASTNode::description() + "  base: " + base->description();
   }
 
   void add_arguments(Arguments *args) {
@@ -481,7 +514,7 @@ class LabelledStatement : public ASTNode {
 class ContinueOrBreak : public ASTNode {
  public:
   ContinueOrBreak(Type type, std::u16string_view source, u32 start, u32 end, u32 line_start)
-      : ContinueOrBreak(type, Token(TokenType::NONE, u"", 0, 0), source, start, end, line_start) {}
+      : ContinueOrBreak(type, Token::none, source, start, end, line_start) {}
 
   ContinueOrBreak(Type type, Token id, std::u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(type, source, start, end, line_start), id(id) {}
@@ -554,7 +587,7 @@ class TryStatement : public ASTNode {
 
   TryStatement(ASTNode *try_block, ASTNode *finally_block, std::u16string_view source, u32 start,
                u32 end, u32 line_start)
-      : TryStatement(try_block, Token(TokenType::NONE, u"", 0, 0), nullptr, finally_block, source, start,
+      : TryStatement(try_block, Token::none, nullptr, finally_block, source, start,
                      end, line_start) {}
 
   TryStatement(ASTNode *try_block, Token catch_ident, ASTNode *catch_block, ASTNode *finally_block,

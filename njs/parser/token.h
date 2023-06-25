@@ -18,10 +18,10 @@ class Token {
 
   static const Token none;
 
-  Token(TokenType type, std::u16string_view text, u32 start, u32 end, u32 line = 0) :
+  Token(TokenType type, std::u16string_view text, u32 start, u32 end, u32 line) :
     type(type), text(text), start(start), end(end), line(line) {}
 
-  void set(TokenType type, std::u16string_view text, u32 start, u32 end, u32 line = 0) {
+  void set(TokenType type, std::u16string_view text, u32 start, u32 end, u32 line) {
     this->type = type;
     this->text = text;
     this->start = start;
@@ -168,8 +168,7 @@ class Token {
     assert(is_compound_assign());
     return Token((TokenType)(type - ADD_ASSIGN + ADD),
                   text.substr(0, text.size() - 1),
-                  start,
-                  end - 1);
+                  start, end - 1, line);
   }
 
   inline const std::u16string_view& get_text_ref() const { return text; }
@@ -185,7 +184,7 @@ class Token {
   SourceLocation end_loc;
 };
 
-const Token Token::none = Token(TokenType::NONE, u"", 0, 0);
+const Token Token::none = Token(TokenType::NONE, u"", 0, 0, 0);
 
 const std::unordered_set<std::u16string> keyword_set = {
   u"break",     u"do",       u"in",          u"typeof",

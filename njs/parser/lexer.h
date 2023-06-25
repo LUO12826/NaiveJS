@@ -860,7 +860,7 @@ error:
 
     if (id_text == u"null") {
       if (cursor - start != id_text.size()) goto error;
-      return Token(TokenType::TK_NULL, u"null", start, cursor);
+      return token_with_type(TokenType::TK_NULL, start);
     }
     if (id_text == u"true" || id_text == u"false") {
       if (cursor - start != id_text.size()) goto error;
@@ -884,7 +884,7 @@ error:
                   // insert(obj) return (inserted_obj, success_or_not)
                   // make a string view from the string that was put in the string pool.
                   u16string_view(string_pool.insert(id_text).first->c_str()),
-                  start, cursor);
+                  start, cursor, curr_line);
 error:
     return token_with_type(TokenType::ILLEGAL, start);
   }

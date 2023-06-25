@@ -9,6 +9,17 @@ enum TokenType {
   // Keywords
   KEYWORD,
 
+  KW_VAR,
+  KW_LET,
+  KW_CONST,
+  KW_FUNCTION,
+  KW_RETURN,
+  KW_WHILE,
+  KW_FOR,
+  KW_IF,
+  KW_ELSE,
+  KW_CASE,
+
   // Future Reserved Words
   FUTURE_KW,
   STRICT_FUTURE_KW,
@@ -104,6 +115,18 @@ enum TokenType {
 const char *token_type_names[] = {
   "IDENTIFIER",
   "KEYWORD",
+
+  "KW_VAR",
+  "KW_LET",
+  "KW_CONST",
+  "KW_FUNCTION",
+  "KW_RETURN",
+  "KW_WHILE",
+  "KW_FOR",
+  "KW_IF",
+  "KW_ELSE",
+  "KW_CASE",
+
   "FUTURE_KW",
   "STRICT_FUTURE_KW",
   "LEFT_BRACE",
