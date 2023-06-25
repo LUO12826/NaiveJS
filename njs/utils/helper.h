@@ -74,6 +74,8 @@ void PrintSource(std::string comment, std::u16string str = u"", std::string post
   std::cout << postfix << "\n";
 }
 
+}  // namespace test
+
 std::string to_utf8_string(std::u16string str) {
   static std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
   return convert.to_bytes(str);
@@ -94,8 +96,6 @@ std::string to_utf8_string(const void *ptr) {
   ss << ptr;  
   return ss.str();
 }
-
-}  // namespace test
 
 std::u16string str_cat(std::vector<std::u16string> vals) {
   u32 size = 0;

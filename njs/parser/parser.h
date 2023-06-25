@@ -33,7 +33,7 @@ class Parser {
       case TokenType::STRICT_FUTURE_KW:
         return new ASTNode(ASTNode::AST_EXPR_STRICT_FUTURE, TOKEN_SOURCE_EXPR);
       case TokenType::IDENTIFIER:
-        return new ASTNode(ASTNode::AST_EXPR_IDENT, TOKEN_SOURCE_EXPR);
+        return new ASTNode(ASTNode::AST_EXPR_ID, TOKEN_SOURCE_EXPR);
       case TokenType::TK_NULL:
         return new ASTNode(ASTNode::AST_EXPR_NULL, TOKEN_SOURCE_EXPR);
       case TokenType::TK_BOOL:
@@ -54,7 +54,7 @@ class Parser {
           delete value;
           goto error;
         }
-        return new ParenthesisExpr(value, value->source(),value->start_pos(), value->end_pos(),
+        return new ParenthesisExpr(value, value->get_source(),value->start_pos(), value->end_pos(),
                                     value->get_line_start());
       }
       case TokenType::DIV_ASSIGN:

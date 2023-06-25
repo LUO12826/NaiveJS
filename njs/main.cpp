@@ -22,7 +22,7 @@ void print_tokens(u16string& source_code);
 
 int main(int argc, char *argv[]) {
 
-  string file_path = "/Users/luohuizhou/Desktop/js-test-file.js";
+  string file_path = "../test_files/temp_test.js";
   bool show_ast = false;
   bool show_tokens = false;
 
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
     if (show_ast) ast->print_tree(0);
 
     if (ast->is_illegal()) {
-      std::cout << "illegal program at: " << test::to_utf8_string(ast->source_ref())
+      std::cout << "illegal program at: " << to_utf8_string(ast->get_source_ref())
                 << ", line: " << ast->get_line_start() + 1 << ", start: " << ast->start_pos()
                 << ", end: " << ast->end_pos() << std::endl;
     }

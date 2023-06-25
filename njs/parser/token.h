@@ -32,8 +32,16 @@ class Token {
   std::string to_string() const {
     std::ostringstream oss;
     oss << "token type: " << token_type_names[(int)type] << ", text: "
-        << test::to_utf8_string(text) << ", start: " << start << ", end: " << end;
+        << to_utf8_string(text) << ", start: " << start << ", end: " << end;
     return oss.str();
+  }
+
+  std::string get_type_string() const {
+    return std::string(token_type_names[(int)type]);
+  }
+
+  std::string get_text_utf8() const {
+    return to_utf8_string(text);
   }
 
   inline bool is_assignment_operator() const {
