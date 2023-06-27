@@ -193,7 +193,7 @@ const std::unordered_set<std::u16string> keyword_set = {
   u"class",     u"extends",  u"return",      u"while",
   u"const",     u"finally",  u"super",       u"with",
   u"continue",  u"for",      u"switch",      u"yield",
-  u"debugger",  u"function", u"this",
+  u"debugger",  u"function", u"this",        u"let",
   u"default",   u"if",       u"throw",
   u"delete",    u"import",   u"try"
 };

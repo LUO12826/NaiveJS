@@ -217,7 +217,6 @@ class ArrayLiteral : public ASTNode {
     len++;
   }
 
- private:
   vector<pair<u32, ASTNode *>> elements;
   u32 len;
 };
@@ -250,7 +249,6 @@ class ObjectLiteral : public ASTNode {
 
   u32 length() { return properties.size(); }
 
- private:
   vector<Property> properties;
 };
 
@@ -263,7 +261,6 @@ class ParenthesisExpr : public ASTNode {
 
   ASTNode *get_expr() { return expr; }
 
- private:
   ASTNode *expr;
 };
 
@@ -285,11 +282,6 @@ class BinaryExpr : public ASTNode {
     return ASTNode::description() + " oprand: " + op.get_type_string();
   }
 
-  ASTNode *get_lhs() { return lhs; }
-  ASTNode *get_rhs() { return rhs; }
-  Token &get_op() { return op; }
-
- private:
   ASTNode *lhs;
   ASTNode *rhs;
   Token op;
@@ -550,16 +542,37 @@ class ThrowStatement : public ASTNode {
 
 class VarStatement : public ASTNode {
  public:
-  VarStatement() : ASTNode(AST_STMT_VAR) {}
+  enum VarKind {
+    DECL_VAR,
+    DECL_LET,
+    DECL_CONST
+  };
+
+  std::string get_var_kind_str() {
+    switch (kind) {
+      case DECL_VAR: return "var";
+      case DECL_LET: return "let";
+      case DECL_CONST: return "const";
+      default: return "var";
+    }
+  }
+
+  VarStatement(VarKind var_kind) : ASTNode(AST_STMT_VAR), kind(var_kind) {}
   ~VarStatement() {
     for (auto decl : declarations) delete decl;
+  }
+
+  std::string description() override {
+    return ASTNode::description() + "  " + get_var_kind_str();
   }
 
   void add_decl(ASTNode *decl) {
     ASSERT(decl->get_type() == AST_STMT_VAR_DECL);
     declarations.emplace_back(static_cast<VarDecl *>(decl));
+    add_child(decl);
   }
 
+  VarKind kind;
   vector<VarDecl *> declarations;
 };
 

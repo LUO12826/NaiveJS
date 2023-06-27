@@ -559,7 +559,9 @@ error:
       case TokenType::SEMICOLON:  // ;
         return new ASTNode(ASTNode::AST_STMT_EMPTY, TOKEN_SOURCE_EXPR);
       case TokenType::KEYWORD: {
-        if (token.text == u"var") return parse_variable_statement(false);
+        if (token.text == u"var" || token.text == u"let" || token.text == u"const") {
+          return parse_variable_statement(false);
+        }
         else if (token.text == u"if") return parse_if_statement();
         else if (token.text == u"do") return parse_do_while_statement();
         else if (token.text == u"while") return parse_while_statement();
@@ -615,13 +617,17 @@ error:
     return block;
   }
 
-  ASTNode* parse_variable_declaration(bool no_in) {
+  ASTNode* parse_variable_declaration(bool no_in, bool must_assign) {
     START_POS;
     Token id = lexer.current();
     
     assert(id.is_identifier());
 
     if (lexer.peek().type != TokenType::ASSIGN) {
+      if (must_assign) {
+        lexer.next();
+        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+      }
       VarDecl* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
       var_decl_stack.top().emplace_back(var_decl);
       return var_decl;
@@ -637,29 +643,43 @@ error:
 
   ASTNode* parse_variable_statement(bool no_in) {
     START_POS;
-    assert(token_match(u"var"));
-    VarStatement* var_stmt = new VarStatement();
+    auto var_kind_text = lexer.current().text;
+    VarStatement::VarKind var_kind;
+    bool is_const = false;
+
+    if (var_kind_text == u"var") var_kind = VarStatement::VarKind::DECL_VAR;
+    else if (var_kind_text == u"let") var_kind = VarStatement::VarKind::DECL_LET;
+    else if (var_kind_text == u"const") {
+      var_kind = VarStatement::VarKind::DECL_CONST;
+      is_const = true;
+    }
+    else assert(false);
+    
+    VarStatement* var_stmt = new VarStatement(var_kind);
     ASTNode* decl;
     if (!lexer.next().is_identifier()) {
       goto error;
     }
     // Similar to parse_expression
-    decl = parse_variable_declaration(no_in);
-    if (decl->is_illegal()) {
-      delete var_stmt;
-      return decl;
-    }
-    var_stmt->add_decl(decl);
+    // decl = parse_variable_declaration(no_in, var_kind == VarStatement::VarKind::DECL_CONST);
+    // if (decl->is_illegal()) {
+    //   delete var_stmt;
+    //   return decl;
+    // }
+    // var_stmt->add_decl(decl);
 
-    while (!lexer.try_skip_semicolon()) {
-      if (lexer.next().text != u",") goto error;
-      lexer.next();
-      decl = parse_variable_declaration(no_in);
-      if (decl->is_illegal()) {
-        delete var_stmt;
-        return decl;
+    while (true) {
+
+      if (lexer.current().text != u",") {
+        decl = parse_variable_declaration(no_in, is_const);
+        if (decl->is_illegal()) {
+          delete var_stmt;
+          return decl;
+        }
+        var_stmt->add_decl(decl);
       }
-      var_stmt->add_decl(decl);
+      if (lexer.try_skip_semicolon()) break;
+      lexer.next();
     }
 
     var_stmt->set_source(SOURCE_PARSED_EXPR);
@@ -816,7 +836,8 @@ error:
     if (lexer.current().is_semicolon()) {
       return parse_for_statement({}, start, line_start);  // for (;
     }
-    else if (token_match(u"var")) {
+    else if (token_match(u"var") || token_match(u"let") || token_match(u"const")) {
+      bool is_const = token_match(u"const");
       lexer.next();  // skip var
       std::vector<ASTNode*> init_expressions;
 
@@ -824,7 +845,7 @@ error:
       // must be identifier. This is for better error code.
       if (!lexer.current().is_identifier()) goto error;
 
-      init_expr = parse_variable_declaration(true);
+      init_expr = parse_variable_declaration(true, is_const);
       if (init_expr->is_illegal()) return init_expr;
 
       // expect `in`, `,`
@@ -844,7 +865,7 @@ error:
           goto error;
         }
 
-        init_expr = parse_variable_declaration(true);
+        init_expr = parse_variable_declaration(true, is_const);
         if (init_expr->is_illegal()) {
           for (auto expr : init_expressions)
             delete expr;
