@@ -900,7 +900,7 @@ error:
     u32 curr_line_start_pos;
   };
 
-  enum BraceType {
+  enum class BraceType {
     LEFT = 0,
     DOLLAR_LEFT,
     RIGHT,

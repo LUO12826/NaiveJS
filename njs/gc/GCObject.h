@@ -12,17 +12,18 @@ class GCHeap;
 using robin_hood::unordered_map;
 using u32 = uint32_t;
 
-enum ObjectClass {
+enum class ObjectClass {
   CLS_OBJECT = 1,
   CLS_ARRAY,
   CLS_ERROR,
   CLS_DATE,
   CLS_FUNCTION,
+  CLS_CUSTOM
 };
 
 class GCObject {
  public:
-  GCObject(ObjectClass type) : type(type) {}
+  GCObject(ObjectClass cls) : obj_class(cls) {}
   virtual ~GCObject() {}
 
   GCObject(const GCObject& obj) = delete;
@@ -32,7 +33,7 @@ class GCObject {
 
   u32 size;
   GCObject *forward_ptr{nullptr};
-  ObjectClass type;
+  ObjectClass obj_class;
 };
 
 } // namespace njs

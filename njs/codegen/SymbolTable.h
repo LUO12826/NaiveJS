@@ -3,6 +3,10 @@
 
 namespace njs {
 
+struct SymbolTableEntry {
+
+};
+
 class SymbolTable {
  public:
 };
