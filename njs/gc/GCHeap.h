@@ -13,26 +13,15 @@
 
 namespace njs {
 
-class GCHeap;
-struct JSValue;
-
-struct GCVisitor {
-  GCVisitor(GCHeap &heap) : heap(heap) {}
-
-  void do_visit(JSValue &handle, GCObject *obj);
-
-  GCHeap &heap;
-};
-
 class GCHeap {
 
   using byte = int8_t;
-  friend struct GCVisitor;
 
  public:
+
   GCHeap(size_t size_mb)
       : heap_size(size_mb * 1024 * 1024), storage((byte *)malloc(size_mb * 1024 * 1024)),
-        from_start(storage), to_start(storage + heap_size / 2), alloc_point(storage), visitor(*this) {}
+        from_start(storage), to_start(storage + heap_size / 2), alloc_point(storage) {}
 
   /// @brief Create a new object on heap.
   template <typename T, typename... Args>
@@ -48,6 +37,16 @@ class GCHeap {
     return object;
   }
 
+  // When garbage collection is performed, this method is called to copy an object
+  // to a new memory area and have the pointer in JSValue, which is the handle,
+  // point to the new address. The `copy_object` method copies the child object recursively.
+  // This method will be called not only in this class, but also in the `gc_scan_children` method
+  // of the GCObject subclasses.
+  void gc_visit_object(JSValue &handle, GCObject *obj) {
+    GCObject *obj_new = copy_object(obj);
+    handle.val.as_ptr = obj_new;
+  }
+
  private:
   std::vector<JSValue *> gather_roots() { return {}; }
 
@@ -58,7 +57,7 @@ class GCHeap {
 
     for (JSValue *root : roots) {
       auto *obj = root->as_GCObject();
-      visitor.do_visit(*root, obj);
+      gc_visit_object(*root, obj);
     }
 
     std::swap(from_start, to_start);
@@ -71,7 +70,7 @@ class GCHeap {
       obj->forward_ptr = (GCObject *)alloc_point;
       alloc_point += obj->size;
 
-      obj->gc_scan_children(visitor);
+      obj->gc_scan_children(*this);
     }
     return obj->forward_ptr;
   }
@@ -83,6 +82,7 @@ class GCHeap {
   // Allocate memory for a new object.
   void *allocate(size_t size_byte) {
     if (lacking_free_memory(size_byte)) {
+      // This call starts GC.
       copy_alive();
       if (lacking_free_memory(size_byte)) {
         // allocation fail
@@ -104,7 +104,6 @@ class GCHeap {
   // Starting address of the next new object
   byte *alloc_point;
 
-  GCVisitor visitor;
 };
 
 } // namespace njs

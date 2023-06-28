@@ -14,6 +14,7 @@ using std::u16string_view;
 
 namespace njs {
 
+using TokenType = Token::TokenType;
 using u32 = uint32_t;
 
 class Lexer {

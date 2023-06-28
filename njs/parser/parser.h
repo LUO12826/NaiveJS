@@ -16,6 +16,8 @@
 
 namespace njs {
 
+using TokenType = Token::TokenType;
+
 struct ParserContext {
 };
 

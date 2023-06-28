@@ -6,7 +6,8 @@
 #include "njs/include/robin_hood.h"
 
 namespace njs {
-struct GCVisitor;
+
+class GCHeap;
 
 using robin_hood::unordered_map;
 using u32 = uint32_t;
@@ -22,8 +23,12 @@ enum ObjectClass {
 class GCObject {
  public:
   GCObject(ObjectClass type) : type(type) {}
+  virtual ~GCObject() {}
 
-  virtual void gc_scan_children(GCVisitor &visitor) = 0;
+  GCObject(const GCObject& obj) = delete;
+  GCObject(GCObject&& obj) = delete;
+
+  virtual void gc_scan_children(GCHeap &heap) = 0;
 
   u32 size;
   GCObject *forward_ptr{nullptr};

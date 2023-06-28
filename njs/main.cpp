@@ -12,6 +12,7 @@
 #include "njs/parser/parser.h"
 #include "njs/parser/token.h"
 #include "njs/utils/helper.h"
+#include "njs/basic_types/JSObject.h"
 
 using namespace njs;
 using std::string;
@@ -76,12 +77,12 @@ void print_tokens(u16string& source_code) {
   Lexer lexer(source_code);
   Token token = Token::none;
 
-  while (token.type != EOS) {
+  while (token.type != TokenType::EOS) {
     token = lexer.next();
 
     printf("%s\n", token.to_string().c_str());
 
-    if (token.type == ILLEGAL) {
+    if (token.type == TokenType::ILLEGAL) {
       printf("illegal token encountered at line %u.\n", token.line + 1);
       break;
     }
