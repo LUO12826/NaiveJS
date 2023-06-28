@@ -638,7 +638,7 @@ error:
     ASTNode* init = parse_assignment_expression(no_in);
     if (init->is_illegal()) return init;
     
-    VarDecl* var_decl =  new VarDecl(id, init, SOURCE_PARSED_EXPR);
+    VarDecl* var_decl = new VarDecl(id, init, SOURCE_PARSED_EXPR);
     var_decl_stack.top().emplace_back(var_decl);
     return var_decl;
   }
@@ -905,7 +905,7 @@ error:
     assert(lexer.current().is_semicolon());
     ASTNode* expr1 = nullptr;
     ASTNode* expr2 = nullptr;
-    ASTNode* stmt;
+    ASTNode* stmt = nullptr;
 
     if (!lexer.peek().is_semicolon()) {
       lexer.next();
@@ -1053,7 +1053,7 @@ error:
   ASTNode* parse_switch_statement() {
     START_POS;
     SwitchStatement* switch_stmt = new SwitchStatement();
-    ASTNode* expr;
+    ASTNode* expr = nullptr;
     // Token token = lexer.current();
     assert(token_match(u"switch"));
     if (lexer.next().type != TokenType::LEFT_PAREN) { // skip (

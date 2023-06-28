@@ -278,6 +278,8 @@ class BinaryExpr : public ASTNode {
     delete rhs;
   }
 
+  bool is_assign() { return op.type == TokenType::ASSIGN; }
+
   std::string description() override {
     return ASTNode::description() + " oprand: " + op.get_type_string();
   }
@@ -522,7 +524,7 @@ class ReturnStatement : public ASTNode {
   }
 
   ~ReturnStatement() {
-    if (expr != nullptr) delete expr;
+    delete expr;
   }
 
   ASTNode *expr;
@@ -534,7 +536,7 @@ class ThrowStatement : public ASTNode {
       : ASTNode(AST_STMT_THROW, source, start, end, line_start), expr(expr) {}
 
   ~ThrowStatement() {
-    if (expr != nullptr) delete expr;
+    delete expr;
   }
 
   ASTNode *expr;
@@ -615,8 +617,8 @@ class TryStatement : public ASTNode {
 
   ~TryStatement() {
     delete try_block;
-    if (catch_block != nullptr) delete catch_block;
-    if (finally_block != nullptr) delete finally_block;
+    delete catch_block;
+    delete finally_block;
   }
 
   std::u16string_view get_catch_identifier() { return catch_ident.text; };
@@ -646,7 +648,7 @@ class IfStatement : public ASTNode {
   ~IfStatement() {
     delete condition_expr;
     delete if_block;
-    if (else_block != nullptr) delete else_block;
+    delete else_block;
   }
 
   ASTNode *condition_expr;
@@ -761,9 +763,9 @@ class ForStatement : public ASTNode {
 
   ~ForStatement() {
     for (auto expr : init_expr) delete expr;
-    if (condition_expr != nullptr) delete condition_expr;
-    if (increment_expr != nullptr) delete increment_expr;
-    if (body_stmt != nullptr) delete body_stmt;
+    delete condition_expr;
+    delete increment_expr;
+    delete body_stmt;
   }
 
   vector<ASTNode *> init_expr;

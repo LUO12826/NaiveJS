@@ -12,7 +12,7 @@
 #include "njs/parser/parser.h"
 #include "njs/parser/token.h"
 #include "njs/utils/helper.h"
-#include "njs/basic_types/JSObject.h"
+#include "njs/codegen/CodegenVisitor.h"
 
 using namespace njs;
 using std::string;
