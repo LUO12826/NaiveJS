@@ -126,43 +126,15 @@ inline bool is_regular_expression_class_char(char16_t c) {
 }
 
 inline u32 u16_char_to_digit(char16_t c) {
-  switch (c) {
-    case u'0':
-    case u'1':
-    case u'2':
-    case u'3':
-    case u'4':
-    case u'5':
-    case u'6':
-    case u'7':
-    case u'8':
-    case u'9':
-      return c - u'0';
-    case u'A':
-    case u'a':
-      return 10;
-    case u'B':
-    case u'b':
-      return 11;
-    case u'C':
-    case u'c':
-      return 12;
-    case u'D':
-    case u'd':
-      return 13;
-    case u'E':
-    case u'e':
-      return 14;
-    case u'F':
-    case u'f':
-      return 15;
-    default:
-      if (u'A' <= c && c <= u'Z')
-        return c - u'A' + 10;
-      if (u'a' <= c && c <= u'z')
-        return c - u'a' + 10;
-      assert(false);
-  }
+
+  if (u'0' <= c && c <= u'9')
+    return c - u'0';
+  if (u'A' <= c && c <= u'Z')
+    return c - u'A' + 10;
+  if (u'a' <= c && c <= u'z')
+    return c - u'a' + 10;
+  assert(false);
+  
   __builtin_unreachable();
 }
 

@@ -7,12 +7,15 @@
 #include <string>
 #include <string_view>
 #include <unordered_set>
+
+#include "njs/include/robin_hood.h"
 #include "token_type.h"
 #include "njs/utils/helper.h"
 #include "njs/utils/common_types.h"
 
 namespace njs {
 
+using robin_hood::unordered_set;
 class Token {
  public:
 
@@ -186,7 +189,7 @@ class Token {
 
 const Token Token::none = Token(TokenType::NONE, u"", 0, 0, 0);
 
-const std::unordered_set<std::u16string> keyword_set = {
+const unordered_set<std::u16string> keyword_set = {
   u"break",     u"do",       u"in",          u"typeof",
   u"case",      u"else",     u"instanceof",  u"var",
   u"catch",     u"export",   u"new",         u"void",
@@ -198,11 +201,11 @@ const std::unordered_set<std::u16string> keyword_set = {
   u"delete",    u"import",   u"try"
 };
 
-const std::unordered_set<std::u16string> future_reserved_word_set = {
+const unordered_set<std::u16string> future_reserved_word_set = {
   u"enum", u"await"
 };
 
-const std::unordered_set<std::u16string> strictmode_future_reserved_word_set = {
+const unordered_set<std::u16string> strictmode_future_reserved_word_set = {
   u"implements",   u"package",   u"protected",
   u"interface",    u"private",   u"public"
 };
