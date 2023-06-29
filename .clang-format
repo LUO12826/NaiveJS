@@ -20,6 +20,7 @@ AlwaysBreakTemplateDeclarations: 'Yes'
 BinPackArguments: 'true'
 BinPackParameters: 'true'
 IndentCaseLabels: true
+ReferenceAlignment: Left
 BreakBeforeBraces: Custom
 BraceWrapping:
     BeforeCatch: true

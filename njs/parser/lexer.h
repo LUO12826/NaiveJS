@@ -8,6 +8,7 @@
 #include "njs/parser/character.h"
 #include "njs/parser/token.h"
 #include "njs/utils/helper.h"
+#include "njs/include/SmallVector.h"
 
 using std::u16string;
 using std::u16string_view;
@@ -16,6 +17,7 @@ namespace njs {
 
 using TokenType = Token::TokenType;
 using u32 = uint32_t;
+using llvm::SmallVector;
 
 class Lexer {
  public:
@@ -920,7 +922,7 @@ error:
   u32 curr_line_start_pos {0};
 
   LexerState saved_state;
-  std::vector<BraceType> brace_stack;
+  SmallVector<BraceType, 50> brace_stack;
   std::unordered_set<u16string> string_pool;
 };
 

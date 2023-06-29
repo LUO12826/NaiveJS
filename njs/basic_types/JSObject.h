@@ -10,8 +10,9 @@ namespace njs {
 class GCHeap;
 
 class JSObject : public GCObject {
-
+ public:
   JSObject() : GCObject(ObjectClass::CLS_OBJECT) {}
+  JSObject(ObjectClass cls) : GCObject(cls) {}
 
   void gc_scan_children(GCHeap& heap) override;
 

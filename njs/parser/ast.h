@@ -12,6 +12,7 @@
 #include "njs/utils/macros.h"
 #include "njs/parser/enum_strings.h"
 #include "token.h"
+#include "njs/common/enums.h"
 
 namespace njs {
 
@@ -87,8 +88,7 @@ class ASTNode {
   virtual ~ASTNode(){};
 
   Type get_type() { return type; }
-  std::u16string_view get_source() { return text; }
-  const std::u16string_view &get_source_ref() { return text; }
+  const std::u16string_view &get_source() { return text; }
   u32 start_pos() { return start; }
   u32 end_pos() { return end; }
   u32 get_line_start() { return line_start; }
@@ -125,8 +125,8 @@ class ASTNode {
 
   bool is_illegal() { return type == AST_ILLEGAL; }
 
- private:
   Type type;
+ private:
   std::u16string_view text;
   u32 start;
   u32 end;
@@ -288,7 +288,7 @@ class Arguments : public ASTNode {
   Arguments(vector<ASTNode *> args) : ASTNode(AST_EXPR_ARGS), args(args) {}
 
   std::string description() override {
-    return ASTNode::description() +  "  " + to_utf8_string(get_source_ref());
+    return ASTNode::description() +  "  " + to_utf8_string(get_source());
   }
 
   ~Arguments() override {
@@ -309,7 +309,7 @@ class NewExpr : public ASTNode {
   ~NewExpr() override { delete callee; }
 
   std::string description() override {
-    return ASTNode::description() + "  \"" + to_utf8_string(get_source_ref()) + "\"";
+    return ASTNode::description() + "  \"" + to_utf8_string(get_source()) + "\"";
   }
 
   ASTNode *callee;
@@ -487,20 +487,6 @@ class ThrowStatement : public ASTNode {
 
 class VarStatement : public ASTNode {
  public:
-  enum VarKind {
-    DECL_VAR,
-    DECL_LET,
-    DECL_CONST
-  };
-
-  std::string get_var_kind_str() {
-    switch (kind) {
-      case DECL_VAR: return "var";
-      case DECL_LET: return "let";
-      case DECL_CONST: return "const";
-      default: return "var";
-    }
-  }
 
   VarStatement(VarKind var_kind) : ASTNode(AST_STMT_VAR), kind(var_kind) {}
   ~VarStatement() {
@@ -508,7 +494,7 @@ class VarStatement : public ASTNode {
   }
 
   std::string description() override {
-    return ASTNode::description() + "  " + get_var_kind_str();
+    return ASTNode::description() + "  " + get_var_kind_str(kind);
   }
 
   void add_decl(ASTNode *decl) {

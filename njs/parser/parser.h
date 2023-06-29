@@ -646,13 +646,13 @@ error:
   ASTNode* parse_variable_statement(bool no_in) {
     START_POS;
     auto var_kind_text = lexer.current().text;
-    VarStatement::VarKind var_kind;
+    VarKind var_kind;
     bool is_const = false;
 
-    if (var_kind_text == u"var") var_kind = VarStatement::VarKind::DECL_VAR;
-    else if (var_kind_text == u"let") var_kind = VarStatement::VarKind::DECL_LET;
+    if (var_kind_text == u"var") var_kind = VarKind::DECL_VAR;
+    else if (var_kind_text == u"let") var_kind = VarKind::DECL_LET;
     else if (var_kind_text == u"const") {
-      var_kind = VarStatement::VarKind::DECL_CONST;
+      var_kind = VarKind::DECL_CONST;
       is_const = true;
     }
     else assert(false);
@@ -663,7 +663,7 @@ error:
       goto error;
     }
     // Similar to parse_expression
-    // decl = parse_variable_declaration(no_in, var_kind == VarStatement::VarKind::DECL_CONST);
+    // decl = parse_variable_declaration(no_in, var_kind == VarKind::DECL_CONST);
     // if (decl->is_illegal()) {
     //   delete var_stmt;
     //   return decl;
