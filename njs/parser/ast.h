@@ -431,9 +431,8 @@ class ProgramOrFunctionBody : public ASTNode {
   void set_var_decls(vector<VarDecl *> &&var_decls) { this->var_decls = var_decls; }
 
   bool strict;
-  vector<Function *> func_decls;
   vector<ASTNode *> stmts;
-
+  vector<Function *> func_decls;
   vector<VarDecl *> var_decls;
 };
 

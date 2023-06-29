@@ -36,7 +36,7 @@ class CodegenVisitor {
         visit_variable_declaration(static_cast<VarDecl *>(node));
         break;
       default:
-        break;
+        assert(false);
     }
   }
 

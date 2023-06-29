@@ -1,10 +1,23 @@
 #ifndef NJS_SYMBOL_TABLE_H
 #define NJS_SYMBOL_TABLE_H
 
+#include <string>
+#include <cstdint>
+#include "Scope.h"
 namespace njs {
 
-struct SymbolTableEntry {
+using u32 = uint32_t;
 
+enum class SymbolType {
+  VARIABLE,
+  FUNCTION,
+  ARROW_FUNCTION,
+};
+
+struct SymbolTableEntry {
+  std::u16string name;
+  SymbolType type;
+  int captured_scope;
 };
 
 class SymbolTable {
