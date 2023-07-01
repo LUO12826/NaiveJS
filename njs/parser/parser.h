@@ -160,7 +160,7 @@ error:
       delete body;
       goto error;
     }
-    pop_scope();
+    
     return new Function(name, params, body, SOURCE_PARSED_EXPR);
 error:
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
@@ -527,11 +527,9 @@ error:
       // else, `curr_token` will be 'use strict' (a string).
     }
 
-    ProgramOrFunctionBody* prog = new ProgramOrFunctionBody(syntax_type, strict);
-    // var_decl_stack.push({});
     if (syntax_type == ASTNode::AST_PROGRAM) push_scope(Scope::GLOBAL_SCOPE);
-   
 
+    ProgramOrFunctionBody* prog = new ProgramOrFunctionBody(syntax_type, strict);
     ASTNode* element;
     
     while (!token_match(ending_token_type)) {
@@ -554,11 +552,11 @@ error:
       lexer.next();
     }
     assert(token_match(ending_token_type));
-    // prog->set_var_decls(std::move(var_decl_stack.top()));
-    // var_decl_stack.pop();
-
-    // prog->scope = std::move(scope_chain.back());
-    if (syntax_type == ASTNode::AST_PROGRAM) pop_scope();
+    
+    #ifndef DBG_SCOPE
+    prog->scope = std::move(scope_chain.back());
+    #endif
+    pop_scope();
 
     prog->set_source(SOURCE_PARSED_EXPR);
     return prog;
@@ -633,7 +631,9 @@ error:
     assert(token_match(TokenType::RIGHT_BRACE));
     block->set_source(SOURCE_PARSED_EXPR);
 
-    // block->scope = std::move(scope_chain.back());
+    #ifndef DBG_SCOPE
+    block->scope = std::move(scope_chain.back());
+    #endif
     pop_scope();
 
     return block;
@@ -651,7 +651,7 @@ error:
         return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
       }
       VarDecl* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
-      // var_decl_stack.top().emplace_back(var_decl);
+      
       bool res = scope_chain.back().define_symbol(kind, id.text);
       if (!res) std::cout << "!!!!define symbol " << id.get_text_utf8() << " failed" << std::endl;
       return var_decl;
@@ -661,7 +661,7 @@ error:
     if (init->is_illegal()) return init;
     
     VarDecl* var_decl = new VarDecl(id, init, SOURCE_PARSED_EXPR);
-    // var_decl_stack.top().emplace_back(var_decl);
+    
     bool res = scope_chain.back().define_symbol(kind, id.text);
     if (!res) std::cout << "!!!!define symbol " << id.get_text_utf8() << " failed" << std::endl;
     return var_decl;
@@ -1243,7 +1243,6 @@ error:
   std::u16string source;
   Lexer lexer;
 
-  // std::stack<SmallVector<SymbolTableEntry, 10>> var_decl_stack;
   ParserContext context;
 
   SmallVector<Scope, 10> scope_chain;
@@ -1253,12 +1252,15 @@ error:
   void push_scope(Scope::Type scope_type) {
     Scope *parent = scope_chain.size() > 0 ? &scope_chain.back() : nullptr;
     scope_chain.emplace_back(scope_type, parent);
+
+    #ifdef DBG_SCOPE
     std::cout << "push scope: " << scope_chain.back().get_scope_type_name() << std::endl;
     std::cout << std::endl;
+    #endif
   }
 
   void pop_scope() {
-    std::cout << "pop scope: ";
+    #ifdef DBG_SCOPE
     Scope& scope = scope_chain.back();
 
     std::cout << "pop scope: " << scope.get_scope_type_name() << std::endl;
@@ -1273,6 +1275,8 @@ error:
                 << std::endl;
     }
     std::cout << std::endl;
+
+    #endif
 
     scope_chain.pop_back();
   }

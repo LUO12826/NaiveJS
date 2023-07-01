@@ -4,6 +4,7 @@
 #include <string>
 #include <string_view>
 #include <cstdio>
+#include <cassert>
 
 #include "njs/parser/character.h"
 #include "njs/parser/token.h"
@@ -412,7 +413,6 @@ class Lexer {
   // is successfully skipped, the call of `next` will obtain the next nonblank token except semicolon
   // (it will skip semicolon).
   bool try_skip_semicolon() {
-    // debug_printf("[warning] calling `try_skip_semicolon` while peeking.\n");
 
     if (!peeking) {
       checkpoint();
@@ -431,9 +431,8 @@ class Lexer {
   }
 
   bool scan_regexp_pattern(std::u16string& pattern) {
-    // debug_printf("[warning] calling `scan_regexp_pattern` while peeking.\n");
 
-    ASSERT(ch == u'/');
+    assert(ch == u'/');
     next_char();
     if (!character::is_regular_expression_first_char(ch)) {
       next_char();
@@ -463,7 +462,6 @@ class Lexer {
   }
 
   bool scan_regexp_flag(std::u16string& flag) {
-    // debug_printf("[warning] calling `scan_regexp_flag` while peeking.\n");
     if (ch == u'/') {
       next_char();
       // RegularExpressionFlags
@@ -485,7 +483,9 @@ class Lexer {
   }
 
   Token scan_regexp_literal(std::u16string& pattern, std::u16string& flag) {
-    // debug_printf("[warning] calling `scan_regexp_literal` while peeking.\n");
+    if (peeking) {
+      debug_printf("[warning] calling `scan_regexp_literal` while peeking.\n");
+    }
     u32 start = cursor;
     if (!scan_regexp_pattern(pattern)) {
       goto error;
@@ -501,7 +501,9 @@ error:
 
   // For regex
   inline void cursor_back() {
-    // debug_printf("[warning] calling `cursor_back` while peeking.\n");
+    if (peeking) {
+      debug_printf("[warning] calling `cursor_back` while peeking.\n");
+    }
     if (cursor == 0) return;
     cursor -= 1;
     ch = source[cursor];
@@ -509,7 +511,6 @@ error:
 
   inline const Token& current() {
     if (peeking) {
-      // debug_printf("[log] calling `current` while peeking.\n");
       return saved_state.curr_token;
     }
     return curr_token; 
@@ -565,7 +566,7 @@ error:
   }
 
   bool skip_regexp_backslash_sequence(std::u16string& pattern) {
-    ASSERT(ch == u'\\');
+    assert(ch == u'\\');
     pattern += ch;
     next_char();
     if (character::is_line_terminator(ch)) {
@@ -584,7 +585,7 @@ error:
   }
 
   bool skip_regexp_class(std::u16string& pattern) {
-    ASSERT(ch == u'[');
+    assert(ch == u'[');
     pattern += ch;
     next_char();
     while (cursor != source.size() && character::is_regular_expression_class_char(ch)) {
@@ -638,7 +639,7 @@ error:
   }
 
   // Token scan_line_terminator_sequence() {
-  //   ASSERT(character::is_line_terminator(ch));
+  //   assert(character::is_line_terminator(ch));
   //   u32 start = cursor;
   //   if (ch == character::CR && peek_char() == character::LF) {
   //     next_char(); next_char();
@@ -649,7 +650,7 @@ error:
   // }
 
   void skip_line_terminators() {
-    ASSERT(character::is_line_terminator(ch));
+    assert(character::is_line_terminator(ch));
     if (ch == character::CR && peek_char() == character::LF) {
       next_char(); next_char();
     } else {
@@ -750,7 +751,7 @@ error:
   }
 
   Token scan_numeric_literal() {
-    ASSERT(ch == u'.' || character::is_decimal_digit(ch));
+    assert(ch == u'.' || character::is_decimal_digit(ch));
     u32 start = cursor;
 
     bool is_hex = false;
@@ -834,7 +835,7 @@ error:
   }
 
   Token scan_identifier() {
-    ASSERT(character::is_identifier_start(ch));
+    assert(character::is_identifier_start(ch));
     u32 start = cursor;
     std::u16string id_text = u"";
     if (ch == u'\\') {

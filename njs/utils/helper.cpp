@@ -4,7 +4,7 @@
 #include <sstream>
 #include <cstdarg>
 
-#ifdef DEBUG
+#ifdef DBGPRINT
 #define DEBUG_PRINT(...) printf(__VA_ARGS__)
 #else
 #define DEBUG_PRINT(...) do {} while (0)

@@ -2,6 +2,7 @@
 #define NJS_AST_H
 
 #include <cstdio>
+#include <cassert>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -379,7 +380,7 @@ class Function : public ASTNode {
   Function(Token name, vector<std::u16string> params, ASTNode *body,
            std::u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_FUNC, source, start, end, line_start), name(name), params(std::move(params)) {
-    ASSERT(body->get_type() == ASTNode::AST_FUNC_BODY);
+    assert(body->get_type() == ASTNode::AST_FUNC_BODY);
     this->body = body;
     add_child(body);
   }
@@ -424,7 +425,7 @@ class ProgramOrFunctionBody : public ASTNode {
   }
 
   void add_function_decl(ASTNode *func) {
-    ASSERT(func->get_type() == AST_FUNC);
+    assert(func->get_type() == AST_FUNC);
     func_decls.emplace_back(static_cast<Function *>(func));
     add_child(func);
   }
@@ -507,7 +508,7 @@ class VarStatement : public ASTNode {
   }
 
   void add_decl(ASTNode *decl) {
-    ASSERT(decl->get_type() == AST_STMT_VAR_DECL);
+    assert(decl->get_type() == AST_STMT_VAR_DECL);
     declarations.emplace_back(static_cast<VarDecl *>(decl));
     add_child(decl);
   }
@@ -672,7 +673,7 @@ class SwitchStatement : public ASTNode {
   void set_expr(ASTNode *expr) { condition_expr = expr; }
 
   void set_default_clause(vector<ASTNode *> stmts) {
-    ASSERT(!has_default_clause);
+    assert(!has_default_clause);
     has_default_clause = true;
     default_clause.stmts = stmts;
   }

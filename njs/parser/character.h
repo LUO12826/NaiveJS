@@ -1,6 +1,7 @@
 #ifndef NJS_CHARACTER_H
 #define NJS_CHARACTER_H
 
+#include <cassert>
 #include "njs/parser/unicode.h"
 #include "njs/utils/helper.h"
 
@@ -150,7 +151,7 @@ inline char16_t to_lower_case(char16_t c) {
   {
     const u32 index = c - 192;
     if (index < k_lower_case_cache.size()) {
-      ASSERT(index < k_lower_case_cache.size());
+      assert(index < k_lower_case_cache.size());
       return k_upper_case_cache[index];
     }
   }
@@ -158,7 +159,7 @@ inline char16_t to_lower_case(char16_t c) {
         std::upper_bound(k_lower_case_keys.begin(), k_lower_case_keys.end(), c) - 1;
   
   const int result = static_cast<int>(it - k_lower_case_keys.begin());
-  ASSERT(result < 101);
+  assert(result < 101);
   if (result >= 0) {
     bool by2 = false;
     const char16_t start = k_lower_case_keys[result];
@@ -191,7 +192,7 @@ inline char16_t to_upper_case(char16_t c) {
   {
     const u32 index = c - 181;
     if (index < k_upper_case_cache.size()) {
-      ASSERT(index < k_upper_case_cache.size());
+      assert(index < k_upper_case_cache.size());
       return k_upper_case_cache[index];
     }
   }
@@ -199,7 +200,7 @@ inline char16_t to_upper_case(char16_t c) {
           std::upper_bound(k_upper_case_keys.begin(), k_upper_case_keys.end(), c) - 1;
 
   const int result = static_cast<int>(it - k_upper_case_keys.begin());
-  ASSERT(result < 113);
+  assert(result < 113);
 
   if (result >= 0) {
     bool by2 = false;

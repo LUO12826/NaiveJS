@@ -7,9 +7,9 @@
 
 #include "njs/utils/macros.h"
 
-void debug_printf(const char* format, ...);
-
 namespace njs {
+
+void debug_printf(const char* format, ...);
 
 std::string to_utf8_string(std::u16string str);
 

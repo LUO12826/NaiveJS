@@ -11,8 +11,8 @@ set(SOURCES
     njs/basic_types/RCObject.cpp
     njs/basic_types/JSObject.cpp
     njs/basic_types/JSValue.cpp
-    njs/utils/helper.cpp
     njs/main.cpp
+    njs/utils/helper.cpp
 )
 
 # executable is named `njs`
@@ -20,4 +20,11 @@ add_executable(njs ${SOURCES})
 
 target_compile_options(njs PRIVATE -Wno-deprecated-declarations)
 target_include_directories(njs PRIVATE .)
-# target_include_directories(njs PRIVATE include/)
+
+# executable for debug print
+add_executable(njs_dbgprint ${SOURCES})
+
+target_compile_options(njs_dbgprint PRIVATE -Wno-deprecated-declarations)
+target_include_directories(njs_dbgprint PRIVATE .)
+
+target_compile_definitions(njs_dbgprint PRIVATE DBGPRINT)
