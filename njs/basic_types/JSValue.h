@@ -85,6 +85,10 @@ struct JSValue {
     return tag == HEAP_VAL_REF || tag == STRING_REF || tag == SYMBOL_REF;
   }
 
+  inline bool needs_gc() {
+    return (tag >= NEED_GC_BEGIN) && (tag <= NEED_GC_BEGIN);
+  }
+
   GCObject *as_GCObject();
 
   JSValue add(JSValue& rhs);

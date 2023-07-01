@@ -28,6 +28,16 @@ enum class InstType {
   halt,
 };
 
+struct Instruction {
+  InstType op_type;
+  union {
+    double num;
+    int opr1;
+    int opr2;
+  } oprand;
+  
+};
+
 
 } // namespace njs
 

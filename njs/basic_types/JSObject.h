@@ -80,8 +80,6 @@ class JSObject : public GCObject {
 
   void gc_scan_children(GCHeap& heap) override;
 
-  JSValue value1 {0.0};
-  JSValue value2 {0.0};
   unordered_map<JSObjectKey, JSValue> storage;
 };
 
