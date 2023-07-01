@@ -12,7 +12,7 @@ class CodegenVisitor {
   void visit(ASTNode *node) {
     switch (node->get_type()) {
       case ASTNode::AST_PROGRAM:
-        visit_program_or_function_body(*static_cast<ProgramOrFunctionBody *>(node));
+      case ASTNode::AST_FUNC_BODY:
         visit_program_or_function_body(*static_cast<ProgramOrFunctionBody *>(node));
         break;
       case ASTNode::AST_FUNC:
@@ -42,23 +42,21 @@ class CodegenVisitor {
   }
 
   void visit_program_or_function_body(ProgramOrFunctionBody& program) {
-    if (program.type == ASTNode::AST_PROGRAM) {
-      push_scope(Scope::GLOBAL_SCOPE);
-    }
+    if (program.type == ASTNode::AST_PROGRAM) { push_scope(Scope::GLOBAL_SCOPE); }
 
-    // var hoisting
-    for (VarDecl *var : program.var_decls) {
-      current_scope().define_symbol(VarKind::DECL_VAR, var->id.text);
-    }
+
 
     // function name hoisting
     for (Function *func : program.func_decls) {
       current_scope().define_symbol(VarKind::DECL_FUNCTION, func->name.text);
     }
-
-    for (ASTNode *node : program.stmts) {
-      visit(node);
+    
+    // function name hoisting
+    for (Function *func : program.func_decls) {
+      current_scope().define_symbol(VarKind::DECL_FUNCTION, func->name.text);
     }
+
+    for (ASTNode *node : program.stmts) { visit(node); }
   }
 
   void visit_function(Function *func) {}
@@ -81,7 +79,14 @@ class CodegenVisitor {
   Scope& current_scope() { return scope_chain.back(); }
 
   void push_scope(Scope::Type scope_type) {
-    scope_chain.emplace_back(scope_type);
+    Scope *parent = scope_chain.size() > 0 ? &scope_chain.back() : nullptr;
+    scope_chain.emplace_back(scope_type, parent);
+  }
+
+  void push_scope(Scope&& scope) {
+    Scope *parent = scope_chain.size() > 0 ? &scope_chain.back() : nullptr;
+    scope.set_parent(parent);
+    scope_chain.emplace_back(std::move(scope));
   }
 };
 

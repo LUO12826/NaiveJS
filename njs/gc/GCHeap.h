@@ -44,7 +44,7 @@ class GCHeap {
   // of the GCObject subclasses.
   void gc_visit_object(JSValue &handle, GCObject *obj) {
     GCObject *obj_new = copy_object(obj);
-    handle.val.as_ptr = obj_new;
+    handle.val.as_object = static_cast<JSObject*>(obj_new);
   }
 
  private:

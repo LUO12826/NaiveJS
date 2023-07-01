@@ -9,26 +9,33 @@ namespace njs {
 
 class JSObject;
 class GCObject;
-
-struct PrimitiveString: public RCObject {
-
-  PrimitiveString(std::u16string str): str(std::move(str)) {}
-
-  std::u16string str;
-};
+struct JSHeapValue;
 
 struct JSValue {
   
   enum JSValueTag {
+    // The following types of values are stored inline in JSValue
     UNDEFINED,
     JS_ATOM,
     JS_NULL,
     BOOLEAN,
     NUMBER_INT,
     NUMBER_FLOAT,
-    STRING,
 
-    VALUE_REF,
+    // Strings and Symbols are stored as pointers in JSValue
+    STRING,
+    SYMBOL,
+
+    // Used when we wrap those inline values into JSHeapValue and hold a pointer to it.
+    HEAP_VAL_REF,
+    // Used when a STRING is considered shared. That is, when being assigned, instead of making
+    // the pointer(PrimitiveString *) point to a new String, we just change the data in pointee.
+    STRING_REF,
+    // Used when a SYMBOL is considered shared.
+    SYMBOL_REF,
+
+    STACK_FRAME_META,
+    OTHER,
 
     NEED_GC_BEGIN,
 
@@ -41,6 +48,14 @@ struct JSValue {
 
     NEED_GC_END
   };
+
+  static JSValue undefined;
+  static JSValue null;
+
+  JSValue() {}
+  JSValue(JSValueTag tag): tag(tag) {}
+
+  ~JSValue();
 
   JSValue(double number): tag(NUMBER_FLOAT) {
     val.as_float64 = number;
@@ -66,6 +81,10 @@ struct JSValue {
   inline bool is_primitive_string() { return tag == STRING; }
   inline bool is_object() { return tag == OBJECT; }
 
+  inline bool is_RCObject() {
+    return tag == HEAP_VAL_REF || tag == STRING_REF || tag == SYMBOL_REF;
+  }
+
   GCObject *as_GCObject();
 
   JSValue add(JSValue& rhs);
@@ -75,12 +94,19 @@ struct JSValue {
     int64_t as_int;
     bool as_bool;
 
-    void *as_ptr;
     PrimitiveString *as_primitive_string;
+    JSHeapValue *as_heap_val;
+    JSSymbol *as_symbol;
+
     JSObject *as_object;
   } val;
 
   JSValueTag tag;
+  u32 flag_bits;
+};
+
+struct JSHeapValue: public RCObject {
+  JSValue wrapped_val;
 };
 
 } // namespace njs

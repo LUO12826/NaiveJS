@@ -13,6 +13,8 @@
 #include "njs/parser/token.h"
 #include "njs/utils/helper.h"
 #include "njs/codegen/CodegenVisitor.h"
+#include "njs/vm/NjsVM.h"
+#include "njs/basic_types/RCObject.h"
 
 using namespace njs;
 using std::string;

@@ -1,7 +1,7 @@
 #ifndef COMMON_TYPES_H
 #define COMMON_TYPES_H
 
-#include <stdlib.h>
+#include <cstdint>
 
 namespace njs {
     

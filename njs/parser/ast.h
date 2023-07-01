@@ -9,10 +9,13 @@
 #include <utility>
 #include <vector>
 
+#include "njs/include/SmallVector.h"
 #include "njs/utils/macros.h"
 #include "njs/parser/enum_strings.h"
 #include "token.h"
 #include "njs/common/enums.h"
+#include "njs/codegen/SymbolTable.h"
+#include "njs/codegen/Scope.h"
 
 namespace njs {
 
@@ -222,7 +225,7 @@ class BinaryExpr : public ASTNode {
     delete rhs;
   }
 
-  bool is_assign() { return op.type == TokenType::ASSIGN; }
+  bool is_assign() { return op.type == Token::ASSIGN; }
 
   std::string description() override {
     return ASTNode::description() + " oprand: " + op.get_type_string();
@@ -365,15 +368,17 @@ class LeftHandSideExpr : public ASTNode {
   vector<std::u16string_view> prop_names_list;
 };
 
+class ProgramOrFunctionBody;
+
 class Function : public ASTNode {
  public:
   // Function(vector<std::u16string> params, AST* body,
   //          std::u16string_view source, u32 start, u32 end) :
   //   Function(Token::none, params, body, source, start, end, line_start) {}
 
-  Function(Token name, vector<std::u16string> params, ASTNode *body, std::u16string_view source,
-           u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_FUNC, source, start, end, line_start), name(name), params(params) {
+  Function(Token name, vector<std::u16string> params, ASTNode *body,
+           std::u16string_view source, u32 start, u32 end, u32 line_start)
+      : ASTNode(AST_FUNC, source, start, end, line_start), name(name), params(std::move(params)) {
     ASSERT(body->get_type() == ASTNode::AST_FUNC_BODY);
     this->body = body;
     add_child(body);
@@ -384,11 +389,11 @@ class Function : public ASTNode {
   std::string description() override {
     std::string desc = ASTNode::description() + " name: " + name.get_text_utf8();
     desc += ", params: ";
-    for (auto& param: params) desc += to_utf8_string(param) + ", ";
+    for (auto& param : params) desc += to_utf8_string(param) + ", ";
     return desc;
   }
 
-  bool has_name() { return name.type != TokenType::NONE; }
+  bool has_name() { return name.type != Token::NONE; }
   std::u16string_view get_name() { return name.text; }
 
   Token name;
@@ -428,12 +433,16 @@ class ProgramOrFunctionBody : public ASTNode {
     add_child(stmt);
   }
 
-  void set_var_decls(vector<VarDecl *> &&var_decls) { this->var_decls = var_decls; }
+  // void set_var_decls(SmallVector<SymbolTableEntry, 10> var_decls) {
+  //   this->var_decls = std::move(var_decls);
+  // }
 
   bool strict;
   vector<ASTNode *> stmts;
   vector<Function *> func_decls;
-  vector<VarDecl *> var_decls;
+  // vector<VarDecl *> var_decls;
+  // SmallVector<SymbolTableEntry, 10> var_decls;
+  Scope scope;
 };
 
 class LabelledStatement : public ASTNode {
@@ -521,6 +530,7 @@ class Block : public ASTNode {
   }
 
   vector<ASTNode *> statements;
+  Scope scope;
 };
 
 class TryStatement : public ASTNode {

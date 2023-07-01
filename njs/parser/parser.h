@@ -2,10 +2,13 @@
 #define NJS_PARSER_H
 
 #include <stack>
+#include <iostream>
 
+#include "njs/include/SmallVector.h"
 #include "njs/parser/lexer.h"
 #include "njs/parser/ast.h"
 #include "njs/utils/helper.h"
+#include "njs/codegen/SymbolTable.h"
 
 #define START_POS u32 start = lexer.current().start, line_start = lexer.current().line
 #define RENEW_START start = lexer.current().start; line_start = lexer.current().line
@@ -23,10 +26,7 @@ struct ParserContext {
 
 class Parser {
  public:
-  Parser(std::u16string source) : source(source), lexer(source) {
-    // For test
-    var_decl_stack.push({});
-  }
+  Parser(std::u16string source) : source(source), lexer(source) {}
 
   ASTNode* parse_primary_expression() {
     Token token = lexer.current();
@@ -93,6 +93,8 @@ error:
     //   return lexer.current_token().type == TokenType::EOS;
     // }
     params.emplace_back(lexer.current().text);
+    scope_chain.back().define_func_parameter(lexer.current().text);
+
     Token token = lexer.next();
     // NOTE(zhuzilin) the EOS is for new Function("a,b,c", "")
     while (token.type != TokenType::RIGHT_PAREN && token.type != TokenType::EOS) {
@@ -106,6 +108,7 @@ error:
         return false;
       }
       params.emplace_back(token.text);
+      scope_chain.back().define_func_parameter(token.text);
       token = lexer.next();
     }
     return true;
@@ -127,13 +130,17 @@ error:
 
     if (lexer.current().is_identifier()) {
       name = lexer.current();
+      bool res = scope_chain.back().define_symbol(VarKind::DECL_FUNCTION, name.text);
+      if (!res) std::cout << "!!!!define symbol " << name.get_text_utf8() << " failed" << std::endl;
       lexer.next();
     }
     else if (name_required) {
       goto error;
     }
-    
+
     if (!token_match(TokenType::LEFT_PAREN)) goto error;
+
+    push_scope(Scope::FUNC_SCOPE);
 
     lexer.next();
     if (lexer.current().is_identifier()) {
@@ -153,7 +160,7 @@ error:
       delete body;
       goto error;
     }
-
+    pop_scope();
     return new Function(name, params, body, SOURCE_PARSED_EXPR);
 error:
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
@@ -521,7 +528,9 @@ error:
     }
 
     ProgramOrFunctionBody* prog = new ProgramOrFunctionBody(syntax_type, strict);
-    var_decl_stack.push({});
+    // var_decl_stack.push({});
+    if (syntax_type == ASTNode::AST_PROGRAM) push_scope(Scope::GLOBAL_SCOPE);
+   
 
     ASTNode* element;
     
@@ -545,8 +554,12 @@ error:
       lexer.next();
     }
     assert(token_match(ending_token_type));
-    prog->set_var_decls(std::move(var_decl_stack.top()));
-    var_decl_stack.pop();
+    // prog->set_var_decls(std::move(var_decl_stack.top()));
+    // var_decl_stack.pop();
+
+    // prog->scope = std::move(scope_chain.back());
+    if (syntax_type == ASTNode::AST_PROGRAM) pop_scope();
+
     prog->set_source(SOURCE_PARSED_EXPR);
     return prog;
   }
@@ -605,6 +618,9 @@ error:
     assert(token_match(TokenType::LEFT_BRACE));
     Block* block = new Block();
     lexer.next();
+
+    push_scope(Scope::BLOCK_SCOPE);
+
     while (!token_match(TokenType::RIGHT_BRACE)) {
       ASTNode* stmt = parse_statement();
       if (stmt->is_illegal()) {
@@ -616,22 +632,28 @@ error:
     }
     assert(token_match(TokenType::RIGHT_BRACE));
     block->set_source(SOURCE_PARSED_EXPR);
+
+    // block->scope = std::move(scope_chain.back());
+    pop_scope();
+
     return block;
   }
 
-  ASTNode* parse_variable_declaration(bool no_in, bool must_assign) {
+  ASTNode* parse_variable_declaration(bool no_in, VarKind kind) {
     START_POS;
     Token id = lexer.current();
     
     assert(id.is_identifier());
 
     if (lexer.peek().type != TokenType::ASSIGN) {
-      if (must_assign) {
+      if (kind == VarKind::DECL_CONST) {
         lexer.next();
         return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
       }
       VarDecl* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
-      var_decl_stack.top().emplace_back(var_decl);
+      // var_decl_stack.top().emplace_back(var_decl);
+      bool res = scope_chain.back().define_symbol(kind, id.text);
+      if (!res) std::cout << "!!!!define symbol " << id.get_text_utf8() << " failed" << std::endl;
       return var_decl;
     }
     
@@ -639,41 +661,27 @@ error:
     if (init->is_illegal()) return init;
     
     VarDecl* var_decl = new VarDecl(id, init, SOURCE_PARSED_EXPR);
-    var_decl_stack.top().emplace_back(var_decl);
+    // var_decl_stack.top().emplace_back(var_decl);
+    bool res = scope_chain.back().define_symbol(kind, id.text);
+    if (!res) std::cout << "!!!!define symbol " << id.get_text_utf8() << " failed" << std::endl;
     return var_decl;
   }
 
   ASTNode* parse_variable_statement(bool no_in) {
     START_POS;
     auto var_kind_text = lexer.current().text;
-    VarKind var_kind;
-    bool is_const = false;
-
-    if (var_kind_text == u"var") var_kind = VarKind::DECL_VAR;
-    else if (var_kind_text == u"let") var_kind = VarKind::DECL_LET;
-    else if (var_kind_text == u"const") {
-      var_kind = VarKind::DECL_CONST;
-      is_const = true;
-    }
-    else assert(false);
+    VarKind var_kind = get_var_kind_from_str(var_kind_text);
     
     VarStatement* var_stmt = new VarStatement(var_kind);
     ASTNode* decl;
     if (!lexer.next().is_identifier()) {
       goto error;
     }
-    // Similar to parse_expression
-    // decl = parse_variable_declaration(no_in, var_kind == VarKind::DECL_CONST);
-    // if (decl->is_illegal()) {
-    //   delete var_stmt;
-    //   return decl;
-    // }
-    // var_stmt->add_decl(decl);
 
     while (true) {
 
       if (lexer.current().text != u",") {
-        decl = parse_variable_declaration(no_in, is_const);
+        decl = parse_variable_declaration(no_in, var_kind);
         if (decl->is_illegal()) {
           delete var_stmt;
           return decl;
@@ -839,7 +847,7 @@ error:
       return parse_for_statement({}, start, line_start);  // for (;
     }
     else if (token_match(u"var") || token_match(u"let") || token_match(u"const")) {
-      bool is_const = token_match(u"const");
+      VarKind var_kind = get_var_kind_from_str(lexer.current().text);
       lexer.next();  // skip var
       std::vector<ASTNode*> init_expressions;
 
@@ -847,7 +855,7 @@ error:
       // must be identifier. This is for better error code.
       if (!lexer.current().is_identifier()) goto error;
 
-      init_expr = parse_variable_declaration(true, is_const);
+      init_expr = parse_variable_declaration(true, var_kind);
       if (init_expr->is_illegal()) return init_expr;
 
       // expect `in`, `,`
@@ -867,7 +875,7 @@ error:
           goto error;
         }
 
-        init_expr = parse_variable_declaration(true, is_const);
+        init_expr = parse_variable_declaration(true, var_kind);
         if (init_expr->is_illegal()) {
           for (auto expr : init_expressions)
             delete expr;
@@ -1235,8 +1243,39 @@ error:
   std::u16string source;
   Lexer lexer;
 
-  std::stack<std::vector<VarDecl*>> var_decl_stack;
+  // std::stack<SmallVector<SymbolTableEntry, 10>> var_decl_stack;
   ParserContext context;
+
+  SmallVector<Scope, 10> scope_chain;
+
+  Scope& current_scope() { return scope_chain.back(); }
+
+  void push_scope(Scope::Type scope_type) {
+    Scope *parent = scope_chain.size() > 0 ? &scope_chain.back() : nullptr;
+    scope_chain.emplace_back(scope_type, parent);
+    std::cout << "push scope: " << scope_chain.back().get_scope_type_name() << std::endl;
+    std::cout << std::endl;
+  }
+
+  void pop_scope() {
+    std::cout << "pop scope: ";
+    Scope& scope = scope_chain.back();
+
+    std::cout << "pop scope: " << scope.get_scope_type_name() << std::endl;
+    std::cout << "params count: " << scope.param_count
+              << ", local variables count: " << scope.local_var_count << std::endl;
+    std::cout << "symbols in this scope: " << std::endl;
+
+    for (auto& entry : scope.get_symbol_table()) {
+      std::cout << get_var_kind_str(entry.second.var_kind) << "  "
+                << to_utf8_string(entry.second.name) << "  "
+                << entry.second.index << "  "
+                << std::endl;
+    }
+    std::cout << std::endl;
+
+    scope_chain.pop_back();
+  }
 };
 
 }  // namespace njs

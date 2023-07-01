@@ -8,8 +8,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(SOURCES
+    njs/basic_types/RCObject.cpp
     njs/basic_types/JSObject.cpp
     njs/basic_types/JSValue.cpp
+    njs/utils/helper.cpp
     njs/main.cpp
 )
 
