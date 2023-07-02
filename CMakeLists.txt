@@ -18,6 +18,8 @@ set(SOURCES
     njs/main.cpp
     njs/utils/helper.cpp
     njs/parser/enum_strings.cpp
+    njs/parser/token.cpp
+    njs/common/enums.cpp
 )
 
 # executable is named `njs`

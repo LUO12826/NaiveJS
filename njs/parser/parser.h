@@ -4,6 +4,7 @@
 #include <stack>
 #include <iostream>
 
+#include "njs/common/enums.h"
 #include "njs/include/SmallVector.h"
 #include "njs/parser/lexer.h"
 #include "njs/parser/ast.h"
@@ -140,7 +141,7 @@ error:
 
     if (!token_match(TokenType::LEFT_PAREN)) goto error;
 
-    push_scope(Scope::FUNC_SCOPE);
+    push_scope(ScopeType::FUNC);
 
     lexer.next();
     if (lexer.current().is_identifier()) {
@@ -527,7 +528,7 @@ error:
       // else, `curr_token` will be 'use strict' (a string).
     }
 
-    if (syntax_type == ASTNode::AST_PROGRAM) push_scope(Scope::GLOBAL_SCOPE);
+    if (syntax_type == ASTNode::AST_PROGRAM) push_scope(ScopeType::GLOBAL);
 
     ProgramOrFunctionBody* prog = new ProgramOrFunctionBody(syntax_type, strict);
     ASTNode* statement;
@@ -621,7 +622,7 @@ error:
     Block* block = new Block();
     lexer.next();
 
-    push_scope(Scope::BLOCK_SCOPE);
+    push_scope(ScopeType::BLOCK);
 
     while (!token_match(TokenType::RIGHT_BRACE)) {
       ASTNode* stmt = parse_statement();
@@ -1253,7 +1254,7 @@ error:
 
   Scope& current_scope() { return scope_chain.back(); }
 
-  void push_scope(Scope::Type scope_type) {
+  void push_scope(ScopeType scope_type) {
     Scope *parent = scope_chain.size() > 0 ? &scope_chain.back() : nullptr;
     scope_chain.emplace_back(scope_type, parent);
 

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <iostream>
 #include "Scope.h"
+#include "njs/common/enums.h"
 #include "njs/utils/helper.h"
 #include "njs/include/SmallVector.h"
 #include "njs/parser/ast.h"
@@ -31,12 +32,15 @@ struct ScopeContext {
 };
 
 class CodegenVisitor {
+friend class NjsVM;
  public:
 
   unordered_map<u16string, u32> global_props_map;
 
   void codegen(ProgramOrFunctionBody *prog) {
     visit_program_or_function_body(*prog);
+
+    std::cout << "================ codegen result ================" << std::endl << std::endl;
 
     std::cout << ">>> instructions:" << std::endl;
     for (auto& inst : bytecode) {
@@ -61,6 +65,7 @@ class CodegenVisitor {
       std::cout << meta.description() << std::endl;
     }
     std::cout << std::endl;
+    std::cout << "============== end codegen result ==============" << std::endl << std::endl;
   }
 
   void visit(ASTNode *node) {
@@ -130,7 +135,10 @@ class CodegenVisitor {
       emit(InstType::halt);
     }
 
-    pop_scope();
+    // want to keep the global scope.
+    if (program.type != ASTNode::AST_PROGRAM) {
+      pop_scope();
+    }
   }
 
   void visit_function(Function& func) {
@@ -154,18 +162,18 @@ class CodegenVisitor {
 
     // then put this function to where its name (as a variable) is located.
     auto symbol = current_scope().resolve_symbol(func.name.text);
-    emit_temp(InstType::pop, symbol.scope_type, symbol.symbol->offset_idx());
+    emit_temp(InstType::pop, scope_type_to_int(symbol.scope_type), symbol.symbol->index);
   }
 
   void visit_binary_expr(BinaryExpr& expr) {
     if (expr.is_simple_expr()) {
 
-      auto lhs_symbol = current_scope().resolve_symbol(expr.lhs->get_source());
-      auto rhs_symbol = current_scope().resolve_symbol(expr.rhs->get_source());
+      auto lhs_sym = current_scope().resolve_symbol(expr.lhs->get_source());
+      auto rhs_sym = current_scope().resolve_symbol(expr.rhs->get_source());
 
       emit(InstType::fast_add,
-            lhs_symbol.scope_type, lhs_symbol.symbol->offset_idx(),
-            rhs_symbol.scope_type, rhs_symbol.symbol->offset_idx());
+           scope_type_to_int(lhs_sym.scope_type), lhs_sym.symbol->index,
+           scope_type_to_int(rhs_sym.scope_type), rhs_sym.symbol->index);
     }
     else {
       assert(false);
@@ -192,7 +200,7 @@ class CodegenVisitor {
 
   void visit_identifier(ASTNode& id) {
     auto symbol = current_scope().resolve_symbol(id.get_source());
-    emit(InstType::push, symbol.scope_type, symbol.symbol->offset_idx());
+    emit(InstType::push, scope_type_to_int(symbol.scope_type), symbol.symbol->index);
   }
 
   void visit_func_arguments(Arguments& args) {
@@ -201,10 +209,10 @@ class CodegenVisitor {
     }
   }
 
+  // fixme: just a temporary method for number parse
   int64_t parse_number_literal(std::u16string_view str) {
     int64_t value = 0;
 
-    // 检查字符串是否以 "0x" 开头，如果是，则解析为十六进制
     if (str.size() >= 2 && str.substr(0, 2) == u"0x") {
         try {
           value = std::stoll(std::string(str.begin() + 2, str.end()), nullptr, 16);
@@ -213,7 +221,6 @@ class CodegenVisitor {
           std::cerr << "Failed to parse hex number: " << e.what() << std::endl;
         }
     }
-    // 否则，解析为十进制
     else {
         try {
           value = std::stoll(std::string(str.begin(), str.end()), nullptr, 10);
@@ -252,7 +259,7 @@ class CodegenVisitor {
     return context_chain[idx];
   }
 
-  void push_scope(Scope::Type scope_type) {
+  void push_scope(ScopeType scope_type) {
     Scope *outer = scope_chain.size() > 0 ? &scope_chain.back() : nullptr;
     scope_chain.emplace_back(scope_type, outer);
 

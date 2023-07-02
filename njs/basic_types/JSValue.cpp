@@ -41,4 +41,34 @@ JSValue::~JSValue() {
 JSValue JSValue::undefined = JSValue(JSValue::UNDEFINED);
 JSValue JSValue::null = JSValue(JSValue::JS_NULL);
 
+const char *js_value_tag_names[21] = {
+  "UNDEFINED",
+  "JS_ATOM",
+  "JS_NULL",
+  "BOOLEAN",
+  "NUMBER_INT",
+  "NUMBER_FLOAT",
+
+  "STRING",
+  "SYMBOL",
+
+  "HEAP_VAL_REF",
+  "STRING_REF",
+  "SYMBOL_REF",
+
+  "STACK_FRAME_META",
+  "OTHER",
+
+  "NEED_GC_BEGIN",
+
+  "BOOLEAN_OBJ",
+  "NUMBER_OBJ",
+  "STRING_OBJ",
+  "OBJECT",
+  "ARRAY",
+  "FUNCTION",
+
+  "NEED_GC_END"
+};
+
 }

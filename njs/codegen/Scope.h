@@ -2,6 +2,7 @@
 #define NJS_SCOPE_H
 
 #include <optional>
+#include "njs/common/enums.h"
 #include "SymbolTable.h"
 #include "njs/include/robin_hood.h"
 
@@ -18,37 +19,30 @@ using u32 = uint32_t;
 
 class Scope {
  public:
-  enum Type {
-    GLOBAL_SCOPE = 0,
-    FUNC_SCOPE,
-    FUNC_PARAM_SCOPE,
-    BLOCK_SCOPE,
-    CLOSURE_SCOPE
-  };
 
   struct SymbolResolveResult {
     SymbolRecord* symbol {nullptr};
     u32 depth;
-    Type scope_type;
+    ScopeType scope_type;
   };
 
-  Scope(): scope_type(GLOBAL_SCOPE) {}
-  Scope(Type type): scope_type(type) {}
-  Scope(Type type, Scope *parent): scope_type(type), outer_scope(parent) {}
+  Scope(): scope_type(ScopeType::GLOBAL) {}
+  Scope(ScopeType type): scope_type(type) {}
+  Scope(ScopeType type, Scope *parent): scope_type(type), outer_scope(parent) {}
 
   std::string get_scope_type_name() {
     switch (scope_type) {
-      case GLOBAL_SCOPE: return "GLOBAL_SCOPE";
-      case FUNC_SCOPE: return "FUNC_SCOPE";
-      case FUNC_PARAM_SCOPE: return "FUNC_PARAM_SCOPE";
-      case BLOCK_SCOPE: return "BLOCK_SCOPE";
-      case CLOSURE_SCOPE: return "CLOSURE_SCOPE";
+      case ScopeType::GLOBAL: return "GLOBAL_SCOPE";
+      case ScopeType::FUNC: return "FUNC_SCOPE";
+      case ScopeType::FUNC_PARAM: return "FUNC_PARAM_SCOPE";
+      case ScopeType::BLOCK: return "BLOCK_SCOPE";
+      case ScopeType::CLOSURE: return "CLOSURE_SCOPE";
       default: assert(false);
     }
   }
 
   bool define_func_parameter(u16string_view name, bool strict = false) {
-    assert(scope_type == FUNC_SCOPE);
+    assert(scope_type == ScopeType::FUNC);
 
     if (symbol_table.count(name) > 0) {
       return strict ? false : true;
@@ -62,7 +56,7 @@ class Scope {
   bool define_symbol(VarKind var_kind, u16string_view name) {
 
     if (var_kind == VarKind::DECL_VAR || var_kind == VarKind::DECL_FUNCTION) {
-      if (scope_type != GLOBAL_SCOPE && scope_type != FUNC_SCOPE) {
+      if (scope_type != ScopeType::GLOBAL && scope_type != ScopeType::FUNC) {
         assert(outer_scope);
         return outer_scope->define_symbol(var_kind, name);
       }
@@ -103,8 +97,9 @@ class Scope {
       return SymbolResolveResult{
         .symbol = &rec,
         .depth = depth,
-        // fix me
-        .scope_type = rec.var_kind == VarKind::DECL_FUNC_PARAM ? FUNC_PARAM_SCOPE : scope_type
+        // fixme
+        .scope_type = rec.var_kind == VarKind::DECL_FUNC_PARAM ?
+                                      ScopeType::FUNC_PARAM : scope_type
       };
     }
 
@@ -113,7 +108,7 @@ class Scope {
     return SymbolResolveResult();
   }
 
-  Type scope_type;
+  ScopeType scope_type;
   
   unordered_map<u16string_view, SymbolRecord> symbol_table;
   Scope *outer_scope {nullptr};

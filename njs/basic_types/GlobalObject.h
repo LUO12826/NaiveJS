@@ -19,10 +19,6 @@ using std::u16string;
 
 class GlobalObject {
  public:
-  explicit GlobalObject(unordered_map<u16string, u32>& props_map)
-      : static_props_cnt(props_map.size()), props_index_map(std::move(props_map)) {}
-
- private:
   u32 static_props_cnt;
   unordered_map<u16string, u32> props_index_map;
   JSObject dynamic_props;

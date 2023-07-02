@@ -6,13 +6,10 @@
 #include <string>
 #include <unistd.h>
 
-// #define DEBUG
-
 #include "njs/parser/lexer.h"
 #include "njs/parser/parser.h"
-#include "njs/parser/token.h"
-#include "njs/utils/helper.h"
 #include "njs/codegen/CodegenVisitor.h"
+#include "njs/vm/NjsVM.h"
 
 using namespace njs;
 using std::string;
@@ -66,6 +63,9 @@ int main(int argc, char *argv[]) {
 
     CodegenVisitor visitor;
     visitor.codegen(static_cast<ProgramOrFunctionBody *>(ast));
+
+    NjsVM vm(visitor);
+    vm.run();
 
     auto endTime = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);

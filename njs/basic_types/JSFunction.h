@@ -14,6 +14,9 @@ class JSFunction : public JSObject {
  public:
   JSFunction() : JSObject(ObjectClass::CLS_FUNCTION) {}
 
+  JSFunction(const std::u16string& name, u32 code_addr)
+      : JSObject(ObjectClass::CLS_FUNCTION), name(name), code_address(code_addr) {}
+
   void gc_scan_children(GCHeap& heap) override;
 
   std::u16string name;

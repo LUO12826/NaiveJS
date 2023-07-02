@@ -23,7 +23,7 @@ struct SymbolRecord {
     if (kind == VarKind::DECL_VAR || kind == VarKind::DECL_FUNCTION) { is_valid = true; }
   }
 
-  int offset_idx(int offset = 1) { return index + offset; }
+  int offset_idx(int offset = 2) { return index + offset; }
 
   VarKind var_kind;
   u16str_view name;

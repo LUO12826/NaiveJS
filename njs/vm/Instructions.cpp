@@ -68,7 +68,8 @@ std::string Instruction::description() {
       sprintf(buffer, "halt");
       break;
     default:
-      sprintf(buffer, "(fix me)");
+      // fixme
+      sprintf(buffer, "(fixme)");
   }
 
   return std::string(buffer);

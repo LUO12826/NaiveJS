@@ -11,6 +11,8 @@ class JSObject;
 class GCObject;
 struct JSHeapValue;
 
+extern const char *js_value_tag_names[21];
+
 struct JSValue {
   
   enum JSValueTag {
@@ -69,6 +71,10 @@ struct JSValue {
     val.as_bool = boolean;
   }
 
+  explicit JSValue(JSObject *obj): tag(OBJECT) {
+    val.as_object = obj;
+  }
+
   explicit JSValue(std::u16string str): tag(STRING) {
     PrimitiveString *new_str = new PrimitiveString(std::move(str));
     new_str->retain();
@@ -92,6 +98,15 @@ struct JSValue {
   GCObject *as_GCObject() const;
 
   JSValue add(JSValue& rhs);
+
+  std::string description() {
+    std::string res = "JSValue tagged: " + std::string(js_value_tag_names[tag]);
+    if (tag == BOOLEAN) res += ", value: " + std::to_string(val.as_bool);
+    else if (tag == NUMBER_FLOAT) res += ", value: " + std::to_string(val.as_float64);
+    else if (tag == NUMBER_INT) res += ", value: " + std::to_string(val.as_int);
+
+    return res;
+  }
 
   union {
     double as_float64;

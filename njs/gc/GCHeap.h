@@ -49,6 +49,7 @@ class GCHeap {
   }
 
  private:
+  // fixme
   std::vector<JSValue *> gather_roots() { return {}; }
 
   // Copying GC
