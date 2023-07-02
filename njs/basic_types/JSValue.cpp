@@ -41,7 +41,7 @@ JSValue::~JSValue() {
 JSValue JSValue::undefined = JSValue(JSValue::UNDEFINED);
 JSValue JSValue::null = JSValue(JSValue::JS_NULL);
 
-const char *js_value_tag_names[21] = {
+const char *js_value_tag_names[22] = {
   "UNDEFINED",
   "JS_ATOM",
   "JS_NULL",
@@ -56,7 +56,8 @@ const char *js_value_tag_names[21] = {
   "STRING_REF",
   "SYMBOL_REF",
 
-  "STACK_FRAME_META",
+  "STACK_FRAME_META1",
+  "STACK_FRAME_META2",
   "OTHER",
 
   "NEED_GC_BEGIN",

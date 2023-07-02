@@ -11,7 +11,7 @@ class JSObject;
 class GCObject;
 struct JSHeapValue;
 
-extern const char *js_value_tag_names[21];
+extern const char *js_value_tag_names[22];
 
 struct JSValue {
   
@@ -36,7 +36,8 @@ struct JSValue {
     // Used when a SYMBOL is considered shared.
     SYMBOL_REF,
 
-    STACK_FRAME_META,
+    STACK_FRAME_META1,
+    STACK_FRAME_META2,
     OTHER,
 
     NEED_GC_BEGIN,
@@ -54,7 +55,7 @@ struct JSValue {
   static JSValue undefined;
   static JSValue null;
 
-  JSValue() {}
+  JSValue(): tag(JSValueTag::UNDEFINED) {}
   explicit JSValue(JSValueTag tag): tag(tag) {}
 
   ~JSValue();
@@ -92,7 +93,7 @@ struct JSValue {
   }
 
   inline bool needs_gc() const {
-    return (tag >= NEED_GC_BEGIN) && (tag <= NEED_GC_BEGIN);
+    return (tag >= NEED_GC_BEGIN) && (tag <= NEED_GC_END);
   }
 
   GCObject *as_GCObject() const;

@@ -85,11 +85,11 @@ void NjsVM::execute() {
 }
 
 u32 NjsVM::calc_var_address(ScopeType scope, int raw_index) {
-  if (scope == ScopeType::GLOBAL) return frame_bottom_pointer + frame_meta_size + raw_index;
+  if (scope == ScopeType::GLOBAL) return 0 + frame_meta_size + raw_index;
   if (scope == ScopeType::FUNC) return frame_bottom_pointer + frame_meta_size + raw_index;
 
   assert(scope == ScopeType::FUNC_PARAM);
-  assert(rt_stack[frame_bottom_pointer + 1].tag == JSValue::OTHER);
+  assert(rt_stack[frame_bottom_pointer + 1].tag == JSValue::STACK_FRAME_META2);
   u32 arg_count = rt_stack[frame_bottom_pointer + 1].flag_bits;
   return frame_bottom_pointer - arg_count + raw_index;
 }
@@ -160,12 +160,12 @@ void NjsVM::exec_call(int arg_count) {
   assert(func_val.val.as_object->obj_class == ObjectClass::CLS_FUNCTION);
 
   // first cell of a function stack frame: return address and pointer to the function object.
-  rt_stack[sp].tag = JSValue::STACK_FRAME_META;
+  rt_stack[sp].tag = JSValue::STACK_FRAME_META1;
   rt_stack[sp].flag_bits = pc;
   rt_stack[sp].val.as_object = func_val.val.as_object;
 
   // second cell of a function stack frame: saved `frame_bottom_pointer` and arguments count
-  rt_stack[sp + 1].tag = JSValue::OTHER;
+  rt_stack[sp + 1].tag = JSValue::STACK_FRAME_META1;
   rt_stack[sp + 1].flag_bits = arg_count;
   rt_stack[sp + 1].val.as_int = frame_bottom_pointer;
 
