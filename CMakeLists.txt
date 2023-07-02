@@ -12,6 +12,7 @@ set(SOURCES
     njs/vm/Instructions.cpp
     njs/basic_types/GlobalObject.cpp
     njs/basic_types/RCObject.cpp
+    njs/basic_types/JSFunction.cpp
     njs/basic_types/JSObject.cpp
     njs/basic_types/JSValue.cpp
     njs/main.cpp

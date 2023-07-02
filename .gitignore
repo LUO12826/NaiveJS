@@ -4,6 +4,7 @@
 
 
 build
+cmake-build-debug
 benchmark
 
 test_files/temp_test.js

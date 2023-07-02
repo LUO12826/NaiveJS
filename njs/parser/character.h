@@ -155,10 +155,10 @@ inline char16_t to_lower_case(char16_t c) {
       return k_upper_case_cache[index];
     }
   }
-  std::array<char16_t, 101>::const_iterator it =
+  auto iter =
         std::upper_bound(k_lower_case_keys.begin(), k_lower_case_keys.end(), c) - 1;
   
-  const int result = static_cast<int>(it - k_lower_case_keys.begin());
+  const int result = static_cast<int>(iter - k_lower_case_keys.begin());
   assert(result < 101);
   if (result >= 0) {
     bool by2 = false;
@@ -196,15 +196,15 @@ inline char16_t to_upper_case(char16_t c) {
       return k_upper_case_cache[index];
     }
   }
-  std::array<char16_t, 113>::const_iterator it =
+  auto iter =
           std::upper_bound(k_upper_case_keys.begin(), k_upper_case_keys.end(), c) - 1;
 
-  const int result = static_cast<int>(it - k_upper_case_keys.begin());
+  const int result = static_cast<int>(iter - k_upper_case_keys.begin());
   assert(result < 113);
 
   if (result >= 0) {
     bool by2 = false;
-    const char16_t start = *it;
+    const char16_t start = *iter;
     char16_t end = k_upper_case_values[result * 2];
     if ((start & 0x8000) != (end & 0x8000)) {
       end ^= 0x8000;

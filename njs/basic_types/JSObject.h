@@ -75,8 +75,8 @@ namespace njs {
 class JSObject : public GCObject {
  public:
   JSObject() : GCObject(ObjectClass::CLS_OBJECT) {}
-  JSObject(ObjectClass cls) : GCObject(cls) {}
-  virtual ~JSObject() {}
+  explicit JSObject(ObjectClass cls) : GCObject(cls) {}
+  virtual ~JSObject() = default;
 
   void gc_scan_children(GCHeap& heap) override;
 

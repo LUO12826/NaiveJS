@@ -31,7 +31,7 @@ class RCObject {
 /// @brief PrimitiveString: string that is not wrapped as objects in JavaScript
 struct PrimitiveString: public RCObject {
 
-  PrimitiveString(std::u16string str): str(std::move(str)) {}
+  explicit PrimitiveString(std::u16string str): str(std::move(str)) {}
 
   bool operator == (const PrimitiveString& other) const {
     return str == other.str;
@@ -45,7 +45,7 @@ struct JSSymbol: public RCObject {
 
   static size_t global_count;
 
-  JSSymbol(std::u16string name): name(std::move(name)) {
+  explicit JSSymbol(std::u16string name): name(std::move(name)) {
     seq = JSSymbol::global_count;
     JSSymbol::global_count += 1;
   }

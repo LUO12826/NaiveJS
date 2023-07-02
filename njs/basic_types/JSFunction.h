@@ -32,7 +32,7 @@ struct JSFunctionMeta {
   bool has_this_binding {false};
   u32 code_address;
 
-  std::string description() {
+  std::string description() const {
     return "name_index: " + std::to_string(name_index) +
            ", code_address: " + std::to_string(code_address);
   }

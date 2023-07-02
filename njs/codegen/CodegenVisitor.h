@@ -24,7 +24,7 @@ struct CodegenError {
 };
 
 struct ScopeContext {
-  ScopeContext(ScopeContext *outer): outer(outer) {}
+  explicit ScopeContext(ScopeContext *outer): outer(outer) {}
 
   ScopeContext *outer;
   SmallVector<Instruction, 10> temp_code_storage;
@@ -112,7 +112,7 @@ class CodegenVisitor {
       visit(func);
     }
     // skip function bytecode
-    jmp_inst.oprand.two.opr1 = bytecode_pos();
+    jmp_inst.operand.two.opr1 = bytecode_pos();
 
     // Fill the function symbol initialization code to the very beginning
     // (because the function variable will be hoisted)
@@ -142,8 +142,8 @@ class CodegenVisitor {
 
     // create metadata for function
     u32 func_idx = add_function_meta( JSFunctionMeta {
-      .code_address = bytecode_pos(),
-      .name_index = name_cst_idx
+        .name_index = name_cst_idx,
+        .code_address = bytecode_pos(),
     });
 
     // generate bytecode for function body

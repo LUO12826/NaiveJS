@@ -19,7 +19,7 @@ using std::u16string;
 
 class GlobalObject {
  public:
-  GlobalObject(unordered_map<u16string, u32>& props_map)
+  explicit GlobalObject(unordered_map<u16string, u32>& props_map)
       : static_props_cnt(props_map.size()), props_index_map(std::move(props_map)) {}
 
  private:

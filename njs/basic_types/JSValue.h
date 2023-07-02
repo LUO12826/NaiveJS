@@ -53,30 +53,30 @@ struct JSValue {
   static JSValue null;
 
   JSValue() {}
-  JSValue(JSValueTag tag): tag(tag) {}
+  explicit JSValue(JSValueTag tag): tag(tag) {}
 
   ~JSValue();
 
-  JSValue(double number): tag(NUMBER_FLOAT) {
+  explicit JSValue(double number): tag(NUMBER_FLOAT) {
     val.as_float64 = number;
   }
 
-  JSValue(int64_t number): tag(NUMBER_INT) {
+  explicit JSValue(int64_t number): tag(NUMBER_INT) {
     val.as_int = number;
   }
 
-  JSValue(bool boolean): tag(BOOLEAN) {
+  explicit JSValue(bool boolean): tag(BOOLEAN) {
     val.as_bool = boolean;
   }
 
-  JSValue(std::u16string str): tag(STRING) {
+  explicit JSValue(std::u16string str): tag(STRING) {
     PrimitiveString *new_str = new PrimitiveString(std::move(str));
     new_str->retain();
     val.as_primitive_string = new_str;
   }
 
-  inline bool is_int() { return tag == NUMBER_INT; }
-  inline bool is_float() { return tag == NUMBER_FLOAT; }
+  inline bool is_int() const { return tag == NUMBER_INT; }
+  inline bool is_float() const { return tag == NUMBER_FLOAT; }
   inline bool is_bool() { return tag == BOOLEAN; }
   inline bool is_primitive_string() { return tag == STRING; }
   inline bool is_object() { return tag == OBJECT; }
@@ -85,11 +85,11 @@ struct JSValue {
     return tag == HEAP_VAL_REF || tag == STRING_REF || tag == SYMBOL_REF;
   }
 
-  inline bool needs_gc() {
+  inline bool needs_gc() const {
     return (tag >= NEED_GC_BEGIN) && (tag <= NEED_GC_BEGIN);
   }
 
-  GCObject *as_GCObject();
+  GCObject *as_GCObject() const;
 
   JSValue add(JSValue& rhs);
 

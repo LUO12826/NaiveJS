@@ -377,7 +377,7 @@ class BinaryExpr : public ASTNode {
   bool is_assign() { return op.type == Token::ASSIGN; }
 
   std::string description() override {
-    return ASTNode::description() + " oprand: " + op.get_type_string();
+    return ASTNode::description() + " operand: " + op.get_type_string();
   }
 
   ASTNode *lhs;

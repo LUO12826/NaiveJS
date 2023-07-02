@@ -5,7 +5,7 @@
 
 namespace njs {
 
-GCObject *JSValue::as_GCObject() {
+GCObject *JSValue::as_GCObject() const {
   assert(tag == OBJECT);
   return static_cast<GCObject *>(val.as_object);
 }

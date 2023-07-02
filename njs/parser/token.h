@@ -151,7 +151,7 @@ class Token {
   }
 
   std::string get_type_string() const {
-    return std::string(token_type_names[(int)type]);
+    return {token_type_names[(int)type]};
   }
 
   std::string get_text_utf8() const {

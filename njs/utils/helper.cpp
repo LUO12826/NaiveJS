@@ -21,7 +21,7 @@ void debug_printf(const char* format, ...) {
     va_end(args);
 }
 
-std::string to_utf8_string(std::u16string str) {
+std::string to_utf8_string(const std::u16string& str) {
   static std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
   return convert.to_bytes(str);
 }
@@ -42,9 +42,9 @@ std::string to_utf8_string(const void *ptr) {
   return ss.str();
 }
 
-std::u16string str_cat(std::vector<std::u16string> vals) {
+std::u16string str_cat(const std::vector<std::u16string>& vals) {
   u32 size = 0;
-  for (auto val : vals) {
+  for (const auto& val : vals) {
     size += val.size();
   }
   std::u16string res(size, 0);

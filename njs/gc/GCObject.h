@@ -23,8 +23,8 @@ enum class ObjectClass {
 
 class GCObject {
  public:
-  GCObject(ObjectClass cls) : obj_class(cls) {}
-  virtual ~GCObject() {}
+  explicit GCObject(ObjectClass cls) : obj_class(cls), size(sizeof(GCObject)) {}
+  virtual ~GCObject() = default;
 
   GCObject(const GCObject& obj) = delete;
   GCObject(GCObject&& obj) = delete;

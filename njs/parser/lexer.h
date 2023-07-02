@@ -23,10 +23,8 @@ using llvm::SmallVector;
 class Lexer {
  public:
   
-  Lexer(std::u16string source): source(source),
-                                cursor(0),
-                                ch(source[0]),
-                                length(source.size()) {}
+  explicit Lexer(std::u16string source): source(source), cursor(0),
+                                         ch(source[0]), length(source.size()) {}
 
   Lexer(const Lexer&) = delete;
   Lexer(Lexer&&) = delete;
@@ -558,7 +556,7 @@ error:
   }
 
   inline std::u16string_view view_of_source(u32 start, u32 end) {
-    return std::u16string_view(source.data() + start, end - start);
+    return {source.data() + start, end - start};
   }
 
   inline Token token_with_type(TokenType type, u32 start_pos) {
@@ -817,7 +815,7 @@ error:
     return token_with_type(TokenType::ILLEGAL, start);
   }
 
-  bool skip_unicode_escape_sequence(std::u16string& source) {
+  bool skip_unicode_escape_sequence(std::u16string& str) {
     if (ch != u'u') {
       return false;
     }
@@ -830,14 +828,14 @@ error:
       c = c << 4 | character::u16_char_to_digit(ch);
       next_char();
     }
-    source += c;
+    str += c;
     return true;
   }
 
   Token scan_identifier() {
     assert(character::is_identifier_start(ch));
     u32 start = cursor;
-    std::u16string id_text = u"";
+    std::u16string id_text;
     if (ch == u'\\') {
       next_char();
       if (!skip_unicode_escape_sequence(id_text)) {
@@ -887,7 +885,7 @@ error:
     return Token(TokenType::IDENTIFIER,
                   // insert(obj) return (inserted_obj, success_or_not)
                   // make a string view from the string that was put in the string pool.
-                  u16string_view(string_pool.insert(id_text).first->c_str()),
+                  u16string_view(*string_pool.insert(id_text).first),
                   start, cursor, curr_line);
 error:
     return token_with_type(TokenType::ILLEGAL, start);

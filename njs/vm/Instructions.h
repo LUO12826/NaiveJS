@@ -41,12 +41,12 @@ enum class InstType {
 
 struct Instruction {
 
-  struct OprandType1 {
+  struct OperandType1 {
     int opr1;
     int opr2;
   };
 
-  struct OprandType2 {
+  struct OperandType2 {
     u16 opr1;
     u16 opr2;
     u16 opr3;
@@ -61,16 +61,16 @@ struct Instruction {
 
   Instruction(InstType op, int opr1);  
 
-  Instruction(InstType op);
+  explicit Instruction(InstType op);
 
   std::string description();
 
   InstType op_type;
   union {
     double num;
-    OprandType1 two;
-    OprandType2 four;
-  } oprand;
+    OperandType1 two;
+    OperandType2 four;
+  } operand;
 
 };
 

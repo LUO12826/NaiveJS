@@ -1,7 +1,7 @@
 #ifndef NJS_UTILS_MACROS_H
 #define NJS_UTILS_MACROS_H
 
-#include <stdlib.h>
+#include <cstdlib>
 
 namespace njs {
 
