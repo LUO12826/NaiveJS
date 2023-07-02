@@ -1,14 +1,68 @@
 #ifndef NJS_CODEGEN_VISITOR_H
 #define NJS_CODEGEN_VISITOR_H
 
+#include <string>
+#include <cstdint>
+#include <iostream>
 #include "Scope.h"
+#include "njs/utils/helper.h"
 #include "njs/include/SmallVector.h"
 #include "njs/parser/ast.h"
+#include "njs/include/robin_hood.h"
+#include "njs/vm/Instructions.h"
+#include "njs/basic_types/JSFunction.h"
 
 namespace njs {
 
+using robin_hood::unordered_map;
+using std::u16string;
+using u32 = uint32_t;
+
+struct CodegenError {
+  std::string message;
+  ASTNode* ast_node;
+};
+
+struct ScopeContext {
+  ScopeContext(ScopeContext *outer): outer(outer) {}
+
+  ScopeContext *outer;
+  SmallVector<Instruction, 10> temp_code_storage;
+};
+
 class CodegenVisitor {
  public:
+
+  unordered_map<u16string, u32> global_props_map;
+
+  void codegen(ProgramOrFunctionBody *prog) {
+    visit_program_or_function_body(*prog);
+
+    std::cout << ">>> instructions:" << std::endl;
+    for (auto& inst : bytecode) {
+      std::cout << inst.description() << std::endl;
+    }
+    std::cout << std::endl;
+
+    std::cout << ">>> string pool:" << std::endl;
+    for (auto& str : str_pool) {
+      std::cout << to_utf8_string(str) << std::endl;
+    }
+    std::cout << std::endl;
+
+    std::cout << ">>> number pool:" << std::endl;
+    for (auto num : num_pool) {
+      std::cout << num << std::endl;
+    }
+    std::cout << std::endl;
+
+    std::cout << ">>> function metadata:" << std::endl;
+    for (auto& meta : func_meta) {
+      std::cout << meta.description() << std::endl;
+    }
+    std::cout << std::endl;
+  }
+
   void visit(ASTNode *node) {
     switch (node->get_type()) {
       case ASTNode::AST_PROGRAM:
@@ -16,25 +70,31 @@ class CodegenVisitor {
         visit_program_or_function_body(*static_cast<ProgramOrFunctionBody *>(node));
         break;
       case ASTNode::AST_FUNC:
-        visit_function(static_cast<Function *>(node));
+        visit_function(*static_cast<Function *>(node));
         break;
       case ASTNode::AST_EXPR_BINARY:
-        visit_binary_expr(static_cast<BinaryExpr *>(node));
+        visit_binary_expr(*static_cast<BinaryExpr *>(node));
         break;
       case ASTNode::AST_EXPR_LHS:
-        visit_left_hand_side_expr(static_cast<LeftHandSideExpr *>(node));
+        visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(node));
         break;
       case ASTNode::AST_EXPR_ID:
-        visit_identifier(node);
+        visit_identifier(*node);
         break;
       case ASTNode::AST_EXPR_ARGS:
-        visit_func_arguments(static_cast<Arguments *>(node));
+        visit_func_arguments(*static_cast<Arguments *>(node));
+        break;
+      case ASTNode::AST_EXPR_NUMBER:
+        visit_number(*node);
         break;
       case ASTNode::AST_STMT_VAR:
-        visit_variable_statement(static_cast<VarStatement *>(node));
+        visit_variable_statement(*static_cast<VarStatement *>(node));
         break;
       case ASTNode::AST_STMT_VAR_DECL:
-        visit_variable_declaration(static_cast<VarDecl *>(node));
+        visit_variable_declaration(*static_cast<VarDecl *>(node));
+        break;
+      case ASTNode::AST_STMT_RETURN:
+        visit_return_statement(*static_cast<ReturnStatement *>(node));
         break;
       default:
         assert(false);
@@ -42,52 +102,232 @@ class CodegenVisitor {
   }
 
   void visit_program_or_function_body(ProgramOrFunctionBody& program) {
-    if (program.type == ASTNode::AST_PROGRAM) { push_scope(Scope::GLOBAL_SCOPE); }
 
+    push_scope(std::move(program.scope));
 
+    auto& jmp_inst = emit(InstType::jmp);
 
-    // function name hoisting
+    // generate bytecode for functions first
     for (Function *func : program.func_decls) {
-      current_scope().define_symbol(VarKind::DECL_FUNCTION, func->name.text);
+      visit(func);
     }
-    
-    // function name hoisting
-    for (Function *func : program.func_decls) {
-      current_scope().define_symbol(VarKind::DECL_FUNCTION, func->name.text);
+    // skip function bytecode
+    jmp_inst.oprand.two.opr1 = bytecode_pos();
+
+    // Fill the function symbol initialization code to the very beginning
+    // (because the function variable will be hoisted)
+
+    for (auto& inst : current_context().temp_code_storage) {
+      bytecode.push_back(inst);
+    }
+    current_context().temp_code_storage.clear();
+
+    for (ASTNode *node : program.stmts) {
+      visit(node);
     }
 
-    for (ASTNode *node : program.stmts) { visit(node); }
+    if (program.type == ASTNode::AST_PROGRAM) {
+      emit(InstType::halt);
+    }
+
+    pop_scope();
   }
 
-  void visit_function(Function *func) {}
+  void visit_function(Function& func) {
+    // currently only support function statement
+    assert(func.is_stmt);
 
-  void visit_binary_expr(BinaryExpr *expr) {}
+    // add the function name to the constant pool
+    u32 name_cst_idx = add_const(func.get_name_str());
 
-  void visit_left_hand_side_expr(LeftHandSideExpr *expr) {}
+    // create metadata for function
+    u32 func_idx = add_function_meta( JSFunctionMeta {
+      .code_address = bytecode_pos(),
+      .name_index = name_cst_idx
+    });
 
-  void visit_identifier(ASTNode *id) {}
+    // generate bytecode for function body
+    visit(func.body);
 
-  void visit_func_arguments(Arguments *args) {}
+    // let the VM make a function
+    emit_temp(InstType::make_func, func_idx);
 
-  void visit_variable_statement(VarStatement *var_stmt) {}
+    // then put this function to where its name (as a variable) is located.
+    auto symbol = current_scope().resolve_symbol(func.name.text);
+    emit_temp(InstType::pop, symbol.scope_type, symbol.symbol->offset_idx());
+  }
 
-  void visit_variable_declaration(VarDecl *var_decl) {}
+  void visit_binary_expr(BinaryExpr& expr) {
+    if (expr.is_simple_expr()) {
+
+      auto lhs_symbol = current_scope().resolve_symbol(expr.lhs->get_source());
+      auto rhs_symbol = current_scope().resolve_symbol(expr.rhs->get_source());
+
+      emit(InstType::fast_add,
+            lhs_symbol.scope_type, lhs_symbol.symbol->offset_idx(),
+            rhs_symbol.scope_type, rhs_symbol.symbol->offset_idx());
+    }
+    else {
+      assert(false);
+    }
+  }
+
+  void visit_left_hand_side_expr(LeftHandSideExpr& expr) {
+    visit(expr.base);
+
+    for (auto postfix : expr.postfix_order) {
+      auto postfix_type = postfix.first;
+      u32 idx = postfix.second;
+
+      if (postfix_type == LeftHandSideExpr::CALL) {
+
+        visit_func_arguments(*(expr.args_list[idx]));
+        emit(InstType::call, expr.args_list[idx]->args.size());
+
+      }
+      else if (postfix_type == LeftHandSideExpr::PROP) {}
+      else if (postfix_type == LeftHandSideExpr::INDEX) {}
+    }
+  }
+
+  void visit_identifier(ASTNode& id) {
+    auto symbol = current_scope().resolve_symbol(id.get_source());
+    emit(InstType::push, symbol.scope_type, symbol.symbol->offset_idx());
+  }
+
+  void visit_func_arguments(Arguments& args) {
+    for (auto node : args.args) {
+      visit(node);
+    }
+  }
+
+  int64_t parse_number_literal(std::u16string_view str) {
+    int64_t value = 0;
+
+    // 检查字符串是否以 "0x" 开头，如果是，则解析为十六进制
+    if (str.size() >= 2 && str.substr(0, 2) == u"0x") {
+        try {
+          value = std::stoll(std::string(str.begin() + 2, str.end()), nullptr, 16);
+        }
+        catch (const std::exception& e) {
+          std::cerr << "Failed to parse hex number: " << e.what() << std::endl;
+        }
+    }
+    // 否则，解析为十进制
+    else {
+        try {
+          value = std::stoll(std::string(str.begin(), str.end()), nullptr, 10);
+        }
+        catch (const std::exception& e) {
+          std::cerr << "Failed to parse decimal number: " << e.what() << std::endl;
+        }
+    }
+
+    return value;
+  }
+
+  void visit_number(ASTNode& node) {
+    int64_t val = parse_number_literal(node.get_source());
+    emit(Instruction::num_imm(val));
+  }
+
+  void visit_variable_statement(VarStatement& var_stmt) {}
+
+  void visit_return_statement(ReturnStatement& return_stmt) {
+    visit(return_stmt.expr);
+    emit(InstType::ret);
+  }
+
+  void visit_variable_declaration(VarDecl& var_decl) {}
 
  private:
-  SmallVector<Scope, 10> scope_chain;
-
+  
   Scope& current_scope() { return scope_chain.back(); }
 
+  ScopeContext& current_context() { return context_chain.back(); }
+
+  ScopeContext& context_at(int index) {
+    int idx = index >= 0 ? index : context_chain.size() + index;
+    assert(idx >= 0 && idx <= context_chain.size());
+    return context_chain[idx];
+  }
+
   void push_scope(Scope::Type scope_type) {
-    Scope *parent = scope_chain.size() > 0 ? &scope_chain.back() : nullptr;
-    scope_chain.emplace_back(scope_type, parent);
+    Scope *outer = scope_chain.size() > 0 ? &scope_chain.back() : nullptr;
+    scope_chain.emplace_back(scope_type, outer);
+
+    context_chain.emplace_back(context_chain.size() > 0 ? &context_chain.back() : nullptr);
   }
 
   void push_scope(Scope&& scope) {
-    Scope *parent = scope_chain.size() > 0 ? &scope_chain.back() : nullptr;
-    scope.set_parent(parent);
+    Scope *outer = scope_chain.size() > 0 ? &scope_chain.back() : nullptr;
+    scope.set_outer(outer);
     scope_chain.emplace_back(std::move(scope));
+
+    context_chain.emplace_back(context_chain.size() > 0 ? &context_chain.back() : nullptr);
   }
+
+  void pop_scope() {
+    scope_chain.pop_back();
+    context_chain.pop_back();
+  }
+
+  template <typename... Args>
+  Instruction& emit(Args &&...args) {
+    bytecode.emplace_back(std::forward<Args>(args)...);
+    return bytecode.back();
+  }
+
+  Instruction& emit(Instruction inst) {
+    bytecode.push_back(inst);
+    return bytecode.back();
+  }
+
+  template <typename... Args>
+  Instruction& emit_temp(Args &&...args) {
+    context_at(-1).temp_code_storage.emplace_back(std::forward<Args>(args)...);
+    return context_at(-1).temp_code_storage.back();
+  }
+
+  void report_error(CodegenError err) {
+    error.push_back(std::move(err));
+  }
+
+  u32 add_const(u16string str) {
+    auto idx = str_pool.size();
+    str_pool.push_back(std::move(str));
+    return idx;
+  }
+
+  u32 add_const(double num) {
+    auto idx = num_pool.size();
+    num_pool.push_back(num);
+    return idx;
+  }
+
+  u32 add_function_meta(JSFunctionMeta meta) {
+    auto idx = func_meta.size();
+    func_meta.push_back(meta);
+    return idx;
+  }
+
+  u32 bytecode_pos() {
+    return bytecode.size();
+  }
+
+  SmallVector<CodegenError, 10> error;
+
+  SmallVector<Scope, 10> scope_chain;
+
+  SmallVector<ScopeContext, 10> context_chain;
+
+  SmallVector<Instruction, 10> bytecode;
+
+  // for constant
+  SmallVector<u16string, 10> str_pool;
+  SmallVector<double, 10> num_pool;
+  SmallVector<JSFunctionMeta, 10> func_meta;
+
 };
 
 } // namespace njs

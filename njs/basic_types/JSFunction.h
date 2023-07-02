@@ -17,11 +17,25 @@ class JSFunction : public JSObject {
   void gc_scan_children(GCHeap& heap) override;
 
   std::u16string name;
-  bool is_anonymous;
-  bool is_arrow_func;
-  bool has_this_binding;
+  bool is_anonymous {false};
+  bool is_arrow_func {false};
+  bool has_this_binding {false};
   u32 code_address;
 
+};
+
+struct JSFunctionMeta {
+
+  u32 name_index;
+  bool is_anonymous {false};
+  bool is_arrow_func {false};
+  bool has_this_binding {false};
+  u32 code_address;
+
+  std::string description() {
+    return "name_index: " + std::to_string(name_index) +
+           ", code_address: " + std::to_string(code_address);
+  }
 };
 
 } // namespace njs

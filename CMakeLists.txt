@@ -9,12 +9,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(SOURCES
     njs/vm/NjsVM.cpp
+    njs/vm/Instructions.cpp
     njs/basic_types/GlobalObject.cpp
     njs/basic_types/RCObject.cpp
     njs/basic_types/JSObject.cpp
     njs/basic_types/JSValue.cpp
     njs/main.cpp
     njs/utils/helper.cpp
+    njs/parser/enum_strings.cpp
 )
 
 # executable is named `njs`

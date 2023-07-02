@@ -33,7 +33,7 @@ std::string get_var_kind_str(VarKind kind) {
     case VarKind::DECL_LET: return "let";
     case VarKind::DECL_CONST: return "const";
     case VarKind::DECL_FUNC_PARAM: return "(function parameter)";
-    default: return "var";
+    default: return "(error)";
   }
 }
 

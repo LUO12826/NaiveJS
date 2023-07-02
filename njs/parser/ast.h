@@ -212,30 +212,6 @@ class ParenthesisExpr : public ASTNode {
   ASTNode *expr;
 };
 
-class BinaryExpr : public ASTNode {
- public:
-  BinaryExpr(ASTNode *lhs, ASTNode *rhs, Token op, std::u16string_view source, u32 start, u32 end,
-             u32 line_start)
-      : ASTNode(AST_EXPR_BINARY, source, start, end, line_start), lhs(lhs), rhs(rhs), op(op) {
-    add_child(lhs);
-    add_child(rhs);
-  }
-
-  ~BinaryExpr() override {
-    delete lhs;
-    delete rhs;
-  }
-
-  bool is_assign() { return op.type == Token::ASSIGN; }
-
-  std::string description() override {
-    return ASTNode::description() + " oprand: " + op.get_type_string();
-  }
-
-  ASTNode *lhs;
-  ASTNode *rhs;
-  Token op;
-};
 
 class UnaryExpr : public ASTNode {
  public:
@@ -291,12 +267,16 @@ class Arguments : public ASTNode {
  public:
   Arguments(vector<ASTNode *> args) : ASTNode(AST_EXPR_ARGS), args(args) {}
 
+  ~Arguments() override {
+    for (auto arg : args) delete arg;
+  }
+
   std::string description() override {
     return ASTNode::description() +  "  " + to_utf8_string(get_source());
   }
 
-  ~Arguments() override {
-    for (auto arg : args) delete arg;
+  u32 arg_count() {
+    return args.size();
   }
 
   vector<ASTNode *> args;
@@ -360,6 +340,10 @@ class LeftHandSideExpr : public ASTNode {
     add_child(new ASTNode(AST_TOKEN, prop_name.text, prop_name.start, prop_name.end, prop_name.line));
   }
 
+  bool is_simple() {
+    return base->type == ASTNode::AST_EXPR_ID && postfix_order.empty();
+  }
+
   ASTNode *base;
   u32 new_count;
 
@@ -369,13 +353,42 @@ class LeftHandSideExpr : public ASTNode {
   vector<std::u16string_view> prop_names_list;
 };
 
+class BinaryExpr : public ASTNode {
+ public:
+  BinaryExpr(ASTNode *lhs, ASTNode *rhs, Token op, std::u16string_view source, u32 start, u32 end,
+             u32 line_start)
+      : ASTNode(AST_EXPR_BINARY, source, start, end, line_start), lhs(lhs), rhs(rhs), op(op) {
+    add_child(lhs);
+    add_child(rhs);
+  }
+
+  ~BinaryExpr() override {
+    delete lhs;
+    delete rhs;
+  }
+
+  bool is_simple_expr() {
+    if (lhs->type != ASTNode::AST_EXPR_LHS || rhs->type != ASTNode::AST_EXPR_LHS) { return false; }
+
+    return static_cast<LeftHandSideExpr *>(lhs)->is_simple() &&
+           static_cast<LeftHandSideExpr *>(rhs)->is_simple();
+  }
+
+  bool is_assign() { return op.type == Token::ASSIGN; }
+
+  std::string description() override {
+    return ASTNode::description() + " oprand: " + op.get_type_string();
+  }
+
+  ASTNode *lhs;
+  ASTNode *rhs;
+  Token op;
+};
+
 class ProgramOrFunctionBody;
 
 class Function : public ASTNode {
  public:
-  // Function(vector<std::u16string> params, AST* body,
-  //          std::u16string_view source, u32 start, u32 end) :
-  //   Function(Token::none, params, body, source, start, end, line_start) {}
 
   Function(Token name, vector<std::u16string> params, ASTNode *body,
            std::u16string_view source, u32 start, u32 end, u32 line_start)
@@ -395,10 +408,12 @@ class Function : public ASTNode {
   }
 
   bool has_name() { return name.type != Token::NONE; }
-  std::u16string_view get_name() { return name.text; }
+
+  std::u16string get_name_str() { return std::u16string(name.text); }
 
   Token name;
   vector<std::u16string> params;
+  bool is_stmt {false};
   ASTNode *body;
 };
 

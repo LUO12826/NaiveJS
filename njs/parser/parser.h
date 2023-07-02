@@ -114,7 +114,7 @@ error:
     return true;
   }
 
-  ASTNode* parse_function(bool name_required, bool func_keyword_required = true) {
+  ASTNode* parse_function(bool name_required, bool func_keyword_required) {
     START_POS;
     if (func_keyword_required) {
       assert(token_match(u"function"));
@@ -409,7 +409,7 @@ error:
     }
 
     if (base == nullptr && token.text == u"function") {
-      base = parse_function(false);
+      base = parse_function(false, true);
     }
     else if (base == nullptr) {
       base = parse_primary_expression();
@@ -530,25 +530,23 @@ error:
     if (syntax_type == ASTNode::AST_PROGRAM) push_scope(Scope::GLOBAL_SCOPE);
 
     ProgramOrFunctionBody* prog = new ProgramOrFunctionBody(syntax_type, strict);
-    ASTNode* element;
+    ASTNode* statement;
     
     while (!token_match(ending_token_type)) {
-      if (token_match(u"function")) {
-        element = parse_function(true);
-        if (element->is_illegal()) {
-          delete prog;
-          return element;
-        }
-        prog->add_function_decl(element);
+      statement = parse_statement();
+      
+      if (statement->is_illegal()) {
+        delete prog;
+        return statement;
+      }
+
+      if (statement->type == ASTNode::AST_FUNC) {
+        prog->add_function_decl(statement);
       }
       else {
-        element = parse_statement();
-        if (element->is_illegal()) {
-          delete prog;
-          return element;
-        }
-        prog->add_statement(element);
+        prog->add_statement(statement);
       }
+
       lexer.next();
     }
     assert(token_match(ending_token_type));
@@ -586,7 +584,13 @@ error:
         else if (token.text == u"switch") return parse_switch_statement();
         else if (token.text == u"throw") return parse_throw_statement();
         else if (token.text == u"try") return parse_try_statement();
-        else if (token.text == u"function") return parse_function(true, true);
+        else if (token.text == u"function") {
+          auto func = parse_function(true, true);
+          if (func->type == ASTNode::AST_FUNC) {
+            static_cast<Function*>(func)->is_stmt = true;
+          }
+          return func;
+        }
         else if (token.text == u"debugger") {
           if (!lexer.try_skip_semicolon()) {
             goto error;

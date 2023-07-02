@@ -21,7 +21,8 @@ class NjsVM {
   NjsVM(SmallVector<Instruction, 10>&& bytecode, unordered_map<u16string, u32>&& global_props_map)
       : global_object(global_props_map) {
     rt_stack = std::make_unique<JSValue[]>(max_stack_size);
-    func_params.reserve(16);
+    func_params.reserve(20);
+    operation_stack.reserve(200);
   }
 
  private:
@@ -31,6 +32,8 @@ class NjsVM {
 
   std::unique_ptr<JSValue[]> rt_stack;
   u32 max_stack_size{10240};
+
+  SmallVector<JSValue, 200> operation_stack;
 
   SmallVector<JSValue, 20> func_params;
   u32 func_param_cnt;

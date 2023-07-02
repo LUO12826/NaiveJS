@@ -13,8 +13,6 @@
 #include "njs/parser/token.h"
 #include "njs/utils/helper.h"
 #include "njs/codegen/CodegenVisitor.h"
-#include "njs/vm/NjsVM.h"
-#include "njs/basic_types/RCObject.h"
 
 using namespace njs;
 using std::string;
@@ -65,6 +63,9 @@ int main(int argc, char *argv[]) {
                 << ", line: " << ast->get_line_start() + 1 << ", start: " << ast->start_pos()
                 << ", end: " << ast->end_pos() << std::endl;
     }
+
+    CodegenVisitor visitor;
+    visitor.codegen(static_cast<ProgramOrFunctionBody *>(ast));
 
     auto endTime = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);

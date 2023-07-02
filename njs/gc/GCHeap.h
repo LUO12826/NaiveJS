@@ -10,6 +10,7 @@
 
 #include "GCObject.h"
 #include "njs/basic_types/JSValue.h"
+#include "njs/basic_types/JSObject.h"
 
 namespace njs {
 

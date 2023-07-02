@@ -1,7 +1,13 @@
 #ifndef NJS_INSTRUCTIONS_H
 #define NJS_INSTRUCTIONS_H
 
+#include <cstdint>
+#include <string>
+
 namespace njs {
+
+using u16 = uint16_t;
+using u32 = uint32_t;
 
 enum class InstType {
   add,
@@ -13,8 +19,9 @@ enum class InstType {
   logi_or,
   logi_not,
   push,
+  pushi,
   pop,
-  j,
+  jmp,
   je,
   jne,
   gt,
@@ -25,17 +32,46 @@ enum class InstType {
   eq,
   call,
   ret,
+
+  fast_add,
+  make_func,
+
   halt,
 };
 
 struct Instruction {
+
+  struct OprandType1 {
+    int opr1;
+    int opr2;
+  };
+
+  struct OprandType2 {
+    u16 opr1;
+    u16 opr2;
+    u16 opr3;
+    u16 opr4;
+  };
+
+  static Instruction num_imm(double num);
+
+  Instruction(InstType op, u16 opr1, u16 opr2, u16 opr3, u16 opr4);
+
+  Instruction(InstType op, int opr1, int opr2);
+
+  Instruction(InstType op, int opr1);  
+
+  Instruction(InstType op);
+
+  std::string description();
+
   InstType op_type;
   union {
     double num;
-    int opr1;
-    int opr2;
+    OprandType1 two;
+    OprandType2 four;
   } oprand;
-  
+
 };
 
 

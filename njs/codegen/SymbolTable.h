@@ -14,6 +14,8 @@ using u16str_view = std::u16string_view;
 
 struct SymbolRecord {
 
+  SymbolRecord() {}
+
   SymbolRecord(VarKind kind, u16str_view name) : SymbolRecord(kind, name, 0) {}
 
   SymbolRecord(VarKind kind, u16str_view name, int index)
@@ -21,10 +23,13 @@ struct SymbolRecord {
     if (kind == VarKind::DECL_VAR || kind == VarKind::DECL_FUNCTION) { is_valid = true; }
   }
 
+  int offset_idx(int offset = 1) { return index + offset; }
+
   VarKind var_kind;
   u16str_view name;
   int index;
-  bool is_valid{false};
+  bool is_valid {false};
+  bool is_captured {false};
 };
 
 } // namespace njs
