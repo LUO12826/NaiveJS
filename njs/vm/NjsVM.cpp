@@ -165,7 +165,7 @@ void NjsVM::exec_call(int arg_count) {
   rt_stack[sp].val.as_object = func_val.val.as_object;
 
   // second cell of a function stack frame: saved `frame_bottom_pointer` and arguments count
-  rt_stack[sp + 1].tag = JSValue::STACK_FRAME_META1;
+  rt_stack[sp + 1].tag = JSValue::STACK_FRAME_META2;
   rt_stack[sp + 1].flag_bits = arg_count;
   rt_stack[sp + 1].val.as_int = frame_bottom_pointer;
 

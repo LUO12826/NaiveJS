@@ -6,6 +6,8 @@
 #include <string>
 #include <unistd.h>
 
+#include "njs/utils/Timer.h"
+#include "njs/global_var.h"
 #include "njs/parser/lexer.h"
 #include "njs/parser/parser.h"
 #include "njs/codegen/CodegenVisitor.h"
@@ -25,15 +27,21 @@ int main(int argc, char *argv[]) {
   bool show_tokens = false;
 
   int option;
-  while ((option = getopt(argc, argv, "atp:")) != -1) {
+  while ((option = getopt(argc, argv, "bgatf:")) != -1) {
     switch (option) {
+    case 'b':
+      Global::dump_bytecode = true;
+      break;
+    case 'g':
+      Global::show_gc_statistics = true;
+      break;
     case 'a':
       show_ast = true;
       break;
     case 't':
       show_tokens = true;
       break;
-    case 'p':
+    case 'f':
       file_path = string(optarg);
       break;
     case '?':
@@ -44,15 +52,20 @@ int main(int argc, char *argv[]) {
 
   try {
     u16string source_code = read_file(file_path);
-    auto startTime = std::chrono::steady_clock::now();
 
+    // show tokens
     if (show_tokens) {
       print_tokens(source_code);
     }
 
+    Timer parser_timer("parsed");
+
     Parser parser(std::move(source_code));
     ASTNode *ast = parser.parse_program();
 
+    parser_timer.end();
+
+    // show AST
     if (show_ast) ast->print_tree(0);
 
     if (ast->is_illegal()) {
@@ -61,15 +74,22 @@ int main(int argc, char *argv[]) {
                 << ", end: " << ast->end_pos() << std::endl;
     }
 
+    Timer codegen_timer("code generated");
+
+    // codegen
     CodegenVisitor visitor;
     visitor.codegen(static_cast<ProgramOrFunctionBody *>(ast));
 
+    codegen_timer.end();
+
+    Timer exec_timer("executed");
+
+    // execute bytecode
     NjsVM vm(visitor);
     vm.run();
 
-    auto endTime = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
-    std::cout << "parsed in " << duration.count() << " microseconds." << std::endl;
+    exec_timer.end();
+    
   }
   catch (const std::ifstream::failure &e) {
     fprintf(stderr, "%s\n", e.what());
