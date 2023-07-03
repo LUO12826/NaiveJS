@@ -20,6 +20,8 @@ using llvm::SmallVector;
 class CodegenVisitor;
 
 class NjsVM {
+friend class GCHeap;
+
  public:
   // These parameters are only for temporary convenience
   NjsVM(CodegenVisitor& visitor);

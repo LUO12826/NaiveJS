@@ -17,12 +17,9 @@ class RCObject {
   RCObject(const RCObject& obj) = delete;
   RCObject(RCObject&& obj) = delete;
 
-  void retain() { ref_count += 1; }
+  void retain();
 
-  void release() {
-    ref_count -= 1;
-    if (ref_count == 0) delete this;
-  }
+  void release();
 
  private:
   u32 ref_count;
@@ -31,11 +28,9 @@ class RCObject {
 /// @brief PrimitiveString: string that is not wrapped as objects in JavaScript
 struct PrimitiveString: public RCObject {
 
-  explicit PrimitiveString(std::u16string str): str(std::move(str)) {}
+  explicit PrimitiveString(std::u16string str);
 
-  bool operator == (const PrimitiveString& other) const {
-    return str == other.str;
-  }
+  bool operator == (const PrimitiveString& other) const;
 
   std::u16string str;
 };
@@ -45,14 +40,9 @@ struct JSSymbol: public RCObject {
 
   static size_t global_count;
 
-  explicit JSSymbol(std::u16string name): name(std::move(name)) {
-    seq = JSSymbol::global_count;
-    JSSymbol::global_count += 1;
-  }
+  explicit JSSymbol(std::u16string name);
 
-  bool operator == (const JSSymbol& other) const {
-    return name == other.name && seq == other.seq;
-  }
+  bool operator == (const JSSymbol& other) const;
 
   std::u16string name;
   size_t seq;

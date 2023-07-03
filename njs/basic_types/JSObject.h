@@ -34,19 +34,9 @@ struct JSObjectKey {
     ~KeyData() {}
   };
 
-  ~JSObjectKey() {
-    if (key_type == KEY_STR) key.str.~u16string();
-    if (key_type == KEY_SYMBOL) key.symbol.release();
-  }
+  ~JSObjectKey();
 
-  bool operator == (const JSObjectKey& other) const {
-    if (key_type != other.key_type) return false;
-    if (key_type == KEY_STR) return key.str == other.key.str;
-    if (key_type == KEY_NUM) return key.number == other.key.number;
-    if (key_type == KEY_SYMBOL) return key.symbol == other.key.symbol;
-    
-    __builtin_unreachable();
-  }
+  bool operator == (const JSObjectKey& other) const;
 
   KeyData key;
   

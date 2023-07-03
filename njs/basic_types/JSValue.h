@@ -9,6 +9,7 @@ namespace njs {
 
 class JSObject;
 class GCObject;
+class JSFunction;
 struct JSHeapValue;
 
 extern const char *js_value_tag_names[22];
@@ -76,10 +77,18 @@ struct JSValue {
     val.as_object = obj;
   }
 
+  explicit JSValue(JSFunction *func): tag(FUNCTION) {
+    val.as_function = func;
+  }
+
   explicit JSValue(std::u16string str): tag(STRING) {
     PrimitiveString *new_str = new PrimitiveString(std::move(str));
     new_str->retain();
     val.as_primitive_string = new_str;
+  }
+
+  inline void set_undefined() {
+    tag = UNDEFINED;
   }
 
   inline bool is_int() const { return tag == NUMBER_INT; }
@@ -98,16 +107,10 @@ struct JSValue {
 
   GCObject *as_GCObject() const;
 
+
   JSValue add(JSValue& rhs);
 
-  std::string description() {
-    std::string res = "JSValue tagged: " + std::string(js_value_tag_names[tag]);
-    if (tag == BOOLEAN) res += ", value: " + std::to_string(val.as_bool);
-    else if (tag == NUMBER_FLOAT) res += ", value: " + std::to_string(val.as_float64);
-    else if (tag == NUMBER_INT) res += ", value: " + std::to_string(val.as_int);
-
-    return res;
-  }
+  std::string description() const;
 
   union {
     double as_float64;
@@ -119,6 +122,7 @@ struct JSValue {
     JSSymbol *as_symbol;
 
     JSObject *as_object;
+    JSFunction *as_function;
   } val;
 
   JSValueTag tag;

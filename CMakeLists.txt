@@ -20,6 +20,7 @@ set(SOURCES
     njs/parser/enum_strings.cpp
     njs/parser/token.cpp
     njs/common/enums.cpp
+    njs/gc/GCHeap.cpp
     njs/utils/Timer.cpp
     njs/global_var.cpp
 )

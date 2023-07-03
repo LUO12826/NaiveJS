@@ -7,7 +7,7 @@
 
 namespace njs {
 
-NjsVM::NjsVM(CodegenVisitor& visitor): heap(600) {
+NjsVM::NjsVM(CodegenVisitor& visitor): heap(600, *this) {
   rt_stack = std::make_unique<JSValue[]>(max_stack_size);
 
   bytecode = std::move(visitor.bytecode);
@@ -123,6 +123,10 @@ void NjsVM::exec_return() {
   u32 old_sp = frame_bottom_pointer - arg_cnt - 1;
   u32 old_pc = rt_stack[frame_bottom_pointer].flag_bits;
 
+  for (u32 addr = old_sp + 1; addr < ret_val_addr; addr++) {
+    rt_stack[addr].set_undefined();
+  }
+
   // restore old state
   pc = old_pc;
   sp = old_sp;
@@ -130,6 +134,7 @@ void NjsVM::exec_return() {
 
   // copy return value
   rt_stack[old_sp] = rt_stack[ret_val_addr];
+  rt_stack[ret_val_addr].set_undefined();
   sp += 1;
 }
 
@@ -142,9 +147,11 @@ void NjsVM::exec_push(Instruction& inst) {
 
 void NjsVM::exec_pop(Instruction& inst) {
   auto var_scope = int_to_scope_type(inst.operand.two.opr1);
-  JSValue& val = rt_stack[calc_var_address(var_scope, inst.operand.two.opr2)];
-  val = rt_stack[sp - 1];
+  u32 var_addr = calc_var_address(var_scope, inst.operand.two.opr2);
+
   sp -= 1;
+  rt_stack[var_addr] = rt_stack[sp];
+  rt_stack[sp].set_undefined();
 }
 
 void NjsVM::exec_make_func(int meta_idx) {
@@ -152,13 +159,13 @@ void NjsVM::exec_make_func(int meta_idx) {
   auto& name = str_pool[meta.name_index];
 
   auto *func = heap.new_object<JSFunction>(name, meta.code_address);
-  rt_stack[sp] = JSValue(static_cast<JSObject *>(func));
+  rt_stack[sp] = JSValue(func);
   sp += 1;
 }
 
 void NjsVM::exec_call(int arg_count) {
   JSValue& func_val = rt_stack[sp - arg_count - 1];
-  assert(func_val.tag == JSValue::OBJECT);
+  assert(func_val.tag == JSValue::FUNCTION);
   assert(func_val.val.as_object->obj_class == ObjectClass::CLS_FUNCTION);
 
   // first cell of a function stack frame: return address and pointer to the function object.

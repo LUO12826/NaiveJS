@@ -14,15 +14,18 @@
 
 namespace njs {
 
+class NjsVM;
+
 class GCHeap {
 
   using byte = int8_t;
 
  public:
 
-  GCHeap(size_t size_mb)
+  GCHeap(size_t size_mb, NjsVM& vm)
       : heap_size(size_mb * 1024 * 1024), storage((byte *)malloc(size_mb * 1024 * 1024)),
-        from_start(storage), to_start(storage + heap_size / 2), alloc_point(storage) {}
+        from_start(storage), to_start(storage + heap_size / 2), alloc_point(storage),
+        vm(vm) {}
 
   /// @brief Create a new object on heap.
   template <typename T, typename... Args>
@@ -38,63 +41,31 @@ class GCHeap {
     return object;
   }
 
+  void gc();
+
   // When garbage collection is performed, this method is called to copy an object
   // to a new memory area and have the pointer in JSValue, which is the handle,
   // point to the new address. The `copy_object` method copies the child object recursively.
   // This method will be called not only in this class, but also in the `gc_scan_children` method
   // of the GCObject subclasses.
-  void gc_visit_object(JSValue &handle, GCObject *obj) {
-    GCObject *obj_new = copy_object(obj);
-    handle.val.as_object = static_cast<JSObject*>(obj_new);
-  }
+  void gc_visit_object(JSValue &handle, GCObject *obj);
 
  private:
   // fixme
-  std::vector<JSValue *> gather_roots() { return {}; }
+  std::vector<JSValue *> gather_roots();
 
   // Copying GC
-  void copy_alive() {
-    alloc_point = to_start;
-    std::vector<JSValue *> roots = gather_roots();
-
-    for (JSValue *root : roots) {
-      auto *obj = root->as_GCObject();
-      gc_visit_object(*root, obj);
-    }
-
-    std::swap(from_start, to_start);
-  }
+  void copy_alive();
 
   // Copy a single object. Recursively copy its child objects.
-  GCObject *copy_object(GCObject *obj) {
-    if (obj->forward_ptr == nullptr) {
-      memcpy(alloc_point, (void *)obj, obj->size);
-      obj->forward_ptr = (GCObject *)alloc_point;
-      alloc_point += obj->size;
-
-      obj->gc_scan_children(*this);
-    }
-    return obj->forward_ptr;
-  }
+  GCObject *copy_object(GCObject *obj);
 
   inline bool lacking_free_memory(size_t size_byte) {
     return alloc_point + size_byte > from_start + heap_size / 2;
   }
 
   // Allocate memory for a new object.
-  void *allocate(size_t size_byte) {
-    if (lacking_free_memory(size_byte)) {
-      // This call starts GC.
-      copy_alive();
-      if (lacking_free_memory(size_byte)) {
-        // allocation fail
-      }
-    }
-
-    void *start_addr = alloc_point;
-    alloc_point += size_byte;
-    return start_addr;
-  }
+  void *allocate(size_t size_byte);
 
   size_t heap_size;
   // heap data
@@ -105,6 +76,8 @@ class GCHeap {
   byte *to_start;
   // Starting address of the next new object
   byte *alloc_point;
+
+  NjsVM& vm;
 
 };
 

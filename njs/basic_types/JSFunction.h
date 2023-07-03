@@ -12,10 +12,9 @@ class GCHeap;
 
 class JSFunction : public JSObject {
  public:
-  JSFunction() : JSObject(ObjectClass::CLS_FUNCTION) {}
+  JSFunction();
 
-  JSFunction(const std::u16string& name, u32 code_addr)
-      : JSObject(ObjectClass::CLS_FUNCTION), name(name), code_address(code_addr) {}
+  JSFunction(const std::u16string& name, u32 code_addr);
 
   void gc_scan_children(GCHeap& heap) override;
 
@@ -35,10 +34,7 @@ struct JSFunctionMeta {
   bool has_this_binding {false};
   u32 code_address;
 
-  std::string description() const {
-    return "name_index: " + std::to_string(name_index) +
-           ", code_address: " + std::to_string(code_address);
-  }
+  std::string description() const;
 };
 
 } // namespace njs

@@ -1,13 +1,39 @@
 #include "JSValue.h"
 
+#include <sstream>
+#include <iomanip>
+
 #include "njs/basic_types/JSObject.h"
-#include "njs/gc/GCObject.h"
+#include "njs/basic_types/JSFunction.h"
 
 namespace njs {
 
+std::string addressToHex(const void* address) {
+  std::ostringstream stream;
+  stream << "0x" << std::hex << std::setfill('0') << std::setw(sizeof(void*) * 2)
+         << reinterpret_cast<uintptr_t>(address);
+  return stream.str();
+}
+
 GCObject *JSValue::as_GCObject() const {
-  assert(tag == OBJECT);
+  assert(tag == OBJECT || tag == FUNCTION || tag == STACK_FRAME_META1);
   return static_cast<GCObject *>(val.as_object);
+}
+
+std::string JSValue::description() const {
+
+  std::ostringstream stream;
+
+  stream << "JSValue tagged: " << js_value_tag_names[tag];
+  if (tag == BOOLEAN) stream << ", value: " << val.as_bool;
+  else if (tag == NUMBER_FLOAT) stream << ", value: " << val.as_float64;
+  else if (tag == NUMBER_INT) stream << ", value: " << val.as_int;
+  else if (tag == STACK_FRAME_META1) {
+    stream << ", function named: " << to_utf8_string(val.as_function->name)
+           << " @" << std::hex << val.as_function;
+  }
+
+  return stream.str();
 }
 
 JSValue JSValue::add(JSValue& rhs) {

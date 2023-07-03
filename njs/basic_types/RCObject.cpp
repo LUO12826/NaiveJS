@@ -6,4 +6,26 @@ namespace njs {
 
 size_t JSSymbol::global_count = 0;
 
+void RCObject::retain() { ref_count += 1; }
+
+void RCObject::release() {
+  ref_count -= 1;
+  if (ref_count == 0) delete this;
+}
+
+PrimitiveString::PrimitiveString(std::u16string str): str(std::move(str)) {}
+
+bool PrimitiveString::operator == (const PrimitiveString& other) const {
+  return str == other.str;
+}
+
+JSSymbol::JSSymbol(std::u16string name): name(std::move(name)) {
+  seq = JSSymbol::global_count;
+  JSSymbol::global_count += 1;
+}
+
+bool JSSymbol::operator == (const JSSymbol& other) const {
+  return name == other.name && seq == other.seq;
+}
+
 }
