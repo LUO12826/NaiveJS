@@ -37,6 +37,7 @@ enum class InstType {
   make_func,
 
   halt,
+  nop,
 };
 
 struct Instruction {

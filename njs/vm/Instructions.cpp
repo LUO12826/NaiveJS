@@ -67,6 +67,9 @@ std::string Instruction::description() {
     case InstType::halt:
       sprintf(buffer, "halt");
       break;
+    case InstType::nop:
+      sprintf(buffer, "nop");
+      break;
     default:
       // fixme
       sprintf(buffer, "(fixme)");

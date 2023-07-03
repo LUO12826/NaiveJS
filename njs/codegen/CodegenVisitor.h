@@ -39,6 +39,7 @@ friend class NjsVM;
 
   void codegen(ProgramOrFunctionBody *prog) {
     visit_program_or_function_body(*prog);
+    optimize();
 
     std::cout << "================ codegen result ================" << std::endl << std::endl;
 
@@ -66,6 +67,26 @@ friend class NjsVM;
     }
     std::cout << std::endl;
     std::cout << "============== end codegen result ==============" << std::endl << std::endl;
+  }
+
+  void optimize() {
+    size_t len = bytecode.size();
+
+    if (len < 2) return;
+
+    for (size_t i = 1; i < len; i++) {
+      auto& inst = bytecode[i];
+      auto& prev_inst = bytecode[i - 1];
+
+      if (inst.op_type == InstType:: push && prev_inst.op_type == InstType::pop) {
+        if (inst.operand.two.opr1 == prev_inst.operand.two.opr1
+            && inst.operand.two.opr2 == prev_inst.operand.two.opr2) {
+          inst.op_type = InstType::nop;
+          prev_inst.op_type = InstType::nop;
+        }
+      }
+    }
+
   }
 
   void visit(ASTNode *node) {

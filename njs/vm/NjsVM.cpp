@@ -80,6 +80,8 @@ void NjsVM::execute() {
         break;
       case InstType::halt:
         return;
+      case InstType::nop:
+        break;
     }
   }
 }
