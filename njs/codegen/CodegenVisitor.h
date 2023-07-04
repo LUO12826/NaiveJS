@@ -101,6 +101,9 @@ friend class NjsVM;
       case ASTNode::AST_EXPR_BINARY:
         visit_binary_expr(*static_cast<BinaryExpr *>(node));
         break;
+      case ASTNode::AST_EXPR_ASSIGN:
+        visit_assignment_expr(*static_cast<AssignmentExpr *>(node));
+        break;
       case ASTNode::AST_EXPR_LHS:
         visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(node));
         break;
@@ -187,6 +190,7 @@ friend class NjsVM;
   }
 
   void visit_binary_expr(BinaryExpr& expr) {
+    assert(expr.op.type == Token::ADD);
     if (expr.is_simple_expr()) {
 
       auto lhs_sym = current_scope().resolve_symbol(expr.lhs->get_source());
@@ -199,6 +203,12 @@ friend class NjsVM;
     else {
       assert(false);
     }
+  }
+
+  void visit_assignment_expr(AssignmentExpr& expr) {
+    assert(expr.is_simple_assign());
+
+
   }
 
   void visit_left_hand_side_expr(LeftHandSideExpr& expr) {

@@ -2,7 +2,7 @@
 
 namespace njs {
 
-const char *ast_type_names[41] = {
+const char *ast_type_names[42] = {
   "AST_TOKEN",
   "AST_EXPR_THIS",
   "AST_EXPR_ID",
@@ -20,6 +20,7 @@ const char *ast_type_names[41] = {
   "AST_EXPR_PAREN",  // ( Expression )
 
   "AST_EXPR_BINARY",
+  "AST_EXPR_ASSIGN",
   "AST_EXPR_UNARY",
   "AST_EXPR_TRIPLE",
 

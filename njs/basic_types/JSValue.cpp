@@ -67,7 +67,7 @@ JSValue::~JSValue() {
 JSValue JSValue::undefined = JSValue(JSValue::UNDEFINED);
 JSValue JSValue::null = JSValue(JSValue::JS_NULL);
 
-const char *js_value_tag_names[22] = {
+const char *js_value_tag_names[23] = {
   "UNDEFINED",
   "JS_ATOM",
   "JS_NULL",
@@ -77,6 +77,8 @@ const char *js_value_tag_names[22] = {
 
   "STRING",
   "SYMBOL",
+
+  "JS_VALUE_REF",
 
   "HEAP_VAL_REF",
   "STRING_REF",

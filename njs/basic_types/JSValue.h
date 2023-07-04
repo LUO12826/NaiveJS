@@ -12,7 +12,7 @@ class GCObject;
 class JSFunction;
 struct JSHeapValue;
 
-extern const char *js_value_tag_names[22];
+extern const char *js_value_tag_names[23];
 
 struct JSValue {
   
@@ -28,6 +28,9 @@ struct JSValue {
     // Strings and Symbols are stored as pointers in JSValue
     STRING,
     SYMBOL,
+
+    // A reference to another JSValue, no lifecycle considerations
+    JS_VALUE_REF,
 
     // Used when we wrap those inline values into JSHeapValue and hold a pointer to it.
     HEAP_VAL_REF,

@@ -868,15 +868,15 @@ error:
       if (cursor - start != id_text.size()) goto error;
       return token_with_type(TokenType::TK_BOOL, start);
     }
-    if (keyword_set.count(id_text) > 0) {
+    if (keyword_set.contains(id_text)) {
       if (cursor - start != id_text.size()) goto error;
       return token_with_type(TokenType::KEYWORD, start);
     }
-    if (future_reserved_word_set.count(id_text) > 0) {
+    if (future_reserved_word_set.contains(id_text)) {
       if (cursor - start != id_text.size()) goto error;
       return token_with_type(TokenType::FUTURE_KW, start);
     }
-    if (strictmode_future_reserved_word_set.count(id_text) > 0) {
+    if (strictmode_future_reserved_word_set.contains(id_text)) {
       if (cursor - start != id_text.size()) goto error;
       return token_with_type(TokenType::STRICT_FUTURE_KW, start);
     }

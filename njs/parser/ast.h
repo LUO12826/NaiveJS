@@ -46,6 +46,7 @@ class ASTNode {
     AST_EXPR_PAREN, // ( Expression )
 
     AST_EXPR_BINARY,
+    AST_EXPR_ASSIGN,
     AST_EXPR_UNARY,
     AST_EXPR_TRIPLE,
 
@@ -86,10 +87,10 @@ class ASTNode {
     AST_ILLEGAL,
   };
 
-  ASTNode(Type type) : type(type) {}
+  explicit ASTNode(Type type) : type(type) {}
   ASTNode(Type type, std::u16string_view source, u32 start, u32 end, u32 line_start)
       : type(type), text(source), start(start), end(end), line_start(line_start) {}
-  virtual ~ASTNode(){};
+  virtual ~ASTNode() = default;
 
   Type get_type() { return type; }
   const std::u16string_view &get_source() { return text; }
@@ -383,6 +384,31 @@ class BinaryExpr : public ASTNode {
   ASTNode *lhs;
   ASTNode *rhs;
   Token op;
+};
+
+class AssignmentExpr : public ASTNode {
+ public:
+  AssignmentExpr(ASTNode *lhs, ASTNode *rhs, std::u16string_view source, u32 start, u32 end,
+                 u32 line_start)
+      : ASTNode(AST_EXPR_BINARY, source, start, end, line_start), lhs(lhs), rhs(rhs) {
+    add_child(lhs);
+    add_child(rhs);
+  }
+
+  ~AssignmentExpr() override {
+    delete lhs;
+    delete rhs;
+  }
+
+  bool is_simple_assign() {
+    if (lhs->type != ASTNode::AST_EXPR_LHS || rhs->type != ASTNode::AST_EXPR_LHS) { return false; }
+
+    return static_cast<LeftHandSideExpr *>(lhs)->is_simple() &&
+           static_cast<LeftHandSideExpr *>(rhs)->is_simple();
+  }
+
+  ASTNode *lhs;
+  ASTNode *rhs;
 };
 
 class ProgramOrFunctionBody;

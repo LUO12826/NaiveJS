@@ -58,7 +58,7 @@ class Scope {
   bool define_func_parameter(u16string_view name, bool strict = false) {
     assert(scope_type == ScopeType::FUNC);
 
-    if (symbol_table.count(name) > 0) {
+    if (symbol_table.contains(name)) {
       return strict ? false : true;
     }
 

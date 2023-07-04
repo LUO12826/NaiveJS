@@ -302,7 +302,7 @@ error:
       return rhs;
     }
 
-    return new BinaryExpr(lhs, rhs, op, SOURCE_PARSED_EXPR);
+    return new AssignmentExpr(lhs, rhs, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_conditional_expression(bool no_in) {

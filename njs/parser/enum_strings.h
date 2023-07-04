@@ -3,7 +3,7 @@
 
 namespace njs {
 
-extern const char *ast_type_names[41];
+extern const char *ast_type_names[42];
 
 extern const char *token_type_names[74];
 
