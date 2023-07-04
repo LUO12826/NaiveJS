@@ -14,8 +14,8 @@ const char *ast_type_names[42] = {
   "AST_EXPR_STRING",
   "AST_EXPR_REGEXP",
 
-  "AST_EXPR_ARRAY",
-  "AST_EXPR_OBJ",
+  "AST_LIT_ARRAY",
+  "AST_LIT_OBJ",
 
   "AST_EXPR_PAREN",  // ( Expression )
 

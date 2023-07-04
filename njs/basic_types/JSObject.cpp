@@ -15,6 +15,7 @@ bool JSObjectKey::operator == (const JSObjectKey& other) const {
   if (key_type == KEY_STR) return key.str == other.key.str;
   if (key_type == KEY_NUM) return key.number == other.key.number;
   if (key_type == KEY_SYMBOL) return key.symbol == other.key.symbol;
+  if (key_type == KEY_ATOM) return key.atom == other.key.atom;
 
   __builtin_unreachable();
 }

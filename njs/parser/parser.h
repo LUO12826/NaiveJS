@@ -203,18 +203,21 @@ error:
     while (token.type != TokenType::RIGHT_BRACE) {
       if (token.is_property_name()) {
         // getter or setter
-        if ((token.text == u"get" || token.text == u"set") && lexer.peek().is_property_name()) {
+        if (token.text == u"get" || token.text == u"set") {
           START_POS;
 
           ObjectProp::Type type = token.text == u"get" ? ObjectLiteral::Property::GET
                                                        : ObjectLiteral::Property::SET;
 
-          Token key = lexer.next();  // skip property name
-          if (!key.is_property_name()) goto error;
+          Token key = Token::none;
+          if (lexer.peek().is_property_name()) {
+            key = lexer.next();  // skip property name
+          }
+
+          if (!key.is_property_name() && key.type != Token::NONE) goto error;
 
           ASTNode* get_set_func = parse_function(true, false);
           if (get_set_func->is_illegal()) {
-            delete get_set_func;
             delete obj;
             return get_set_func;
           }

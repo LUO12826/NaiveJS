@@ -116,6 +116,12 @@ friend class NjsVM;
       case ASTNode::AST_EXPR_NUMBER:
         visit_number(*node);
         break;
+      case ASTNode::AST_LIT_OBJ:
+        visit_object_literal(*static_cast<ObjectLiteral *>(node));
+        break;
+      case ASTNode::AST_LIT_ARRAY:
+        visit_array_literal(*static_cast<ArrayLiteral *>(node));
+        break;
       case ASTNode::AST_STMT_VAR:
         visit_variable_statement(*static_cast<VarStatement *>(node));
         break;
@@ -210,6 +216,9 @@ friend class NjsVM;
 
 
   }
+
+  void visit_object_literal(ObjectLiteral& literal) {}
+  void visit_array_literal(ArrayLiteral& literal) {}
 
   void visit_left_hand_side_expr(LeftHandSideExpr& expr) {
     visit(expr.base);
@@ -365,6 +374,9 @@ friend class NjsVM;
   SmallVector<u16string, 10> str_pool;
   SmallVector<double, 10> num_pool;
   SmallVector<JSFunctionMeta, 10> func_meta;
+
+  // for atom
+  SmallVector<u16string, 10> atom_pool;
 
 };
 

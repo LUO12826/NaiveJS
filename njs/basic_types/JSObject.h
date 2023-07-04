@@ -23,12 +23,14 @@ struct JSObjectKey {
     KEY_STR,
     KEY_NUM,
     KEY_SYMBOL,
+    KEY_ATOM,
   };
 
   union KeyData {
     PrimitiveString str;
     JSSymbol symbol;
     double number;
+    uint64_t atom;
 
     KeyData(): number(0) {}
     ~KeyData() {}
@@ -55,7 +57,8 @@ struct std::hash<njs::JSObjectKey>
       case njs::JSObjectKey::KEY_STR: return njs::hash_val(obj_key.key_type, obj_key.key.str);
       case njs::JSObjectKey::KEY_NUM: return njs::hash_val(obj_key.key_type, obj_key.key.number);
       case njs::JSObjectKey::KEY_SYMBOL: return njs::hash_val(obj_key.key_type, obj_key.key.symbol);
-      default: return 0;
+      case njs::JSObjectKey::KEY_ATOM: return njs::hash_val(obj_key.key_type, obj_key.key.atom);
+      default: assert(false);
     }
   }
 };

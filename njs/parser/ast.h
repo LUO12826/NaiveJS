@@ -40,8 +40,8 @@ class ASTNode {
     AST_EXPR_STRING,
     AST_EXPR_REGEXP,
 
-    AST_EXPR_ARRAY,
-    AST_EXPR_OBJ,
+    AST_LIT_ARRAY,
+    AST_LIT_OBJ,
 
     AST_EXPR_PAREN, // ( Expression )
 
@@ -151,7 +151,7 @@ class RegExpLiteral : public ASTNode {
 
 class ArrayLiteral : public ASTNode {
  public:
-  ArrayLiteral() : ASTNode(AST_EXPR_ARRAY), len(0) {}
+  ArrayLiteral() : ASTNode(AST_LIT_ARRAY), len(0) {}
 
   ~ArrayLiteral() override {
     for (auto pair : elements) { delete pair.second; }
@@ -172,7 +172,7 @@ class ArrayLiteral : public ASTNode {
 
 class ObjectLiteral : public ASTNode {
  public:
-  ObjectLiteral() : ASTNode(AST_EXPR_OBJ) {}
+  ObjectLiteral() : ASTNode(AST_LIT_OBJ) {}
 
   ~ObjectLiteral() override {
     for (auto property : properties) { delete property.value; }
@@ -185,18 +185,14 @@ class ObjectLiteral : public ASTNode {
       SET,
     };
 
-    Property(Token k, ASTNode *v, Type t) : key(k), value(v), type(t) {}
+    Property(Token key, ASTNode *val, Type type) : key(key), value(val), type(type) {}
 
     Token key;
     ASTNode *value;
     Type type;
   };
 
-  void set_property(const Property &p) { properties.emplace_back(p); }
-
-  vector<Property> get_properties() { return properties; }
-
-  u32 length() { return properties.size(); }
+  void set_property(const Property &p) { properties.emplace_back(std::move(p)); }
 
   vector<Property> properties;
 };
@@ -375,8 +371,6 @@ class BinaryExpr : public ASTNode {
            static_cast<LeftHandSideExpr *>(rhs)->is_simple();
   }
 
-  bool is_assign() { return op.type == Token::ASSIGN; }
-
   std::string description() override {
     return ASTNode::description() + " operand: " + op.get_type_string();
   }
@@ -390,7 +384,7 @@ class AssignmentExpr : public ASTNode {
  public:
   AssignmentExpr(ASTNode *lhs, ASTNode *rhs, std::u16string_view source, u32 start, u32 end,
                  u32 line_start)
-      : ASTNode(AST_EXPR_BINARY, source, start, end, line_start), lhs(lhs), rhs(rhs) {
+      : ASTNode(AST_EXPR_ASSIGN, source, start, end, line_start), lhs(lhs), rhs(rhs) {
     add_child(lhs);
     add_child(rhs);
   }
