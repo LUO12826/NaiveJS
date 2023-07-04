@@ -6,7 +6,7 @@
 namespace njs {
 
 JSObjectKey::~JSObjectKey() {
-  if (key_type == KEY_STR) key.str.~u16string();
+  if (key_type == KEY_STR) key.str.release();
   if (key_type == KEY_SYMBOL) key.symbol.release();
 }
 

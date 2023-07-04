@@ -26,7 +26,7 @@ struct JSObjectKey {
   };
 
   union KeyData {
-    u16string str;
+    PrimitiveString str;
     JSSymbol symbol;
     double number;
 
@@ -66,7 +66,6 @@ class JSObject : public GCObject {
  public:
   JSObject() : GCObject(ObjectClass::CLS_OBJECT) {}
   explicit JSObject(ObjectClass cls) : GCObject(cls) {}
-  virtual ~JSObject() = default;
 
   void gc_scan_children(GCHeap& heap) override;
 

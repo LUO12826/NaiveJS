@@ -11,8 +11,8 @@ using u32 = uint32_t;
 
 class RCObject {
  public:
-  RCObject() {}
-  virtual ~RCObject() {}
+  RCObject() = default;
+  virtual ~RCObject() = default;
 
   RCObject(const RCObject& obj) = delete;
   RCObject(RCObject&& obj) = delete;
@@ -22,11 +22,13 @@ class RCObject {
   void release();
 
  private:
-  u32 ref_count;
+  u32 ref_count {0};
 };
 
 /// @brief PrimitiveString: string that is not wrapped as objects in JavaScript
 struct PrimitiveString: public RCObject {
+
+  PrimitiveString() = default;
 
   explicit PrimitiveString(std::u16string str);
 
