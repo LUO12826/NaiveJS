@@ -27,8 +27,22 @@ class Scope {
   };
 
   Scope(): scope_type(ScopeType::GLOBAL) {}
-  Scope(ScopeType type): scope_type(type) {}
-  Scope(ScopeType type, Scope *parent): scope_type(type), outer_scope(parent) {}
+  Scope(ScopeType type, Scope *outer): scope_type(type), outer_scope(outer) {
+    // Blocks does not have a separate storage space, so it must inherit the
+    // local variable storage index from the upper scope
+    if (type == ScopeType::BLOCK) {
+      assert(outer);
+      local_var_count = outer->local_var_count;
+    }
+
+    if (type == ScopeType::FUNC || type == ScopeType::GLOBAL) {
+      outer_global_or_func = this;
+    }
+    else {
+      assert(outer);
+      outer_global_or_func = outer->outer_global_or_func;
+    }
+  }
 
   std::string get_scope_type_name() {
     switch (scope_type) {
@@ -54,7 +68,8 @@ class Scope {
   }
 
   bool define_symbol(VarKind var_kind, u16string_view name) {
-
+    assert(var_kind != VarKind::DECL_FUNC_PARAM);
+    // var... or function...
     if (var_kind == VarKind::DECL_VAR || var_kind == VarKind::DECL_FUNCTION) {
       if (scope_type != ScopeType::GLOBAL && scope_type != ScopeType::FUNC) {
         assert(outer_scope);
@@ -62,6 +77,7 @@ class Scope {
       }
     }
 
+    // let... or const...
     if (symbol_table.contains(name)) {
       bool can_redeclare = var_kind_allow_redeclare(var_kind)
                             && var_kind_allow_redeclare(symbol_table.at(name).var_kind);
@@ -97,9 +113,7 @@ class Scope {
       return SymbolResolveResult{
         .symbol = &rec,
         .depth = depth,
-        // fixme
-        .scope_type = rec.var_kind == VarKind::DECL_FUNC_PARAM ?
-                                      ScopeType::FUNC_PARAM : scope_type
+        .scope_type = get_storage_scope(rec.var_kind)
       };
     }
 
@@ -108,10 +122,22 @@ class Scope {
     return SymbolResolveResult();
   }
 
+  ScopeType get_storage_scope(VarKind var_kind) {
+    if (var_kind == VarKind::DECL_VAR) return this->scope_type;
+    if (var_kind == VarKind::DECL_FUNCTION) return this->scope_type;
+    if (var_kind == VarKind::DECL_FUNC_PARAM) return ScopeType::FUNC_PARAM;
+
+    // let or const
+    // Blocks does not have a separate storage space, so `let` and `const` be store in
+    // the nearest function or global scope.
+    return outer_global_or_func->scope_type;
+  }
+
   ScopeType scope_type;
   
   unordered_map<u16string_view, SymbolRecord> symbol_table;
   Scope *outer_scope {nullptr};
+  Scope *outer_global_or_func {nullptr};
 };
 
 } // namespace njs

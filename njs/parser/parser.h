@@ -1259,7 +1259,7 @@ error:
     scope_chain.emplace_back(scope_type, parent);
 
     #ifdef DBG_SCOPE
-    std::cout << "push scope: " << scope_chain.back().get_scope_type_name() << std::endl;
+    std::cout << ">>>> push scope: " << scope_chain.back().get_scope_type_name() << std::endl;
     std::cout << std::endl;
     #endif
   }
@@ -1268,13 +1268,13 @@ error:
     #ifdef DBG_SCOPE
     Scope& scope = scope_chain.back();
 
-    std::cout << "pop scope: " << scope.get_scope_type_name() << std::endl;
-    std::cout << "params count: " << scope.param_count
+    std::cout << "<<<< pop scope: " << scope.get_scope_type_name() << std::endl;
+    std::cout << "  params count: " << scope.param_count
               << ", local variables count: " << scope.local_var_count << std::endl;
-    std::cout << "symbols in this scope: " << std::endl;
+    std::cout << "  symbols in this scope: " << std::endl;
 
     for (auto& entry : scope.get_symbol_table()) {
-      std::cout << get_var_kind_str(entry.second.var_kind) << "  "
+      std::cout << "  " << get_var_kind_str(entry.second.var_kind) << "  "
                 << to_utf8_string(entry.second.name) << "  "
                 << entry.second.index << "  "
                 << std::endl;

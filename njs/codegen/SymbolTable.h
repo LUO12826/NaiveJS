@@ -14,20 +14,20 @@ using u16str_view = std::u16string_view;
 
 struct SymbolRecord {
 
-  SymbolRecord() {}
+  SymbolRecord() = default;
 
   SymbolRecord(VarKind kind, u16str_view name) : SymbolRecord(kind, name, 0) {}
 
-  SymbolRecord(VarKind kind, u16str_view name, int index)
+  SymbolRecord(VarKind kind, u16str_view name, u32 index)
       : var_kind(kind), name(name), index(index) {
     if (kind == VarKind::DECL_VAR || kind == VarKind::DECL_FUNCTION) { is_valid = true; }
   }
 
-  int offset_idx(int offset = 2) { return index + offset; }
+  u32 offset_idx(int offset = 2) { return index + offset; }
 
   VarKind var_kind;
   u16str_view name;
-  int index;
+  u32 index;
   bool is_valid {false};
   bool is_captured {false};
 };
