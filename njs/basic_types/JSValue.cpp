@@ -48,6 +48,30 @@ JSValue JSValue::add(JSValue& rhs) {
   }
 }
 
+void JSValue::assign(JSValue& rhs) {
+    assert(tag != STACK_FRAME_META1 && tag != STACK_FRAME_META2);
+    assert(rhs.tag != STACK_FRAME_META1 && rhs.tag != STACK_FRAME_META2);
+
+    // if this is an RC object, we are going to release the old object,
+    // and retain the newly referenced object.
+    if (is_RCObject()) {
+      val.as_rc_object->release();
+      val.as_int = rhs.val.as_int;
+      flag_bits = rhs.flag_bits;
+      tag = rhs.tag;
+
+      if (is_RCObject()) {
+        val.as_rc_object->retain();
+      }
+    }
+    // else, just directly copy the bits.
+    else {
+      val.as_int = rhs.val.as_int;
+      flag_bits = rhs.flag_bits;
+      tag = rhs.tag;
+    }
+}
+
 JSValue::~JSValue() {
   switch (tag) {
     case HEAP_VAL_REF:
@@ -67,7 +91,7 @@ JSValue::~JSValue() {
 JSValue JSValue::undefined = JSValue(JSValue::UNDEFINED);
 JSValue JSValue::null = JSValue(JSValue::JS_NULL);
 
-const char *js_value_tag_names[23] = {
+const char *js_value_tag_names[25] = {
   "UNDEFINED",
   "JS_ATOM",
   "JS_NULL",
@@ -75,14 +99,18 @@ const char *js_value_tag_names[23] = {
   "NUMBER_INT",
   "NUMBER_FLOAT",
 
+  "JS_VALUE_REF",
+
+  "NEED_RC_BEGIN",
+
   "STRING",
   "SYMBOL",
-
-  "JS_VALUE_REF",
 
   "HEAP_VAL_REF",
   "STRING_REF",
   "SYMBOL_REF",
+
+  "NEED_RC_END",
 
   "STACK_FRAME_META1",
   "STACK_FRAME_META2",

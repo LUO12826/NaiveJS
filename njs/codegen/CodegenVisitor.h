@@ -113,8 +113,9 @@ friend class NjsVM;
       case ASTNode::AST_EXPR_ARGS:
         visit_func_arguments(*static_cast<Arguments *>(node));
         break;
-      case ASTNode::AST_EXPR_NUMBER:
-        visit_number(*node);
+      case ASTNode::AST_EXPR_NUMBER: visit_number_literal(*node);
+        break;
+      case ASTNode::AST_EXPR_STRING: visit_string_literal(*node);
         break;
       case ASTNode::AST_LIT_OBJ:
         visit_object_literal(*static_cast<ObjectLiteral *>(node));
@@ -212,13 +213,51 @@ friend class NjsVM;
   }
 
   void visit_assignment_expr(AssignmentExpr& expr) {
-    assert(expr.is_simple_assign());
+//    assert();
+    if (expr.is_simple_assign()) {
+      auto lhs_sym = current_scope().resolve_symbol(expr.lhs->get_source());
+      auto rhs_sym = current_scope().resolve_symbol(expr.rhs->get_source());
 
+      if (lhs_sym.stack_scope() && rhs_sym.stack_scope()) {
+        emit(InstType::fast_assign,
+             scope_type_to_int(lhs_sym.scope_type), lhs_sym.symbol->index,
+             scope_type_to_int(rhs_sym.scope_type), rhs_sym.symbol->index);
+      }
+      else {
+
+      }
+    }
+    else if (expr.lhs_is_id()) {
+      visit(expr.rhs);
+      auto lhs_sym = current_scope().resolve_symbol(expr.lhs->get_source());
+      if (lhs_sym.stack_scope()) {
+        emit(Instruction(InstType::pop, scope_type_to_int(lhs_sym.scope_type), lhs_sym.symbol->index));
+      }
+    }
 
   }
 
-  void visit_object_literal(ObjectLiteral& literal) {}
-  void visit_array_literal(ArrayLiteral& literal) {}
+  void visit_object_literal(ObjectLiteral& literal) {
+    emit(InstType::make_obj);
+
+    for (auto& prop : literal.properties) {
+      // push the key into the stack
+      auto str_id = str_pool.size();
+      str_pool.emplace_back(prop.key.text);
+      emit(InstType::push_str, (int)str_id);
+
+      // push the value into the stack
+      visit(prop.value);
+    }
+
+    if (!literal.properties.empty()) {
+      emit(InstType::add_props, (int)literal.properties.size());
+    }
+  }
+
+  void visit_array_literal(ArrayLiteral& literal) {
+
+  }
 
   void visit_left_hand_side_expr(LeftHandSideExpr& expr) {
     visit(expr.base);
@@ -273,19 +312,31 @@ friend class NjsVM;
     return value;
   }
 
-  void visit_number(ASTNode& node) {
+  void visit_number_literal(ASTNode& node) {
     int64_t val = parse_number_literal(node.get_source());
     emit(Instruction::num_imm(val));
   }
 
-  void visit_variable_statement(VarStatement& var_stmt) {}
+  void visit_string_literal(ASTNode& node) {
+    auto str_id = str_pool.size();
+    str_pool.emplace_back(node.get_source());
+    emit(InstType::push_str, (int)str_id);
+  }
+
+  void visit_variable_statement(VarStatement& var_stmt) {
+    for (VarDecl *decl : var_stmt.declarations) {
+        visit_variable_declaration(*decl);
+    }
+  }
+
+  void visit_variable_declaration(VarDecl& var_decl) {
+    visit(var_decl.var_init);
+  }
 
   void visit_return_statement(ReturnStatement& return_stmt) {
     visit(return_stmt.expr);
     emit(InstType::ret);
   }
-
-  void visit_variable_declaration(VarDecl& var_decl) {}
 
  private:
   

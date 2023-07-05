@@ -401,6 +401,11 @@ class AssignmentExpr : public ASTNode {
            static_cast<LeftHandSideExpr *>(rhs)->is_simple();
   }
 
+  bool lhs_is_id() {
+    if (lhs->type != ASTNode::AST_EXPR_LHS) { return false; }
+    return static_cast<LeftHandSideExpr *>(lhs)->is_simple();
+  }
+
   ASTNode *lhs;
   ASTNode *rhs;
 };

@@ -12,7 +12,7 @@ class GCObject;
 class JSFunction;
 struct JSHeapValue;
 
-extern const char *js_value_tag_names[23];
+extern const char *js_value_tag_names[25];
 
 struct JSValue {
   
@@ -25,12 +25,14 @@ struct JSValue {
     NUMBER_INT,
     NUMBER_FLOAT,
 
+    // A reference to another JSValue, no lifecycle considerations
+    JS_VALUE_REF,
+
+    NEED_RC_BEGIN,
+
     // Strings and Symbols are stored as pointers in JSValue
     STRING,
     SYMBOL,
-
-    // A reference to another JSValue, no lifecycle considerations
-    JS_VALUE_REF,
 
     // Used when we wrap those inline values into JSHeapValue and hold a pointer to it.
     HEAP_VAL_REF,
@@ -39,6 +41,8 @@ struct JSValue {
     STRING_REF,
     // Used when a SYMBOL is considered shared.
     SYMBOL_REF,
+
+    NEED_RC_END,
 
     STACK_FRAME_META1,
     STACK_FRAME_META2,
@@ -98,10 +102,10 @@ struct JSValue {
   inline bool is_float() const { return tag == NUMBER_FLOAT; }
   inline bool is_bool() { return tag == BOOLEAN; }
   inline bool is_primitive_string() { return tag == STRING; }
-  inline bool is_object() { return tag == OBJECT; }
+  inline bool is_object() { return tag == OBJECT || tag == FUNCTION; }
 
   inline bool is_RCObject() {
-    return tag == HEAP_VAL_REF || tag == STRING_REF || tag == SYMBOL_REF;
+    return tag > NEED_RC_BEGIN && tag < NEED_RC_END;
   }
 
   inline bool needs_gc() const {
@@ -113,6 +117,8 @@ struct JSValue {
 
   JSValue add(JSValue& rhs);
 
+  void assign(JSValue& rhs);
+
   std::string description() const;
 
   union {
@@ -120,9 +126,12 @@ struct JSValue {
     int64_t as_int;
     bool as_bool;
 
+    JSValue *as_value_ref;
+
+    RCObject *as_rc_object;
+    JSSymbol *as_symbol;
     PrimitiveString *as_primitive_string;
     JSHeapValue *as_heap_val;
-    JSSymbol *as_symbol;
 
     JSObject *as_object;
     JSFunction *as_function;

@@ -52,6 +52,9 @@ void NjsVM::execute() {
         rt_stack[sp] = JSValue(inst.operand.num);
         sp += 1;
         break;
+      case InstType::push_str:
+        exec_push_str(inst.operand.two.opr1);
+        break;
       case InstType::pop:
         exec_pop(inst);
         break;
@@ -75,8 +78,21 @@ void NjsVM::execute() {
       case InstType::fast_add:
         exec_fast_add(inst);
         break;
+      case InstType::fast_assign:
+        exec_fast_assign(inst);
+        break;
+//      case InstType::assign_st:
+//        break;
+//      case InstType::move_st:
+//        break;
       case InstType::make_func:
         exec_make_func(inst.operand.two.opr1);
+        break;
+      case InstType::make_obj:
+        exec_make_object(inst);
+        break;
+      case InstType::add_props:
+        exec_add_props(inst.operand.two.opr1);
         break;
       case InstType::halt:
         return;
@@ -181,6 +197,43 @@ void NjsVM::exec_call(int arg_count) {
   frame_bottom_pointer = sp;
   sp = frame_bottom_pointer + 2;
   pc = static_cast<JSFunction *>(func_val.val.as_object)->code_address;
+}
+
+void NjsVM::exec_make_object(Instruction& inst) {
+  auto *obj = heap.new_object<JSObject>();
+  rt_stack[sp] = JSValue(obj);
+  sp += 1;
+}
+
+void NjsVM::exec_fast_assign(Instruction& inst) {
+
+  auto lhs_scope = int_to_scope_type(inst.operand.four.opr1);
+  auto rhs_scope = int_to_scope_type(inst.operand.four.opr3);
+
+  JSValue& lhs_val = rt_stack[calc_var_address(lhs_scope, inst.operand.four.opr2)];
+  JSValue& rhs_val = rt_stack[calc_var_address(rhs_scope, inst.operand.four.opr4)];
+
+  lhs_val.assign(rhs_val);
+}
+
+void NjsVM::exec_add_props(int props_cnt) {
+  JSValue& val_obj = rt_stack[sp - props_cnt * 2 - 1];
+  assert(val_obj.is_object());
+  JSObject *object = val_obj.val.as_object;
+
+  for (u32 i = sp - props_cnt * 2; i < sp; i += 2) {
+    object->add_prop(rt_stack[i], rt_stack[i + 1]);
+  }
+
+  sp = sp - props_cnt * 2;
+}
+
+void NjsVM::exec_push_str(int str_idx) {
+  rt_stack[sp].tag = JSValue::STRING;
+
+  auto str = new PrimitiveString(str_pool[str_idx]);
+  str->retain();
+  rt_stack[sp].val.as_primitive_string = str;
 }
 
 }

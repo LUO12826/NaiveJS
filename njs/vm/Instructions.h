@@ -20,6 +20,7 @@ enum class InstType {
   logi_not,
   push,
   pushi,
+  push_str,
   pop,
   jmp,
   je,
@@ -34,7 +35,12 @@ enum class InstType {
   ret,
 
   fast_add,
+  fast_assign,
+//  assign_st,
+//  move_st,
   make_func,
+  make_obj,
+  add_props,
 
   halt,
   nop,

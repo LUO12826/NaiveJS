@@ -39,15 +39,27 @@ std::string Instruction::description() {
       break;
     case InstType::fast_add:
       sprintf(buffer, "fast_add  %s %hu %s %hu",
-                      scope_type_names[operand.four.opr1],
-              operand.four.opr2,
+                      scope_type_names[operand.four.opr1], operand.four.opr2,
+                      scope_type_names[operand.four.opr3], operand.four.opr4);
+    case InstType::fast_assign:
+      sprintf(buffer, "fast_assign  %s %hu %s %hu",
+                      scope_type_names[operand.four.opr1], operand.four.opr2,
                       scope_type_names[operand.four.opr3], operand.four.opr4);
       break;
+//    case InstType::assign_st:
+//      sprintf(buffer, "assign_st  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+//      break;
+//    case InstType::move_st:
+//      sprintf(buffer, "move_st  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+//      break;
     case InstType::push:
       sprintf(buffer, "push  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
     case InstType::pushi:
       sprintf(buffer, "pushi  %lf", operand.num);
+      break;
+    case InstType::push_str:
+      sprintf(buffer, "push_str  %d", operand.two.opr1);
       break;
     case InstType::pop:
       sprintf(buffer, "pop  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
@@ -57,6 +69,12 @@ std::string Instruction::description() {
       break;
     case InstType::make_func:
       sprintf(buffer, "make_func  %d", operand.two.opr1);
+      break;
+    case InstType::make_obj:
+      sprintf(buffer, "make_obj");
+      break;
+    case InstType::add_props:
+      sprintf(buffer, "add_props  %d", operand.two.opr1);
       break;
     case InstType::call:
       sprintf(buffer, "call  %d", operand.two.opr1);

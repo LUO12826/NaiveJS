@@ -24,6 +24,10 @@ class Scope {
     SymbolRecord* symbol {nullptr};
     u32 depth;
     ScopeType scope_type;
+
+    bool stack_scope() {
+      return scope_type != ScopeType::CLOSURE && scope_type != ScopeType::BLOCK;
+    }
   };
 
   Scope(): scope_type(ScopeType::GLOBAL) {}

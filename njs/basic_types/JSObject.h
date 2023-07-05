@@ -27,21 +27,25 @@ struct JSObjectKey {
   };
 
   union KeyData {
-    PrimitiveString str;
-    JSSymbol symbol;
+    PrimitiveString *str;
+    JSSymbol *symbol;
     double number;
-    uint64_t atom;
+    int64_t atom;
 
     KeyData(): number(0) {}
     ~KeyData() {}
   };
+
+  explicit JSObjectKey(JSSymbol *sym);
+  explicit JSObjectKey(double num);
+  explicit JSObjectKey(PrimitiveString *str);
+  explicit JSObjectKey(int64_t atom);
 
   ~JSObjectKey();
 
   bool operator == (const JSObjectKey& other) const;
 
   KeyData key;
-  
   KeyType key_type;
 };
 
@@ -54,9 +58,9 @@ struct std::hash<njs::JSObjectKey>
 {
   std::size_t operator () (const njs::JSObjectKey& obj_key) const {
     switch (obj_key.key_type) {
-      case njs::JSObjectKey::KEY_STR: return njs::hash_val(obj_key.key_type, obj_key.key.str);
+      case njs::JSObjectKey::KEY_STR: return njs::hash_val(obj_key.key_type, *(obj_key.key.str));
       case njs::JSObjectKey::KEY_NUM: return njs::hash_val(obj_key.key_type, obj_key.key.number);
-      case njs::JSObjectKey::KEY_SYMBOL: return njs::hash_val(obj_key.key_type, obj_key.key.symbol);
+      case njs::JSObjectKey::KEY_SYMBOL: return njs::hash_val(obj_key.key_type, *(obj_key.key.symbol));
       case njs::JSObjectKey::KEY_ATOM: return njs::hash_val(obj_key.key_type, obj_key.key.atom);
       default: assert(false);
     }
@@ -71,6 +75,8 @@ class JSObject : public GCObject {
   explicit JSObject(ObjectClass cls) : GCObject(cls) {}
 
   void gc_scan_children(GCHeap& heap) override;
+
+  bool add_prop(JSValue& key, JSValue& value);
 
   unordered_map<JSObjectKey, JSValue> storage;
 };

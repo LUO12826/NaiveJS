@@ -62,6 +62,10 @@ friend class GCHeap;
   void exec_pop(Instruction& inst);
   void exec_make_func(int meta_idx);
   void exec_call(int arg_count);
+  void exec_make_object(Instruction& instruction);
+  void exec_fast_assign(Instruction& instruction);
+  void exec_add_props(int opr1);
+  void exec_push_str(int opr1);
 };
 
 } // namespace njs

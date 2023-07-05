@@ -30,7 +30,7 @@ struct PrimitiveString: public RCObject {
 
   PrimitiveString() = default;
 
-  explicit PrimitiveString(std::u16string str);
+  explicit PrimitiveString(const std::u16string& str);
 
   bool operator == (const PrimitiveString& other) const;
 

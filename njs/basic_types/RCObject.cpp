@@ -13,7 +13,7 @@ void RCObject::release() {
   if (ref_count == 0) delete this;
 }
 
-PrimitiveString::PrimitiveString(std::u16string str): str(std::move(str)) {}
+PrimitiveString::PrimitiveString(const std::u16string& str): str(str) {}
 
 bool PrimitiveString::operator == (const PrimitiveString& other) const {
   return str == other.str;
