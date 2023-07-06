@@ -23,6 +23,8 @@ set(SOURCES
     njs/gc/GCHeap.cpp
     njs/utils/Timer.cpp
     njs/global_var.cpp
+    njs/parser/StringPool.cpp
+    njs/parser/ast.cpp
 )
 
 # executable is named `njs`

@@ -81,10 +81,8 @@ void NjsVM::execute() {
       case InstType::fast_assign:
         exec_fast_assign(inst);
         break;
-//      case InstType::assign_st:
-//        break;
-//      case InstType::move_st:
-//        break;
+      case InstType::pop_assign:
+        break;
       case InstType::make_func:
         exec_make_func(inst.operand.two.opr1);
         break;

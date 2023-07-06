@@ -15,32 +15,40 @@ enum class InstType {
   neg,
   mul,
   div,
+
   logi_and,
   logi_or,
   logi_not,
+
   push,
   pushi,
   push_str,
   pop,
+  pop_assign,
+  store,
+  store_assign,
+
   jmp,
   je,
   jne,
+
   gt,
   lt,
   ge,
   le,
   ne,
   eq,
+
   call,
   ret,
 
   fast_add,
   fast_assign,
-//  assign_st,
-//  move_st,
+
   make_func,
   make_obj,
   add_props,
+  keypath_visit,
 
   halt,
   nop,

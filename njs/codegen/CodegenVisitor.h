@@ -82,7 +82,7 @@ friend class NjsVM;
         if (inst.operand.two.opr1 == prev_inst.operand.two.opr1
             && inst.operand.two.opr2 == prev_inst.operand.two.opr2) {
           inst.op_type = InstType::nop;
-          prev_inst.op_type = InstType::nop;
+          prev_inst.op_type = InstType::store;
         }
       }
     }
@@ -231,8 +231,19 @@ friend class NjsVM;
       visit(expr.rhs);
       auto lhs_sym = current_scope().resolve_symbol(expr.lhs->get_source());
       if (lhs_sym.stack_scope()) {
-        emit(Instruction(InstType::pop, scope_type_to_int(lhs_sym.scope_type), lhs_sym.symbol->index));
+        emit(Instruction(InstType::pop, scope_type_to_int(lhs_sym.scope_type), (int)lhs_sym.symbol->index));
       }
+    }
+    else {
+      // check if left hand side is LeftHandSide Expression (or Parenthesized Expression with
+      // LeftHandSide Expression in it.
+      if (expr.lhs->type == ASTNode::AST_EXPR_LHS) {
+        visit_left_hand_side_expr(*static_cast<LeftHandSideExpr*>(expr.lhs), true);
+      }
+      else if (expr.lhs->type == ASTNode::AST_EXPR_PAREN) {
+        visit_left_hand_side_expr(*expr.lhs->as_paren_expr()->expr->as_lhs_expr(), true);
+      }
+      else assert(false);
     }
 
   }
@@ -259,21 +270,39 @@ friend class NjsVM;
 
   }
 
-  void visit_left_hand_side_expr(LeftHandSideExpr& expr) {
+  void visit_left_hand_side_expr(LeftHandSideExpr& expr, bool create_ref = false) {
     visit(expr.base);
+    auto& postfix_ord = expr.postfix_order;
 
-    for (auto postfix : expr.postfix_order) {
-      auto postfix_type = postfix.first;
-      u32 idx = postfix.second;
+    for (size_t i = 0; i < expr.postfix_order.size(); i++) {
+      auto postfix_type = postfix_ord[i].first;
+      u32 idx = postfix_ord[i].second;
 
       if (postfix_type == LeftHandSideExpr::CALL) {
-
         visit_func_arguments(*(expr.args_list[idx]));
         emit(InstType::call, expr.args_list[idx]->args.size());
+      }
+      else if (postfix_type == LeftHandSideExpr::PROP) {
+        std::u16string keypath;
+
+        for (; postfix_ord[i].first == LeftHandSideExpr::PROP; i++) {
+          idx = postfix_ord[i].second;
+          keypath += expr.prop_list[idx].text;
+          keypath += u".";
+        }
+
+        if (!keypath.empty()) keypath.pop_back();
+
+        u32 const_str_id = str_pool.size();
+        str_pool.push_back(std::move(keypath));
+
+        emit(InstType::keypath_visit, (int)const_str_id);
+
+        i -= 1;
+      }
+      else if (postfix_type == LeftHandSideExpr::INDEX) {
 
       }
-      else if (postfix_type == LeftHandSideExpr::PROP) {}
-      else if (postfix_type == LeftHandSideExpr::INDEX) {}
     }
   }
 

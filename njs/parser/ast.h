@@ -26,6 +26,9 @@ using std::vector;
 
 const u32 PRINT_TREE_INDENT = 2;
 
+class LeftHandSideExpr;
+class ParenthesisExpr;
+
 class ASTNode {
  public:
   enum Type {
@@ -87,48 +90,29 @@ class ASTNode {
     AST_ILLEGAL,
   };
 
-  explicit ASTNode(Type type) : type(type) {}
-  ASTNode(Type type, std::u16string_view source, u32 start, u32 end, u32 line_start)
-      : type(type), text(source), start(start), end(end), line_start(line_start) {}
-  virtual ~ASTNode() = default;
+  explicit ASTNode(Type type);
+  ASTNode(Type type, std::u16string_view source, u32 start, u32 end, u32 line_start);
+  virtual ~ASTNode();
 
-  Type get_type() { return type; }
-  const std::u16string_view &get_source() { return text; }
-  u32 start_pos() { return start; }
-  u32 end_pos() { return end; }
-  u32 get_line_start() { return line_start; }
+  Type get_type();
+  const std::u16string_view &get_source();
+  u32 start_pos();
+  u32 end_pos();
+  u32 get_line_start();
 
-  void set_source(const std::u16string_view &source, u32 start, u32 end, u32 line_start) {
-    this->text = source;
-    this->start = start;
-    this->end = end;
-    this->line_start = line_start;
-  }
+  void set_source(const std::u16string_view &source, u32 start, u32 end, u32 line_start);
 
-  void add_child(ASTNode *node) { children.push_back(node); }
+  void add_child(ASTNode *node);
 
-  void print_tree(int level) {
-    std::string spaces(level * PRINT_TREE_INDENT, ' ');
-    std::string desc = description();
-    printf("%s%s\n", spaces.c_str(), desc.c_str());
-    for (ASTNode *child : children) {
-      if (child) child->print_tree(level + 1);
-    }
-  }
+  ParenthesisExpr *as_paren_expr();
 
-  virtual std::string description() {
-    std::string desc(ast_type_names[(int)type]);
+  LeftHandSideExpr *as_lhs_expr();
 
-    if (type == AST_EXPR_ID || type == AST_TOKEN) {
-      desc += "  \"";
-      desc += to_utf8_string(text);
-      desc += "\"";
-    }
+  void print_tree(int level);
 
-    return desc;
-  }
+  virtual std::string description();
 
-  bool is_illegal() { return type == AST_ILLEGAL; }
+  bool is_illegal();
 
   Type type;
  private:
@@ -157,9 +141,6 @@ class ArrayLiteral : public ASTNode {
     for (auto pair : elements) { delete pair.second; }
   }
 
-  u32 get_length() { return len; }
-  vector<pair<u32, ASTNode *>> get_elements() { return elements; }
-
   void add_element(ASTNode *element) {
     if (element == nullptr) { printf("warning: null element added to array literal.\n"); }
     elements.emplace_back(len, element);
@@ -185,7 +166,7 @@ class ObjectLiteral : public ASTNode {
       SET,
     };
 
-    Property(Token key, ASTNode *val, Type type) : key(key), value(val), type(type) {}
+    Property(const Token& key, ASTNode *val, Type type) : key(key), value(val), type(type) {}
 
     Token key;
     ASTNode *value;
@@ -200,11 +181,11 @@ class ObjectLiteral : public ASTNode {
 class ParenthesisExpr : public ASTNode {
  public:
   ParenthesisExpr(ASTNode *expr, std::u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_EXPR_PAREN, source, start, end, line_start), expr(expr) {}
+      : ASTNode(AST_EXPR_PAREN, source, start, end, line_start), expr(expr) {
+    add_child(expr);
+  }
 
   ~ParenthesisExpr() { delete expr; }
-
-  ASTNode *get_expr() { return expr; }
 
   ASTNode *expr;
 };
@@ -212,7 +193,7 @@ class ParenthesisExpr : public ASTNode {
 
 class UnaryExpr : public ASTNode {
  public:
-  UnaryExpr(ASTNode *node, Token op, bool prefix)
+  UnaryExpr(ASTNode *node, const Token& op, bool prefix)
       : ASTNode(AST_EXPR_UNARY), operand(node), op(op), is_prefix_op(prefix) {
 
     add_child(operand);
@@ -331,10 +312,10 @@ class LeftHandSideExpr : public ASTNode {
     add_child(index);
   }
 
-  void add_prop(Token prop_name) {
-    postfix_order.emplace_back(PROP, prop_names_list.size());
-    prop_names_list.push_back(prop_name.text);
-    add_child(new ASTNode(AST_TOKEN, prop_name.text, prop_name.start, prop_name.end, prop_name.line));
+  void add_prop(const Token& prop) {
+    postfix_order.emplace_back(PROP, prop_list.size());
+    prop_list.push_back(prop);
+    add_child(new ASTNode(AST_TOKEN, prop.text, prop.start, prop.end, prop.line));
   }
 
   bool is_simple() {
@@ -347,12 +328,12 @@ class LeftHandSideExpr : public ASTNode {
   vector<pair<PostfixType, u32>> postfix_order;
   vector<Arguments *> args_list;
   vector<ASTNode *> index_list;
-  vector<std::u16string_view> prop_names_list;
+  vector<Token> prop_list;
 };
 
 class BinaryExpr : public ASTNode {
  public:
-  BinaryExpr(ASTNode *lhs, ASTNode *rhs, Token op, std::u16string_view source, u32 start, u32 end,
+  BinaryExpr(ASTNode *lhs, ASTNode *rhs, const Token& op, std::u16string_view source, u32 start, u32 end,
              u32 line_start)
       : ASTNode(AST_EXPR_BINARY, source, start, end, line_start), lhs(lhs), rhs(rhs), op(op) {
     add_child(lhs);
@@ -415,7 +396,7 @@ class ProgramOrFunctionBody;
 class Function : public ASTNode {
  public:
 
-  Function(Token name, vector<std::u16string> params, ASTNode *body,
+  Function(const Token& name, vector<std::u16string> params, ASTNode *body,
            std::u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_FUNC, source, start, end, line_start), name(name), params(std::move(params)) {
     assert(body->get_type() == ASTNode::AST_FUNC_BODY);
@@ -444,10 +425,10 @@ class Function : public ASTNode {
 
 class VarDecl : public ASTNode {
  public:
-  VarDecl(Token id, std::u16string_view source, u32 start, u32 end, u32 line_start)
+  VarDecl(const Token& id, std::u16string_view source, u32 start, u32 end, u32 line_start)
       : VarDecl(id, nullptr, source, start, end, line_start) {}
 
-  VarDecl(Token id, ASTNode *var_init, std::u16string_view source, u32 start, u32 end, u32 line_start)
+  VarDecl(const Token& id, ASTNode *var_init, std::u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_STMT_VAR_DECL, source, start, end, line_start), id(id), var_init(var_init) {}
   ~VarDecl() { delete var_init; }
 
@@ -488,7 +469,7 @@ class ProgramOrFunctionBody : public ASTNode {
 
 class LabelledStatement : public ASTNode {
  public:
-  LabelledStatement(Token label, ASTNode *stmt, std::u16string_view source, u32 start, u32 end,
+  LabelledStatement(const Token& label, ASTNode *stmt, std::u16string_view source, u32 start, u32 end,
                     u32 line_start)
       : ASTNode(AST_STMT_LABEL, source, start, end, line_start), label(label), statement(stmt) {}
 
@@ -503,7 +484,7 @@ class ContinueOrBreak : public ASTNode {
   ContinueOrBreak(Type type, std::u16string_view source, u32 start, u32 end, u32 line_start)
       : ContinueOrBreak(type, Token::none, source, start, end, line_start) {}
 
-  ContinueOrBreak(Type type, Token id, std::u16string_view source, u32 start, u32 end, u32 line_start)
+  ContinueOrBreak(Type type, const Token& id, std::u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(type, source, start, end, line_start), id(id) {}
 
   Token id;
@@ -576,7 +557,7 @@ class Block : public ASTNode {
 
 class TryStatement : public ASTNode {
  public:
-  TryStatement(ASTNode *try_block, Token catch_ident, ASTNode *catch_block, std::u16string_view source,
+  TryStatement(ASTNode *try_block, const Token& catch_ident, ASTNode *catch_block, std::u16string_view source,
                u32 start, u32 end, u32 line_start)
       : TryStatement(try_block, catch_ident, catch_block, nullptr, source, start, end, line_start) {}
 
@@ -585,7 +566,7 @@ class TryStatement : public ASTNode {
       : TryStatement(try_block, Token::none, nullptr, finally_block, source, start,
                      end, line_start) {}
 
-  TryStatement(ASTNode *try_block, Token catch_ident, ASTNode *catch_block, ASTNode *finally_block,
+  TryStatement(ASTNode *try_block, const Token& catch_ident, ASTNode *catch_block, ASTNode *finally_block,
                std::u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_STMT_TRY, source, start, end, line_start), try_block(try_block),
         catch_ident(catch_ident), catch_block(catch_block), finally_block(finally_block) {

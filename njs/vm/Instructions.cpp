@@ -46,12 +46,6 @@ std::string Instruction::description() {
                       scope_type_names[operand.four.opr1], operand.four.opr2,
                       scope_type_names[operand.four.opr3], operand.four.opr4);
       break;
-//    case InstType::assign_st:
-//      sprintf(buffer, "assign_st  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
-//      break;
-//    case InstType::move_st:
-//      sprintf(buffer, "move_st  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
-//      break;
     case InstType::push:
       sprintf(buffer, "push  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
@@ -64,6 +58,15 @@ std::string Instruction::description() {
     case InstType::pop:
       sprintf(buffer, "pop  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
+    case InstType::pop_assign:
+      sprintf(buffer, "pop_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+      break;
+    case InstType::store:
+      sprintf(buffer, "store  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+      break;
+    case InstType::store_assign:
+      sprintf(buffer, "store_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+      break;
     case InstType::jmp:
       sprintf(buffer, "jmp  %d", operand.two.opr1);
       break;
@@ -75,6 +78,9 @@ std::string Instruction::description() {
       break;
     case InstType::add_props:
       sprintf(buffer, "add_props  %d", operand.two.opr1);
+      break;
+    case InstType::keypath_visit:
+      sprintf(buffer, "keypath_visit  %d", operand.two.opr1);
       break;
     case InstType::call:
       sprintf(buffer, "call  %d", operand.two.opr1);
@@ -90,7 +96,7 @@ std::string Instruction::description() {
       break;
     default:
       // fixme
-      sprintf(buffer, "(fixme)");
+      sprintf(buffer, "(instruction description missed. fixme)");
   }
 
   return std::string(buffer);

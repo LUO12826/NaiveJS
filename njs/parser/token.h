@@ -294,8 +294,8 @@ class Token {
 
   u32 line;
 
-  SourceLocation start_loc;
-  SourceLocation end_loc;
+//  SourceLocation start_loc;
+//  SourceLocation end_loc;
 };
 
 const unordered_set<std::u16string> keyword_set = {

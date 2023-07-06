@@ -98,6 +98,11 @@ struct JSValue {
     tag = UNDEFINED;
   }
 
+  JSValue& deref() {
+    assert(tag == JSValue::JS_VALUE_REF);
+    return *val.as_js_value;
+  }
+
   inline bool is_int() const { return tag == NUMBER_INT; }
   inline bool is_float() const { return tag == NUMBER_FLOAT; }
   inline bool is_bool() { return tag == BOOLEAN; }
@@ -126,7 +131,7 @@ struct JSValue {
     int64_t as_int;
     bool as_bool;
 
-    JSValue *as_value_ref;
+    JSValue *as_js_value;
 
     RCObject *as_rc_object;
     JSSymbol *as_symbol;
