@@ -23,7 +23,7 @@ set(SOURCES
     njs/gc/GCHeap.cpp
     njs/utils/Timer.cpp
     njs/global_var.cpp
-    njs/parser/StringPool.cpp
+        njs/common/StringPool.cpp
     njs/parser/ast.cpp
 )
 

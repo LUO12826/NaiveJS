@@ -81,14 +81,14 @@ int main(int argc, char *argv[]) {
     visitor.codegen(static_cast<ProgramOrFunctionBody *>(ast));
 
     codegen_timer.end();
-//
-//    Timer exec_timer("executed");
-//
-//    // execute bytecode
-//    NjsVM vm(visitor);
-//    vm.run();
-//
-//    exec_timer.end();
+
+    Timer exec_timer("executed");
+
+    // execute bytecode
+    NjsVM vm(visitor);
+    vm.run();
+
+    exec_timer.end();
     
   }
   catch (const std::ifstream::failure &e) {

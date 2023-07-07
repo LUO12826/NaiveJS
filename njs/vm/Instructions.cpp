@@ -41,6 +41,7 @@ std::string Instruction::description() {
       sprintf(buffer, "fast_add  %s %hu %s %hu",
                       scope_type_names[operand.four.opr1], operand.four.opr2,
                       scope_type_names[operand.four.opr3], operand.four.opr4);
+      break;
     case InstType::fast_assign:
       sprintf(buffer, "fast_assign  %s %hu %s %hu",
                       scope_type_names[operand.four.opr1], operand.four.opr2,

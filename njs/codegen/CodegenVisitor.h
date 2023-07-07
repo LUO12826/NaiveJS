@@ -12,6 +12,7 @@
 #include "njs/include/robin_hood.h"
 #include "njs/vm/Instructions.h"
 #include "njs/basic_types/JSFunction.h"
+#include "njs/common/StringPool.h"
 
 namespace njs {
 
@@ -49,14 +50,16 @@ friend class NjsVM;
     }
     std::cout << std::endl;
 
+    str_list = str_pool.to_list();
+
     std::cout << ">>> string pool:" << std::endl;
-    for (auto& str : str_pool) {
+    for (auto& str : str_list) {
       std::cout << to_utf8_string(str) << std::endl;
     }
     std::cout << std::endl;
 
     std::cout << ">>> number pool:" << std::endl;
-    for (auto num : num_pool) {
+    for (auto num : num_list) {
       std::cout << num << std::endl;
     }
     std::cout << std::endl;
@@ -83,6 +86,13 @@ friend class NjsVM;
             && inst.operand.two.opr2 == prev_inst.operand.two.opr2) {
           inst.op_type = InstType::nop;
           prev_inst.op_type = InstType::store;
+        }
+      }
+      if (inst.op_type == InstType:: push && prev_inst.op_type == InstType::pop_assign) {
+        if (inst.operand.two.opr1 == prev_inst.operand.two.opr1
+            && inst.operand.two.opr2 == prev_inst.operand.two.opr2) {
+          inst.op_type = InstType::nop;
+          prev_inst.op_type = InstType::store_assign;
         }
       }
     }
@@ -231,7 +241,7 @@ friend class NjsVM;
       visit(expr.rhs);
       auto lhs_sym = current_scope().resolve_symbol(expr.lhs->get_source());
       if (lhs_sym.stack_scope()) {
-        emit(Instruction(InstType::pop, scope_type_to_int(lhs_sym.scope_type), (int)lhs_sym.symbol->index));
+        emit(Instruction(InstType::pop_assign, scope_type_to_int(lhs_sym.scope_type), (int)lhs_sym.symbol->index));
       }
     }
     else {
@@ -253,9 +263,7 @@ friend class NjsVM;
 
     for (auto& prop : literal.properties) {
       // push the key into the stack
-      auto str_id = str_pool.size();
-      str_pool.emplace_back(prop.key.text);
-      emit(InstType::push_str, (int)str_id);
+      emit(InstType::push_str, (int)add_const(prop.key.text));
 
       // push the value into the stack
       visit(prop.value);
@@ -292,11 +300,8 @@ friend class NjsVM;
         }
 
         if (!keypath.empty()) keypath.pop_back();
-
-        u32 const_str_id = str_pool.size();
-        str_pool.push_back(std::move(keypath));
-
-        emit(InstType::keypath_visit, (int)const_str_id);
+        int keypath_id = (int)add_const(std::move(keypath));
+        emit(InstType::keypath_visit, keypath_id);
 
         i -= 1;
       }
@@ -347,9 +352,7 @@ friend class NjsVM;
   }
 
   void visit_string_literal(ASTNode& node) {
-    auto str_id = str_pool.size();
-    str_pool.emplace_back(node.get_source());
-    emit(InstType::push_str, (int)str_id);
+    emit(InstType::push_str, (int)add_const(node.get_source()));
   }
 
   void visit_variable_statement(VarStatement& var_stmt) {
@@ -421,14 +424,18 @@ friend class NjsVM;
   }
 
   u32 add_const(u16string str) {
-    auto idx = str_pool.size();
-    str_pool.push_back(std::move(str));
+    auto idx = str_pool.add_string(std::move(str));
+    return idx;
+  }
+
+  u32 add_const(u16string_view str_view) {
+    auto idx = str_pool.add_string(str_view);
     return idx;
   }
 
   u32 add_const(double num) {
-    auto idx = num_pool.size();
-    num_pool.push_back(num);
+    auto idx = num_list.size();
+    num_list.push_back(num);
     return idx;
   }
 
@@ -451,8 +458,9 @@ friend class NjsVM;
   SmallVector<Instruction, 10> bytecode;
 
   // for constant
-  SmallVector<u16string, 10> str_pool;
-  SmallVector<double, 10> num_pool;
+  StringPool str_pool;
+  SmallVector<u16string , 10> str_list;
+  SmallVector<double, 10> num_list;
   SmallVector<JSFunctionMeta, 10> func_meta;
 
   // for atom

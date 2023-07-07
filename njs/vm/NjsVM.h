@@ -34,14 +34,25 @@ friend class GCHeap;
 
   void execute();
 
+  void exec_push(Instruction& inst);
+  void exec_pop(Instruction& inst, bool assign);
+  void exec_store(Instruction& instruction, bool assign);
+  void exec_make_func(int meta_idx);
+  void exec_call(int arg_count);
+  void exec_make_object(Instruction& inst);
+  void exec_fast_assign(Instruction& inst);
+  void exec_add_props(int opr1);
+  void exec_push_str(int opr1);
+  void exec_keypath_visit(int keypath_idx);
+
   void exec_fast_add(Instruction& inst);
   void exec_return();
 
   SmallVector<Instruction, 10> bytecode;
 
   // for constant
-  SmallVector<u16string, 10> str_pool;
-  SmallVector<double, 10> num_pool;
+  SmallVector<u16string, 10> str_list;
+  SmallVector<double, 10> num_list;
   SmallVector<JSFunctionMeta, 10> func_meta;
 
   GlobalObject global_object;
@@ -58,14 +69,6 @@ friend class GCHeap;
   // program counter
   u32 pc {0};
   u32 frame_bottom_pointer {0};
-  void exec_push(Instruction& inst);
-  void exec_pop(Instruction& inst);
-  void exec_make_func(int meta_idx);
-  void exec_call(int arg_count);
-  void exec_make_object(Instruction& instruction);
-  void exec_fast_assign(Instruction& instruction);
-  void exec_add_props(int opr1);
-  void exec_push_str(int opr1);
 };
 
 } // namespace njs

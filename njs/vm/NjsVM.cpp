@@ -11,8 +11,8 @@ NjsVM::NjsVM(CodegenVisitor& visitor): heap(600, *this) {
   rt_stack = std::make_unique<JSValue[]>(max_stack_size);
 
   bytecode = std::move(visitor.bytecode);
-  str_pool = std::move(visitor.str_pool);
-  num_pool = std::move(visitor.num_pool);
+  str_list = std::move(visitor.str_list);
+  num_list = std::move(visitor.num_list);
   func_meta = std::move(visitor.func_meta);
 
   auto& global_sym_table = visitor.scope_chain[0].get_symbol_table();
@@ -25,15 +25,18 @@ NjsVM::NjsVM(CodegenVisitor& visitor): heap(600, *this) {
 }
 
 void NjsVM::run() {
+  std::cout << "### VM starts execution" << std::endl;
+
   execute();
 
-  std::cout << "end of execution VM state: " << std::endl;
+  std::cout << "### end of execution VM state: " << std::endl;
   std::cout << rt_stack[sp - 1].description() << std::endl << std::endl;
 }
 
 void NjsVM::execute() {
   while (true) {
     Instruction& inst = bytecode[pc];
+    std::cout << inst.description() << std::endl;
     pc++;
     switch (inst.op_type) {
 
@@ -56,7 +59,16 @@ void NjsVM::execute() {
         exec_push_str(inst.operand.two.opr1);
         break;
       case InstType::pop:
-        exec_pop(inst);
+        exec_pop(inst, false);
+        break;
+      case InstType::pop_assign:
+        exec_pop(inst, true);
+        break;
+      case InstType::store:
+        exec_store(inst, false);
+        break;
+      case InstType::store_assign:
+        exec_store(inst, true);
         break;
       case InstType::jmp:
         pc = inst.operand.two.opr1;
@@ -81,8 +93,6 @@ void NjsVM::execute() {
       case InstType::fast_assign:
         exec_fast_assign(inst);
         break;
-      case InstType::pop_assign:
-        break;
       case InstType::make_func:
         exec_make_func(inst.operand.two.opr1);
         break;
@@ -96,7 +106,11 @@ void NjsVM::execute() {
         return;
       case InstType::nop:
         break;
+      case InstType::keypath_visit:
+        exec_keypath_visit(inst.operand.two.opr1);
+        break;
     }
+    std::cout << "sp: " << sp << std::endl;
   }
 }
 
@@ -159,18 +173,28 @@ void NjsVM::exec_push(Instruction& inst) {
   sp += 1;
 }
 
-void NjsVM::exec_pop(Instruction& inst) {
+void NjsVM::exec_pop(Instruction& inst, bool assign) {
   auto var_scope = int_to_scope_type(inst.operand.two.opr1);
   u32 var_addr = calc_var_address(var_scope, inst.operand.two.opr2);
 
   sp -= 1;
-  rt_stack[var_addr] = rt_stack[sp];
+  if (assign) rt_stack[var_addr].assign(rt_stack[sp]);
+  else rt_stack[var_addr] = rt_stack[sp];
+
   rt_stack[sp].set_undefined();
+}
+
+void NjsVM::exec_store(Instruction& inst, bool assign) {
+  auto var_scope = int_to_scope_type(inst.operand.two.opr1);
+  u32 var_addr = calc_var_address(var_scope, inst.operand.two.opr2);
+
+  if (assign) rt_stack[var_addr].assign(rt_stack[sp - 1]);
+  else rt_stack[var_addr] = rt_stack[sp - 1];
 }
 
 void NjsVM::exec_make_func(int meta_idx) {
   auto& meta = func_meta[meta_idx];
-  auto& name = str_pool[meta.name_index];
+  auto& name = str_list[meta.name_index];
 
   auto *func = heap.new_object<JSFunction>(name, meta.code_address);
   rt_stack[sp] = JSValue(func);
@@ -221,6 +245,8 @@ void NjsVM::exec_add_props(int props_cnt) {
 
   for (u32 i = sp - props_cnt * 2; i < sp; i += 2) {
     object->add_prop(rt_stack[i], rt_stack[i + 1]);
+    rt_stack[i].set_undefined();
+    rt_stack[i + 1].set_undefined();
   }
 
   sp = sp - props_cnt * 2;
@@ -229,9 +255,31 @@ void NjsVM::exec_add_props(int props_cnt) {
 void NjsVM::exec_push_str(int str_idx) {
   rt_stack[sp].tag = JSValue::STRING;
 
-  auto str = new PrimitiveString(str_pool[str_idx]);
+  auto str = new PrimitiveString(str_list[str_idx]);
   str->retain();
   rt_stack[sp].val.as_primitive_string = str;
+  sp += 1;
+}
+
+void NjsVM::exec_keypath_visit(int keypath_idx) {
+
+  auto& keypath = str_list[keypath_idx];
+  auto begin = keypath.begin();
+  auto start = begin;
+
+  while (true) {
+    auto end = std::find(start, keypath.end(), '.');
+    u16string_view key(keypath.data() + (start - begin), end - start);
+
+    if (!rt_stack[sp - 1].is_object()) {
+      assert(false);
+    }
+    JSObject *root_obj = rt_stack[sp - 1].val.as_object;
+    rt_stack[sp - 1] = root_obj->get_prop(key);
+
+    if (end != keypath.end()) start = end + 1;
+    else break;
+  }
 }
 
 }
