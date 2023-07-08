@@ -11,10 +11,16 @@ u32 StringPool::add_string(u16string str) {
 }
 
 u32 StringPool::add_string(u16string_view str_view) {
-  u32 id = next_id;
-  pool[u16string(str_view)] = id;
-  next_id += 1;
-  return id;
+  u16string str(str_view);
+  if (pool.contains(str)) {
+    return pool[str];
+  }
+  else {
+    u32 id = next_id;
+    pool[std::move(str)] = id;
+    next_id += 1;
+    return id;
+  }
 }
 
 optional<u32> StringPool::get_string_id(const u16string& str) {
