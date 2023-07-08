@@ -71,6 +71,9 @@ std::string Instruction::description() {
     case InstType::store_assign:
       sprintf(buffer, "store_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
+    case InstType::prop_assign:
+      sprintf(buffer, "prop_assign");
+      break;
     case InstType::jmp:
       sprintf(buffer, "jmp  %d", operand.two.opr1);
       break;

@@ -43,7 +43,7 @@ friend class GCHeap;
   void exec_fast_assign(Instruction& inst);
   void exec_add_props(int props_cnt);
   void exec_push_str(int str_idx, bool atom);
-  void exec_keypath_visit(int props_cnt);
+  void exec_keypath_visit(int key_cnt, bool get_ref);
 
   void exec_fast_add(Instruction& inst);
   void exec_return();
@@ -69,6 +69,7 @@ friend class GCHeap;
   // program counter
   u32 pc {0};
   u32 frame_bottom_pointer {0};
+  void exec_prop_assign();
 };
 
 } // namespace njs

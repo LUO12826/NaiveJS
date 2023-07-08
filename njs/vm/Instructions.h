@@ -28,6 +28,7 @@ enum class InstType {
   pop_assign,
   store,
   store_assign,
+  prop_assign,
 
   jmp,
   je,

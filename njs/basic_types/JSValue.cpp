@@ -25,13 +25,16 @@ std::string JSValue::description() const {
 
   std::ostringstream stream;
 
-  stream << "JSValue tagged: " << js_value_tag_names[tag];
-  if (tag == BOOLEAN) stream << ", value: " << val.as_bool;
-  else if (tag == NUMBER_FLOAT) stream << ", value: " << val.as_float64;
-  else if (tag == NUMBER_INT) stream << ", value: " << val.as_int;
+  stream << "JSValue tag: " << js_value_tag_names[tag] << ", ";
+  if (tag == BOOLEAN) stream << "val: " << val.as_bool;
+  else if (tag == NUMBER_FLOAT) stream << "val: " << val.as_float64;
+  else if (tag == NUMBER_INT) stream << "val: " << val.as_int;
   else if (tag == STACK_FRAME_META1) {
-    stream << ", function named: " << to_utf8_string(val.as_function->name)
+    stream << "function named: " << to_utf8_string(val.as_function->name)
            << " @" << std::hex << val.as_function;
+  }
+  else if (tag == STRING) {
+    stream << "val: " << to_utf8_string(val.as_primitive_string->str);
   }
 
   return stream.str();

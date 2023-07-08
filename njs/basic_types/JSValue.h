@@ -81,6 +81,10 @@ struct JSValue {
     val.as_bool = boolean;
   }
 
+  explicit JSValue(JSValue *js_val): tag(JS_VALUE_REF) {
+    val.as_js_value = js_val;
+  }
+
   explicit JSValue(JSObject *obj): tag(OBJECT) {
     val.as_object = obj;
   }

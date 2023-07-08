@@ -74,6 +74,9 @@ void NjsVM::execute() {
         exec_store(inst, true);
         heap.gc();
         break;
+      case InstType::prop_assign:
+        exec_prop_assign();
+        break;
       case InstType::jmp:
         pc = inst.operand.two.opr1;
         break;
@@ -111,7 +114,7 @@ void NjsVM::execute() {
       case InstType::nop:
         break;
       case InstType::keypath_visit:
-        exec_keypath_visit(inst.operand.two.opr1);
+        exec_keypath_visit(inst.operand.two.opr1, (bool)inst.operand.two.opr2);
         break;
     }
     std::cout << "sp: " << sp << std::endl;
@@ -196,6 +199,16 @@ void NjsVM::exec_store(Instruction& inst, bool assign) {
   else rt_stack[var_addr] = rt_stack[sp - 1];
 }
 
+void NjsVM::exec_prop_assign() {
+  JSValue& target_val = rt_stack[sp - 2];
+  assert(target_val.tag == JSValue::JS_VALUE_REF);
+  target_val.deref().assign(rt_stack[sp - 1]);
+
+  rt_stack[sp - 1].set_undefined();
+  rt_stack[sp - 2].set_undefined();
+  sp -= 2;
+}
+
 void NjsVM::exec_make_func(int meta_idx) {
   auto& meta = func_meta[meta_idx];
   auto& name = str_list[meta.name_index];
@@ -271,19 +284,25 @@ void NjsVM::exec_push_str(int str_idx, bool atom) {
   sp += 1;
 }
 
-void NjsVM::exec_keypath_visit(int props_cnt) {
+void NjsVM::exec_keypath_visit(int key_cnt, bool get_ref) {
 
-  JSValue& val_obj = rt_stack[sp - props_cnt - 1];
+  JSValue& val_obj = rt_stack[sp - key_cnt - 1];
 
-  for (u32 i = sp - props_cnt; i < sp; i++) {
+  // don't visit the last component of the keypath here
+  for (u32 i = sp - key_cnt; i < sp - 1; i++) {
     assert(val_obj.is_object());
     auto& key = str_list[rt_stack[i].val.as_int];
     // val_obj is a reference, so we are directly modify the cell in the stack frame.
-    val_obj = val_obj.val.as_object->get_prop(key);
+    val_obj = val_obj.val.as_object->get_prop(key, false);
     rt_stack[i].set_undefined();
   }
+  // visit the last component separately
+  auto& key = str_list[rt_stack[sp - 1].val.as_int];
+  rt_stack[sp - 1].set_undefined();
 
-  sp = sp - props_cnt;
+  val_obj = val_obj.val.as_object->get_prop(key, get_ref);
+
+  sp = sp - key_cnt;
 }
 
 }

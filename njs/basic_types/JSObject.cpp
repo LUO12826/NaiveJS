@@ -87,11 +87,16 @@ bool JSObject::add_prop(JSValue& key, JSValue& value) {
   return true;
 }
 
-JSValue JSObject::get_prop(u16string_view key) {
-  auto res = storage.find(JSObjectKey(key));
+JSValue JSObject::get_prop(u16string_view key, bool get_ref) {
 
-  if (res == storage.end()) return JSValue::undefined;
-  return res->second;
+  if (!get_ref) {
+    auto res = storage.find(JSObjectKey(key));
+    if (res != storage.end()) return res->second;
+    return JSValue::undefined;
+  }
+  else {
+    return JSValue(&storage[JSObjectKey(key)]);
+  }
 }
 
 void JSObject::gc_scan_children(GCHeap& heap) {

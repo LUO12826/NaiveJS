@@ -99,7 +99,7 @@ class JSObject : public GCObject {
 
   bool add_prop(JSValue& key, JSValue& value);
 
-  JSValue get_prop(u16string_view key);
+  JSValue get_prop(u16string_view key, bool get_ref);
 
   ObjectClass obj_class;
   unordered_map<JSObjectKey, JSValue> storage;

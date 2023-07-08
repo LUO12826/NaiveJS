@@ -115,7 +115,7 @@ friend class NjsVM;
         visit_assignment_expr(*static_cast<AssignmentExpr *>(node));
         break;
       case ASTNode::AST_EXPR_LHS:
-        visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(node));
+        visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(node), false);
         break;
       case ASTNode::AST_EXPR_ID:
         visit_identifier(*node);
@@ -254,6 +254,9 @@ friend class NjsVM;
         visit_left_hand_side_expr(*expr.lhs->as_paren_expr()->expr->as_lhs_expr(), true);
       }
       else assert(false);
+
+      visit(expr.rhs);
+      emit(InstType::prop_assign);
     }
 
   }
@@ -278,7 +281,7 @@ friend class NjsVM;
 
   }
 
-  void visit_left_hand_side_expr(LeftHandSideExpr& expr, bool create_ref = false) {
+  void visit_left_hand_side_expr(LeftHandSideExpr& expr, bool create_ref) {
     visit(expr.base);
     auto& postfix_ord = expr.postfix_order;
 
@@ -299,7 +302,7 @@ friend class NjsVM;
           emit(InstType::push_atom, keypath_id);
         }
 
-        emit(InstType::keypath_visit, int(i - prop_start));
+        emit(InstType::keypath_visit, int(i - prop_start), int(create_ref));
 
         i -= 1;
       }
