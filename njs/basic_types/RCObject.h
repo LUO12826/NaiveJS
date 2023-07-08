@@ -46,6 +46,8 @@ struct JSSymbol: public RCObject {
 
   bool operator == (const JSSymbol& other) const;
 
+  std::string to_string();
+
   std::u16string name;
   size_t seq;
 };

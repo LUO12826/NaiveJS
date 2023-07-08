@@ -9,6 +9,10 @@ extern const char *token_type_names[74];
 
 extern const char *scope_type_names[5];
 
+extern const char *js_value_tag_names[25];
+
+extern const char *object_class_names[6];
+
 } // namespace njs
 
 #endif // NJS_ENUM_STRINGS_H

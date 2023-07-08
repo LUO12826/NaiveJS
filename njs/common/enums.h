@@ -5,6 +5,7 @@
 
 namespace njs {
 
+// has corresponding string representation, note to modify when adding
 enum class VarKind {
   DECL_FUNCTION,
   DECL_VAR,
@@ -13,6 +14,7 @@ enum class VarKind {
   DECL_FUNC_PARAM,
 };
 
+// has corresponding string representation, note to modify when adding
 enum class ScopeType {
   GLOBAL = 0,
   FUNC,

@@ -48,13 +48,13 @@ struct JSObjectKey {
   ~JSObjectKey();
 
   bool operator == (const JSObjectKey& other) const;
+  std::string to_string();
 
   KeyData key;
   KeyType key_type;
 };
 
 } // namespace njs
-
 
 /// @brief std::hash for JSObjectKey. Injected into std namespace.
 template <>
@@ -79,17 +79,29 @@ struct std::hash<njs::JSObjectKey>
 
 namespace njs {
 
+// has corresponding string representation, note to modify when adding
+enum class ObjectClass {
+  CLS_OBJECT = 0,
+  CLS_ARRAY,
+  CLS_ERROR,
+  CLS_DATE,
+  CLS_FUNCTION,
+  CLS_CUSTOM
+};
+
 class JSObject : public GCObject {
  public:
-  JSObject() : GCObject(ObjectClass::CLS_OBJECT) {}
-  explicit JSObject(ObjectClass cls) : GCObject(cls) {}
+  JSObject(): GCObject(sizeof(JSObject)), obj_class(ObjectClass::CLS_OBJECT) {}
+  explicit JSObject(ObjectClass cls): GCObject(sizeof(JSObject)), obj_class(cls) {}
 
   void gc_scan_children(GCHeap& heap) override;
+  std::string description() override;
 
   bool add_prop(JSValue& key, JSValue& value);
 
   JSValue get_prop(u16string_view key);
 
+  ObjectClass obj_class;
   unordered_map<JSObjectKey, JSValue> storage;
 };
 

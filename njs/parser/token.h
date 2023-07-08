@@ -8,10 +8,10 @@
 #include <string_view>
 #include <unordered_set>
 
+#include "njs/common/enum_strings.h"
 #include "njs/include/robin_hood.h"
-#include "njs/utils/helper.h"
-#include "njs/parser/enum_strings.h"
 #include "njs/utils/common_types.h"
+#include "njs/utils/helper.h"
 
 namespace njs {
 
@@ -19,6 +19,7 @@ namespace njs {
 using robin_hood::unordered_set;
 class Token {
  public:
+  // has corresponding string representation, note to modify when adding
   // Order by section 7.5, 7.6, 7.7, 7.8
   enum TokenType {
     // Identifier

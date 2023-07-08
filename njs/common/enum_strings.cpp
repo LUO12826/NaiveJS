@@ -152,4 +152,50 @@ const char *scope_type_names[5] = {
   "CLOSURE_SCOPE"
 };
 
+const char *js_value_tag_names[25] = {
+  "UNDEFINED",
+  "JS_ATOM",
+  "JS_NULL",
+  "BOOLEAN",
+  "NUMBER_INT",
+  "NUMBER_FLOAT",
+
+  "JS_VALUE_REF",
+
+  "NEED_RC_BEGIN",
+
+  "STRING",
+  "SYMBOL",
+
+  "HEAP_VAL_REF",
+  "STRING_REF",
+  "SYMBOL_REF",
+
+  "NEED_RC_END",
+
+  "STACK_FRAME_META1",
+  "STACK_FRAME_META2",
+  "OTHER",
+
+  "NEED_GC_BEGIN",
+
+  "BOOLEAN_OBJ",
+  "NUMBER_OBJ",
+  "STRING_OBJ",
+  "OBJECT",
+  "ARRAY",
+  "FUNCTION",
+
+  "NEED_GC_END"
+};
+
+const char *object_class_names[6] = {
+  "CLS_OBJECT",
+  "CLS_ARRAY",
+  "CLS_ERROR",
+  "CLS_DATE",
+  "CLS_FUNCTION",
+  "CLS_CUSTOM"
+};
+
 }

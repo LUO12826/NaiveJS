@@ -3,6 +3,7 @@
 
 #include <optional>
 #include "njs/common/enums.h"
+#include "njs/common/enum_strings.h"
 #include "SymbolTable.h"
 #include "njs/include/robin_hood.h"
 
@@ -49,14 +50,7 @@ class Scope {
   }
 
   std::string get_scope_type_name() {
-    switch (scope_type) {
-      case ScopeType::GLOBAL: return "GLOBAL_SCOPE";
-      case ScopeType::FUNC: return "FUNC_SCOPE";
-      case ScopeType::FUNC_PARAM: return "FUNC_PARAM_SCOPE";
-      case ScopeType::BLOCK: return "BLOCK_SCOPE";
-      case ScopeType::CLOSURE: return "CLOSURE_SCOPE";
-      default: assert(false);
-    }
+    return scope_type_names[static_cast<int>(scope_type)];
   }
 
   bool define_func_parameter(u16string_view name, bool strict = false) {

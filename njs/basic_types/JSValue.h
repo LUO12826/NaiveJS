@@ -14,6 +14,7 @@ struct JSHeapValue;
 
 extern const char *js_value_tag_names[25];
 
+// has corresponding string representation, note to modify when adding
 struct JSValue {
   
   enum JSValueTag {
@@ -105,11 +106,11 @@ struct JSValue {
 
   inline bool is_int() const { return tag == NUMBER_INT; }
   inline bool is_float() const { return tag == NUMBER_FLOAT; }
-  inline bool is_bool() { return tag == BOOLEAN; }
-  inline bool is_primitive_string() { return tag == STRING; }
-  inline bool is_object() { return tag == OBJECT || tag == FUNCTION; }
+  inline bool is_bool() const { return tag == BOOLEAN; }
+  inline bool is_primitive_string() const { return tag == STRING; }
+  inline bool is_object() const { return tag == OBJECT || tag == FUNCTION; }
 
-  inline bool is_RCObject() {
+  inline bool is_RCObject() const {
     return tag > NEED_RC_BEGIN && tag < NEED_RC_END;
   }
 
@@ -125,6 +126,7 @@ struct JSValue {
   void assign(JSValue& rhs);
 
   std::string description() const;
+  std::string to_string() const;
 
   union {
     double as_float64;

@@ -17,13 +17,13 @@ set(SOURCES
     njs/basic_types/JSValue.cpp
     njs/main.cpp
     njs/utils/helper.cpp
-    njs/parser/enum_strings.cpp
+    njs/common/enum_strings.cpp
     njs/parser/token.cpp
     njs/common/enums.cpp
     njs/gc/GCHeap.cpp
     njs/utils/Timer.cpp
     njs/global_var.cpp
-        njs/common/StringPool.cpp
+    njs/common/StringPool.cpp
     njs/parser/ast.cpp
 )
 

@@ -2,6 +2,8 @@
 
 #include "njs/gc/GCHeap.h"
 #include "JSValue.h"
+#include "njs/common/enum_strings.h"
+#include <sstream>
 
 namespace njs {
 
@@ -50,6 +52,16 @@ bool JSObjectKey::operator == (const JSObjectKey& other) const {
   __builtin_unreachable();
 }
 
+std::string JSObjectKey::to_string() {
+  if (key_type == KEY_STR) return to_utf8_string(key.str->str);
+  if (key_type == KEY_STR_VIEW) return to_utf8_string(key.str_view);
+  if (key_type == KEY_NUM) return std::to_string(key.number);
+  if (key_type == KEY_SYMBOL) return key.symbol->to_string();
+  if (key_type == KEY_ATOM) return "Atom(" + std::to_string(key.atom) + ")";
+
+  __builtin_unreachable();
+}
+
 bool JSObject::add_prop(JSValue& key, JSValue& value) {
   JSValue *val_placeholder = nullptr;
   if (key.tag == JSValue::JS_ATOM) {
@@ -90,6 +102,26 @@ void JSObject::gc_scan_children(GCHeap& heap) {
       heap.gc_visit_object(val, val.as_GCObject());
     }
   }
+}
+
+std::string JSObject::description() {
+  std::ostringstream stream;
+  if (obj_class == ObjectClass::CLS_OBJECT) stream << "{ ";
+  if (obj_class == ObjectClass::CLS_FUNCTION) stream << "Function{ ";
+
+
+  u32 print_prop_num = std::min((u32)4, (u32)storage.size());
+  u32 i = 0;
+  for (auto& kv_pair : storage) {
+    stream << kv_pair.first.to_string() << ": ";
+    stream << kv_pair.second.to_string() << ", ";
+
+    i += 1;
+    if (i == print_prop_num) break;
+  }
+
+  stream << "}";
+  return stream.str();
 }
 
 }

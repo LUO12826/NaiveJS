@@ -12,28 +12,19 @@ class GCHeap;
 using robin_hood::unordered_map;
 using u32 = uint32_t;
 
-enum class ObjectClass {
-  CLS_OBJECT = 1,
-  CLS_ARRAY,
-  CLS_ERROR,
-  CLS_DATE,
-  CLS_FUNCTION,
-  CLS_CUSTOM
-};
-
 class GCObject {
  public:
-  explicit GCObject(ObjectClass cls) : obj_class(cls), size(sizeof(GCObject)) {}
+  GCObject(u32 size): size(size) {}
   virtual ~GCObject() = default;
 
   GCObject(const GCObject& obj) = delete;
   GCObject(GCObject&& obj) = delete;
 
   virtual void gc_scan_children(GCHeap &heap) = 0;
+  virtual std::string description() = 0;
 
   u32 size;
   GCObject *forward_ptr{nullptr};
-  ObjectClass obj_class;
 };
 
 } // namespace njs

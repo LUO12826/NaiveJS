@@ -1,12 +1,26 @@
 #include "GCHeap.h"
 #include "njs/vm/NjsVM.h"
+#include "njs/global_var.h"
+#include "njs/utils/Timer.h"
 
 #include <iostream>
 
 namespace njs {
 
 void GCHeap::gc() {
+  Timer timer("gc");
+  if (Global::show_gc_statistics) {
+    std::cout << "****************** gc starts ******************" << std::endl;
+  }
   copy_alive();
+
+  if (Global::show_gc_statistics) {
+    std::cout << "******************  gc ends  ******************" << std::endl;
+    timer.end(true);
+  }
+  else {
+    timer.end(false);
+  }
 }
 
 void GCHeap::gc_visit_object(JSValue &handle, GCObject *obj) {
@@ -36,11 +50,15 @@ void GCHeap::copy_alive() {
   alloc_point = to_start;
   std::vector<JSValue *> roots = gather_roots();
 
-  std::cout << "GC found roots:" << std::endl;
+  if (Global::show_gc_statistics) {
+    std::cout << "GC found roots:" << std::endl;
+    for (JSValue *root : roots) {
+      std::cout << root->as_GCObject()->description() << std::endl;
+    }
+  }
+
   for (JSValue *root : roots) {
-    std::cout << root->description() << std::endl;
-    auto *obj = root->as_GCObject();
-    gc_visit_object(*root, obj);
+    gc_visit_object(*root, root->as_GCObject());
   }
 
   std::swap(from_start, to_start);
@@ -48,6 +66,7 @@ void GCHeap::copy_alive() {
 
 GCObject *GCHeap::copy_object(GCObject *obj) {
   if (obj->forward_ptr == nullptr) {
+    std::cout << "copy an object" << std::endl;
     memcpy(alloc_point, (void *)obj, obj->size);
     obj->forward_ptr = (GCObject *)alloc_point;
     alloc_point += obj->size;

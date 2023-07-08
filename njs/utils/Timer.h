@@ -14,7 +14,7 @@ using TimePoint = std::chrono::steady_clock::time_point;
 
   Timer(std::string name);
 
-  void end();
+  long long end(bool print_res = true);
 
  private:
   std::string name;

@@ -10,13 +10,13 @@
 #include <utility>
 #include <vector>
 
+#include "njs/codegen/Scope.h"
+#include "njs/codegen/SymbolTable.h"
+#include "njs/common/enum_strings.h"
+#include "njs/common/enums.h"
 #include "njs/include/SmallVector.h"
 #include "njs/utils/macros.h"
-#include "njs/parser/enum_strings.h"
 #include "token.h"
-#include "njs/common/enums.h"
-#include "njs/codegen/SymbolTable.h"
-#include "njs/codegen/Scope.h"
 
 namespace njs {
 
@@ -31,6 +31,7 @@ class ParenthesisExpr;
 
 class ASTNode {
  public:
+  // has corresponding string representation, note to modify when adding
   enum Type {
     AST_TOKEN = 0, // used to wrap a token
     AST_EXPR_THIS,

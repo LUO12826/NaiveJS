@@ -28,4 +28,8 @@ bool JSSymbol::operator == (const JSSymbol& other) const {
   return name == other.name && seq == other.seq;
 }
 
+std::string JSSymbol::to_string() {
+  return "JSSymbol(" + to_utf8_string(name) + ")";
+}
+
 }

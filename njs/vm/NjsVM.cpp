@@ -69,6 +69,7 @@ void NjsVM::execute() {
         break;
       case InstType::store_assign:
         exec_store(inst, true);
+        heap.gc();
         break;
       case InstType::jmp:
         pc = inst.operand.two.opr1;

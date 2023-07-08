@@ -5,6 +5,7 @@
 
 #include "njs/basic_types/JSObject.h"
 #include "njs/basic_types/JSFunction.h"
+#include "njs/common/enum_strings.h"
 
 namespace njs {
 
@@ -31,6 +32,19 @@ std::string JSValue::description() const {
   else if (tag == STACK_FRAME_META1) {
     stream << ", function named: " << to_utf8_string(val.as_function->name)
            << " @" << std::hex << val.as_function;
+  }
+
+  return stream.str();
+}
+
+std::string JSValue::to_string() const {
+  std::ostringstream stream;
+
+  if (tag == BOOLEAN) stream << val.as_bool;
+  else if (tag == NUMBER_FLOAT) stream << val.as_float64;
+  else if (tag == NUMBER_INT) stream << val.as_int;
+  else if (tag == STACK_FRAME_META1 || is_object()) {
+    stream << as_GCObject()->description();
   }
 
   return stream.str();
@@ -91,41 +105,5 @@ JSValue::~JSValue() {
 JSValue JSValue::undefined = JSValue(JSValue::UNDEFINED);
 JSValue JSValue::null = JSValue(JSValue::JS_NULL);
 
-const char *js_value_tag_names[25] = {
-  "UNDEFINED",
-  "JS_ATOM",
-  "JS_NULL",
-  "BOOLEAN",
-  "NUMBER_INT",
-  "NUMBER_FLOAT",
-
-  "JS_VALUE_REF",
-
-  "NEED_RC_BEGIN",
-
-  "STRING",
-  "SYMBOL",
-
-  "HEAP_VAL_REF",
-  "STRING_REF",
-  "SYMBOL_REF",
-
-  "NEED_RC_END",
-
-  "STACK_FRAME_META1",
-  "STACK_FRAME_META2",
-  "OTHER",
-
-  "NEED_GC_BEGIN",
-
-  "BOOLEAN_OBJ",
-  "NUMBER_OBJ",
-  "STRING_OBJ",
-  "OBJECT",
-  "ARRAY",
-  "FUNCTION",
-
-  "NEED_GC_END"
-};
 
 }
