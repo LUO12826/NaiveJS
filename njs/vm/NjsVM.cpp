@@ -56,7 +56,10 @@ void NjsVM::execute() {
         sp += 1;
         break;
       case InstType::push_str:
-        exec_push_str(inst.operand.two.opr1);
+        exec_push_str(inst.operand.two.opr1, false);
+        break;
+      case InstType::push_atom:
+        exec_push_str(inst.operand.two.opr1, true);
         break;
       case InstType::pop:
         exec_pop(inst, false);
@@ -253,34 +256,34 @@ void NjsVM::exec_add_props(int props_cnt) {
   sp = sp - props_cnt * 2;
 }
 
-void NjsVM::exec_push_str(int str_idx) {
-  rt_stack[sp].tag = JSValue::STRING;
+void NjsVM::exec_push_str(int str_idx, bool atom) {
+  rt_stack[sp].tag = atom ? JSValue::JS_ATOM : JSValue::STRING;
 
-  auto str = new PrimitiveString(str_list[str_idx]);
-  str->retain();
-  rt_stack[sp].val.as_primitive_string = str;
+  if (atom) {
+    rt_stack[sp].val.as_int = str_idx;
+  }
+  else {
+    auto str = new PrimitiveString(str_list[str_idx]);
+    str->retain();
+    rt_stack[sp].val.as_primitive_string = str;
+  }
+
   sp += 1;
 }
 
-void NjsVM::exec_keypath_visit(int keypath_idx) {
+void NjsVM::exec_keypath_visit(int props_cnt) {
 
-  auto& keypath = str_list[keypath_idx];
-  auto begin = keypath.begin();
-  auto start = begin;
+  JSValue& val_obj = rt_stack[sp - props_cnt - 1];
 
-  while (true) {
-    auto end = std::find(start, keypath.end(), '.');
-    u16string_view key(keypath.data() + (start - begin), end - start);
-
-    if (!rt_stack[sp - 1].is_object()) {
-      assert(false);
-    }
-    JSObject *root_obj = rt_stack[sp - 1].val.as_object;
-    rt_stack[sp - 1] = root_obj->get_prop(key);
-
-    if (end != keypath.end()) start = end + 1;
-    else break;
+  for (u32 i = sp - props_cnt; i < sp; i++) {
+    assert(val_obj.is_object());
+    auto& key = str_list[rt_stack[i].val.as_int];
+    // val_obj is a reference, so we are directly modify the cell in the stack frame.
+    val_obj = val_obj.val.as_object->get_prop(key);
+    rt_stack[i].set_undefined();
   }
+
+  sp = sp - props_cnt;
 }
 
 }

@@ -241,7 +241,7 @@ friend class NjsVM;
       visit(expr.rhs);
       auto lhs_sym = current_scope().resolve_symbol(expr.lhs->get_source());
       if (lhs_sym.stack_scope()) {
-        emit(Instruction(InstType::pop_assign, scope_type_to_int(lhs_sym.scope_type), (int)lhs_sym.symbol->index));
+        emit(InstType::pop_assign, scope_type_to_int(lhs_sym.scope_type), (int)lhs_sym.symbol->index);
       }
     }
     else {
@@ -291,17 +291,15 @@ friend class NjsVM;
         emit(InstType::call, expr.args_list[idx]->args.size());
       }
       else if (postfix_type == LeftHandSideExpr::PROP) {
-        std::u16string keypath;
 
+        size_t prop_start = i;
         for (; postfix_ord[i].first == LeftHandSideExpr::PROP; i++) {
           idx = postfix_ord[i].second;
-          keypath += expr.prop_list[idx].text;
-          keypath += u".";
+          int keypath_id = (int)add_const(expr.prop_list[idx].text);
+          emit(InstType::push_atom, keypath_id);
         }
 
-        if (!keypath.empty()) keypath.pop_back();
-        int keypath_id = (int)add_const(std::move(keypath));
-        emit(InstType::keypath_visit, keypath_id);
+        emit(InstType::keypath_visit, int(i - prop_start));
 
         i -= 1;
       }

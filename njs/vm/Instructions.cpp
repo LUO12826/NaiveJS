@@ -56,6 +56,9 @@ std::string Instruction::description() {
     case InstType::push_str:
       sprintf(buffer, "push_str  %d", operand.two.opr1);
       break;
+    case InstType::push_atom:
+      sprintf(buffer, "push_atom  %d", operand.two.opr1);
+      break;
     case InstType::pop:
       sprintf(buffer, "pop  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;

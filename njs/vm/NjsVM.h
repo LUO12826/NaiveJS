@@ -41,9 +41,9 @@ friend class GCHeap;
   void exec_call(int arg_count);
   void exec_make_object(Instruction& inst);
   void exec_fast_assign(Instruction& inst);
-  void exec_add_props(int opr1);
-  void exec_push_str(int opr1);
-  void exec_keypath_visit(int keypath_idx);
+  void exec_add_props(int props_cnt);
+  void exec_push_str(int str_idx, bool atom);
+  void exec_keypath_visit(int props_cnt);
 
   void exec_fast_add(Instruction& inst);
   void exec_return();
