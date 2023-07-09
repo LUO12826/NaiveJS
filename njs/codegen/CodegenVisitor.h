@@ -167,7 +167,7 @@ friend class NjsVM;
     // skip function bytecode
     bytecode[jmp_inst_idx].operand.two.opr1 = bytecode_pos();
 
-    // Fill the function symbol initialization code to the very beginning
+    // Fill the function original_symbol initialization code to the very beginning
     // (because the function variable will be hoisted)
 
     for (auto& inst : current_context().temp_code_storage) {
@@ -216,12 +216,12 @@ friend class NjsVM;
 
     // capture closure variables
     for (auto symbol : capture_list) {
-      emit_temp(InstType::capture, scope_type_to_int(symbol.scope_type), symbol.symbol->index);
+      emit_temp(InstType::capture, scope_type_to_int(symbol.scope_type), symbol.original_symbol->index);
     }
 
     // then put this function to where its name (as a variable) is located.
     auto symbol = current_scope().resolve_symbol(func.name.text);
-    emit_temp(InstType::pop, scope_type_to_int(symbol.scope_type), symbol.get_index());
+    emit_temp(InstType::pop, scope_type_to_int(symbol.scope_type), symbol.index);
   }
 
   void visit_binary_expr(BinaryExpr& expr) {
@@ -232,8 +232,8 @@ friend class NjsVM;
       auto rhs_sym = current_scope().resolve_symbol(expr.rhs->get_source());
 
       emit(InstType::fast_add,
-           scope_type_to_int(lhs_sym.scope_type), lhs_sym.get_index(),
-           scope_type_to_int(rhs_sym.scope_type), rhs_sym.get_index());
+           scope_type_to_int(lhs_sym.scope_type), lhs_sym.index,
+           scope_type_to_int(rhs_sym.scope_type), rhs_sym.index);
     }
     else {
       visit(expr.lhs);
@@ -250,8 +250,8 @@ friend class NjsVM;
 
       if (lhs_sym.stack_scope() && rhs_sym.stack_scope()) {
         emit(InstType::fast_assign,
-             scope_type_to_int(lhs_sym.scope_type), lhs_sym.get_index(),
-             scope_type_to_int(rhs_sym.scope_type), rhs_sym.get_index());
+             scope_type_to_int(lhs_sym.scope_type), lhs_sym.index,
+             scope_type_to_int(rhs_sym.scope_type), rhs_sym.index);
       }
       else {
 
@@ -260,9 +260,7 @@ friend class NjsVM;
     else if (expr.lhs_is_id()) {
       visit(expr.rhs);
       auto lhs_sym = current_scope().resolve_symbol(expr.lhs->get_source());
-      if (lhs_sym.stack_scope()) {
-        emit(InstType::pop_assign, scope_type_to_int(lhs_sym.scope_type), (int)lhs_sym.get_index());
-      }
+      emit(InstType::pop_assign, scope_type_to_int(lhs_sym.scope_type), (int)lhs_sym.index);
     }
     else {
       // check if left hand side is LeftHandSide Expression (or Parenthesized Expression with
@@ -343,7 +341,7 @@ friend class NjsVM;
 
   void visit_identifier(ASTNode& id) {
     auto symbol = current_scope().resolve_symbol(id.get_source());
-    emit(InstType::push, scope_type_to_int(symbol.scope_type), symbol.get_index());
+    emit(InstType::push, scope_type_to_int(symbol.scope_type), symbol.index);
   }
 
   void visit_func_arguments(Arguments& args) {

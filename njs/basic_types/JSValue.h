@@ -105,11 +105,6 @@ struct JSValue {
     tag = UNDEFINED;
   }
 
-  JSValue& deref() {
-    assert(tag == JSValue::JS_VALUE_REF);
-    return *val.as_js_value;
-  }
-
   JSValue& deref() const;
 
   void move_to_heap();

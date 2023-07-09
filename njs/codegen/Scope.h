@@ -25,20 +25,15 @@ class Scope {
 
     static SymbolResolveResult none;
 
-    SymbolRecord* symbol {nullptr};
+    SymbolRecord*original_symbol {nullptr};
     ScopeType scope_type;
-    u32 closure_idx;
+    u32 index;
 
     bool stack_scope() {
       return scope_type != ScopeType::CLOSURE && scope_type != ScopeType::BLOCK;
     }
 
-    bool not_found() { return symbol == nullptr; }
-
-    u32 get_index() {
-      if (scope_type == ScopeType::CLOSURE) return closure_idx;
-      return symbol->index;
-    }
+    bool not_found() { return original_symbol == nullptr; }
   };
 
   Scope(): scope_type(ScopeType::GLOBAL) {}
@@ -131,9 +126,22 @@ class Scope {
       if (!rec.valid && !rec.is_captured) return SymbolResolveResult::none;
 
       return SymbolResolveResult{
-        .symbol = &rec,
-        .scope_type = get_storage_scope(rec.var_kind)
+          .original_symbol = &rec,
+          .scope_type = get_storage_scope(rec.var_kind),
+          .index = rec.index,
       };
+    }
+
+    if (scope_type == ScopeType::FUNC) {
+      for (size_t i = 0; i < capture_list.size(); i++) {
+        if (name != capture_list[i].original_symbol->name) continue;
+
+        return SymbolResolveResult{
+            .original_symbol = capture_list[i].original_symbol,
+            .scope_type = ScopeType::CLOSURE,
+            .index = u32(i),
+        };
+      }
     }
 
     if (outer_scope) {
@@ -148,16 +156,16 @@ class Scope {
       }
       // This variable is captured from the outer function scope
       auto res = outer_scope->resolve_symbol_impl(name, depth + 1, escape_local);
-      if (!res.symbol) return SymbolResolveResult::none;
+      if (!res.original_symbol) return SymbolResolveResult::none;
 
       // global variables are always available. We don't need to capture them.
       if (res.scope_type == ScopeType::GLOBAL) return res;
 
       capture_list.push_back(res);
       return SymbolResolveResult{
-          .symbol = res.symbol,
+          .original_symbol = res.original_symbol,
           .scope_type = ScopeType::CLOSURE,
-          .closure_idx = (u32)capture_list.size() - 1
+          .index = (u32)capture_list.size() - 1
       };
     }
 

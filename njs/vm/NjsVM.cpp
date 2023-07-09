@@ -285,9 +285,9 @@ void NjsVM::exec_make_func(int meta_idx) {
 }
 
 void NjsVM::exec_capture(Instruction& inst) {
-  auto var_scope = int_to_scope_type(inst.operand.two.opr1);
-
   assert(rt_stack[sp - 1].is_object());
+
+  auto var_scope = int_to_scope_type(inst.operand.two.opr1);
   JSFunction& func = *rt_stack[sp - 1].val.as_function;
 
   if (var_scope == ScopeType::CLOSURE) {

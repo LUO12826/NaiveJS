@@ -349,7 +349,7 @@ class Lexer {
               break;
             default:  // /
               // We cannot distinguish DIV and regex in lexer level and therefore,
-              // we need to check if the symbol of div operator or start of regex
+              // we need to check if the original_symbol of div operator or start of regex
               // in parser.
               curr_token.set(TokenType::DIV, u"/", start, start + 1, curr_line);
           }

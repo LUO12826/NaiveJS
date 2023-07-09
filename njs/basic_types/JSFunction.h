@@ -30,7 +30,7 @@ class JSFunction : public JSObject {
   u32 param_count;
   u32 local_var_count;
   u32 code_address;
-  SmallVector<JSValue, 3> captured_var;
+  std::vector<JSValue> captured_var;
 };
 
 struct JSFunctionMeta {

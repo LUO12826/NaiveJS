@@ -132,7 +132,7 @@ error:
     if (lexer.current().is_identifier()) {
       name = lexer.current();
       bool res = scope_chain.back().define_symbol(VarKind::DECL_FUNCTION, name.text);
-      if (!res) std::cout << "!!!!define symbol " << name.get_text_utf8() << " failed" << std::endl;
+      if (!res) std::cout << "!!!!define original_symbol " << name.get_text_utf8() << " failed" << std::endl;
       lexer.next();
     }
     else if (name_required) {
@@ -661,7 +661,7 @@ error:
       VarDecl* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
       
       bool res = scope_chain.back().define_symbol(kind, id.text);
-      if (!res) std::cout << "!!!!define symbol " << id.get_text_utf8() << " failed" << std::endl;
+      if (!res) std::cout << "!!!!define original_symbol " << id.get_text_utf8() << " failed" << std::endl;
       return var_decl;
     }
     
@@ -671,7 +671,7 @@ error:
     VarDecl* var_decl = new VarDecl(id, init, SOURCE_PARSED_EXPR);
     
     bool res = scope_chain.back().define_symbol(kind, id.text);
-    if (!res) std::cout << "!!!!define symbol " << id.get_text_utf8() << " failed" << std::endl;
+    if (!res) std::cout << "!!!!define original_symbol " << id.get_text_utf8() << " failed" << std::endl;
     return var_decl;
   }
 
