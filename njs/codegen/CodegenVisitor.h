@@ -192,6 +192,7 @@ friend class NjsVM;
     // create metadata for function
     u32 func_idx = add_function_meta( JSFunctionMeta {
         .name_index = name_cst_idx,
+        .param_count = (u32)func.params.size(),
         .code_address = bytecode_pos(),
     });
 
@@ -261,10 +262,10 @@ friend class NjsVM;
 
   }
 
-  void visit_object_literal(ObjectLiteral& literal) {
+  void visit_object_literal(ObjectLiteral& obj_lit) {
     emit(InstType::make_obj);
 
-    for (auto& prop : literal.properties) {
+    for (auto& prop : obj_lit.properties) {
       // push the key into the stack
       emit(InstType::push_str, (int)add_const(prop.key.text));
 
@@ -272,13 +273,21 @@ friend class NjsVM;
       visit(prop.value);
     }
 
-    if (!literal.properties.empty()) {
-      emit(InstType::add_props, (int)literal.properties.size());
+    if (!obj_lit.properties.empty()) {
+      emit(InstType::add_props, (int)obj_lit.properties.size());
     }
   }
 
-  void visit_array_literal(ArrayLiteral& literal) {
+  void visit_array_literal(ArrayLiteral& array_lit) {
+    emit(InstType::make_array);
 
+    for (auto& [idx, element] : array_lit.elements) {
+      visit(element);
+    }
+
+    if (!array_lit.elements.empty()) {
+      emit(InstType::add_props, (int)array_lit.elements.size());
+    }
   }
 
   void visit_left_hand_side_expr(LeftHandSideExpr& expr, bool create_ref) {

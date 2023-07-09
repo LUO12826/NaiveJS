@@ -49,7 +49,9 @@ enum class InstType {
 
   make_func,
   make_obj,
+  make_array,
   add_props,
+  add_elements,
   keypath_visit,
 
   halt,

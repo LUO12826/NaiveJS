@@ -104,10 +104,16 @@ void NjsVM::execute() {
         exec_make_func(inst.operand.two.opr1);
         break;
       case InstType::make_obj:
-        exec_make_object(inst);
+        exec_make_object();
+        break;
+      case InstType::make_array:
+        exec_make_array();
         break;
       case InstType::add_props:
         exec_add_props(inst.operand.two.opr1);
+        break;
+      case InstType::add_elements:
+        exec_add_elements(inst.operand.two.opr1);
         break;
       case InstType::halt:
         return;
@@ -153,7 +159,7 @@ void NjsVM::exec_return() {
   u32 ret_val_addr = sp - 1;
 
   u32 old_frame_bottom = rt_stack[frame_bottom_pointer + 1].val.as_int;
-  u32 arg_cnt = rt_stack[frame_bottom_pointer + 1].flag_bits;
+  u32 arg_cnt = rt_stack[frame_bottom_pointer].val.as_function->param_count;
 
   u32 old_sp = frame_bottom_pointer - arg_cnt - 1;
   u32 old_pc = rt_stack[frame_bottom_pointer].flag_bits;
@@ -213,7 +219,7 @@ void NjsVM::exec_make_func(int meta_idx) {
   auto& meta = func_meta[meta_idx];
   auto& name = str_list[meta.name_index];
 
-  auto *func = heap.new_object<JSFunction>(name, meta.code_address);
+  auto *func = heap.new_object<JSFunction>(name, meta.param_count, meta.code_address);
   rt_stack[sp] = JSValue(func);
   sp += 1;
 }
@@ -223,10 +229,15 @@ void NjsVM::exec_call(int arg_count) {
   assert(func_val.tag == JSValue::FUNCTION);
   assert(func_val.val.as_object->obj_class == ObjectClass::CLS_FUNCTION);
 
+  u32 def_param_cnt = func_val.val.as_function->param_count;
+  // If the actually passed arguments are fewer than the formal parameters,
+  // fill the vacancy with `undefined`.
+  sp += def_param_cnt > arg_count ? (def_param_cnt - arg_count) : 0;
+
   // first cell of a function stack frame: return address and pointer to the function object.
   rt_stack[sp].tag = JSValue::STACK_FRAME_META1;
   rt_stack[sp].flag_bits = pc;
-  rt_stack[sp].val.as_object = func_val.val.as_object;
+  rt_stack[sp].val.as_function = func_val.val.as_function;
 
   // second cell of a function stack frame: saved `frame_bottom_pointer` and arguments count
   rt_stack[sp + 1].tag = JSValue::STACK_FRAME_META2;
@@ -238,10 +249,13 @@ void NjsVM::exec_call(int arg_count) {
   pc = static_cast<JSFunction *>(func_val.val.as_object)->code_address;
 }
 
-void NjsVM::exec_make_object(Instruction& inst) {
+void NjsVM::exec_make_object() {
   auto *obj = heap.new_object<JSObject>();
   rt_stack[sp] = JSValue(obj);
   sp += 1;
+}
+
+void NjsVM::exec_make_array() {
 }
 
 void NjsVM::exec_fast_assign(Instruction& inst) {
@@ -267,6 +281,10 @@ void NjsVM::exec_add_props(int props_cnt) {
   }
 
   sp = sp - props_cnt * 2;
+}
+
+void NjsVM::exec_add_elements(int elements_cnt) {
+
 }
 
 void NjsVM::exec_push_str(int str_idx, bool atom) {

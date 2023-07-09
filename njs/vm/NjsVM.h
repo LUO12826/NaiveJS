@@ -39,7 +39,8 @@ friend class GCHeap;
   void exec_store(Instruction& instruction, bool assign);
   void exec_make_func(int meta_idx);
   void exec_call(int arg_count);
-  void exec_make_object(Instruction& inst);
+  void exec_make_object();
+  void exec_make_array();
   void exec_fast_assign(Instruction& inst);
   void exec_add_props(int props_cnt);
   void exec_push_str(int str_idx, bool atom);
@@ -70,6 +71,7 @@ friend class GCHeap;
   u32 pc {0};
   u32 frame_bottom_pointer {0};
   void exec_prop_assign();
+  void exec_add_elements(int elements_cnt);
 };
 
 } // namespace njs

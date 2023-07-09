@@ -7,6 +7,7 @@
 namespace njs {
 
 using u32 = uint32_t;
+using std::u16string;
 
 class GCHeap;
 
@@ -14,7 +15,7 @@ class JSFunction : public JSObject {
  public:
   JSFunction();
 
-  JSFunction(const std::u16string& name, u32 code_addr);
+  JSFunction(const u16string& name, u32 param_cnt, u32 code_addr);
 
   void gc_scan_children(GCHeap& heap) override;
 
@@ -22,6 +23,7 @@ class JSFunction : public JSObject {
   bool is_anonymous {false};
   bool is_arrow_func {false};
   bool has_this_binding {false};
+  u32 param_count;
   u32 code_address;
 
 };
@@ -32,6 +34,7 @@ struct JSFunctionMeta {
   bool is_anonymous {false};
   bool is_arrow_func {false};
   bool has_this_binding {false};
+  u32 param_count;
   u32 code_address;
 
   std::string description() const;

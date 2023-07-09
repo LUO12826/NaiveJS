@@ -6,8 +6,8 @@ namespace njs {
 
 JSFunction::JSFunction() : JSObject(ObjectClass::CLS_FUNCTION) {}
 
-JSFunction::JSFunction(const std::u16string& name, u32 code_addr)
-    : JSObject(ObjectClass::CLS_FUNCTION), name(name), code_address(code_addr) {}
+JSFunction::JSFunction(const u16string& name, u32 param_cnt, u32 code_addr)
+    : JSObject(ObjectClass::CLS_FUNCTION), name(name), param_count(param_cnt), code_address(code_addr) {}
 
 void JSFunction::gc_scan_children(GCHeap& heap) {
   JSObject::gc_scan_children(heap);

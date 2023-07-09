@@ -83,8 +83,14 @@ std::string Instruction::description() {
     case InstType::make_obj:
       sprintf(buffer, "make_obj");
       break;
+    case InstType::make_array:
+      sprintf(buffer, "make_array");
+      break;
     case InstType::add_props:
       sprintf(buffer, "add_props  %d", operand.two.opr1);
+      break;
+    case InstType::add_elements:
+      sprintf(buffer, "add_elements  %d", operand.two.opr1);
       break;
     case InstType::keypath_visit:
       sprintf(buffer, "keypath_visit  %d", operand.two.opr1);
