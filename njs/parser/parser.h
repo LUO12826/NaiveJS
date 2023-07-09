@@ -46,7 +46,7 @@ class Parser {
       case TokenType::TK_BOOL:
         return new ASTNode(ASTNode::AST_EXPR_BOOL, TOKEN_SOURCE_EXPR);
       case TokenType::NUMBER:
-        return new ASTNode(ASTNode::AST_EXPR_NUMBER, TOKEN_SOURCE_EXPR);
+        return new NumberLiteral(lexer.get_number_val(), TOKEN_SOURCE_EXPR);
       case TokenType::STRING:
         return new ASTNode(ASTNode::AST_EXPR_STRING, TOKEN_SOURCE_EXPR);
       case TokenType::LEFT_BRACK:  // [

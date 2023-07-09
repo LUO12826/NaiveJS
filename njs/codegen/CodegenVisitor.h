@@ -123,7 +123,7 @@ friend class NjsVM;
       case ASTNode::AST_EXPR_ARGS:
         visit_func_arguments(*static_cast<Arguments *>(node));
         break;
-      case ASTNode::AST_EXPR_NUMBER: visit_number_literal(*node);
+      case ASTNode::AST_EXPR_NUMBER: visit_number_literal(*static_cast<NumberLiteral *>(node));
         break;
       case ASTNode::AST_EXPR_STRING: visit_string_literal(*node);
         break;
@@ -323,33 +323,8 @@ friend class NjsVM;
     }
   }
 
-  // fixme: just a temporary method for number parse
-  int64_t parse_number_literal(std::u16string_view str) {
-    int64_t value = 0;
-
-    if (str.size() >= 2 && str.substr(0, 2) == u"0x") {
-        try {
-          value = std::stoll(std::string(str.begin() + 2, str.end()), nullptr, 16);
-        }
-        catch (const std::exception& e) {
-          std::cerr << "Failed to parse hex number: " << e.what() << std::endl;
-        }
-    }
-    else {
-        try {
-          value = std::stoll(std::string(str.begin(), str.end()), nullptr, 10);
-        }
-        catch (const std::exception& e) {
-          std::cerr << "Failed to parse decimal number: " << e.what() << std::endl;
-        }
-    }
-
-    return value;
-  }
-
-  void visit_number_literal(ASTNode& node) {
-    int64_t val = parse_number_literal(node.get_source());
-    emit(Instruction::num_imm(val));
+  void visit_number_literal(NumberLiteral& node) {
+    emit(Instruction::num_imm(node.num_val));
   }
 
   void visit_string_literal(ASTNode& node) {

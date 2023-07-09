@@ -124,6 +124,18 @@ class ASTNode {
   vector<ASTNode *> children;
 };
 
+class NumberLiteral : public ASTNode {
+ public:
+  NumberLiteral(double val, std::u16string_view source, u32 start, u32 end, u32 line_start)
+      : ASTNode(AST_EXPR_NUMBER, source, start, end, line_start), num_val(val) {}
+
+  std::string description() override {
+    return ASTNode::description() + " " + std::to_string(num_val);
+  }
+
+  double num_val;
+};
+
 class RegExpLiteral : public ASTNode {
  public:
   RegExpLiteral(std::u16string pattern, std::u16string flag, std::u16string_view source, u32 start,
@@ -430,7 +442,9 @@ class VarDecl : public ASTNode {
       : VarDecl(id, nullptr, source, start, end, line_start) {}
 
   VarDecl(const Token& id, ASTNode *var_init, std::u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_STMT_VAR_DECL, source, start, end, line_start), id(id), var_init(var_init) {}
+      : ASTNode(AST_STMT_VAR_DECL, source, start, end, line_start), id(id), var_init(var_init) {
+    add_child(var_init);
+  }
   ~VarDecl() { delete var_init; }
 
   Token id;

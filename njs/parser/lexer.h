@@ -5,6 +5,7 @@
 #include <string_view>
 #include <cstdio>
 #include <cassert>
+#include <optional>
 
 #include "njs/parser/character.h"
 #include "njs/parser/token.h"
@@ -18,6 +19,7 @@ namespace njs {
 
 using TokenType = Token::TokenType;
 using u32 = uint32_t;
+using std::optional;
 using llvm::SmallVector;
 
 class Lexer {
@@ -513,7 +515,11 @@ error:
     }
     return curr_token; 
   }
+
   inline const Token* current_token_ptr() { return &current(); }
+
+  inline const double get_number_val() { return number_val; }
+
   inline u32 current_pos() {
     return peeking ? saved_state.cursor : cursor;
   }
@@ -722,37 +728,54 @@ error:
     return token_with_type(TokenType::ILLEGAL, start);
   }
 
-  void skip_decimal_digit() {
-    while (character::is_decimal_digit(ch)) {
-      next_char();
+  double scan_fractional_part() {
+    u32 dec_start = cursor;
+    auto scan_res = scan_decimal_literal();
+
+    if (scan_res.has_value()) {
+      u32 len = cursor - dec_start;
+      return scan_res.value() / std::pow(10, len);
     }
+    return 0;
   }
 
-  bool skip_at_least_one_decimal_digit() {
+  // Scan decimal number. Only allows decimal digits.
+  optional<uint64_t> scan_decimal_literal() {
     if (!character::is_decimal_digit(ch)) {
-      return false;
+      return std::nullopt;
     }
+    uint64_t int_val = 0;
     while (character::is_decimal_digit(ch)) {
+      int_val = int_val * 10 + character::u16_char_to_digit(ch);
       next_char();
     }
-    return true;
+    return int_val;
   }
 
-  bool skip_at_least_one_hex_digit() {
+  // Scan integer. Allows decimal digits and hexadecimal digits.
+  optional<uint64_t> scan_integer_literal(int base = 10) {
     if (!character::is_hex_digit(ch)) {
-      return false;
+      return std::nullopt;
     }
+
+    uint64_t int_val = 0;
     while (character::is_hex_digit(ch)) {
+      int_val = int_val * base + character::u16_char_to_digit(ch);
       next_char();
     }
-    return true;
+    return int_val;
   }
 
   Token scan_numeric_literal() {
     assert(ch == u'.' || character::is_decimal_digit(ch));
     u32 start = cursor;
 
+    uint64_t int_val = 0;
+    double double_val = 0;
+
     bool is_hex = false;
+    bool is_double = false;
+
     switch (ch) {
       case u'0': {
         next_char();
@@ -760,46 +783,62 @@ error:
           case u'x':
           case u'X': {  // HexIntegerLiteral
             next_char();
-            if (!skip_at_least_one_hex_digit()) {
-              next_char();
-              goto error;
-            }
+            auto scan_res = scan_integer_literal(16);
+            if (!scan_res.has_value()) goto error;
+
+            int_val = scan_res.value();
             is_hex = true;
             break;
           }
           case u'.': {
+            is_double = true;
             next_char();
-            skip_decimal_digit();
+            double_val = scan_fractional_part();
             break;
           }
+          case u'b':
+          case u'B':
+            // TODO: support for binary literal.
+            break;
         }
         break;
       }
       case u'.': {
+        is_double = true;
         next_char();
-        if (!skip_at_least_one_decimal_digit()) {
-          next_char();
-          goto error;
-        }
+        double_val = scan_fractional_part();
         break;
       }
       default:  // NonZeroDigit
-        skip_at_least_one_decimal_digit();
+        auto scan_res = scan_decimal_literal();
+        if (!scan_res.has_value()) goto error;
+        int_val = scan_res.value();
+
         if (ch == u'.') {
+          is_double = true;
           next_char();
-          skip_decimal_digit();
+          double_val = (double)int_val + scan_fractional_part();
         }
     }
 
     if(!is_hex) {  // ExponentPart
+
+      bool neg_exp = false;
       if (ch == u'e' || ch == u'E') {
         next_char();
         if (ch == u'+' || ch == u'-') {
+          neg_exp = ch == u'-';
           next_char();
         }
-        if (!skip_at_least_one_decimal_digit()) {
-          next_char();
-          goto error;
+        auto scan_res = scan_decimal_literal();
+        if (!scan_res.has_value()) goto error;
+
+        double exp = neg_exp ? -double(scan_res.value()) : double(scan_res.value());
+        if (is_double) {
+          double_val = double_val * std::pow(10, exp);
+        } else {
+          is_double = true;
+          double_val = double(int_val) * std::pow(10, exp);
         }
       }
     }
@@ -810,6 +849,8 @@ error:
       next_char();
       goto error;
     }
+
+    number_val = is_double ? double_val : double(int_val);
     return token_with_type(TokenType::NUMBER, start);
 error:
     return token_with_type(TokenType::ILLEGAL, start);
@@ -916,6 +957,7 @@ error:
   bool peeking {false};
 
   Token curr_token {Token::none};
+  double number_val {0};
 
   u32 curr_line {0};
   u32 curr_line_start_pos {0};
