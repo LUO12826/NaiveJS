@@ -28,6 +28,7 @@ const u32 PRINT_TREE_INDENT = 2;
 
 class LeftHandSideExpr;
 class ParenthesisExpr;
+class ProgramOrFunctionBody;
 
 class ASTNode {
  public:
@@ -109,6 +110,8 @@ class ASTNode {
 
   LeftHandSideExpr *as_lhs_expr();
 
+  ProgramOrFunctionBody *as_func_body();
+
   void print_tree(int level);
 
   virtual std::string description();
@@ -151,7 +154,7 @@ class ArrayLiteral : public ASTNode {
   ArrayLiteral() : ASTNode(AST_LIT_ARRAY), len(0) {}
 
   ~ArrayLiteral() override {
-    for (auto pair : elements) { delete pair.second; }
+    for (auto [idx, element] : elements) { delete element; }
   }
 
   void add_element(ASTNode *element) {

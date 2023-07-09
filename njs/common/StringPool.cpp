@@ -34,9 +34,8 @@ SmallVector<u16string, 10> StringPool::to_list() {
   SmallVector<u16string, 10> str_list;
   str_list.resize(pool.size());
 
-  for (auto& kv_pair : pool) {
-    u32 idx = kv_pair.second;
-    str_list[idx] = std::move(kv_pair.first);
+  for (auto& [str, idx] : pool) {
+    str_list[idx] = std::move(str);
   }
   return str_list;
 }

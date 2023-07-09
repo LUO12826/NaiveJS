@@ -73,10 +73,10 @@ bool JSObject::add_prop(JSValue& key, JSValue& value) {
   else if (key.tag == JSValue::SYMBOL) {
     val_placeholder = &storage[JSObjectKey(key.val.as_symbol)];
   }
-  else if (key.tag == JSValue::NUMBER_FLOAT) {
+  else if (key.tag == JSValue::NUM_FLOAT) {
     val_placeholder = &storage[JSObjectKey(key.val.as_float64)];
   }
-  else if (key.tag == JSValue::NUMBER_INT) {
+  else if (key.tag == JSValue::NUM_INT) {
     val_placeholder = &storage[JSObjectKey(key.val.as_int)];
   }
   else {
@@ -100,11 +100,9 @@ JSValue JSObject::get_prop(u16string_view key, bool get_ref) {
 }
 
 void JSObject::gc_scan_children(GCHeap& heap) {
-  for (auto& kv_pair: storage) {
-    JSValue& val = kv_pair.second;
-
-    if (val.needs_gc()) {
-      heap.gc_visit_object(val, val.as_GCObject());
+  for (auto& [key, value]: storage) {
+    if (value.needs_gc()) {
+      heap.gc_visit_object(value, value.as_GCObject());
     }
   }
 }
@@ -117,9 +115,9 @@ std::string JSObject::description() {
 
   u32 print_prop_num = std::min((u32)4, (u32)storage.size());
   u32 i = 0;
-  for (auto& kv_pair : storage) {
-    stream << kv_pair.first.to_string() << ": ";
-    stream << kv_pair.second.to_string() << ", ";
+  for (auto& [key, value] : storage) {
+    stream << key.to_string() << ": ";
+    stream << value.to_string() << ", ";
 
     i += 1;
     if (i == print_prop_num) break;
@@ -127,6 +125,12 @@ std::string JSObject::description() {
 
   stream << "}";
   return stream.str();
+}
+
+JSObject::~JSObject() {
+  for (auto& [key, value] : storage) {
+    if (value.is_RCObject()) value.val.as_rc_object->release();
+  }
 }
 
 }

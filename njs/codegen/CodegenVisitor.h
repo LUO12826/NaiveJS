@@ -4,6 +4,7 @@
 #include <string>
 #include <cstdint>
 #include <iostream>
+#include <iomanip>
 #include "Scope.h"
 #include "njs/common/enums.h"
 #include "njs/utils/helper.h"
@@ -39,14 +40,19 @@ friend class NjsVM;
   unordered_map<u16string, u32> global_props_map;
 
   void codegen(ProgramOrFunctionBody *prog) {
+
+    push_scope(std::move(prog->scope));
+
     visit_program_or_function_body(*prog);
     optimize();
 
     std::cout << "================ codegen result ================" << std::endl << std::endl;
 
     std::cout << ">>> instructions:" << std::endl;
+    int i = 0;
     for (auto& inst : bytecode) {
-      std::cout << inst.description() << std::endl;
+      std::cout << std::setw(6) << std::left << i << inst.description() << std::endl;
+      i += 1;
     }
     std::cout << std::endl;
 
@@ -142,6 +148,9 @@ friend class NjsVM;
       case ASTNode::AST_STMT_RETURN:
         visit_return_statement(*static_cast<ReturnStatement *>(node));
         break;
+      case ASTNode::AST_EXPR_NULL:
+        emit(InstType::push_null);
+        break;
       default:
         assert(false);
     }
@@ -149,16 +158,14 @@ friend class NjsVM;
 
   void visit_program_or_function_body(ProgramOrFunctionBody& program) {
 
-    push_scope(std::move(program.scope));
-
-    auto& jmp_inst = emit(InstType::jmp);
+    u32 jmp_inst_idx = emit(InstType::jmp);
 
     // generate bytecode for functions first
     for (Function *func : program.func_decls) {
       visit(func);
     }
     // skip function bytecode
-    jmp_inst.operand.two.opr1 = bytecode_pos();
+    bytecode[jmp_inst_idx].operand.two.opr1 = bytecode_pos();
 
     // Fill the function symbol initialization code to the very beginning
     // (because the function variable will be hoisted)
@@ -176,10 +183,6 @@ friend class NjsVM;
       emit(InstType::halt);
     }
 
-    // want to keep the global scope.
-    if (program.type != ASTNode::AST_PROGRAM) {
-      pop_scope();
-    }
   }
 
   void visit_function(Function& func) {
@@ -189,22 +192,36 @@ friend class NjsVM;
     // add the function name to the constant pool
     u32 name_cst_idx = add_const(func.get_name_str());
 
+    ProgramOrFunctionBody *body = func.body->as_func_body();
+
     // create metadata for function
     u32 func_idx = add_function_meta( JSFunctionMeta {
         .name_index = name_cst_idx,
         .param_count = (u32)func.params.size(),
+        .local_var_count = body->scope.local_var_count,
         .code_address = bytecode_pos(),
     });
 
+    push_scope(std::move(body->scope));
     // generate bytecode for function body
-    visit(func.body);
+    // Only after visiting the body do we know which variables are captured
+    visit_program_or_function_body(*body);
+    auto capture_list = std::move(current_scope().get_capture_list());
+
+    // The rest of the work is done in the scope of the outer function, so pop scope here.
+    pop_scope();
 
     // let the VM make a function
     emit_temp(InstType::make_func, func_idx);
 
+    // capture closure variables
+    for (auto symbol : capture_list) {
+      emit_temp(InstType::capture, scope_type_to_int(symbol.scope_type), symbol.symbol->index);
+    }
+
     // then put this function to where its name (as a variable) is located.
     auto symbol = current_scope().resolve_symbol(func.name.text);
-    emit_temp(InstType::pop, scope_type_to_int(symbol.scope_type), symbol.symbol->index);
+    emit_temp(InstType::pop, scope_type_to_int(symbol.scope_type), symbol.get_index());
   }
 
   void visit_binary_expr(BinaryExpr& expr) {
@@ -215,11 +232,13 @@ friend class NjsVM;
       auto rhs_sym = current_scope().resolve_symbol(expr.rhs->get_source());
 
       emit(InstType::fast_add,
-           scope_type_to_int(lhs_sym.scope_type), lhs_sym.symbol->index,
-           scope_type_to_int(rhs_sym.scope_type), rhs_sym.symbol->index);
+           scope_type_to_int(lhs_sym.scope_type), lhs_sym.get_index(),
+           scope_type_to_int(rhs_sym.scope_type), rhs_sym.get_index());
     }
     else {
-      assert(false);
+      visit(expr.lhs);
+      visit(expr.rhs);
+      emit(InstType::add);
     }
   }
 
@@ -231,8 +250,8 @@ friend class NjsVM;
 
       if (lhs_sym.stack_scope() && rhs_sym.stack_scope()) {
         emit(InstType::fast_assign,
-             scope_type_to_int(lhs_sym.scope_type), lhs_sym.symbol->index,
-             scope_type_to_int(rhs_sym.scope_type), rhs_sym.symbol->index);
+             scope_type_to_int(lhs_sym.scope_type), lhs_sym.get_index(),
+             scope_type_to_int(rhs_sym.scope_type), rhs_sym.get_index());
       }
       else {
 
@@ -242,7 +261,7 @@ friend class NjsVM;
       visit(expr.rhs);
       auto lhs_sym = current_scope().resolve_symbol(expr.lhs->get_source());
       if (lhs_sym.stack_scope()) {
-        emit(InstType::pop_assign, scope_type_to_int(lhs_sym.scope_type), (int)lhs_sym.symbol->index);
+        emit(InstType::pop_assign, scope_type_to_int(lhs_sym.scope_type), (int)lhs_sym.get_index());
       }
     }
     else {
@@ -266,6 +285,7 @@ friend class NjsVM;
     emit(InstType::make_obj);
 
     for (auto& prop : obj_lit.properties) {
+//      u32 prop_idx = str_pool.add_string(prop.key.text);
       // push the key into the stack
       emit(InstType::push_str, (int)add_const(prop.key.text));
 
@@ -323,7 +343,7 @@ friend class NjsVM;
 
   void visit_identifier(ASTNode& id) {
     auto symbol = current_scope().resolve_symbol(id.get_source());
-    emit(InstType::push, scope_type_to_int(symbol.scope_type), symbol.symbol->index);
+    emit(InstType::push, scope_type_to_int(symbol.scope_type), symbol.get_index());
   }
 
   void visit_func_arguments(Arguments& args) {
@@ -347,6 +367,7 @@ friend class NjsVM;
   }
 
   void visit_variable_declaration(VarDecl& var_decl) {
+    current_scope().mark_symbol_as_valid(var_decl.id.text);
     visit(var_decl.var_init);
   }
 
@@ -388,20 +409,20 @@ friend class NjsVM;
   }
 
   template <typename... Args>
-  Instruction& emit(Args &&...args) {
+  u32 emit(Args &&...args) {
     bytecode.emplace_back(std::forward<Args>(args)...);
-    return bytecode.back();
+    return bytecode.size() - 1;
   }
 
-  Instruction& emit(Instruction inst) {
+  u32 emit(Instruction inst) {
     bytecode.push_back(inst);
-    return bytecode.back();
+    return bytecode.size() - 1;
   }
 
   template <typename... Args>
-  Instruction& emit_temp(Args &&...args) {
+  u32 emit_temp(Args &&...args) {
     context_at(-1).temp_code_storage.emplace_back(std::forward<Args>(args)...);
-    return context_at(-1).temp_code_storage.back();
+    return context_at(-1).temp_code_storage.size() - 1;
   }
 
   void report_error(CodegenError err) {
@@ -440,7 +461,7 @@ friend class NjsVM;
 
   SmallVector<ScopeContext, 10> context_chain;
 
-  SmallVector<Instruction, 10> bytecode;
+  std::vector<Instruction> bytecode;
 
   // for constant
   StringPool str_pool;

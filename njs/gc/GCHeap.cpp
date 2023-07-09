@@ -12,7 +12,10 @@ void GCHeap::gc() {
   if (Global::show_gc_statistics) {
     std::cout << "****************** gc starts ******************" << std::endl;
   }
+  byte *start = from_start;
+  byte *end = alloc_point;
   copy_alive();
+  dealloc_garbage(start, end);
 
   if (Global::show_gc_statistics) {
     std::cout << "******************  gc ends  ******************" << std::endl;
@@ -52,6 +55,7 @@ void GCHeap::copy_alive() {
 
   if (Global::show_gc_statistics) {
     std::cout << "GC found roots:" << std::endl;
+    if (roots.empty()) std::cout << "(empty)" << std::endl;
     for (JSValue *root : roots) {
       std::cout << root->as_GCObject()->description() << std::endl;
     }
@@ -64,9 +68,20 @@ void GCHeap::copy_alive() {
   std::swap(from_start, to_start);
 }
 
+void GCHeap::dealloc_garbage(byte *start, byte *end) {
+  for (byte *ptr = start; ptr < end; ) {
+    GCObject *obj = reinterpret_cast<GCObject *>(ptr);
+    ptr += obj->size;
+    if (obj->forward_ptr == nullptr) {
+      if (Global::show_gc_statistics) std::cout << "deallocate an object" << std::endl;
+      obj->~GCObject();
+    }
+  }
+}
+
 GCObject *GCHeap::copy_object(GCObject *obj) {
   if (obj->forward_ptr == nullptr) {
-    std::cout << "copy an object" << std::endl;
+    if (Global::show_gc_statistics) std::cout << "copy an object" << std::endl;
     memcpy(alloc_point, (void *)obj, obj->size);
     obj->forward_ptr = (GCObject *)alloc_point;
     alloc_point += obj->size;
@@ -79,8 +94,7 @@ GCObject *GCHeap::copy_object(GCObject *obj) {
 // Allocate memory for a new object.
 void *GCHeap::allocate(size_t size_byte) {
   if (lacking_free_memory(size_byte)) {
-    // This call starts GC.
-    copy_alive();
+    gc();
     if (lacking_free_memory(size_byte)) {
       // allocation fail
     }

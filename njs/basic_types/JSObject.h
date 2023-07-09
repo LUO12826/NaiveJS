@@ -94,6 +94,8 @@ class JSObject : public GCObject {
   JSObject(): GCObject(sizeof(JSObject)), obj_class(ObjectClass::CLS_OBJECT) {}
   explicit JSObject(ObjectClass cls): GCObject(sizeof(JSObject)), obj_class(cls) {}
 
+  ~JSObject() override;
+
   void gc_scan_children(GCHeap& heap) override;
   std::string description() override;
 

@@ -1,14 +1,13 @@
 #include "NjsVM.h"
 
 #include <iostream>
-
 #include "njs/codegen/CodegenVisitor.h"
-#include "njs/common/enums.h"
 
 namespace njs {
 
 NjsVM::NjsVM(CodegenVisitor& visitor): heap(600, *this) {
-  rt_stack = std::make_unique<JSValue[]>(max_stack_size);
+//  rt_stack = std::make_unique<JSValue[]>(max_stack_size);
+  rt_stack = std::vector<JSValue>(max_stack_size);
 
   bytecode = std::move(visitor.bytecode);
   str_list = std::move(visitor.str_list);
@@ -17,8 +16,8 @@ NjsVM::NjsVM(CodegenVisitor& visitor): heap(600, *this) {
 
   auto& global_sym_table = visitor.scope_chain[0].get_symbol_table();
 
-  for (auto& sym_pair : global_sym_table) {
-    global_object.props_index_map.emplace(std::u16string(sym_pair.first), sym_pair.second.index);
+  for (auto& [sym_name, sym_rec] : global_sym_table) {
+    global_object.props_index_map.emplace(std::u16string(sym_name), sym_rec.index);
   }
 
   sp = global_sym_table.size() + frame_meta_size;
@@ -40,11 +39,15 @@ void NjsVM::execute() {
     pc++;
     switch (inst.op_type) {
 
-      case InstType::add: break;
-      case InstType::sub: break;
+      case InstType::add:
+        exec_add();
+        break;
+      case InstType::sub:
+      case InstType::mul:
+      case InstType::div:
+        exec_binary(inst.op_type);
+        break;
       case InstType::neg: break;
-      case InstType::mul: break;
-      case InstType::div: break;
       case InstType::logi_and: break;
       case InstType::logi_or: break;
       case InstType::logi_not: break;
@@ -61,14 +64,21 @@ void NjsVM::execute() {
       case InstType::push_atom:
         exec_push_str(inst.operand.two.opr1, true);
         break;
+      case InstType::push_null:
+        rt_stack[sp] = JSValue(JSValue::JS_NULL);
+        sp += 1;
+        break;
       case InstType::pop:
         exec_pop(inst, false);
+        heap.gc();
         break;
       case InstType::pop_assign:
         exec_pop(inst, true);
+        heap.gc();
         break;
       case InstType::store:
         exec_store(inst, false);
+        heap.gc();
         break;
       case InstType::store_assign:
         exec_store(inst, true);
@@ -103,6 +113,9 @@ void NjsVM::execute() {
       case InstType::make_func:
         exec_make_func(inst.operand.two.opr1);
         break;
+      case InstType::capture:
+        exec_capture(inst);
+        break;
       case InstType::make_obj:
         exec_make_object();
         break;
@@ -129,12 +142,30 @@ void NjsVM::execute() {
 
 u32 NjsVM::calc_var_address(ScopeType scope, int raw_index) {
   if (scope == ScopeType::GLOBAL) return 0 + frame_meta_size + raw_index;
-  if (scope == ScopeType::FUNC) return frame_bottom_pointer + frame_meta_size + raw_index;
+  if (scope == ScopeType::FUNC) return frame_base_ptr + frame_meta_size + raw_index;
+  if (scope == ScopeType::FUNC_PARAM) {
+    assert(rt_stack[frame_base_ptr + 1].tag == JSValue::STACK_FRAME_META2);
+    u32 arg_count = rt_stack[frame_base_ptr + 1].flag_bits;
+    return frame_base_ptr - arg_count + raw_index;
+  }
+  if (scope == ScopeType::CLOSURE) return raw_index;
+  __builtin_unreachable();
+}
 
-  assert(scope == ScopeType::FUNC_PARAM);
-  assert(rt_stack[frame_bottom_pointer + 1].tag == JSValue::STACK_FRAME_META2);
-  u32 arg_count = rt_stack[frame_bottom_pointer + 1].flag_bits;
-  return frame_bottom_pointer - arg_count + raw_index;
+void NjsVM::exec_add() {
+  if (rt_stack[sp - 2].tag == JSValue::NUM_FLOAT && rt_stack[sp - 1].tag == JSValue::NUM_FLOAT) {
+    rt_stack[sp - 2].val.as_float64 += rt_stack[sp - 1].val.as_float64;
+  }
+  else {
+
+  }
+
+  rt_stack[sp - 1].set_undefined();
+  sp -= 1;
+}
+
+void NjsVM::exec_binary(InstType op_type) {
+
 }
 
 void NjsVM::exec_fast_add(Instruction& inst) {
@@ -142,10 +173,12 @@ void NjsVM::exec_fast_add(Instruction& inst) {
   auto lhs_scope = int_to_scope_type(inst.operand.four.opr1);
   auto rhs_scope = int_to_scope_type(inst.operand.four.opr3);
 
-  JSValue& lhs_val = rt_stack[calc_var_address(lhs_scope, inst.operand.four.opr2)];
-  JSValue& rhs_val = rt_stack[calc_var_address(rhs_scope, inst.operand.four.opr4)];
+  JSValue& lhs_val = lhs_scope == ScopeType::CLOSURE ? function_env()->captured_var[inst.operand.four.opr2].deref():
+                                  rt_stack[calc_var_address(lhs_scope, inst.operand.four.opr2)];
+  JSValue& rhs_val = rhs_scope == ScopeType::CLOSURE ? function_env()->captured_var[inst.operand.four.opr4].deref():
+                                  rt_stack[calc_var_address(rhs_scope, inst.operand.four.opr4)];
 
-  if (lhs_val.tag == JSValue::NUMBER_FLOAT && rhs_val.tag == JSValue::NUMBER_FLOAT) {
+  if (lhs_val.tag == JSValue::NUM_FLOAT && rhs_val.tag == JSValue::NUM_FLOAT) {
     rt_stack[sp] = JSValue(lhs_val.val.as_float64 + rhs_val.val.as_float64);
     sp += 1;
   }
@@ -158,11 +191,11 @@ void NjsVM::exec_fast_add(Instruction& inst) {
 void NjsVM::exec_return() {
   u32 ret_val_addr = sp - 1;
 
-  u32 old_frame_bottom = rt_stack[frame_bottom_pointer + 1].val.as_int;
-  u32 arg_cnt = rt_stack[frame_bottom_pointer].val.as_function->param_count;
+  u32 old_frame_bottom = rt_stack[frame_base_ptr + 1].val.as_int;
+  u32 arg_cnt = rt_stack[frame_base_ptr].val.as_function->param_count;
 
-  u32 old_sp = frame_bottom_pointer - arg_cnt - 1;
-  u32 old_pc = rt_stack[frame_bottom_pointer].flag_bits;
+  u32 old_sp = frame_base_ptr - arg_cnt - 1;
+  u32 old_pc = rt_stack[frame_base_ptr].flag_bits;
 
   for (u32 addr = old_sp + 1; addr < ret_val_addr; addr++) {
     rt_stack[addr].set_undefined();
@@ -171,7 +204,7 @@ void NjsVM::exec_return() {
   // restore old state
   pc = old_pc;
   sp = old_sp;
-  frame_bottom_pointer = old_frame_bottom;
+  frame_base_ptr = old_frame_bottom;
 
   // copy return value
   rt_stack[old_sp] = rt_stack[ret_val_addr];
@@ -181,8 +214,14 @@ void NjsVM::exec_return() {
 
 void NjsVM::exec_push(Instruction& inst) {
   auto var_scope = int_to_scope_type(inst.operand.two.opr1);
-  JSValue& val = rt_stack[calc_var_address(var_scope, inst.operand.two.opr2)];
-  rt_stack[sp] = val;
+  if (var_scope == ScopeType::CLOSURE) {
+    JSValue& val = function_env()->captured_var[inst.operand.two.opr2];
+    rt_stack[sp] = val.deref();
+  }
+  else {
+    JSValue& val = rt_stack[calc_var_address(var_scope, inst.operand.two.opr2)];
+    rt_stack[sp] = val;
+  }
   sp += 1;
 }
 
@@ -191,8 +230,19 @@ void NjsVM::exec_pop(Instruction& inst, bool assign) {
   u32 var_addr = calc_var_address(var_scope, inst.operand.two.opr2);
 
   sp -= 1;
-  if (assign) rt_stack[var_addr].assign(rt_stack[sp]);
-  else rt_stack[var_addr] = rt_stack[sp];
+  if (var_scope == ScopeType::CLOSURE) {
+    assert(function_env());
+    JSValue& closure_val = function_env()->captured_var[var_addr];
+
+    if (assign) closure_val.deref().assign(rt_stack[sp]);
+    else closure_val.deref() = rt_stack[sp];
+  }
+  else {
+    JSValue& val = rt_stack[var_addr].tag == JSValue::HEAP_VAL_REF ?
+                                             rt_stack[var_addr].deref() : rt_stack[var_addr];
+    if (assign) val.assign(rt_stack[sp]);
+    else val = rt_stack[sp];
+  }
 
   rt_stack[sp].set_undefined();
 }
@@ -201,8 +251,17 @@ void NjsVM::exec_store(Instruction& inst, bool assign) {
   auto var_scope = int_to_scope_type(inst.operand.two.opr1);
   u32 var_addr = calc_var_address(var_scope, inst.operand.two.opr2);
 
-  if (assign) rt_stack[var_addr].assign(rt_stack[sp - 1]);
-  else rt_stack[var_addr] = rt_stack[sp - 1];
+  if (var_scope == ScopeType::CLOSURE) {
+    assert(function_env());
+    JSValue& closure_val = function_env()->captured_var[var_addr];
+
+    if (assign) closure_val.deref().assign(rt_stack[sp]);
+    else rt_stack[var_addr] = rt_stack[sp];
+  }
+  else {
+    if (assign) rt_stack[var_addr].assign(rt_stack[sp]);
+    else rt_stack[var_addr] = rt_stack[sp];
+  }
 }
 
 void NjsVM::exec_prop_assign() {
@@ -219,9 +278,31 @@ void NjsVM::exec_make_func(int meta_idx) {
   auto& meta = func_meta[meta_idx];
   auto& name = str_list[meta.name_index];
 
-  auto *func = heap.new_object<JSFunction>(name, meta.param_count, meta.code_address);
+  auto *func = heap.new_object<JSFunction>(name, meta.param_count,
+                                                        meta.local_var_count, meta.code_address);
   rt_stack[sp] = JSValue(func);
   sp += 1;
+}
+
+void NjsVM::exec_capture(Instruction& inst) {
+  auto var_scope = int_to_scope_type(inst.operand.two.opr1);
+
+  assert(rt_stack[sp - 1].is_object());
+  JSFunction& func = *rt_stack[sp - 1].val.as_function;
+
+  if (var_scope == ScopeType::CLOSURE) {
+    JSFunction *env_func = function_env();
+    assert(env_func);
+    JSValue& closure_val = env_func->captured_var[inst.operand.two.opr2];
+    closure_val.val.as_heap_val->retain();
+    func.captured_var.push_back(closure_val);
+  }
+  else {
+    JSValue& stack_val = rt_stack[calc_var_address(var_scope, inst.operand.two.opr2)];
+    stack_val.move_to_heap();
+    stack_val.val.as_heap_val->retain();
+    func.captured_var.push_back(stack_val);
+  }
 }
 
 void NjsVM::exec_call(int arg_count) {
@@ -239,13 +320,13 @@ void NjsVM::exec_call(int arg_count) {
   rt_stack[sp].flag_bits = pc;
   rt_stack[sp].val.as_function = func_val.val.as_function;
 
-  // second cell of a function stack frame: saved `frame_bottom_pointer` and arguments count
+  // second cell of a function stack frame: saved `frame_base_ptr` and arguments count
   rt_stack[sp + 1].tag = JSValue::STACK_FRAME_META2;
   rt_stack[sp + 1].flag_bits = arg_count;
-  rt_stack[sp + 1].val.as_int = frame_bottom_pointer;
+  rt_stack[sp + 1].val.as_int = frame_base_ptr;
 
-  frame_bottom_pointer = sp;
-  sp = frame_bottom_pointer + 2;
+  frame_base_ptr = sp;
+  sp = frame_base_ptr + 2 + func_val.val.as_function->local_var_count;
   pc = static_cast<JSFunction *>(func_val.val.as_object)->code_address;
 }
 
@@ -321,6 +402,12 @@ void NjsVM::exec_keypath_visit(int key_cnt, bool get_ref) {
   val_obj = val_obj.val.as_object->get_prop(key, get_ref);
 
   sp = sp - key_cnt;
+}
+
+JSFunction *NjsVM::function_env() {
+  if (frame_base_ptr == 0) return nullptr;
+  assert(rt_stack[frame_base_ptr].tag == JSValue::STACK_FRAME_META1);
+  return rt_stack[frame_base_ptr].val.as_function;
 }
 
 }

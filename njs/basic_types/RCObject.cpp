@@ -1,6 +1,7 @@
 #include <cstddef>
+#include <iostream>
 #include "RCObject.h"
-
+#include "njs/global_var.h"
 
 namespace njs {
 
@@ -10,7 +11,10 @@ void RCObject::retain() { ref_count += 1; }
 
 void RCObject::release() {
   ref_count -= 1;
-  if (ref_count == 0) delete this;
+  if (ref_count == 0) {
+    if (Global::show_gc_statistics) std::cout << "release an RCObject" << std::endl;
+    delete this;
+  };
 }
 
 PrimitiveString::PrimitiveString(const std::u16string& str): str(str) {}

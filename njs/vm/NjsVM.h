@@ -33,23 +33,35 @@ friend class GCHeap;
   u32 calc_var_address(ScopeType scope, int raw_index);
 
   void execute();
-
+  // push
   void exec_push(Instruction& inst);
+  void exec_push_str(int str_idx, bool atom);
+  // pop or store
   void exec_pop(Instruction& inst, bool assign);
   void exec_store(Instruction& instruction, bool assign);
+  // function operation
   void exec_make_func(int meta_idx);
+  void exec_capture(Instruction& inst);
   void exec_call(int arg_count);
-  void exec_make_object();
-  void exec_make_array();
-  void exec_fast_assign(Instruction& inst);
-  void exec_add_props(int props_cnt);
-  void exec_push_str(int str_idx, bool atom);
-  void exec_keypath_visit(int key_cnt, bool get_ref);
-
-  void exec_fast_add(Instruction& inst);
   void exec_return();
+  // object operation
+  void exec_make_object();
+  void exec_add_props(int props_cnt);
+  void exec_keypath_visit(int key_cnt, bool get_ref);
+  void exec_prop_assign();
+  // array operation
+  void exec_make_array();
+  void exec_add_elements(int elements_cnt);
+  // binary operation
+  void exec_fast_assign(Instruction& inst);
+  void exec_fast_add(Instruction& inst);
 
-  SmallVector<Instruction, 10> bytecode;
+  void exec_add();
+  void exec_binary(InstType op_type);
+
+  JSFunction *function_env();
+
+  std::vector<Instruction> bytecode;
 
   // for constant
   SmallVector<u16string, 10> str_list;
@@ -58,7 +70,7 @@ friend class GCHeap;
 
   GlobalObject global_object;
 
-  std::unique_ptr<JSValue[]> rt_stack;
+  std::vector<JSValue> rt_stack;
   u32 max_stack_size{10240};
 
   GCHeap heap;
@@ -69,9 +81,7 @@ friend class GCHeap;
   u32 sp;
   // program counter
   u32 pc {0};
-  u32 frame_bottom_pointer {0};
-  void exec_prop_assign();
-  void exec_add_elements(int elements_cnt);
+  u32 frame_base_ptr {0};
 };
 
 } // namespace njs

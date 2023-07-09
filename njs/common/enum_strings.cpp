@@ -157,8 +157,8 @@ const char *js_value_tag_names[25] = {
   "JS_ATOM",
   "JS_NULL",
   "BOOLEAN",
-  "NUMBER_INT",
-  "NUMBER_FLOAT",
+  "NUM_INT",
+  "NUM_FLOAT",
 
   "JS_VALUE_REF",
 

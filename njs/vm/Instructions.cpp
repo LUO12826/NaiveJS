@@ -59,6 +59,9 @@ std::string Instruction::description() {
     case InstType::push_atom:
       sprintf(buffer, "push_atom  %d", operand.two.opr1);
       break;
+    case InstType::push_null:
+      sprintf(buffer, "push_null");
+      break;
     case InstType::pop:
       sprintf(buffer, "pop  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
@@ -79,6 +82,9 @@ std::string Instruction::description() {
       break;
     case InstType::make_func:
       sprintf(buffer, "make_func  %d", operand.two.opr1);
+      break;
+    case InstType::capture:
+      sprintf(buffer, "capture %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
     case InstType::make_obj:
       sprintf(buffer, "make_obj");

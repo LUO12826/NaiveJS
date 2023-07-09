@@ -32,6 +32,10 @@ LeftHandSideExpr *ASTNode::as_lhs_expr() {
   return static_cast<LeftHandSideExpr *>(this);
 }
 
+ProgramOrFunctionBody *ASTNode::as_func_body() {
+  return static_cast<ProgramOrFunctionBody *>(this);
+}
+
 void ASTNode::print_tree(int level) {
   std::string spaces(level * PRINT_TREE_INDENT, ' ');
   std::string desc = description();

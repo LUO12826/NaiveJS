@@ -1,21 +1,25 @@
 #ifndef NJS_JSFUNCTION_H
 #define NJS_JSFUNCTION_H
 
-#include "JSObject.h"
 #include <string>
+#include "JSValue.h"
+#include "JSObject.h"
+#include "njs/include/SmallVector.h"
 
 namespace njs {
 
 using u32 = uint32_t;
 using std::u16string;
+using llvm::SmallVector;
 
 class GCHeap;
+class JSFunctionMeta;
 
 class JSFunction : public JSObject {
  public:
   JSFunction();
-
-  JSFunction(const u16string& name, u32 param_cnt, u32 code_addr);
+  JSFunction(const u16string& name, u32 param_cnt, u32 local_var_cnt, u32 code_addr);
+  ~JSFunction();
 
   void gc_scan_children(GCHeap& heap) override;
 
@@ -24,8 +28,9 @@ class JSFunction : public JSObject {
   bool is_arrow_func {false};
   bool has_this_binding {false};
   u32 param_count;
+  u32 local_var_count;
   u32 code_address;
-
+  SmallVector<JSValue, 3> captured_var;
 };
 
 struct JSFunctionMeta {
@@ -35,6 +40,7 @@ struct JSFunctionMeta {
   bool is_arrow_func {false};
   bool has_this_binding {false};
   u32 param_count;
+  u32 local_var_count;
   u32 code_address;
 
   std::string description() const;

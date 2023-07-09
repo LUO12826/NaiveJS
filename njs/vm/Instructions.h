@@ -24,6 +24,7 @@ enum class InstType {
   pushi,
   push_str,
   push_atom,
+  push_null,
   pop,
   pop_assign,
   store,
@@ -48,6 +49,7 @@ enum class InstType {
   fast_assign,
 
   make_func,
+  capture,
   make_obj,
   make_array,
   add_props,

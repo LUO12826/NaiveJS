@@ -23,10 +23,11 @@ struct JSValue {
     JS_ATOM,
     JS_NULL,
     BOOLEAN,
-    NUMBER_INT,
-    NUMBER_FLOAT,
+    NUM_INT,
+    NUM_FLOAT,
 
     // A reference to another JSValue, no lifecycle considerations
+    // Currently only used when need to assign a value to an object's property
     JS_VALUE_REF,
 
     NEED_RC_BEGIN,
@@ -36,6 +37,7 @@ struct JSValue {
     SYMBOL,
 
     // Used when we wrap those inline values into JSHeapValue and hold a pointer to it.
+    // Currently, turning a variable into a closure variable will turn it into a JSHeapValue
     HEAP_VAL_REF,
     // Used when a STRING is considered shared. That is, when being assigned, instead of making
     // the pointer(PrimitiveString *) point to a new String, we just change the data in pointee.
@@ -69,11 +71,11 @@ struct JSValue {
 
   ~JSValue();
 
-  explicit JSValue(double number): tag(NUMBER_FLOAT) {
+  explicit JSValue(double number): tag(NUM_FLOAT) {
     val.as_float64 = number;
   }
 
-  explicit JSValue(int64_t number): tag(NUMBER_INT) {
+  explicit JSValue(int64_t number): tag(NUM_INT) {
     val.as_int = number;
   }
 
@@ -108,8 +110,12 @@ struct JSValue {
     return *val.as_js_value;
   }
 
-  inline bool is_int() const { return tag == NUMBER_INT; }
-  inline bool is_float() const { return tag == NUMBER_FLOAT; }
+  JSValue& deref() const;
+
+  void move_to_heap();
+
+  inline bool is_int() const { return tag == NUM_INT; }
+  inline bool is_float() const { return tag == NUM_FLOAT; }
   inline bool is_bool() const { return tag == BOOLEAN; }
   inline bool is_primitive_string() const { return tag == STRING; }
   inline bool is_object() const { return tag == OBJECT || tag == FUNCTION; }

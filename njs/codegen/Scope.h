@@ -22,12 +22,22 @@ class Scope {
  public:
 
   struct SymbolResolveResult {
+
+    static SymbolResolveResult none;
+
     SymbolRecord* symbol {nullptr};
-    u32 depth;
     ScopeType scope_type;
+    u32 closure_idx;
 
     bool stack_scope() {
       return scope_type != ScopeType::CLOSURE && scope_type != ScopeType::BLOCK;
+    }
+
+    bool not_found() { return symbol == nullptr; }
+
+    u32 get_index() {
+      if (scope_type == ScopeType::CLOSURE) return closure_idx;
+      return symbol->index;
     }
   };
 
@@ -88,8 +98,13 @@ class Scope {
     return true;
   }
 
+  void mark_symbol_as_valid(u16string_view name) {
+    auto find_res = symbol_table.find(name);
+    if (find_res != symbol_table.end()) find_res->second.valid = true;
+  }
+
   SymbolResolveResult resolve_symbol(u16string_view name) {
-    return resolve_symbol_impl(name, 0);
+    return resolve_symbol_impl(name, 0, false);
   }
 
   void set_outer(Scope *parent) {
@@ -100,33 +115,62 @@ class Scope {
     return symbol_table;
   }
 
+  SmallVector<SymbolResolveResult, 10>& get_capture_list() {
+    return capture_list;
+  }
+
   u32 param_count {0};
   u32 local_var_count {0};
   
  private:
-  SymbolResolveResult resolve_symbol_impl(u16string_view name, u32 depth) {
+  SymbolResolveResult resolve_symbol_impl(u16string_view name, u32 depth, bool nonlocal) {
     if (symbol_table.contains(name)) {
-
       SymbolRecord& rec = symbol_table[name];
+
+      if (nonlocal && scope_type != ScopeType::GLOBAL) rec.is_captured = true;
+      if (!rec.valid && !rec.is_captured) return SymbolResolveResult::none;
+
       return SymbolResolveResult{
         .symbol = &rec,
-        .depth = depth,
         .scope_type = get_storage_scope(rec.var_kind)
       };
     }
 
-    if (outer_scope) return outer_scope->resolve_symbol_impl(name, depth + 1);
+    if (outer_scope) {
+      // Here we want to determine whether a closure variable capture has occurred,
+      // i.e. whether the retrieval of a variable is outside the scope of this function.
+      bool escape_local = nonlocal || scope_type == ScopeType::FUNC;
 
-    return SymbolResolveResult();
+      // If no capture occurs or if this scope is a block scope, then the result is returned
+      // directly, as this is not of concern in both cases.
+      if (!escape_local || scope_type != ScopeType::FUNC) {
+        return outer_scope->resolve_symbol_impl(name, depth + 1, escape_local);
+      }
+      // This variable is captured from the outer function scope
+      auto res = outer_scope->resolve_symbol_impl(name, depth + 1, escape_local);
+      if (!res.symbol) return SymbolResolveResult::none;
+
+      // global variables are always available. We don't need to capture them.
+      if (res.scope_type == ScopeType::GLOBAL) return res;
+
+      capture_list.push_back(res);
+      return SymbolResolveResult{
+          .symbol = res.symbol,
+          .scope_type = ScopeType::CLOSURE,
+          .closure_idx = (u32)capture_list.size() - 1
+      };
+    }
+
+    return SymbolResolveResult::none;
   }
 
   ScopeType get_storage_scope(VarKind var_kind) {
-    if (var_kind == VarKind::DECL_VAR) return this->scope_type;
-    if (var_kind == VarKind::DECL_FUNCTION) return this->scope_type;
+    if (var_kind == VarKind::DECL_VAR) return this->scope_type;      // should be global or function
+    if (var_kind == VarKind::DECL_FUNCTION) return this->scope_type; // should be global or function
     if (var_kind == VarKind::DECL_FUNC_PARAM) return ScopeType::FUNC_PARAM;
 
     // let or const
-    // Blocks does not have a separate storage space, so `let` and `const` be store in
+    // Blocks does not have a separate storage space, so `let` and `const` are stored in
     // the nearest function or global scope.
     return outer_global_or_func->scope_type;
   }
@@ -134,6 +178,7 @@ class Scope {
   ScopeType scope_type;
   
   unordered_map<u16string_view, SymbolRecord> symbol_table;
+  SmallVector<SymbolResolveResult, 10> capture_list;
   Scope *outer_scope {nullptr};
   Scope *outer_global_or_func {nullptr};
 };

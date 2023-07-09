@@ -18,6 +18,9 @@ enum class VarKind {
 enum class ScopeType {
   GLOBAL = 0,
   FUNC,
+  // `FUNC_PARAM` scope does not really exist. I made this enum value because, in my VM implementation,
+  // function parameters and function local variables are addressed differently, and a mark must be
+  // used to let the VM know to access the arguments within the argument store.
   FUNC_PARAM,
   BLOCK,
   CLOSURE

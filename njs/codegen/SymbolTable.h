@@ -20,7 +20,9 @@ struct SymbolRecord {
 
   SymbolRecord(VarKind kind, u16str_view name, u32 index)
       : var_kind(kind), name(name), index(index) {
-    if (kind == VarKind::DECL_VAR || kind == VarKind::DECL_FUNCTION) { is_valid = true; }
+    if (kind == VarKind::DECL_VAR || kind == VarKind::DECL_FUNC_PARAM || kind == VarKind::DECL_FUNCTION) {
+      valid = true;
+    }
   }
 
   u32 offset_idx(int offset = 2) { return index + offset; }
@@ -28,7 +30,7 @@ struct SymbolRecord {
   VarKind var_kind;
   u16str_view name;
   u32 index;
-  bool is_valid {false};
+  bool valid{false};
   bool is_captured {false};
 };
 

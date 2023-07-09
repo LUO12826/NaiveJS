@@ -21,14 +21,28 @@ GCObject *JSValue::as_GCObject() const {
   return static_cast<GCObject *>(val.as_object);
 }
 
+JSValue& JSValue::deref() const {
+  assert(tag == JS_VALUE_REF || tag == HEAP_VAL_REF);
+  if (tag == JS_VALUE_REF) return *val.as_js_value;
+  return val.as_heap_val->wrapped_val;
+}
+
+void JSValue::move_to_heap() {
+  auto *heap_val = new JSHeapValue();
+  heap_val->retain();
+  heap_val->wrapped_val = *this;
+  this->val.as_heap_val = heap_val;
+  this->tag = HEAP_VAL_REF;
+}
+
 std::string JSValue::description() const {
 
   std::ostringstream stream;
 
   stream << "JSValue tag: " << js_value_tag_names[tag] << ", ";
   if (tag == BOOLEAN) stream << "val: " << val.as_bool;
-  else if (tag == NUMBER_FLOAT) stream << "val: " << val.as_float64;
-  else if (tag == NUMBER_INT) stream << "val: " << val.as_int;
+  else if (tag == NUM_FLOAT) stream << "val: " << val.as_float64;
+  else if (tag == NUM_INT) stream << "val: " << val.as_int;
   else if (tag == STACK_FRAME_META1) {
     stream << "function named: " << to_utf8_string(val.as_function->name)
            << " @" << std::hex << val.as_function;
@@ -44,8 +58,8 @@ std::string JSValue::to_string() const {
   std::ostringstream stream;
 
   if (tag == BOOLEAN) stream << val.as_bool;
-  else if (tag == NUMBER_FLOAT) stream << val.as_float64;
-  else if (tag == NUMBER_INT) stream << val.as_int;
+  else if (tag == NUM_FLOAT) stream << val.as_float64;
+  else if (tag == NUM_INT) stream << val.as_int;
   else if (tag == STACK_FRAME_META1 || is_object()) {
     stream << as_GCObject()->description();
   }
@@ -80,6 +94,9 @@ void JSValue::assign(JSValue& rhs) {
       if (is_RCObject()) {
         val.as_rc_object->retain();
       }
+    }
+    else if (rhs.tag == UNDEFINED || rhs.tag == JS_NULL) {
+      tag = rhs.tag;
     }
     // else, just directly copy the bits.
     else {

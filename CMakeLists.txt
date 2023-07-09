@@ -25,10 +25,11 @@ set(SOURCES
     njs/global_var.cpp
     njs/common/StringPool.cpp
     njs/parser/ast.cpp
+    njs/codegen/Scope.cpp
 )
 
 # executable is named `njs`
-add_executable(njs ${SOURCES})
+add_executable(njs ${SOURCES} njs/codegen/Scope.cpp)
 
 target_compile_options(njs PRIVATE -Wno-deprecated-declarations)
 target_include_directories(njs PRIVATE .)
