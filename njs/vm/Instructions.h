@@ -27,11 +27,13 @@ enum class InstType {
   push_null,
   pop,
   pop_assign,
+  pop_drop,
   store,
   store_assign,
   prop_assign,
 
   jmp,
+  jmp_true,
   je,
   jne,
 
@@ -41,11 +43,13 @@ enum class InstType {
   le,
   ne,
   eq,
+  eq3,
 
   call,
   ret,
 
   fast_add,
+  fast_bin,
   fast_assign,
 
   make_func,
@@ -88,7 +92,7 @@ struct Instruction {
 
   InstType op_type;
   union {
-    double num;
+    double num_float;
     OperandType1 two;
     OperandType2 four;
   } operand;

@@ -58,6 +58,7 @@ friend class GCHeap;
 
   void exec_add();
   void exec_binary(InstType op_type);
+  void exec_logi(InstType op_type);
 
   JSFunction *function_env();
 

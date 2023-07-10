@@ -1,6 +1,7 @@
 #include "NjsVM.h"
 
 #include <iostream>
+#include "njs/basic_types/JSArray.h"
 #include "njs/codegen/CodegenVisitor.h"
 
 namespace njs {
@@ -47,15 +48,23 @@ void NjsVM::execute() {
       case InstType::div:
         exec_binary(inst.op_type);
         break;
-      case InstType::neg: break;
-      case InstType::logi_and: break;
-      case InstType::logi_or: break;
-      case InstType::logi_not: break;
+      case InstType::neg:
+        assert(rt_stack[sp - 1].tag == JSValue::NUM_FLOAT);
+        rt_stack[sp - 1].val.as_float64 = -rt_stack[sp - 1].val.as_float64;
+        break;
+      case InstType::logi_and:
+      case InstType::logi_or:
+        exec_logi(inst.op_type);
+        break;
+      case InstType::logi_not:
+        if (rt_stack[sp - 1].is_falsy()) rt_stack[sp - 1] = JSValue(true);
+        else rt_stack[sp - 1] = JSValue(false);
+        break;
       case InstType::push:
         exec_push(inst);
         break;
       case InstType::pushi:
-        rt_stack[sp] = JSValue(inst.operand.num);
+        rt_stack[sp] = JSValue(inst.operand.num_float);
         sp += 1;
         break;
       case InstType::push_str:
@@ -76,6 +85,10 @@ void NjsVM::execute() {
         exec_pop(inst, true);
         heap.gc();
         break;
+      case InstType::pop_drop:
+        sp -= 1;
+        rt_stack[sp].set_undefined();
+        break;
       case InstType::store:
         exec_store(inst, false);
         heap.gc();
@@ -90,6 +103,11 @@ void NjsVM::execute() {
       case InstType::jmp:
         pc = inst.operand.two.opr1;
         break;
+      case InstType::jmp_true:
+        if (!rt_stack[sp - 1].is_falsy()) {
+          pc = inst.operand.two.opr1;
+        }
+        break;
       case InstType::je: break;
       case InstType::jne: break;
       case InstType::gt: break;
@@ -98,6 +116,7 @@ void NjsVM::execute() {
       case InstType::le: break;
       case InstType::ne: break;
       case InstType::eq: break;
+      case InstType::eq3: break;
       case InstType::call:
         exec_call(inst.operand.two.opr1);
         break;
@@ -153,11 +172,14 @@ u32 NjsVM::calc_var_address(ScopeType scope, int raw_index) {
 }
 
 void NjsVM::exec_add() {
-  if (rt_stack[sp - 2].tag == JSValue::NUM_FLOAT && rt_stack[sp - 1].tag == JSValue::NUM_FLOAT) {
+  if (rt_stack[sp - 2].tag_is(JSValue::NUM_FLOAT) && rt_stack[sp - 1].tag_is(JSValue::NUM_FLOAT)) {
     rt_stack[sp - 2].val.as_float64 += rt_stack[sp - 1].val.as_float64;
   }
-  else {
-
+  else if (rt_stack[sp - 2].tag_is(JSValue::STRING) && rt_stack[sp - 1].tag_is(JSValue::STRING)) {
+    auto *new_str = new PrimitiveString(rt_stack[sp - 2].val.as_primitive_string->str
+                                        + rt_stack[sp - 1].val.as_primitive_string->str);
+    new_str->retain();
+    rt_stack[sp - 2].val.as_primitive_string = new_str;
   }
 
   rt_stack[sp - 1].set_undefined();
@@ -165,7 +187,37 @@ void NjsVM::exec_add() {
 }
 
 void NjsVM::exec_binary(InstType op_type) {
+  assert(rt_stack[sp - 2].tag == JSValue::NUM_FLOAT && rt_stack[sp - 1].tag == JSValue::NUM_FLOAT);
+  switch (op_type) {
+    case InstType::sub:
+      rt_stack[sp - 2].val.as_float64 -= rt_stack[sp - 1].val.as_float64;
+      break;
+    case InstType::mul:
+      rt_stack[sp - 2].val.as_float64 *= rt_stack[sp - 1].val.as_float64;
+      break;
+    case InstType::div:
+      rt_stack[sp - 2].val.as_float64 /= rt_stack[sp - 1].val.as_float64;
+      break;
+  }
+  rt_stack[sp - 1].set_undefined();
+  sp -= 1;
+}
 
+void NjsVM::exec_logi(InstType op_type) {
+  switch (op_type) {
+    case InstType::logi_and:
+      if (!rt_stack[sp - 2].is_falsy()) {
+        rt_stack[sp - 2] = rt_stack[sp - 1];
+      }
+      break;
+    case InstType::logi_or:
+      if (rt_stack[sp - 2].is_falsy()) {
+        rt_stack[sp - 2] = rt_stack[sp - 1];
+      }
+      break;
+  }
+  rt_stack[sp - 1].set_undefined();
+  sp -= 1;
 }
 
 void NjsVM::exec_fast_add(Instruction& inst) {
@@ -337,6 +389,9 @@ void NjsVM::exec_make_object() {
 }
 
 void NjsVM::exec_make_array() {
+  auto *array = heap.new_object<JSArray>();
+  rt_stack[sp] = JSValue(array);
+  sp += 1;
 }
 
 void NjsVM::exec_fast_assign(Instruction& inst) {
@@ -365,7 +420,19 @@ void NjsVM::exec_add_props(int props_cnt) {
 }
 
 void NjsVM::exec_add_elements(int elements_cnt) {
+  JSValue& val_array = rt_stack[sp - elements_cnt - 1];
+  assert(val_array.tag == JSValue::ARRAY);
+  JSArray *array = val_array.val.as_array;
 
+  array->dense_array.resize(elements_cnt);
+
+  u32 ele_idx = 0;
+  for (u32 i = sp - elements_cnt; i < sp; i++) {
+    array->dense_array[ele_idx].assign(rt_stack[i]);
+    rt_stack[i].set_undefined();
+  }
+
+  sp = sp - elements_cnt;
 }
 
 void NjsVM::exec_push_str(int str_idx, bool atom) {

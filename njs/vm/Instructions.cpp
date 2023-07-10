@@ -7,7 +7,7 @@ namespace njs {
 
 Instruction Instruction::num_imm(double num) {
   Instruction inst(InstType::pushi);
-  inst.operand.num = num;
+  inst.operand.num_float = num;
   return inst;
 }
 
@@ -51,7 +51,7 @@ std::string Instruction::description() {
       sprintf(buffer, "push  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
     case InstType::pushi:
-      sprintf(buffer, "pushi  %lf", operand.num);
+      sprintf(buffer, "pushi  %lf", operand.num_float);
       break;
     case InstType::push_str:
       sprintf(buffer, "push_str  %d", operand.two.opr1);
@@ -68,6 +68,9 @@ std::string Instruction::description() {
     case InstType::pop_assign:
       sprintf(buffer, "pop_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
+    case InstType::pop_drop:
+      sprintf(buffer, "pop_drop");
+      break;
     case InstType::store:
       sprintf(buffer, "store  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
@@ -79,6 +82,9 @@ std::string Instruction::description() {
       break;
     case InstType::jmp:
       sprintf(buffer, "jmp  %d", operand.two.opr1);
+      break;
+    case InstType::jmp_true:
+      sprintf(buffer, "jmp_true  %d", operand.two.opr1);
       break;
     case InstType::make_func:
       sprintf(buffer, "make_func  %d", operand.two.opr1);

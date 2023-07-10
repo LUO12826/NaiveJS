@@ -133,10 +133,10 @@ friend class NjsVM;
         break;
       case ASTNode::AST_EXPR_STRING: visit_string_literal(*node);
         break;
-      case ASTNode::AST_LIT_OBJ:
+      case ASTNode::AST_EXPR_OBJ:
         visit_object_literal(*static_cast<ObjectLiteral *>(node));
         break;
-      case ASTNode::AST_LIT_ARRAY:
+      case ASTNode::AST_EXPR_ARRAY:
         visit_array_literal(*static_cast<ArrayLiteral *>(node));
         break;
       case ASTNode::AST_STMT_VAR:
@@ -150,6 +150,9 @@ friend class NjsVM;
         break;
       case ASTNode::AST_EXPR_NULL:
         emit(InstType::push_null);
+        break;
+      case ASTNode::AST_EXPR_PAREN:
+        visit(static_cast<ParenthesisExpr *>(node)->expr);
         break;
       default:
         assert(false);
@@ -177,6 +180,9 @@ friend class NjsVM;
 
     for (ASTNode *node : program.stmts) {
       visit(node);
+      if (node->type > ASTNode::BEGIN_EXPR && node->type < ASTNode::END_EXPR) {
+        emit(InstType::pop_drop);
+      }
     }
 
     if (program.type == ASTNode::AST_PROGRAM) {
@@ -225,8 +231,8 @@ friend class NjsVM;
   }
 
   void visit_binary_expr(BinaryExpr& expr) {
-    assert(expr.op.type == Token::ADD);
-    if (expr.is_simple_expr()) {
+
+    if (expr.op.type == Token::ADD && expr.is_simple_expr()) {
 
       auto lhs_sym = current_scope().resolve_symbol(expr.lhs->get_source());
       auto rhs_sym = current_scope().resolve_symbol(expr.rhs->get_source());
@@ -238,7 +244,14 @@ friend class NjsVM;
     else {
       visit(expr.lhs);
       visit(expr.rhs);
-      emit(InstType::add);
+      switch (expr.op.type) {
+        case Token::ADD: emit(InstType::add); break;
+        case Token::SUB: emit(InstType::sub); break;
+        case Token::MUL: emit(InstType::mul); break;
+        case Token::DIV: emit(InstType::div); break;
+        default: assert(false);
+      }
+
     }
   }
 

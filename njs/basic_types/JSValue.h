@@ -10,6 +10,7 @@ namespace njs {
 class JSObject;
 class GCObject;
 class JSFunction;
+class JSArray;
 struct JSHeapValue;
 
 extern const char *js_value_tag_names[25];
@@ -91,6 +92,10 @@ struct JSValue {
     val.as_object = obj;
   }
 
+  explicit JSValue(JSArray *array): tag(ARRAY) {
+    val.as_array = array;
+  }
+
   explicit JSValue(JSFunction *func): tag(FUNCTION) {
     val.as_function = func;
   }
@@ -125,6 +130,9 @@ struct JSValue {
 
   GCObject *as_GCObject() const;
 
+  bool is_falsy() const;
+
+  bool tag_is(JSValueTag val_tag) const;
 
   JSValue add(JSValue& rhs);
 
@@ -146,6 +154,7 @@ struct JSValue {
     JSHeapValue *as_heap_val;
 
     JSObject *as_object;
+    JSArray *as_array;
     JSFunction *as_function;
   } val;
 

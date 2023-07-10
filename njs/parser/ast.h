@@ -35,6 +35,9 @@ class ASTNode {
   // has corresponding string representation, note to modify when adding
   enum Type {
     AST_TOKEN = 0, // used to wrap a token
+
+    BEGIN_EXPR,
+
     AST_EXPR_THIS,
     AST_EXPR_ID,
     AST_EXPR_STRICT_FUTURE,
@@ -45,8 +48,8 @@ class ASTNode {
     AST_EXPR_STRING,
     AST_EXPR_REGEXP,
 
-    AST_LIT_ARRAY,
-    AST_LIT_OBJ,
+    AST_EXPR_ARRAY,
+    AST_EXPR_OBJ,
 
     AST_EXPR_PAREN, // ( Expression )
 
@@ -60,6 +63,8 @@ class ASTNode {
     AST_EXPR_NEW,
 
     AST_EXPR,
+
+    END_EXPR,
 
     AST_FUNC,
 
@@ -151,7 +156,7 @@ class RegExpLiteral : public ASTNode {
 
 class ArrayLiteral : public ASTNode {
  public:
-  ArrayLiteral() : ASTNode(AST_LIT_ARRAY), len(0) {}
+  ArrayLiteral() : ASTNode(AST_EXPR_ARRAY), len(0) {}
 
   ~ArrayLiteral() override {
     for (auto [idx, element] : elements) { delete element; }
@@ -169,7 +174,7 @@ class ArrayLiteral : public ASTNode {
 
 class ObjectLiteral : public ASTNode {
  public:
-  ObjectLiteral() : ASTNode(AST_LIT_OBJ) {}
+  ObjectLiteral() : ASTNode(AST_EXPR_OBJ) {}
 
   ~ObjectLiteral() override {
     for (auto property : properties) { delete property.value; }

@@ -2,8 +2,11 @@
 
 namespace njs {
 
-const char *ast_type_names[42] = {
+const char *ast_type_names[44] = {
   "AST_TOKEN",
+
+  "BEGIN_EXPR",
+
   "AST_EXPR_THIS",
   "AST_EXPR_ID",
   "AST_EXPR_STRICT_FUTURE",
@@ -14,8 +17,8 @@ const char *ast_type_names[42] = {
   "AST_EXPR_STRING",
   "AST_EXPR_REGEXP",
 
-  "AST_LIT_ARRAY",
-  "AST_LIT_OBJ",
+  "AST_EXPR_ARRAY",
+  "AST_EXPR_OBJ",
 
   "AST_EXPR_PAREN",  // ( Expression )
 
@@ -29,6 +32,8 @@ const char *ast_type_names[42] = {
   "AST_EXPR_NEW",
 
   "AST_EXPR",
+
+  "END_EXPR",
 
   "AST_FUNC",
 
@@ -196,6 +201,10 @@ const char *object_class_names[6] = {
   "CLS_DATE",
   "CLS_FUNCTION",
   "CLS_CUSTOM"
+};
+
+const char *inst_type_names[6] {
+
 };
 
 }

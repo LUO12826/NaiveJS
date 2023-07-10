@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <iomanip>
+#include <cmath>
 
 #include "njs/basic_types/JSObject.h"
 #include "njs/basic_types/JSFunction.h"
@@ -17,8 +18,20 @@ std::string addressToHex(const void* address) {
 }
 
 GCObject *JSValue::as_GCObject() const {
-  assert(tag == OBJECT || tag == FUNCTION || tag == STACK_FRAME_META1);
+  assert(tag == OBJECT || tag == FUNCTION || tag == ARRAY || tag == STACK_FRAME_META1);
   return static_cast<GCObject *>(val.as_object);
+}
+
+bool JSValue::is_falsy() const {
+  if (tag == BOOLEAN) return !val.as_bool;
+  if (tag == JS_NULL || tag == UNDEFINED) return true;
+  if (tag == NUM_FLOAT) return val.as_float64 == 0 || std::isnan(val.as_float64);
+  if (tag == STRING) return val.as_primitive_string->str.empty();
+  return false;
+}
+
+bool JSValue::tag_is(JSValueTag val_tag) const {
+  return tag == val_tag;
 }
 
 JSValue& JSValue::deref() const {

@@ -91,8 +91,8 @@ enum class ObjectClass {
 
 class JSObject : public GCObject {
  public:
-  JSObject(): GCObject(sizeof(JSObject)), obj_class(ObjectClass::CLS_OBJECT) {}
-  explicit JSObject(ObjectClass cls): GCObject(sizeof(JSObject)), obj_class(cls) {}
+  JSObject(): obj_class(ObjectClass::CLS_OBJECT) {}
+  explicit JSObject(ObjectClass cls): obj_class(cls) {}
 
   ~JSObject() override;
 

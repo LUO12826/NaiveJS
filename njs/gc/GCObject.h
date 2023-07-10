@@ -14,7 +14,8 @@ using u32 = uint32_t;
 
 class GCObject {
  public:
-  GCObject(u32 size): size(size) {}
+  GCObject() = default;
+  explicit GCObject(u32 size): size(size) {}
   virtual ~GCObject() = default;
 
   GCObject(const GCObject& obj) = delete;
