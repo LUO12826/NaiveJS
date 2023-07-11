@@ -26,6 +26,8 @@ friend class GCHeap;
   // These parameters are only for temporary convenience
   NjsVM(CodegenVisitor& visitor);
 
+  void add_native_func_impl(u16string name, NativeFuncType func);
+
   void run();
 
  private:
@@ -68,6 +70,8 @@ friend class GCHeap;
   SmallVector<u16string, 10> str_list;
   SmallVector<double, 10> num_list;
   SmallVector<JSFunctionMeta, 10> func_meta;
+
+  unordered_map<u16string, NativeFuncType> native_func_binding;
 
   GlobalObject global_object;
 

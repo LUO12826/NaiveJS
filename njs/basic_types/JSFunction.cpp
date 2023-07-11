@@ -1,15 +1,33 @@
 #include "JSFunction.h"
 
 #include <string>
+#include <utility>
 #include "njs/gc/GCHeap.h"
 
 namespace njs {
 
 JSFunction::JSFunction() : JSObject(ObjectClass::CLS_FUNCTION) {}
 
-JSFunction::JSFunction(const u16string& name, u32 param_cnt, u32 local_var_cnt, u32 code_addr)
-    : JSObject(ObjectClass::CLS_FUNCTION), name(name), param_count(param_cnt),
+JSFunction::JSFunction(u16string name, u32 param_cnt, u32 local_var_cnt, u32 code_addr)
+    : JSObject(ObjectClass::CLS_FUNCTION), name(std::move(name)), param_count(param_cnt),
       local_var_count(local_var_cnt), code_address(code_addr) {}
+
+JSFunction::JSFunction(u16string name, u32 param_cnt)
+    : JSObject(ObjectClass::CLS_FUNCTION), name(std::move(name)), param_count(param_cnt) {}
+
+JSFunction::JSFunction(u16string name, const JSFunctionMeta& meta)
+    : JSObject(ObjectClass::CLS_FUNCTION), name(std::move(name)) {
+  param_count = meta.param_count;
+  local_var_count = meta.local_var_count;
+  code_address = meta.code_address;
+
+  is_anonymous = meta.is_anonymous;
+  is_arrow_func = meta.is_arrow_func;
+  has_this_binding = meta.has_this_binding;
+  is_native = meta.is_native;
+
+  native_func = meta.native_func;
+}
 
 JSFunction::~JSFunction() {
   JSObject::~JSObject();

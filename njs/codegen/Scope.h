@@ -54,6 +54,10 @@ class Scope {
     }
   }
 
+  ScopeType get_scope_type() {
+    return scope_type;
+  }
+
   std::string get_scope_type_name() {
     return scope_type_names[static_cast<int>(scope_type)];
   }
@@ -65,12 +69,12 @@ class Scope {
       return strict ? false : true;
     }
 
-    symbol_table.emplace(name, SymbolRecord(VarKind::DECL_FUNC_PARAM, name, param_count));
+    symbol_table.emplace(name, SymbolRecord(VarKind::DECL_FUNC_PARAM, name, param_count, false));
     param_count += 1;
     return true;
   }
 
-  bool define_symbol(VarKind var_kind, u16string_view name) {
+  bool define_symbol(VarKind var_kind, u16string_view name, bool is_builtin = false) {
     assert(var_kind != VarKind::DECL_FUNC_PARAM);
     // var... or function...
     if (var_kind == VarKind::DECL_VAR || var_kind == VarKind::DECL_FUNCTION) {
@@ -80,14 +84,13 @@ class Scope {
       }
     }
 
-    // let... or const...
     if (symbol_table.contains(name)) {
       bool can_redeclare = var_kind_allow_redeclare(var_kind)
                             && var_kind_allow_redeclare(symbol_table.at(name).var_kind);
       return can_redeclare;
     }
 
-    symbol_table.emplace(name, SymbolRecord(var_kind, name, local_var_count));
+    symbol_table.emplace(name, SymbolRecord(var_kind, name, local_var_count, is_builtin));
     local_var_count += 1;
 
     return true;

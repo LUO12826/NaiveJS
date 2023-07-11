@@ -26,7 +26,7 @@ set(SOURCES
     njs/common/StringPool.cpp
     njs/parser/ast.cpp
     njs/codegen/Scope.cpp
-        njs/basic_types/JSArray.cpp njs/basic_types/JSArray.h)
+        njs/basic_types/JSArray.cpp njs/basic_types/JSArray.h njs/common/ArrayRef.h njs/vm/NativeFunction.cpp njs/vm/NativeFunction.h)
 
 # executable is named `njs`
 add_executable(njs ${SOURCES} njs/codegen/Scope.cpp)

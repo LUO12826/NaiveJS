@@ -24,6 +24,10 @@ NjsVM::NjsVM(CodegenVisitor& visitor): heap(600, *this) {
   sp = global_sym_table.size() + frame_meta_size;
 }
 
+void NjsVM::add_native_func_impl(u16string name, NativeFuncType func) {
+  native_func_binding.emplace(std::move(name), func);
+}
+
 void NjsVM::run() {
   std::cout << "### VM starts execution" << std::endl;
 
@@ -125,6 +129,8 @@ void NjsVM::execute() {
         break;
       case InstType::fast_add:
         exec_fast_add(inst);
+        break;
+      case InstType::fast_bin:
         break;
       case InstType::fast_assign:
         exec_fast_assign(inst);
@@ -244,7 +250,7 @@ void NjsVM::exec_return() {
   u32 ret_val_addr = sp - 1;
 
   u32 old_frame_bottom = rt_stack[frame_base_ptr + 1].val.as_int;
-  u32 arg_cnt = rt_stack[frame_base_ptr].val.as_function->param_count;
+  u32 arg_cnt = rt_stack[frame_base_ptr + 1].flag_bits;
 
   u32 old_sp = frame_base_ptr - arg_cnt - 1;
   u32 old_pc = rt_stack[frame_base_ptr].flag_bits;
@@ -330,8 +336,10 @@ void NjsVM::exec_make_func(int meta_idx) {
   auto& meta = func_meta[meta_idx];
   auto& name = str_list[meta.name_index];
 
-  auto *func = heap.new_object<JSFunction>(name, meta.param_count,
-                                                        meta.local_var_count, meta.code_address);
+  auto *func = heap.new_object<JSFunction>(name, meta);
+  if (meta.is_native) {
+    func->native_func = native_func_binding[name];
+  }
   rt_stack[sp] = JSValue(func);
   sp += 1;
 }
@@ -361,25 +369,36 @@ void NjsVM::exec_call(int arg_count) {
   JSValue& func_val = rt_stack[sp - arg_count - 1];
   assert(func_val.tag == JSValue::FUNCTION);
   assert(func_val.val.as_object->obj_class == ObjectClass::CLS_FUNCTION);
+  JSFunction *func = func_val.val.as_function;
 
-  u32 def_param_cnt = func_val.val.as_function->param_count;
+  u32 def_param_cnt = func->param_count;
   // If the actually passed arguments are fewer than the formal parameters,
   // fill the vacancy with `undefined`.
   sp += def_param_cnt > arg_count ? (def_param_cnt - arg_count) : 0;
+  u32 actual_arg_cnt = std::max(def_param_cnt, u32(arg_count));
+
+  if (func->is_native) {
+    func_val = func->native_func(*this, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
+    for (u32 addr = sp - actual_arg_cnt; addr < sp; addr++) {
+      rt_stack[addr].set_undefined();
+    }
+    sp -= actual_arg_cnt;
+    return;
+  }
 
   // first cell of a function stack frame: return address and pointer to the function object.
   rt_stack[sp].tag = JSValue::STACK_FRAME_META1;
   rt_stack[sp].flag_bits = pc;
-  rt_stack[sp].val.as_function = func_val.val.as_function;
+  rt_stack[sp].val.as_function = func;
 
   // second cell of a function stack frame: saved `frame_base_ptr` and arguments count
   rt_stack[sp + 1].tag = JSValue::STACK_FRAME_META2;
-  rt_stack[sp + 1].flag_bits = arg_count;
+  rt_stack[sp + 1].flag_bits = actual_arg_cnt;
   rt_stack[sp + 1].val.as_int = frame_base_ptr;
 
   frame_base_ptr = sp;
-  sp = frame_base_ptr + 2 + func_val.val.as_function->local_var_count;
-  pc = static_cast<JSFunction *>(func_val.val.as_object)->code_address;
+  sp = frame_base_ptr + 2 + func->local_var_count;
+  pc = func->code_address;
 }
 
 void NjsVM::exec_make_object() {

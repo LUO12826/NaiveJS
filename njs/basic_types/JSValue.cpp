@@ -73,6 +73,7 @@ std::string JSValue::to_string() const {
   if (tag == BOOLEAN) stream << val.as_bool;
   else if (tag == NUM_FLOAT) stream << val.as_float64;
   else if (tag == NUM_INT) stream << val.as_int;
+  else if (tag == STRING) stream << to_utf8_string(val.as_primitive_string->str);
   else if (tag == STACK_FRAME_META1 || is_object()) {
     stream << as_GCObject()->description();
   }

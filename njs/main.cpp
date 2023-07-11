@@ -12,6 +12,7 @@
 #include "njs/parser/parser.h"
 #include "njs/codegen/CodegenVisitor.h"
 #include "njs/vm/NjsVM.h"
+#include "njs/vm/NativeFunction.h"
 
 using namespace njs;
 using std::string;
@@ -86,6 +87,7 @@ int main(int argc, char *argv[]) {
 
     // execute bytecode
     NjsVM vm(visitor);
+    vm.add_native_func_impl(u"log", log);
     vm.run();
 
     exec_timer.end();

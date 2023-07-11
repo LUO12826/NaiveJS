@@ -43,6 +43,8 @@ friend class NjsVM;
 
     push_scope(std::move(prog->scope));
 
+    // add functions to the global scope
+    add_builtin_functions();
     visit_program_or_function_body(*prog);
     optimize();
 
@@ -368,7 +370,10 @@ friend class NjsVM;
   }
 
   void visit_string_literal(ASTNode& node) {
-    emit(InstType::push_str, (int)add_const(node.get_source()));
+    auto str_view = node.get_source();
+    str_view.remove_prefix(1);
+    str_view.remove_suffix(1);
+    emit(InstType::push_str, (int)add_const(str_view));
   }
 
   void visit_variable_statement(VarStatement& var_stmt) {
@@ -464,6 +469,24 @@ friend class NjsVM;
 
   u32 bytecode_pos() {
     return bytecode.size();
+  }
+
+  void add_builtin_functions() {
+    assert(current_scope().get_scope_type() == ScopeType::GLOBAL);
+    for (auto& [name, record] : current_scope().get_symbol_table()) {
+      if (record.is_builtin && record.var_kind == VarKind::DECL_FUNCTION) {
+
+        emit_temp(InstType::make_func,
+                  add_function_meta(JSFunctionMeta{
+                      .name_index = add_const(name),
+                      .is_native = true,
+                      .param_count = 0,
+                      .local_var_count = 0,
+                      .native_func = nullptr,
+                  }));
+        emit_temp(InstType::pop, scope_type_to_int(ScopeType::GLOBAL), (int)record.index);
+      }
+    }
   }
 
   SmallVector<CodegenError, 10> error;

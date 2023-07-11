@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "njs/common/enums.h"
+#include "njs/common/common_types.h"
 #include "njs/include/SmallVector.h"
 #include "njs/parser/lexer.h"
 #include "njs/parser/ast.h"
@@ -25,9 +26,15 @@ using TokenType = Token::TokenType;
 struct ParserContext {
 };
 
+struct ParsingError {
+  std::string message;
+  SourceLocation start;
+  SourceLocation end;
+};
+
 class Parser {
  public:
-  Parser(std::u16string source) : source(source), lexer(source) {}
+  Parser(std::u16string src) : source(src), lexer(src) {}
 
   ASTNode* parse_primary_expression() {
     Token token = lexer.current();
@@ -513,6 +520,8 @@ error:
 
   ASTNode* parse_program() {
     lexer.next();
+    push_scope(ScopeType::GLOBAL);
+    add_builtin_functions();
     return parse_program_or_function_body(TokenType::EOS, ASTNode::AST_PROGRAM);
   }
 
@@ -530,8 +539,6 @@ error:
       }
       // else, `curr_token` will be 'use strict' (a string).
     }
-
-    if (syntax_type == ASTNode::AST_PROGRAM) push_scope(ScopeType::GLOBAL);
 
     ProgramOrFunctionBody* prog = new ProgramOrFunctionBody(syntax_type, strict);
     ASTNode* statement;
@@ -1248,27 +1255,20 @@ error:
     return lexer.current().type == type;
   }
 
-  std::u16string source;
-  Lexer lexer;
-
-  ParserContext context;
-
-  SmallVector<Scope, 10> scope_chain;
-
   Scope& current_scope() { return scope_chain.back(); }
 
   void push_scope(ScopeType scope_type) {
     Scope *parent = scope_chain.size() > 0 ? &scope_chain.back() : nullptr;
     scope_chain.emplace_back(scope_type, parent);
 
-    #ifdef DBG_SCOPE
+#ifdef DBG_SCOPE
     std::cout << ">>>> push scope: " << scope_chain.back().get_scope_type_name() << std::endl;
     std::cout << std::endl;
-    #endif
+#endif
   }
 
   void pop_scope() {
-    #ifdef DBG_SCOPE
+#ifdef DBG_SCOPE
     Scope& scope = scope_chain.back();
 
     std::cout << "<<<< pop scope: " << scope.get_scope_type_name() << std::endl;
@@ -1284,10 +1284,26 @@ error:
     }
     std::cout << std::endl;
 
-    #endif
+#endif
 
     scope_chain.pop_back();
   }
+
+  void add_builtin_functions() {
+    current_scope().define_symbol(VarKind::DECL_FUNCTION, u"log", true);
+  }
+
+  void report_error(ParsingError err) {
+    errors.push_back(std::move(err));
+  }
+
+  Lexer lexer;
+  std::u16string source;
+  ParserContext context;
+  SmallVector<ParsingError, 10> errors;
+
+  SmallVector<Scope, 10> scope_chain;
+
 };
 
 }  // namespace njs
