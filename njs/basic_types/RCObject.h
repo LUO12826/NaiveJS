@@ -18,8 +18,8 @@ class RCObject {
   RCObject(RCObject&& obj) = delete;
 
   void retain();
-
   void release();
+  void delete_temp_object();
 
  private:
   u32 ref_count {0};

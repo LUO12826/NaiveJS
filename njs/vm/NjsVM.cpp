@@ -82,11 +82,7 @@ void NjsVM::execute() {
         sp += 1;
         break;
       case InstType::pop:
-        exec_pop(inst, false);
-        heap.gc();
-        break;
-      case InstType::pop_assign:
-        exec_pop(inst, true);
+        exec_pop(inst);
         heap.gc();
         break;
       case InstType::pop_drop:
@@ -94,11 +90,7 @@ void NjsVM::execute() {
         rt_stack[sp].set_undefined();
         break;
       case InstType::store:
-        exec_store(inst, false);
-        heap.gc();
-        break;
-      case InstType::store_assign:
-        exec_store(inst, true);
+        exec_store(inst);
         heap.gc();
         break;
       case InstType::prop_assign:
@@ -256,7 +248,7 @@ void NjsVM::exec_return() {
   u32 old_pc = rt_stack[frame_base_ptr].flag_bits;
 
   for (u32 addr = old_sp + 1; addr < ret_val_addr; addr++) {
-    rt_stack[addr].set_undefined();
+    rt_stack[addr].dispose();
   }
 
   // restore old state
@@ -266,7 +258,7 @@ void NjsVM::exec_return() {
 
   // copy return value
   rt_stack[old_sp] = rt_stack[ret_val_addr];
-  rt_stack[ret_val_addr].set_undefined();
+  rt_stack[ret_val_addr].tag = JSValue::UNDEFINED;
   sp += 1;
 }
 
@@ -283,7 +275,7 @@ void NjsVM::exec_push(Instruction& inst) {
   sp += 1;
 }
 
-void NjsVM::exec_pop(Instruction& inst, bool assign) {
+void NjsVM::exec_pop(Instruction& inst) {
   auto var_scope = int_to_scope_type(inst.operand.two.opr1);
   u32 var_addr = calc_var_address(var_scope, inst.operand.two.opr2);
 
@@ -291,34 +283,28 @@ void NjsVM::exec_pop(Instruction& inst, bool assign) {
   if (var_scope == ScopeType::CLOSURE) {
     assert(function_env());
     JSValue& closure_val = function_env()->captured_var[var_addr];
-
-    if (assign) closure_val.deref().assign(rt_stack[sp]);
-    else closure_val.deref() = rt_stack[sp];
+    closure_val.deref().assign(rt_stack[sp]);
   }
   else {
     JSValue& val = rt_stack[var_addr].tag == JSValue::HEAP_VAL_REF ?
                                              rt_stack[var_addr].deref() : rt_stack[var_addr];
-    if (assign) val.assign(rt_stack[sp]);
-    else val = rt_stack[sp];
+    val.assign(rt_stack[sp]);
   }
 
   rt_stack[sp].set_undefined();
 }
 
-void NjsVM::exec_store(Instruction& inst, bool assign) {
+void NjsVM::exec_store(Instruction& inst) {
   auto var_scope = int_to_scope_type(inst.operand.two.opr1);
   u32 var_addr = calc_var_address(var_scope, inst.operand.two.opr2);
 
   if (var_scope == ScopeType::CLOSURE) {
     assert(function_env());
     JSValue& closure_val = function_env()->captured_var[var_addr];
-
-    if (assign) closure_val.deref().assign(rt_stack[sp]);
-    else rt_stack[var_addr] = rt_stack[sp];
+    closure_val.deref().assign(rt_stack[sp]);
   }
   else {
-    if (assign) rt_stack[var_addr].assign(rt_stack[sp]);
-    else rt_stack[var_addr] = rt_stack[sp];
+    rt_stack[var_addr].assign(rt_stack[sp]);
   }
 }
 
@@ -377,10 +363,16 @@ void NjsVM::exec_call(int arg_count) {
   sp += def_param_cnt > arg_count ? (def_param_cnt - arg_count) : 0;
   u32 actual_arg_cnt = std::max(def_param_cnt, u32(arg_count));
 
+  for (u32 addr = sp - actual_arg_cnt; addr < sp; addr++) {
+    if (rt_stack[addr].is_RCObject()) {
+      rt_stack[addr].val.as_rc_object->retain();
+    }
+  }
+
   if (func->is_native) {
     func_val = func->native_func(*this, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
     for (u32 addr = sp - actual_arg_cnt; addr < sp; addr++) {
-      rt_stack[addr].set_undefined();
+      rt_stack[addr].dispose();
     }
     sp -= actual_arg_cnt;
     return;
@@ -462,7 +454,6 @@ void NjsVM::exec_push_str(int str_idx, bool atom) {
   }
   else {
     auto str = new PrimitiveString(str_list[str_idx]);
-    str->retain();
     rt_stack[sp].val.as_primitive_string = str;
   }
 

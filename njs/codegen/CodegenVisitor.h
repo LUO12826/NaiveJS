@@ -96,13 +96,6 @@ friend class NjsVM;
           prev_inst.op_type = InstType::store;
         }
       }
-      if (inst.op_type == InstType:: push && prev_inst.op_type == InstType::pop_assign) {
-        if (inst.operand.two.opr1 == prev_inst.operand.two.opr1
-            && inst.operand.two.opr2 == prev_inst.operand.two.opr2) {
-          inst.op_type = InstType::nop;
-          prev_inst.op_type = InstType::store_assign;
-        }
-      }
     }
 
   }
@@ -258,7 +251,7 @@ friend class NjsVM;
   }
 
   void visit_assignment_expr(AssignmentExpr& expr) {
-//    assert();
+
     if (expr.is_simple_assign()) {
       auto lhs_sym = current_scope().resolve_symbol(expr.lhs->get_source());
       auto rhs_sym = current_scope().resolve_symbol(expr.rhs->get_source());
@@ -275,7 +268,7 @@ friend class NjsVM;
     else if (expr.lhs_is_id()) {
       visit(expr.rhs);
       auto lhs_sym = current_scope().resolve_symbol(expr.lhs->get_source());
-      emit(InstType::pop_assign, scope_type_to_int(lhs_sym.scope_type), (int)lhs_sym.index);
+      emit(InstType::pop, scope_type_to_int(lhs_sym.scope_type), (int)lhs_sym.index);
     }
     else {
       // check if left hand side is LeftHandSide Expression (or Parenthesized Expression with

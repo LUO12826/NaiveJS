@@ -2,7 +2,6 @@
 
 #include "njs/gc/GCHeap.h"
 #include "JSValue.h"
-#include "njs/common/enum_strings.h"
 #include <sstream>
 
 namespace njs {

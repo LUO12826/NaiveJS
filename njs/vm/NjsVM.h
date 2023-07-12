@@ -39,8 +39,8 @@ friend class GCHeap;
   void exec_push(Instruction& inst);
   void exec_push_str(int str_idx, bool atom);
   // pop or store
-  void exec_pop(Instruction& inst, bool assign);
-  void exec_store(Instruction& instruction, bool assign);
+  void exec_pop(Instruction& inst);
+  void exec_store(Instruction& inst);
   // function operation
   void exec_make_func(int meta_idx);
   void exec_capture(Instruction& inst);

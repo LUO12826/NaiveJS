@@ -100,14 +100,14 @@ struct JSValue {
     val.as_function = func;
   }
 
-  explicit JSValue(std::u16string str): tag(STRING) {
-    PrimitiveString *new_str = new PrimitiveString(std::move(str));
-    new_str->retain();
-    val.as_primitive_string = new_str;
-  }
-
   inline void set_undefined() {
     tag = UNDEFINED;
+    if (is_RCObject()) val.as_rc_object->delete_temp_object();
+  }
+
+  inline void dispose() {
+    tag = UNDEFINED;
+    if (is_RCObject()) val.as_rc_object->release();
   }
 
   JSValue& deref() const;
@@ -133,8 +133,6 @@ struct JSValue {
   bool is_falsy() const;
 
   bool tag_is(JSValueTag val_tag) const;
-
-  JSValue add(JSValue& rhs);
 
   void assign(JSValue& rhs);
 

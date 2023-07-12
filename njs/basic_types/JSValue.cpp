@@ -81,18 +81,6 @@ std::string JSValue::to_string() const {
   return stream.str();
 }
 
-JSValue JSValue::add(JSValue& rhs) {
-  if (this->is_int() && rhs.is_float()) {
-    return JSValue(this->val.as_int + rhs.val.as_int);
-  }
-  else if (this->is_float() && rhs.is_float()) {
-    return JSValue(this->val.as_float64 + rhs.val.as_float64);
-  }
-  else {
-    assert(false);
-  }
-}
-
 void JSValue::assign(JSValue& rhs) {
     assert(tag != STACK_FRAME_META1 && tag != STACK_FRAME_META2);
     assert(rhs.tag != STACK_FRAME_META1 && rhs.tag != STACK_FRAME_META2);

@@ -10,11 +10,17 @@ size_t JSSymbol::global_count = 0;
 void RCObject::retain() { ref_count += 1; }
 
 void RCObject::release() {
+  assert(ref_count != 0);
   ref_count -= 1;
   if (ref_count == 0) {
     if (Global::show_gc_statistics) std::cout << "release an RCObject" << std::endl;
     delete this;
-  };
+  }
+}
+
+void RCObject::delete_temp_object() {
+  assert(ref_count == 0);
+  delete this;
 }
 
 PrimitiveString::PrimitiveString(const std::u16string& str): str(str) {}

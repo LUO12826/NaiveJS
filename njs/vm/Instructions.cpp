@@ -65,17 +65,11 @@ std::string Instruction::description() {
     case InstType::pop:
       sprintf(buffer, "pop  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
-    case InstType::pop_assign:
-      sprintf(buffer, "pop_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
-      break;
     case InstType::pop_drop:
       sprintf(buffer, "pop_drop");
       break;
     case InstType::store:
       sprintf(buffer, "store  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
-      break;
-    case InstType::store_assign:
-      sprintf(buffer, "store_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
     case InstType::prop_assign:
       sprintf(buffer, "prop_assign");

@@ -26,10 +26,8 @@ enum class InstType {
   push_atom,
   push_null,
   pop,
-  pop_assign,
   pop_drop,
   store,
-  store_assign,
   prop_assign,
 
   jmp,
