@@ -285,6 +285,7 @@ friend class NjsVM;
       emit(InstType::prop_assign);
     }
 
+    emit(InstType::push_undefined);
   }
 
   void visit_object_literal(ObjectLiteral& obj_lit) {
@@ -293,7 +294,7 @@ friend class NjsVM;
     for (auto& prop : obj_lit.properties) {
 //      u32 prop_idx = str_pool.add_string(prop.key.text);
       // push the key into the stack
-      emit(InstType::push_str, (int)add_const(prop.key.text));
+      emit(InstType::push_atom, (int)add_const(prop.key.text));
 
       // push the value into the stack
       visit(prop.value);

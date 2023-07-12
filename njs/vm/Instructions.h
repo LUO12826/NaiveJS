@@ -25,6 +25,7 @@ enum class InstType {
   push_str,
   push_atom,
   push_null,
+  push_undefined,
   pop,
   pop_drop,
   store,

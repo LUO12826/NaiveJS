@@ -88,7 +88,7 @@ inline bool is_single_escape_char(char16_t c) {
          c == u't'  || c == u'v';
 }
 
-//  TODO: 这里想干啥，decimal_digit也是转义符号？
+// TODO: Read the ES2015 documentation
 inline bool is_escape_character(char16_t c) {
   return is_single_escape_char(c) || is_decimal_digit(c) ||
          c == u'x' || c == u'u';
@@ -98,7 +98,7 @@ inline bool is_nonescape_char(char16_t c) {
   return !is_escape_character(c) && !is_line_terminator(c);
 }
 
-// TODO: 这里到底想干啥
+// TODO: Read the ES2015 documentation
 inline bool is_char_escape_sequence(char16_t c) {
   // NOTE(zhuzilin) The chars that are not in { LineTerminator, DecimalDigit, u'x', u'u' }.
   return is_single_escape_char(c) || is_nonescape_char(c);

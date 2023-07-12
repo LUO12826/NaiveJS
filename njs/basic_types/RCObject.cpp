@@ -13,7 +13,7 @@ void RCObject::release() {
   assert(ref_count != 0);
   ref_count -= 1;
   if (ref_count == 0) {
-    if (Global::show_gc_statistics) std::cout << "release an RCObject" << std::endl;
+    if (Global::show_gc_statistics) std::cout << "RC remove an RCObject" << std::endl;
     delete this;
   }
 }

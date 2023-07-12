@@ -78,7 +78,11 @@ void NjsVM::execute() {
         exec_push_str(inst.operand.two.opr1, true);
         break;
       case InstType::push_null:
-        rt_stack[sp] = JSValue(JSValue::JS_NULL);
+        rt_stack[sp].tag = JSValue::JS_NULL;
+        sp += 1;
+        break;
+      case InstType::push_undefined:
+        rt_stack[sp].tag = JSValue::UNDEFINED;
         sp += 1;
         break;
       case InstType::pop:
@@ -467,16 +471,16 @@ void NjsVM::exec_keypath_visit(int key_cnt, bool get_ref) {
   // don't visit the last component of the keypath here
   for (u32 i = sp - key_cnt; i < sp - 1; i++) {
     assert(val_obj.is_object());
-    auto& key = str_list[rt_stack[i].val.as_int];
+//    auto& key = str_list[rt_stack[i].val.as_int];
     // val_obj is a reference, so we are directly modify the cell in the stack frame.
-    val_obj = val_obj.val.as_object->get_prop(key, false);
+    val_obj = val_obj.val.as_object->get_prop(rt_stack[i].val.as_int, false);
     rt_stack[i].set_undefined();
   }
   // visit the last component separately
-  auto& key = str_list[rt_stack[sp - 1].val.as_int];
+//  auto& key = str_list[rt_stack[sp - 1].val.as_int];
   rt_stack[sp - 1].set_undefined();
 
-  val_obj = val_obj.val.as_object->get_prop(key, get_ref);
+  val_obj = val_obj.val.as_object->get_prop(rt_stack[sp - 1].val.as_int, get_ref);
 
   sp = sp - key_cnt;
 }

@@ -86,17 +86,17 @@ bool JSObject::add_prop(JSValue& key, JSValue& value) {
   return true;
 }
 
-JSValue JSObject::get_prop(u16string_view key, bool get_ref) {
-
-  if (!get_ref) {
-    auto res = storage.find(JSObjectKey(key));
-    if (res != storage.end()) return res->second;
-    return JSValue::undefined;
-  }
-  else {
-    return JSValue(&storage[JSObjectKey(key)]);
-  }
-}
+//JSValue JSObject::get_prop(u16string_view key, bool get_ref) {
+//
+//  if (!get_ref) {
+//    auto res = storage.find(JSObjectKey(key));
+//    if (res != storage.end()) return res->second;
+//    return JSValue::undefined;
+//  }
+//  else {
+//    return JSValue(&storage[JSObjectKey(key)]);
+//  }
+//}
 
 void JSObject::gc_scan_children(GCHeap& heap) {
   for (auto& [key, value]: storage) {

@@ -101,7 +101,20 @@ class JSObject : public GCObject {
 
   bool add_prop(JSValue& key, JSValue& value);
 
-  JSValue get_prop(u16string_view key, bool get_ref);
+//  JSValue get_prop(u16string_view key, bool get_ref);
+
+  template <typename KEY>
+  JSValue get_prop(KEY key, bool get_ref) {
+
+    if (!get_ref) {
+      auto res = storage.find(JSObjectKey(key));
+      if (res != storage.end()) return res->second;
+      return JSValue::undefined;
+    }
+    else {
+      return JSValue(&storage[JSObjectKey(key)]);
+    }
+  }
 
   ObjectClass obj_class;
   unordered_map<JSObjectKey, JSValue> storage;

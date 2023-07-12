@@ -24,7 +24,7 @@ friend class GCHeap;
 
  public:
   // These parameters are only for temporary convenience
-  NjsVM(CodegenVisitor& visitor);
+  explicit NjsVM(CodegenVisitor& visitor);
 
   void add_native_func_impl(u16string name, NativeFuncType func);
 

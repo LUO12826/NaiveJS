@@ -73,7 +73,7 @@ void GCHeap::dealloc_garbage(byte *start, byte *end) {
     GCObject *obj = reinterpret_cast<GCObject *>(ptr);
     ptr += obj->size;
     if (obj->forward_ptr == nullptr) {
-      if (Global::show_gc_statistics) std::cout << "deallocate an object" << std::endl;
+      if (Global::show_gc_statistics) std::cout << "GC deallocate an object" << std::endl;
       obj->~GCObject();
     }
   }

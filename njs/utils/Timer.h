@@ -12,7 +12,7 @@ using TimePoint = std::chrono::steady_clock::time_point;
 
  public:
 
-  Timer(std::string name);
+  explicit Timer(std::string name);
 
   long long end(bool print_res = true);
 

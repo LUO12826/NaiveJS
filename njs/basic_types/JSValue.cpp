@@ -85,43 +85,18 @@ void JSValue::assign(JSValue& rhs) {
     assert(tag != STACK_FRAME_META1 && tag != STACK_FRAME_META2);
     assert(rhs.tag != STACK_FRAME_META1 && rhs.tag != STACK_FRAME_META2);
 
-    // if this is an RC object, we are going to release the old object,
-    // and retain the newly referenced object.
+    // if this is an RC object, we are going to release the old object
     if (is_RCObject()) {
       val.as_rc_object->release();
-      val.as_int = rhs.val.as_int;
-      flag_bits = rhs.flag_bits;
-      tag = rhs.tag;
-
-      if (is_RCObject()) {
-        val.as_rc_object->retain();
-      }
     }
-    else if (rhs.tag == UNDEFINED || rhs.tag == JS_NULL) {
-      tag = rhs.tag;
+    // copy
+    val.as_int = rhs.val.as_int;
+    flag_bits = rhs.flag_bits;
+    tag = rhs.tag;
+    // if rhs is an RC object, we are going to retain the new object
+    if (is_RCObject()) {
+      val.as_rc_object->retain();
     }
-    // else, just directly copy the bits.
-    else {
-      val.as_int = rhs.val.as_int;
-      flag_bits = rhs.flag_bits;
-      tag = rhs.tag;
-    }
-}
-
-JSValue::~JSValue() {
-  switch (tag) {
-    case HEAP_VAL_REF:
-      val.as_heap_val->release();
-      break;
-    case STRING_REF:
-      val.as_primitive_string->release();
-      break;
-    case SYMBOL_REF:
-      val.as_symbol->release();
-      break;
-    default:
-      return;
-  }
 }
 
 JSValue JSValue::undefined = JSValue(JSValue::UNDEFINED);

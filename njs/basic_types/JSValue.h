@@ -69,8 +69,7 @@ struct JSValue {
 
   JSValue(): tag(JSValueTag::UNDEFINED) {}
   explicit JSValue(JSValueTag tag): tag(tag) {}
-
-  ~JSValue();
+  ~JSValue() = default;
 
   explicit JSValue(double number): tag(NUM_FLOAT) {
     val.as_float64 = number;
@@ -101,13 +100,13 @@ struct JSValue {
   }
 
   inline void set_undefined() {
-    tag = UNDEFINED;
     if (is_RCObject()) val.as_rc_object->delete_temp_object();
+    tag = UNDEFINED;
   }
 
   inline void dispose() {
-    tag = UNDEFINED;
     if (is_RCObject()) val.as_rc_object->release();
+    tag = UNDEFINED;
   }
 
   JSValue& deref() const;
