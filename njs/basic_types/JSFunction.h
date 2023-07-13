@@ -32,6 +32,8 @@ class JSFunction : public JSObject {
 
   void gc_scan_children(GCHeap& heap) override;
 
+  std::string description() override;
+
   std::u16string name;
 
   bool is_anonymous {false};

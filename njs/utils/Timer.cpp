@@ -13,7 +13,7 @@ long long Timer::end(bool print_res) {
   auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - start_time);
 
   if (print_res) {
-    std::cout << "\033[33m"; // green text
+    std::cout << "\033[33m"; // yellow text
     std::cout << "Timer: \"" << name << "\" in " << duration.count() << " microseconds." << std::endl;
     std::cout << "\033[0m";  // restore normal color
   }

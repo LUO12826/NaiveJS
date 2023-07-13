@@ -165,14 +165,14 @@ const char *js_value_tag_names[25] = {
   "NUM_INT",
   "NUM_FLOAT",
 
-  "JS_VALUE_REF",
+  "VALUE_HANDLE",
 
   "NEED_RC_BEGIN",
 
   "STRING",
   "SYMBOL",
 
-  "HEAP_VAL_REF",
+  "HEAP_VAL",
   "STRING_REF",
   "SYMBOL_REF",
 

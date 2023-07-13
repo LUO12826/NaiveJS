@@ -10,13 +10,6 @@
 
 namespace njs {
 
-std::string addressToHex(const void* address) {
-  std::ostringstream stream;
-  stream << "0x" << std::hex << std::setfill('0') << std::setw(sizeof(void*) * 2)
-         << reinterpret_cast<uintptr_t>(address);
-  return stream.str();
-}
-
 GCObject *JSValue::as_GCObject() const {
   assert(tag == OBJECT || tag == FUNCTION || tag == ARRAY || tag == STACK_FRAME_META1);
   return static_cast<GCObject *>(val.as_object);
@@ -34,35 +27,41 @@ bool JSValue::tag_is(JSValueTag val_tag) const {
   return tag == val_tag;
 }
 
-JSValue& JSValue::deref() const {
-  assert(tag == JS_VALUE_REF || tag == HEAP_VAL_REF);
-  if (tag == JS_VALUE_REF) return *val.as_js_value;
-  return val.as_heap_val->wrapped_val;
+JSValue& JSValue::deref() {
+  assert(tag == VALUE_HANDLE || tag == HEAP_VAL);
+  if (tag == VALUE_HANDLE) return *val.as_js_value;
+  else return val.as_heap_val->wrapped_val;
+}
+
+JSValue& JSValue::deref_if_needed() {
+  if (tag == VALUE_HANDLE) return *val.as_js_value;
+  else if (tag == HEAP_VAL) return val.as_heap_val->wrapped_val;
+  else return *this;
 }
 
 void JSValue::move_to_heap() {
-  auto *heap_val = new JSHeapValue();
+  auto *heap_val = new JSHeapValue(*this);
   heap_val->retain();
-  heap_val->wrapped_val = *this;
   this->val.as_heap_val = heap_val;
-  this->tag = HEAP_VAL_REF;
+  this->tag = HEAP_VAL;
 }
 
 std::string JSValue::description() const {
 
   std::ostringstream stream;
 
-  stream << "JSValue tag: " << js_value_tag_names[tag] << ", ";
-  if (tag == BOOLEAN) stream << "val: " << val.as_bool;
-  else if (tag == NUM_FLOAT) stream << "val: " << val.as_float64;
-  else if (tag == NUM_INT) stream << "val: " << val.as_int;
+  stream << "JSValue(tag: " << js_value_tag_names[tag];
+  if (tag == BOOLEAN) stream << ", val: " << val.as_bool;
+  else if (tag == NUM_FLOAT) stream << ", val: " << val.as_float64;
+  else if (tag == NUM_INT) stream << ", val: " << val.as_int;
   else if (tag == STACK_FRAME_META1) {
-    stream << "function named: " << to_utf8_string(val.as_function->name)
+    stream << ", function named: " << to_utf8_string(val.as_function->name)
            << " @" << std::hex << val.as_function;
   }
   else if (tag == STRING) {
-    stream << "val: " << to_utf8_string(val.as_primitive_string->str);
+    stream << ", val: " << to_utf8_string(val.as_primitive_string->str);
   }
+  stream << ")";
 
   return stream.str();
 }

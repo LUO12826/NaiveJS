@@ -2,6 +2,7 @@
 
 #include <string>
 #include <utility>
+#include <sstream>
 #include "njs/gc/GCHeap.h"
 
 namespace njs {
@@ -39,11 +40,22 @@ JSFunction::~JSFunction() {
 void JSFunction::gc_scan_children(GCHeap& heap) {
   JSObject::gc_scan_children(heap);
   for (auto& var : captured_var) {
-    assert(var.is_RCObject());
-    if (var.is_RCObject() && var.deref().needs_gc()) {
-      heap.gc_visit_object(var, var.as_GCObject());
+    assert(var.tag_is(JSValue::HEAP_VAL));
+    JSValue& the_value = var.deref();
+
+    if (the_value.needs_gc()) {
+      heap.gc_visit_object(the_value, the_value.as_GCObject());
     }
   }
+}
+
+std::string JSFunction::description() {
+  std::ostringstream stream;
+  stream << "JSFunction named: " << to_utf8_string(name)
+         << ", is native: " << is_native << ".";
+  stream << " props: " << JSObject::description();
+
+  return stream.str();
 }
 
 std::string JSFunctionMeta::description() const {

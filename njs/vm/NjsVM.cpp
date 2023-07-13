@@ -34,6 +34,11 @@ void NjsVM::run() {
 
   std::cout << "### end of execution VM state: " << std::endl;
   std::cout << rt_stack[sp - 1].description() << std::endl << std::endl;
+  std::cout << "------------------------------" << std::endl << "log:" << std::endl;
+
+  for (auto& str: log_buffer) {
+    std::cout << str;
+  }
 }
 
 void NjsVM::execute() {
@@ -97,6 +102,7 @@ void NjsVM::execute() {
         break;
       case InstType::prop_assign:
         exec_prop_assign();
+        heap.gc();
         break;
       case InstType::jmp:
         pc = inst.operand.two.opr1;
@@ -279,7 +285,7 @@ void NjsVM::exec_push(Instruction& inst) {
   }
   else {
     JSValue& val = rt_stack[calc_var_addr(var_scope, inst.operand.two.opr2)];
-    rt_stack[sp] = val;
+    rt_stack[sp] = val.tag_is(JSValue::HEAP_VAL) ? val.deref() : val;
   }
   sp += 1;
 }
@@ -295,8 +301,8 @@ void NjsVM::exec_pop(Instruction& inst) {
     closure_val.deref().assign(rt_stack[sp]);
   }
   else {
-    JSValue& val = rt_stack[var_addr].tag == JSValue::HEAP_VAL_REF ?
-                                             rt_stack[var_addr].deref() : rt_stack[var_addr];
+    JSValue& val = rt_stack[var_addr].tag == JSValue::HEAP_VAL ?
+                       rt_stack[var_addr].deref() : rt_stack[var_addr];
     val.assign(rt_stack[sp]);
   }
 
@@ -310,17 +316,19 @@ void NjsVM::exec_store(Instruction& inst) {
   if (var_scope == ScopeType::CLOSURE) {
     assert(function_env());
     JSValue& closure_val = function_env()->captured_var[var_addr];
-    closure_val.deref().assign(rt_stack[sp]);
+    closure_val.deref().assign(rt_stack[sp - 1]);
   }
   else {
-    rt_stack[var_addr].assign(rt_stack[sp]);
+    JSValue& val = rt_stack[var_addr].tag == JSValue::HEAP_VAL ?
+                       rt_stack[var_addr].deref() : rt_stack[var_addr];
+    val.assign(rt_stack[sp - 1]);
   }
 }
 
 void NjsVM::exec_prop_assign() {
   JSValue& target_val = rt_stack[sp - 2];
-  assert(target_val.tag == JSValue::JS_VALUE_REF);
-  target_val.deref().assign(rt_stack[sp - 1]);
+  assert(target_val.tag == JSValue::VALUE_HANDLE);
+  target_val.deref().assign(rt_stack[sp - 1].deref_if_needed());
 
   rt_stack[sp - 1].set_undefined();
   rt_stack[sp - 2].set_undefined();
@@ -419,8 +427,8 @@ void NjsVM::exec_fast_assign(Instruction& inst) {
   auto lhs_scope = int_to_scope_type(inst.operand.four.opr1);
   auto rhs_scope = int_to_scope_type(inst.operand.four.opr3);
 
-  JSValue& lhs_val = rt_stack[calc_var_addr(lhs_scope, inst.operand.four.opr2)];
-  JSValue& rhs_val = rt_stack[calc_var_addr(rhs_scope, inst.operand.four.opr4)];
+  JSValue& lhs_val = rt_stack[calc_var_addr(lhs_scope, inst.operand.four.opr2)].deref_if_needed();
+  JSValue& rhs_val = rt_stack[calc_var_addr(rhs_scope, inst.operand.four.opr4)].deref_if_needed();
 
   lhs_val.assign(rhs_val);
 }

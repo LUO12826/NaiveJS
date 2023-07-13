@@ -15,9 +15,9 @@ struct JSHeapValue;
 
 extern const char *js_value_tag_names[25];
 
-// has corresponding string representation, note to modify when adding
+/// Type for values in JavaScript
 struct JSValue {
-  
+  // has corresponding string representation, note to modify when adding
   enum JSValueTag {
     // The following types of values are stored inline in JSValue
     UNDEFINED,
@@ -29,7 +29,7 @@ struct JSValue {
 
     // A reference to another JSValue, no lifecycle considerations
     // Currently only used when need to assign a value to an object's property
-    JS_VALUE_REF,
+    VALUE_HANDLE,
 
     NEED_RC_BEGIN,
 
@@ -39,7 +39,7 @@ struct JSValue {
 
     // Used when we wrap those inline values into JSHeapValue and hold a pointer to it.
     // Currently, turning a variable into a closure variable will turn it into a JSHeapValue
-    HEAP_VAL_REF,
+    HEAP_VAL,
     // Used when a STRING is considered shared. That is, when being assigned, instead of making
     // the pointer(PrimitiveString *) point to a new String, we just change the data in pointee.
     STRING_REF,
@@ -83,7 +83,7 @@ struct JSValue {
     val.as_bool = boolean;
   }
 
-  explicit JSValue(JSValue *js_val): tag(JS_VALUE_REF) {
+  explicit JSValue(JSValue *js_val): tag(VALUE_HANDLE) {
     val.as_js_value = js_val;
   }
 
@@ -99,6 +99,8 @@ struct JSValue {
     val.as_function = func;
   }
 
+  /// Use this method to destroy a temporary value (in general, a temporary value
+  /// is a value on the operand stack)
   inline void set_undefined() {
     if (is_RCObject() && val.as_rc_object->get_ref_count() == 0) {
       val.as_rc_object->delete_temp_object();
@@ -106,12 +108,15 @@ struct JSValue {
     tag = UNDEFINED;
   }
 
+  /// Use this method to destroy a in-memory value (the memory here is NjsVM's memory, i.e.,
+  /// function call stack and GCHeap.
   inline void dispose() {
     if (is_RCObject()) val.as_rc_object->release();
     tag = UNDEFINED;
   }
 
-  JSValue& deref() const;
+  JSValue& deref();
+  JSValue& deref_if_needed();
 
   void move_to_heap();
 
@@ -164,6 +169,11 @@ struct JSValue {
 };
 
 struct JSHeapValue: public RCObject {
+  JSHeapValue(JSValue val): wrapped_val(val) {}
+  ~JSHeapValue() {
+    wrapped_val.dispose();
+  }
+
   JSValue wrapped_val;
 };
 

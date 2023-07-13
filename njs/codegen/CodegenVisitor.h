@@ -318,8 +318,9 @@ friend class NjsVM;
   void visit_left_hand_side_expr(LeftHandSideExpr& expr, bool create_ref) {
     visit(expr.base);
     auto& postfix_ord = expr.postfix_order;
+    size_t postfix_size = expr.postfix_order.size();
 
-    for (size_t i = 0; i < expr.postfix_order.size(); i++) {
+    for (size_t i = 0; i < postfix_size; i++) {
       auto postfix_type = postfix_ord[i].first;
       u32 idx = postfix_ord[i].second;
       // obj.func()
@@ -345,7 +346,7 @@ friend class NjsVM;
         // evaluate the index expression
         assert(expr.index_list[idx]->is_expression());
         visit(expr.index_list[idx]);
-        emit(InstType::index_access, int(create_ref));
+        emit(InstType::index_access, int(create_ref && i == postfix_size - 1));
       }
     }
   }

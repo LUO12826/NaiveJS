@@ -27,13 +27,11 @@ friend class GCHeap;
   explicit NjsVM(CodegenVisitor& visitor);
 
   void add_native_func_impl(u16string name, NativeFuncType func);
-
   void run();
 
+  std::vector<std::string> log_buffer;
+
  private:
-
-  u32 calc_var_addr(ScopeType scope, int raw_index);
-
   void execute();
   // push
   void exec_push(Instruction& inst);
@@ -64,6 +62,7 @@ friend class GCHeap;
   void exec_logi(InstType op_type);
 
   JSFunction *function_env();
+  u32 calc_var_addr(ScopeType scope, int raw_index);
 
   std::vector<Instruction> bytecode;
 

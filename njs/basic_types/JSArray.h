@@ -14,6 +14,10 @@ class JSArray: public JSObject {
  public:
   JSArray(): JSObject(ObjectClass::CLS_ARRAY) {}
 
+  void gc_scan_children(GCHeap& heap) override;
+
+  std::string description() override;
+
   JSValue access_element(u32 index, bool create_ref);
 
 

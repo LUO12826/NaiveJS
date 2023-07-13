@@ -10,6 +10,7 @@ namespace njs {
 void GCHeap::gc() {
   Timer timer("gc");
   if (Global::show_gc_statistics) {
+    std::cout << "\033[33m";
     std::cout << "****************** gc starts ******************" << std::endl;
   }
   byte *start = from_start;
@@ -19,6 +20,7 @@ void GCHeap::gc() {
 
   if (Global::show_gc_statistics) {
     std::cout << "******************  gc ends  ******************" << std::endl;
+    std::cout << "\033[0m";
     timer.end(true);
   }
   else {
@@ -59,6 +61,7 @@ void GCHeap::copy_alive() {
     for (JSValue *root : roots) {
       std::cout << root->as_GCObject()->description() << std::endl;
     }
+    std::cout << "---------------" << std::endl;
   }
 
   for (JSValue *root : roots) {
@@ -73,7 +76,10 @@ void GCHeap::dealloc_garbage(byte *start, byte *end) {
     GCObject *obj = reinterpret_cast<GCObject *>(ptr);
     ptr += obj->size;
     if (obj->forward_ptr == nullptr) {
-      if (Global::show_gc_statistics) std::cout << "GC deallocate an object" << std::endl;
+      if (Global::show_gc_statistics) {
+        std::cout << "GC deallocate an object: "
+                  << static_cast<JSObject *>(obj)->description() << std::endl;
+      }
       obj->~GCObject();
     }
   }
@@ -81,7 +87,9 @@ void GCHeap::dealloc_garbage(byte *start, byte *end) {
 
 GCObject *GCHeap::copy_object(GCObject *obj) {
   if (obj->forward_ptr == nullptr) {
-    if (Global::show_gc_statistics) std::cout << "copy an object" << std::endl;
+    if (Global::show_gc_statistics) {
+      std::cout << "Copy object: " << static_cast<JSObject *>(obj)->description() << std::endl;
+    }
     memcpy(alloc_point, (void *)obj, obj->size);
     obj->forward_ptr = (GCObject *)alloc_point;
     alloc_point += obj->size;

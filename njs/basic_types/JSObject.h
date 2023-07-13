@@ -101,8 +101,6 @@ class JSObject : public GCObject {
 
   bool add_prop(JSValue& key, JSValue& value);
 
-//  JSValue get_prop(u16string_view key, bool get_ref);
-
   template <typename KEY>
   JSValue get_prop(KEY&& key, bool get_ref) {
 

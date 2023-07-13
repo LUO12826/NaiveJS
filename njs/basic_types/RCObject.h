@@ -9,6 +9,7 @@ namespace njs {
 
 using u32 = uint32_t;
 
+/// Objects that manage its memory using reference counting.
 class RCObject {
  public:
   RCObject() = default;

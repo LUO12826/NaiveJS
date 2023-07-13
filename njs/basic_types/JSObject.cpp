@@ -11,10 +11,6 @@ JSObjectKey::JSObjectKey(JSSymbol *sym): key_type(KEY_SYMBOL) {
   sym->retain();
 }
 
-// JSObjectKey::JSObjectKey(double num): key_type(KEY_NUM) {
-//   key.number = num;
-// }
-
 JSObjectKey::JSObjectKey(PrimitiveString *str): key_type(KEY_STR) {
   key.str = str;
   str->retain();
@@ -86,18 +82,6 @@ bool JSObject::add_prop(JSValue& key, JSValue& value) {
   return true;
 }
 
-//JSValue JSObject::get_prop(u16string_view key, bool get_ref) {
-//
-//  if (!get_ref) {
-//    auto res = storage.find(JSObjectKey(key));
-//    if (res != storage.end()) return res->second;
-//    return JSValue::undefined;
-//  }
-//  else {
-//    return JSValue(&storage[JSObjectKey(key)]);
-//  }
-//}
-
 void JSObject::gc_scan_children(GCHeap& heap) {
   for (auto& [key, value]: storage) {
     if (value.needs_gc()) {
@@ -108,9 +92,7 @@ void JSObject::gc_scan_children(GCHeap& heap) {
 
 std::string JSObject::description() {
   std::ostringstream stream;
-  if (obj_class == ObjectClass::CLS_OBJECT) stream << "{ ";
-  if (obj_class == ObjectClass::CLS_FUNCTION) stream << "Function{ ";
-
+  stream << "{ ";
 
   u32 print_prop_num = std::min((u32)4, (u32)storage.size());
   u32 i = 0;
