@@ -20,6 +20,7 @@ class RCObject {
   void retain();
   void release();
   void delete_temp_object();
+  u32 get_ref_count();
 
  private:
   u32 ref_count {0};
@@ -33,6 +34,8 @@ struct PrimitiveString: public RCObject {
   explicit PrimitiveString(const std::u16string& str);
 
   bool operator == (const PrimitiveString& other) const;
+
+  int64_t convert_to_index() const;
 
   std::u16string str;
 };

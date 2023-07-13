@@ -1,6 +1,7 @@
 #ifndef NJS_JSARRAY_H
 #define NJS_JSARRAY_H
 
+#include <vector>
 #include "JSObject.h"
 #include "njs/include/SmallVector.h"
 
@@ -16,7 +17,7 @@ class JSArray: public JSObject {
   JSValue access_element(u32 index, bool create_ref);
 
 
-  SmallVector<JSValue, 4> dense_array;
+  std::vector<JSValue> dense_array;
 };
 
 }

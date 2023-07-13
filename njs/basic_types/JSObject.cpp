@@ -11,9 +11,9 @@ JSObjectKey::JSObjectKey(JSSymbol *sym): key_type(KEY_SYMBOL) {
   sym->retain();
 }
 
-JSObjectKey::JSObjectKey(double num): key_type(KEY_NUM) {
-  key.number = num;
-}
+// JSObjectKey::JSObjectKey(double num): key_type(KEY_NUM) {
+//   key.number = num;
+// }
 
 JSObjectKey::JSObjectKey(PrimitiveString *str): key_type(KEY_STR) {
   key.str = str;
@@ -51,7 +51,7 @@ bool JSObjectKey::operator == (const JSObjectKey& other) const {
   __builtin_unreachable();
 }
 
-std::string JSObjectKey::to_string() {
+std::string JSObjectKey::to_string() const {
   if (key_type == KEY_STR) return to_utf8_string(key.str->str);
   if (key_type == KEY_STR_VIEW) return to_utf8_string(key.str_view);
   if (key_type == KEY_NUM) return std::to_string(key.number);

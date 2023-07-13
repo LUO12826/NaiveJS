@@ -2,6 +2,7 @@
 #include <iostream>
 #include "RCObject.h"
 #include "njs/global_var.h"
+#include "njs/utils/helper.h"
 
 namespace njs {
 
@@ -23,10 +24,18 @@ void RCObject::delete_temp_object() {
   delete this;
 }
 
+u32 RCObject::get_ref_count() {
+  return ref_count;
+}
+
 PrimitiveString::PrimitiveString(const std::u16string& str): str(str) {}
 
 bool PrimitiveString::operator == (const PrimitiveString& other) const {
   return str == other.str;
+}
+
+int64_t PrimitiveString::convert_to_index() const {
+  return scan_index_literal(this->str);
 }
 
 JSSymbol::JSSymbol(std::u16string name): name(std::move(name)) {

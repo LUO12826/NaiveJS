@@ -7,7 +7,6 @@
 namespace njs {
 
 NjsVM::NjsVM(CodegenVisitor& visitor): heap(600, *this) {
-//  rt_stack = std::make_unique<JSValue[]>(max_stack_size);
   rt_stack = std::vector<JSValue>(max_stack_size);
 
   bytecode = std::move(visitor.bytecode);
@@ -39,9 +38,8 @@ void NjsVM::run() {
 
 void NjsVM::execute() {
   while (true) {
-    Instruction& inst = bytecode[pc];
-    std::cout << inst.description() << std::endl;
-    pc++;
+    Instruction& inst = bytecode[pc++];
+
     switch (inst.op_type) {
 
       case InstType::add:
@@ -153,15 +151,18 @@ void NjsVM::execute() {
         return;
       case InstType::nop:
         break;
-      case InstType::keypath_visit:
-        exec_keypath_visit(inst.operand.two.opr1, (bool)inst.operand.two.opr2);
+      case InstType::keypath_access:
+        exec_keypath_access(inst.operand.two.opr1, (bool)inst.operand.two.opr2);
+        break;
+      case InstType::index_access:
+        exec_index_access((bool)inst.operand.two.opr1);
         break;
     }
-    std::cout << "sp: " << sp << std::endl;
+    printf("%-50s sp: %-3u   pc: %-3u\n", inst.description().c_str(), sp, pc);
   }
 }
 
-u32 NjsVM::calc_var_address(ScopeType scope, int raw_index) {
+u32 NjsVM::calc_var_addr(ScopeType scope, int raw_index) {
   if (scope == ScopeType::GLOBAL) return 0 + frame_meta_size + raw_index;
   if (scope == ScopeType::FUNC) return frame_base_ptr + frame_meta_size + raw_index;
   if (scope == ScopeType::FUNC_PARAM) {
@@ -226,11 +227,15 @@ void NjsVM::exec_fast_add(Instruction& inst) {
 
   auto lhs_scope = int_to_scope_type(inst.operand.four.opr1);
   auto rhs_scope = int_to_scope_type(inst.operand.four.opr3);
+  auto lhs_index = inst.operand.four.opr2;
+  auto rhs_index = inst.operand.four.opr4;
 
-  JSValue& lhs_val = lhs_scope == ScopeType::CLOSURE ? function_env()->captured_var[inst.operand.four.opr2].deref():
-                                  rt_stack[calc_var_address(lhs_scope, inst.operand.four.opr2)];
-  JSValue& rhs_val = rhs_scope == ScopeType::CLOSURE ? function_env()->captured_var[inst.operand.four.opr4].deref():
-                                  rt_stack[calc_var_address(rhs_scope, inst.operand.four.opr4)];
+  JSValue& lhs_val = lhs_scope == ScopeType::CLOSURE ?
+                                  function_env()->captured_var[lhs_index].deref():
+                                  rt_stack[calc_var_addr(lhs_scope, lhs_index)];
+  JSValue& rhs_val = rhs_scope == ScopeType::CLOSURE ?
+                                  function_env()->captured_var[rhs_index].deref():
+                                  rt_stack[calc_var_addr(rhs_scope, rhs_index)];
 
   if (lhs_val.tag == JSValue::NUM_FLOAT && rhs_val.tag == JSValue::NUM_FLOAT) {
     rt_stack[sp] = JSValue(lhs_val.val.as_float64 + rhs_val.val.as_float64);
@@ -273,7 +278,7 @@ void NjsVM::exec_push(Instruction& inst) {
     rt_stack[sp] = val.deref();
   }
   else {
-    JSValue& val = rt_stack[calc_var_address(var_scope, inst.operand.two.opr2)];
+    JSValue& val = rt_stack[calc_var_addr(var_scope, inst.operand.two.opr2)];
     rt_stack[sp] = val;
   }
   sp += 1;
@@ -281,7 +286,7 @@ void NjsVM::exec_push(Instruction& inst) {
 
 void NjsVM::exec_pop(Instruction& inst) {
   auto var_scope = int_to_scope_type(inst.operand.two.opr1);
-  u32 var_addr = calc_var_address(var_scope, inst.operand.two.opr2);
+  u32 var_addr = calc_var_addr(var_scope, inst.operand.two.opr2);
 
   sp -= 1;
   if (var_scope == ScopeType::CLOSURE) {
@@ -300,7 +305,7 @@ void NjsVM::exec_pop(Instruction& inst) {
 
 void NjsVM::exec_store(Instruction& inst) {
   auto var_scope = int_to_scope_type(inst.operand.two.opr1);
-  u32 var_addr = calc_var_address(var_scope, inst.operand.two.opr2);
+  u32 var_addr = calc_var_addr(var_scope, inst.operand.two.opr2);
 
   if (var_scope == ScopeType::CLOSURE) {
     assert(function_env());
@@ -348,7 +353,7 @@ void NjsVM::exec_capture(Instruction& inst) {
     func.captured_var.push_back(closure_val);
   }
   else {
-    JSValue& stack_val = rt_stack[calc_var_address(var_scope, inst.operand.two.opr2)];
+    JSValue& stack_val = rt_stack[calc_var_addr(var_scope, inst.operand.two.opr2)];
     stack_val.move_to_heap();
     stack_val.val.as_heap_val->retain();
     func.captured_var.push_back(stack_val);
@@ -414,8 +419,8 @@ void NjsVM::exec_fast_assign(Instruction& inst) {
   auto lhs_scope = int_to_scope_type(inst.operand.four.opr1);
   auto rhs_scope = int_to_scope_type(inst.operand.four.opr3);
 
-  JSValue& lhs_val = rt_stack[calc_var_address(lhs_scope, inst.operand.four.opr2)];
-  JSValue& rhs_val = rt_stack[calc_var_address(rhs_scope, inst.operand.four.opr4)];
+  JSValue& lhs_val = rt_stack[calc_var_addr(lhs_scope, inst.operand.four.opr2)];
+  JSValue& rhs_val = rt_stack[calc_var_addr(rhs_scope, inst.operand.four.opr4)];
 
   lhs_val.assign(rhs_val);
 }
@@ -441,8 +446,7 @@ void NjsVM::exec_add_elements(int elements_cnt) {
 
   array->dense_array.resize(elements_cnt);
 
-  u32 ele_idx = 0;
-  for (u32 i = sp - elements_cnt; i < sp; i++) {
+  for (u32 i = sp - elements_cnt, ele_idx = 0; i < sp; i++, ele_idx++) {
     array->dense_array[ele_idx].assign(rt_stack[i]);
     rt_stack[i].set_undefined();
   }
@@ -464,25 +468,70 @@ void NjsVM::exec_push_str(int str_idx, bool atom) {
   sp += 1;
 }
 
-void NjsVM::exec_keypath_visit(int key_cnt, bool get_ref) {
+void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
 
   JSValue& val_obj = rt_stack[sp - key_cnt - 1];
 
   // don't visit the last component of the keypath here
   for (u32 i = sp - key_cnt; i < sp - 1; i++) {
     assert(val_obj.is_object());
-//    auto& key = str_list[rt_stack[i].val.as_int];
     // val_obj is a reference, so we are directly modify the cell in the stack frame.
     val_obj = val_obj.val.as_object->get_prop(rt_stack[i].val.as_int, false);
     rt_stack[i].set_undefined();
   }
   // visit the last component separately
-//  auto& key = str_list[rt_stack[sp - 1].val.as_int];
+  val_obj = val_obj.val.as_object->get_prop(rt_stack[sp - 1].val.as_int, get_ref);
   rt_stack[sp - 1].set_undefined();
 
-  val_obj = val_obj.val.as_object->get_prop(rt_stack[sp - 1].val.as_int, get_ref);
-
   sp = sp - key_cnt;
+}
+
+void NjsVM::exec_index_access(bool get_ref) {
+  JSValue& index = rt_stack[sp - 1];
+  JSValue& obj = rt_stack[sp - 2];
+
+  assert(index.tag == JSValue::STRING
+        || index.tag == JSValue::JS_ATOM
+        || index.tag == JSValue::NUM_FLOAT);
+  assert(obj.is_object());
+
+  if (obj.tag == JSValue::ARRAY) {
+
+    if (index.tag == JSValue::NUM_FLOAT) {
+      obj = obj.val.as_array->access_element(u32(index.val.as_float64), get_ref);
+    }
+    else if (index.tag == JSValue::JS_ATOM) {
+      assert(false);
+    }
+    else if (index.tag == JSValue::STRING) {
+      auto *prim_str = index.val.as_primitive_string;
+      int64_t idx_num = prim_str->convert_to_index();
+      if (idx_num != -1) {
+        obj = obj.val.as_array->access_element(u32(idx_num), get_ref);
+      }
+      else {
+        obj = obj.val.as_object->get_prop(prim_str, get_ref);
+      }
+    }
+
+  }
+  else {
+    if (index.tag == JSValue::NUM_FLOAT) {
+      u16string num_str = to_utf16_string(std::to_string(index.val.as_float64));
+      auto *prim_str = new PrimitiveString(num_str);
+      obj = obj.val.as_object->get_prop(prim_str, get_ref);
+    }
+    else if (index.tag == JSValue::JS_ATOM) {
+      assert(false);
+    }
+    else if (index.tag == JSValue::STRING) {
+      auto *prim_str = index.val.as_primitive_string;
+      obj = obj.val.as_object->get_prop(prim_str, get_ref);
+    }
+  }
+
+  index.set_undefined();
+  sp -= 1;
 }
 
 JSFunction *NjsVM::function_env() {

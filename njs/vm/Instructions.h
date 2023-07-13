@@ -57,7 +57,8 @@ enum class InstType {
   make_array,
   add_props,
   add_elements,
-  keypath_visit,
+  keypath_access,
+  index_access,
 
   halt,
   nop,

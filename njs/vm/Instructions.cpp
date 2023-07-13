@@ -31,12 +31,17 @@ Instruction::Instruction(InstType op): op_type(op) {}
 
 std::string Instruction::description() {
 
-  char buffer[100];
+  char buffer[80];
 
   switch (op_type) {
-    case InstType::add:
-      sprintf(buffer, "add");
-      break;
+    case InstType::add: sprintf(buffer, "add"); break;
+    case InstType::sub: sprintf(buffer, "sub"); break;
+    case InstType::mul: sprintf(buffer, "mul"); break;
+    case InstType::div: sprintf(buffer, "div"); break;
+    case InstType::neg: sprintf(buffer, "neg"); break;
+    case InstType::logi_and: sprintf(buffer, "logi_and"); break;
+    case InstType::logi_or: sprintf(buffer, "logi_or"); break;
+    case InstType::logi_not: sprintf(buffer, "logi_not"); break;
     case InstType::fast_add:
       sprintf(buffer, "fast_add  %s %hu %s %hu",
                       scope_type_names[operand.four.opr1], operand.four.opr2,
@@ -101,8 +106,11 @@ std::string Instruction::description() {
     case InstType::add_elements:
       sprintf(buffer, "add_elements  %d", operand.two.opr1);
       break;
-    case InstType::keypath_visit:
-      sprintf(buffer, "keypath_visit  %d", operand.two.opr1);
+    case InstType::keypath_access:
+      sprintf(buffer, "keypath_access  %d", operand.two.opr1);
+      break;
+    case InstType::index_access:
+      sprintf(buffer, "index_access  %d", operand.two.opr1);
       break;
     case InstType::call:
       sprintf(buffer, "call  %d", operand.two.opr1);

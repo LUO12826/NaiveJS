@@ -101,7 +101,7 @@ friend class NjsVM;
   }
 
   void visit(ASTNode *node) {
-    switch (node->get_type()) {
+    switch (node->type) {
       case ASTNode::AST_PROGRAM:
       case ASTNode::AST_FUNC_BODY:
         visit_program_or_function_body(*static_cast<ProgramOrFunctionBody *>(node));
@@ -165,9 +165,8 @@ friend class NjsVM;
     // skip function bytecode
     bytecode[jmp_inst_idx].operand.two.opr1 = bytecode_pos();
 
-    // Fill the function original_symbol initialization code to the very beginning
+    // Fill the function symbol initialization code to the very beginning
     // (because the function variable will be hoisted)
-
     for (auto& inst : current_context().temp_code_storage) {
       bytecode.push_back(inst);
     }
@@ -175,7 +174,8 @@ friend class NjsVM;
 
     for (ASTNode *node : program.stmts) {
       visit(node);
-      if (node->type > ASTNode::BEGIN_EXPR && node->type < ASTNode::END_EXPR) {
+      if (node->type > ASTNode::BEGIN_EXPR && node->type < ASTNode::END_EXPR
+          && node->type != ASTNode::AST_EXPR_ASSIGN) {
         emit(InstType::pop_drop);
       }
     }
@@ -284,8 +284,6 @@ friend class NjsVM;
       visit(expr.rhs);
       emit(InstType::prop_assign);
     }
-
-    emit(InstType::push_undefined);
   }
 
   void visit_object_literal(ObjectLiteral& obj_lit) {
@@ -313,7 +311,7 @@ friend class NjsVM;
     }
 
     if (!array_lit.elements.empty()) {
-      emit(InstType::add_props, (int)array_lit.elements.size());
+      emit(InstType::add_elements, (int)array_lit.elements.size());
     }
   }
 
@@ -324,13 +322,13 @@ friend class NjsVM;
     for (size_t i = 0; i < expr.postfix_order.size(); i++) {
       auto postfix_type = postfix_ord[i].first;
       u32 idx = postfix_ord[i].second;
-
+      // obj.func()
       if (postfix_type == LeftHandSideExpr::CALL) {
         visit_func_arguments(*(expr.args_list[idx]));
         emit(InstType::call, expr.args_list[idx]->args.size());
       }
+      // obj.prop
       else if (postfix_type == LeftHandSideExpr::PROP) {
-
         size_t prop_start = i;
         for (; postfix_ord[i].first == LeftHandSideExpr::PROP; i++) {
           idx = postfix_ord[i].second;
@@ -338,12 +336,16 @@ friend class NjsVM;
           emit(InstType::push_atom, keypath_id);
         }
 
-        emit(InstType::keypath_visit, int(i - prop_start), int(create_ref));
+        emit(InstType::keypath_access, int(i - prop_start), int(create_ref));
 
         i -= 1;
       }
+      // obj[prop]
       else if (postfix_type == LeftHandSideExpr::INDEX) {
-
+        // evaluate the index expression
+        assert(expr.index_list[idx]->is_expression());
+        visit(expr.index_list[idx]);
+        emit(InstType::index_access, int(create_ref));
       }
     }
   }
@@ -378,7 +380,7 @@ friend class NjsVM;
 
   void visit_variable_declaration(VarDecl& var_decl) {
     current_scope().mark_symbol_as_valid(var_decl.id.text);
-    visit(var_decl.var_init);
+    if (var_decl.var_init) visit(var_decl.var_init);
   }
 
   void visit_return_statement(ReturnStatement& return_stmt) {

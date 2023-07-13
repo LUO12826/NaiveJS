@@ -32,7 +32,7 @@ friend class GCHeap;
 
  private:
 
-  u32 calc_var_address(ScopeType scope, int raw_index);
+  u32 calc_var_addr(ScopeType scope, int raw_index);
 
   void execute();
   // push
@@ -49,7 +49,8 @@ friend class GCHeap;
   // object operation
   void exec_make_object();
   void exec_add_props(int props_cnt);
-  void exec_keypath_visit(int key_cnt, bool get_ref);
+  void exec_keypath_access(int key_cnt, bool get_ref);
+  void exec_index_access(bool get_ref);
   void exec_prop_assign();
   // array operation
   void exec_make_array();
@@ -74,7 +75,7 @@ friend class GCHeap;
   unordered_map<u16string, NativeFuncType> native_func_binding;
 
   GlobalObject global_object;
-
+  // Now still using vector because it's good for debug
   std::vector<JSValue> rt_stack;
   u32 max_stack_size{10240};
 

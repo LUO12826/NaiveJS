@@ -9,7 +9,6 @@ ASTNode::ASTNode(Type type, std::u16string_view source, u32 start, u32 end, u32 
 
 ASTNode::~ASTNode() = default;
 
-ASTNode::Type ASTNode::get_type() { return type; }
 const std::u16string_view &ASTNode::get_source() { return text; }
 u32 ASTNode::start_pos() { return start; }
 u32 ASTNode::end_pos() { return end; }
@@ -58,5 +57,10 @@ std::string ASTNode::description() {
 }
 
 bool ASTNode::is_illegal() { return type == AST_ILLEGAL; }
+
+bool ASTNode::is_expression() {
+  return type > BEGIN_EXPR && type < END_EXPR;
+}
+
 
 } // end namespace njs

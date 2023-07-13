@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 
 #include "njs/include/robin_hood.h"
 #include "njs/utils/helper.h"
@@ -40,7 +41,6 @@ struct JSObjectKey {
   };
 
   explicit JSObjectKey(JSSymbol *sym);
-  explicit JSObjectKey(double num);
   explicit JSObjectKey(PrimitiveString *str);
   explicit JSObjectKey(u16string_view str_view);
   explicit JSObjectKey(int64_t atom);
@@ -48,7 +48,7 @@ struct JSObjectKey {
   ~JSObjectKey();
 
   bool operator == (const JSObjectKey& other) const;
-  std::string to_string();
+  std::string to_string() const;
 
   KeyData key;
   KeyType key_type;
@@ -104,10 +104,10 @@ class JSObject : public GCObject {
 //  JSValue get_prop(u16string_view key, bool get_ref);
 
   template <typename KEY>
-  JSValue get_prop(KEY key, bool get_ref) {
+  JSValue get_prop(KEY&& key, bool get_ref) {
 
     if (!get_ref) {
-      auto res = storage.find(JSObjectKey(key));
+      auto res = storage.find(JSObjectKey(std::forward<KEY>(key)));
       if (res != storage.end()) return res->second;
       return JSValue::undefined;
     }
@@ -117,7 +117,7 @@ class JSObject : public GCObject {
   }
 
   ObjectClass obj_class;
-  unordered_map<JSObjectKey, JSValue> storage;
+  std::unordered_map<JSObjectKey, JSValue> storage;
 };
 
 } // namespace njs

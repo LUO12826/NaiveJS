@@ -3,6 +3,7 @@
 #include <codecvt>
 #include <sstream>
 #include <cstdarg>
+#include "njs/parser/character.h"
 
 #ifdef DBGPRINT
 #define DEBUG_PRINT(...) printf(__VA_ARGS__)
@@ -13,12 +14,17 @@
 namespace njs {
 
 void debug_printf(const char* format, ...) {
-    va_list args;
-    va_start(args, format);
+  va_list args;
+  va_start(args, format);
 
-    DEBUG_PRINT(format, args);
+  DEBUG_PRINT(format, args);
 
-    va_end(args);
+  va_end(args);
+}
+
+std::u16string to_utf16_string(const std::string& str) {
+  std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> converter;
+  return converter.from_bytes(str);
 }
 
 std::string to_utf8_string(const std::u16string& str) {
@@ -54,6 +60,28 @@ std::u16string str_cat(const std::vector<std::u16string>& vals) {
     offset += val.size();
   }
   return res;
+}
+
+int64_t scan_index_literal(const u16string& str) {
+  u32 idx = 0;
+  const char16_t *raw_str = str.data();
+
+  char16_t ch = raw_str[idx];
+  if (ch == u'0') return str.size() == 1 ? 0 : -1;
+
+  if (!character::is_decimal_digit(ch)) {
+    return -1;
+  }
+
+  int64_t int_val = 0;
+  while (idx < str.size()) {
+    ch = raw_str[idx];
+    if (!character::is_decimal_digit(ch)) break;
+
+    int_val = int_val * 10 + character::u16_char_to_digit(ch);
+    idx += 1;
+  }
+  return idx == str.size() ? int_val : -1;
 }
 
 bool ApproximatelyEqual(double a, double b) {

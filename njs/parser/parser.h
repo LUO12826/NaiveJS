@@ -185,7 +185,7 @@ error:
     while (token.type != TokenType::RIGHT_BRACK) {
       if (token.type != TokenType::COMMA) {
         ASTNode *element = parse_assignment_expression(false);
-        if (element->get_type() == ASTNode::AST_ILLEGAL) {
+        if (element->type == ASTNode::AST_ILLEGAL) {
           delete array;
           return element;
         }
@@ -236,7 +236,7 @@ error:
           
           lexer.next();
           ASTNode* value = parse_assignment_expression(false);
-          if (value->get_type() == ASTNode::AST_ILLEGAL) {
+          if (value->type == ASTNode::AST_ILLEGAL) {
             delete obj;
             return value;
           }
@@ -297,7 +297,7 @@ error:
     if (lhs->is_illegal()) return lhs;
 
     // Not LeftHandSideExpression
-    if (lhs->get_type() != ASTNode::AST_EXPR_LHS) {
+    if (lhs->type != ASTNode::AST_EXPR_LHS) {
       return lhs;
     }
     
@@ -374,9 +374,8 @@ error:
       const Token& postfix_op = lexer.peek();
       if (!lexer.line_term_ahead() && postfix_op.postfix_priority() > priority) {
         lexer.next();
-        auto lhs_type = lhs->get_type();
 
-        if (lhs_type != ASTNode::AST_EXPR_BINARY && lhs_type != ASTNode::AST_EXPR_UNARY) {
+        if (lhs->type != ASTNode::AST_EXPR_BINARY && lhs->type != ASTNode::AST_EXPR_UNARY) {
           lhs = new UnaryExpr(lhs, postfix_op, false);
           lhs->set_source(SOURCE_PARSED_EXPR);
         }
@@ -441,7 +440,7 @@ error:
             delete lhs;
             return ast;
           }
-          assert(ast->get_type() == ASTNode::AST_EXPR_ARGS);
+          assert(ast->type == ASTNode::AST_EXPR_ARGS);
           Arguments* args = static_cast<Arguments*>(ast);
           lhs->add_arguments(args);
 
@@ -912,7 +911,7 @@ error:
         return parse_for_statement({init_expr}, start, line_start);  // for ( ExpressionNoIn;
       }
       // for ( LeftHandSideExpression in
-      else if (token_match(u"in") && init_expr->get_type() == ASTNode::AST_EXPR_LHS) {
+      else if (token_match(u"in") && init_expr->type == ASTNode::AST_EXPR_LHS) {
         return parse_for_in_statement(init_expr, start, line_start);  
       }
       else {

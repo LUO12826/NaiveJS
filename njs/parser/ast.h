@@ -101,7 +101,6 @@ class ASTNode {
   ASTNode(Type type, std::u16string_view source, u32 start, u32 end, u32 line_start);
   virtual ~ASTNode();
 
-  Type get_type();
   const std::u16string_view &get_source();
   u32 start_pos();
   u32 end_pos();
@@ -122,6 +121,7 @@ class ASTNode {
   virtual std::string description();
 
   bool is_illegal();
+  bool is_expression();
 
   Type type;
  private:
@@ -420,7 +420,7 @@ class Function : public ASTNode {
   Function(const Token& name, vector<std::u16string> params, ASTNode *body,
            std::u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_FUNC, source, start, end, line_start), name(name), params(std::move(params)) {
-    assert(body->get_type() == ASTNode::AST_FUNC_BODY);
+    assert(body->type == ASTNode::AST_FUNC_BODY);
     this->body = body;
     add_child(body);
   }
@@ -469,7 +469,7 @@ class ProgramOrFunctionBody : public ASTNode {
   }
 
   void add_function_decl(ASTNode *func) {
-    assert(func->get_type() == AST_FUNC);
+    assert(func->type == AST_FUNC);
     func_decls.emplace_back(static_cast<Function *>(func));
     add_child(func);
   }
@@ -552,7 +552,7 @@ class VarStatement : public ASTNode {
   }
 
   void add_decl(ASTNode *decl) {
-    assert(decl->get_type() == AST_STMT_VAR_DECL);
+    assert(decl->type == AST_STMT_VAR_DECL);
     declarations.emplace_back(static_cast<VarDecl *>(decl));
     add_child(decl);
   }

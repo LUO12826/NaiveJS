@@ -100,7 +100,9 @@ struct JSValue {
   }
 
   inline void set_undefined() {
-    if (is_RCObject()) val.as_rc_object->delete_temp_object();
+    if (is_RCObject() && val.as_rc_object->get_ref_count() == 0) {
+      val.as_rc_object->delete_temp_object();
+    }
     tag = UNDEFINED;
   }
 
@@ -117,7 +119,9 @@ struct JSValue {
   inline bool is_float() const { return tag == NUM_FLOAT; }
   inline bool is_bool() const { return tag == BOOLEAN; }
   inline bool is_primitive_string() const { return tag == STRING; }
-  inline bool is_object() const { return tag == OBJECT || tag == FUNCTION; }
+  inline bool is_object() const {
+    return tag == OBJECT || tag == FUNCTION || tag == ARRAY;
+  }
 
   inline bool is_RCObject() const {
     return tag > NEED_RC_BEGIN && tag < NEED_RC_END;
