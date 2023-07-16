@@ -116,7 +116,7 @@ class JSObject : public GCObject {
   }
 
   ObjectClass obj_class;
-  std::unordered_map<JSObjectKey, JSValue> storage;
+  unordered_map<JSObjectKey, JSValue> storage;
 };
 
 } // namespace njs

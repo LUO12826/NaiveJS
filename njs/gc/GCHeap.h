@@ -7,10 +7,13 @@
 #include <cstring>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include "GCObject.h"
 #include "njs/basic_types/JSValue.h"
 #include "njs/basic_types/JSObject.h"
+#include "njs/basic_types/JSArray.h"
+#include "njs/basic_types/JSFunction.h"
 
 namespace njs {
 
@@ -25,7 +28,12 @@ class GCHeap {
   GCHeap(size_t size_mb, NjsVM& vm)
       : heap_size(size_mb * 1024 * 1024), storage((byte *)malloc(size_mb * 1024 * 1024)),
         from_start(storage), to_start(storage + heap_size / 2), alloc_point(storage),
-        vm(vm) {}
+        vm(vm) {
+    std::cout << "GCHeap init, from_start == " << (size_t)from_start << std::endl;
+    std::cout << "sizeof JSFunction: " << sizeof(JSFunction) << std::endl;
+    std::cout << "sizeof JSObject:  " << sizeof(JSObject) << std::endl;
+    std::cout << "sizeof JSArray:  " << sizeof(JSArray) << std::endl;
+  }
 
   /// @brief Create a new object on heap.
   template <typename T, typename... Args>

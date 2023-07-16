@@ -502,12 +502,14 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
   for (u32 i = sp - key_cnt; i < sp - 1; i++) {
     assert(val_obj.is_object());
     // val_obj is a reference, so we are directly modify the cell in the stack frame.
+    std::cout << "...visit key " << to_utf8_string(str_list[rt_stack[i].val.as_int64]) << std::endl;
     val_obj = val_obj.val.as_object->get_prop(rt_stack[i].val.as_int64, false);
     rt_stack[i].set_undefined();
   }
   assert(val_obj.is_object());
   // visit the last component separately
   invoker_this = val_obj.val.as_object;
+  std::cout << "...visit key " << to_utf8_string(str_list[rt_stack[sp - 1].val.as_int64]) << std::endl;
   val_obj = val_obj.val.as_object->get_prop(rt_stack[sp - 1].val.as_int64, get_ref);
   rt_stack[sp - 1].set_undefined();
 
