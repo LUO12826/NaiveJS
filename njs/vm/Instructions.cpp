@@ -64,6 +64,9 @@ std::string Instruction::description() {
     case InstType::push_atom:
       sprintf(buffer, "push_atom  %d", operand.two.opr1);
       break;
+    case InstType::push_this:
+      sprintf(buffer, "push_this");
+      break;
     case InstType::push_null:
       sprintf(buffer, "push_null");
       break;
@@ -107,10 +110,10 @@ std::string Instruction::description() {
       sprintf(buffer, "add_elements  %d", operand.two.opr1);
       break;
     case InstType::keypath_access:
-      sprintf(buffer, "keypath_access  %d", operand.two.opr1);
+      sprintf(buffer, "keypath_access  %d %s", operand.two.opr1, operand.two.opr2 ? "REF" : "");
       break;
     case InstType::index_access:
-      sprintf(buffer, "index_access  %d", operand.two.opr1);
+      sprintf(buffer, "index_access  %d %s", operand.two.opr1, operand.two.opr2 ? "REF" : "");
       break;
     case InstType::call:
       sprintf(buffer, "call  %d", operand.two.opr1);

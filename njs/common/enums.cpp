@@ -2,11 +2,11 @@
 
 namespace njs {
 
-ScopeType int_to_scope_type(int val) {
+ScopeType scope_type_from_int(int val) {
   return static_cast<ScopeType>(val);
 }
 
-int scope_type_to_int(ScopeType type) {
+int scope_type_int(ScopeType type) {
   return static_cast<int>(type);
 }
 

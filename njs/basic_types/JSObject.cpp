@@ -60,7 +60,7 @@ std::string JSObjectKey::to_string() const {
 bool JSObject::add_prop(JSValue& key, JSValue& value) {
   JSValue *val_placeholder = nullptr;
   if (key.tag == JSValue::JS_ATOM) {
-    val_placeholder = &storage[JSObjectKey(key.val.as_int)];
+    val_placeholder = &storage[JSObjectKey(key.val.as_int64)];
   }
   else if (key.tag == JSValue::STRING) {
     val_placeholder = &storage[JSObjectKey(key.val.as_primitive_string)];
@@ -72,7 +72,7 @@ bool JSObject::add_prop(JSValue& key, JSValue& value) {
     val_placeholder = &storage[JSObjectKey(key.val.as_float64)];
   }
   else if (key.tag == JSValue::NUM_INT) {
-    val_placeholder = &storage[JSObjectKey(key.val.as_int)];
+    val_placeholder = &storage[JSObjectKey(key.val.as_int64)];
   }
   else {
     return false;
@@ -110,7 +110,7 @@ std::string JSObject::description() {
 
 JSObject::~JSObject() {
   for (auto& [key, value] : storage) {
-    if (value.is_RCObject()) value.val.as_rc_object->release();
+    if (value.is_RCObject()) value.val.as_RCObject->release();
   }
 }
 

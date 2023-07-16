@@ -2,6 +2,7 @@
 #define NJS_STRING_POOL_H
 
 #include <string>
+#include <unordered_map>
 #include "njs/include/robin_hood.h"
 #include "njs/include/SmallVector.h"
 
@@ -16,17 +17,14 @@ using std::optional;
 
 class StringPool {
  public:
-  u32 add_string(u16string str);
-
   u32 add_string(u16string_view str_view);
 
-  optional<u32> get_string_id(const u16string& str);
-
-  SmallVector<u16string, 10> to_list();
+  std::vector<u16string>& get_list();
 
  private:
   u32 next_id {0};
   unordered_map<u16string, u32> pool;
+  std::vector<u16string> str_list;
 };
 
 } // namespace njs

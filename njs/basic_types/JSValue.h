@@ -76,7 +76,7 @@ struct JSValue {
   }
 
   explicit JSValue(int64_t number): tag(NUM_INT) {
-    val.as_int = number;
+    val.as_int64 = number;
   }
 
   explicit JSValue(bool boolean): tag(BOOLEAN) {
@@ -84,7 +84,7 @@ struct JSValue {
   }
 
   explicit JSValue(JSValue *js_val): tag(VALUE_HANDLE) {
-    val.as_js_value = js_val;
+    val.as_JSValue = js_val;
   }
 
   explicit JSValue(JSObject *obj): tag(OBJECT) {
@@ -102,8 +102,8 @@ struct JSValue {
   /// Use this method to destroy a temporary value (in general, a temporary value
   /// is a value on the operand stack)
   inline void set_undefined() {
-    if (is_RCObject() && val.as_rc_object->get_ref_count() == 0) {
-      val.as_rc_object->delete_temp_object();
+    if (is_RCObject() && val.as_RCObject->get_ref_count() == 0) {
+      val.as_RCObject->delete_temp_object();
     }
     tag = UNDEFINED;
   }
@@ -111,7 +111,7 @@ struct JSValue {
   /// Use this method to destroy a in-memory value (the memory here is NjsVM's memory, i.e.,
   /// function call stack and GCHeap.
   inline void dispose() {
-    if (is_RCObject()) val.as_rc_object->release();
+    if (is_RCObject()) val.as_RCObject->release();
     tag = UNDEFINED;
   }
 
@@ -149,12 +149,12 @@ struct JSValue {
 
   union {
     double as_float64;
-    int64_t as_int;
+    int64_t as_int64;
     bool as_bool;
 
-    JSValue *as_js_value;
+    JSValue *as_JSValue;
 
-    RCObject *as_rc_object;
+    RCObject *as_RCObject;
     JSSymbol *as_symbol;
     PrimitiveString *as_primitive_string;
     JSHeapValue *as_heap_val;

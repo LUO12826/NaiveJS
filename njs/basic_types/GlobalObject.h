@@ -17,11 +17,11 @@ using std::u16string;
 // variables are erased). In such a case, to support accessing the properties of the global object
 // by name, use this class for property name-to-index mapping.
 
-class GlobalObject {
+class GlobalObject: public JSObject {
  public:
-  u32 static_props_cnt;
+  GlobalObject(): JSObject(ObjectClass::CLS_GLOBAL_OBJ) {}
+
   unordered_map<u16string, u32> props_index_map;
-  JSObject dynamic_props;
 };
 
 } // namespace njs

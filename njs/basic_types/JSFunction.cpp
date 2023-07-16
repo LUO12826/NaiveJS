@@ -33,7 +33,7 @@ JSFunction::JSFunction(u16string name, const JSFunctionMeta& meta)
 JSFunction::~JSFunction() {
   JSObject::~JSObject();
   for (auto var : captured_var) {
-    if (var.is_RCObject()) var.val.as_rc_object->release();
+    if (var.is_RCObject()) var.val.as_RCObject->release();
   }
 }
 
@@ -59,8 +59,14 @@ std::string JSFunction::description() {
 }
 
 std::string JSFunctionMeta::description() const {
-  return "name_index: " + std::to_string(name_index) +
-         ", code_address: " + std::to_string(code_address);
+  std::string desc;
+  if (is_anonymous) desc += "(anonymous)";
+  else {
+    desc += "name_index: " + std::to_string(name_index);
+  }
+  desc += ", code_address: " + std::to_string(code_address);
+
+  return desc;
 }
 
 }

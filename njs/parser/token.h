@@ -109,6 +109,7 @@ class Token {
 
     // Null Literal
     TK_NULL,  // null
+    TK_UNDEFINED,
 
     // Bool Literal
     TK_BOOL,   // true & false
@@ -185,7 +186,7 @@ class Token {
   inline bool is_identifier_name() const {
     return type == IDENTIFIER || type == KEYWORD ||
            type == FUTURE_KW || type == STRICT_FUTURE_KW ||
-           type == TK_NULL || type == TK_BOOL;
+           type == TK_NULL || type == TK_BOOL || type == TK_UNDEFINED;
   }
 
   inline bool is_property_name() const {

@@ -2,7 +2,7 @@
 
 namespace njs {
 
-const char *ast_type_names[44] = {
+const char *ast_type_names[45] = {
   "AST_TOKEN",
 
   "BEGIN_EXPR",
@@ -12,6 +12,7 @@ const char *ast_type_names[44] = {
   "AST_EXPR_STRICT_FUTURE",
 
   "AST_EXPR_NULL",
+  "AST_EXPR_UNDEFINED",
   "AST_EXPR_BOOL",
   "AST_EXPR_NUMBER",
   "AST_EXPR_STRING",
@@ -66,7 +67,7 @@ const char *ast_type_names[44] = {
   "AST_ILLEGAL"
 };
 
-const char *token_type_names[74] = {
+const char *token_type_names[75] = {
   "IDENTIFIER",
   "KEYWORD",
 
@@ -138,6 +139,7 @@ const char *token_type_names[74] = {
   "XOR_ASSIGN",
   "R_ARROW",
   "TK_NULL",
+  "TK_UNDEFINED",
   "TK_BOOL",
   "NUMBER",
   "STRING",
@@ -194,12 +196,13 @@ const char *js_value_tag_names[25] = {
   "NEED_GC_END"
 };
 
-const char *object_class_names[6] = {
+const char *object_class_names[7] = {
   "CLS_OBJECT",
   "CLS_ARRAY",
   "CLS_ERROR",
   "CLS_DATE",
   "CLS_FUNCTION",
+  "CLS_GLOBAL_OBJ",
   "CLS_CUSTOM"
 };
 

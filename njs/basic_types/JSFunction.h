@@ -16,11 +16,12 @@ using llvm::SmallVector;
 
 class GCHeap;
 class NjsVM;
+class JSFunction;
 class JSFunctionMeta;
 
 // Native function type. A Native function should act like a JavaScript function,
 // accepting an array of arguments and returning a value.
-using NativeFuncType = JSValue(*)(NjsVM&, ArrayRef<JSValue>);
+using NativeFuncType = JSValue(*)(NjsVM&, JSFunction&, ArrayRef<JSValue>);
 
 class JSFunction : public JSObject {
  public:
@@ -44,6 +45,8 @@ class JSFunction : public JSObject {
   u32 param_count;
   u32 local_var_count;
   u32 code_address;
+
+  JSObject *This {nullptr};
   std::vector<JSValue> captured_var;
   NativeFuncType native_func {nullptr};
 };

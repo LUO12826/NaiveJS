@@ -7,11 +7,7 @@
 
 namespace njs {
 
-void add_basic_functions(NjsVM& vm) {
-
-}
-
-JSValue log(NjsVM& vm, ArrayRef<JSValue> args) {
+JSValue InternalFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   std::ostringstream stream;
   stream << "\033[32m" << "[LOG] "; // green text
   for (int i = 0; i < args.size(); i++) {
@@ -22,6 +18,11 @@ JSValue log(NjsVM& vm, ArrayRef<JSValue> args) {
 
   vm.log_buffer.push_back(stream.str());
 
+  return JSValue::undefined;
+}
+
+JSValue InternalFunctions::js_gc(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  vm.heap.gc();
   return JSValue::undefined;
 }
 

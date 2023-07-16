@@ -21,8 +21,10 @@
 namespace njs {
 
 using std::pair;
-using std::unique_ptr;
 using std::vector;
+using std::unique_ptr;
+using std::u16string;
+using std::u16string_view;
 
 const u32 PRINT_TREE_INDENT = 2;
 
@@ -43,6 +45,7 @@ class ASTNode {
     AST_EXPR_STRICT_FUTURE,
 
     AST_EXPR_NULL,
+    AST_EXPR_UNDEFINED,
     AST_EXPR_BOOL,
     AST_EXPR_NUMBER,
     AST_EXPR_STRING,
@@ -98,15 +101,15 @@ class ASTNode {
   };
 
   explicit ASTNode(Type type);
-  ASTNode(Type type, std::u16string_view source, u32 start, u32 end, u32 line_start);
+  ASTNode(Type type, u16string_view source, u32 start, u32 end, u32 line_start);
   virtual ~ASTNode();
 
-  const std::u16string_view &get_source();
+  const u16string_view &get_source();
   u32 start_pos();
   u32 end_pos();
   u32 get_line_start();
 
-  void set_source(const std::u16string_view &source, u32 start, u32 end, u32 line_start);
+  void set_source(const u16string_view &source, u32 start, u32 end, u32 line_start);
 
   void add_child(ASTNode *node);
 
@@ -125,7 +128,7 @@ class ASTNode {
 
   Type type;
  private:
-  std::u16string_view text;
+  u16string_view text;
   u32 start;
   u32 end;
   u32 line_start;
@@ -134,7 +137,7 @@ class ASTNode {
 
 class NumberLiteral : public ASTNode {
  public:
-  NumberLiteral(double val, std::u16string_view source, u32 start, u32 end, u32 line_start)
+  NumberLiteral(double val, u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_EXPR_NUMBER, source, start, end, line_start), num_val(val) {}
 
   std::string description() override {
@@ -146,12 +149,12 @@ class NumberLiteral : public ASTNode {
 
 class RegExpLiteral : public ASTNode {
  public:
-  RegExpLiteral(std::u16string pattern, std::u16string flag, std::u16string_view source, u32 start,
+  RegExpLiteral(u16string pattern, u16string flag, u16string_view source, u32 start,
                 u32 end, u32 line_start)
       : ASTNode(AST_EXPR_REGEXP, source, start, end, line_start), pattern(pattern), flag(flag) {}
 
-  std::u16string pattern;
-  std::u16string flag;
+  u16string pattern;
+  u16string flag;
 };
 
 class ArrayLiteral : public ASTNode {
@@ -201,7 +204,7 @@ class ObjectLiteral : public ASTNode {
 
 class ParenthesisExpr : public ASTNode {
  public:
-  ParenthesisExpr(ASTNode *expr, std::u16string_view source, u32 start, u32 end, u32 line_start)
+  ParenthesisExpr(ASTNode *expr, u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_EXPR_PAREN, source, start, end, line_start), expr(expr) {
     add_child(expr);
   }
@@ -354,7 +357,7 @@ class LeftHandSideExpr : public ASTNode {
 
 class BinaryExpr : public ASTNode {
  public:
-  BinaryExpr(ASTNode *lhs, ASTNode *rhs, const Token& op, std::u16string_view source, u32 start, u32 end,
+  BinaryExpr(ASTNode *lhs, ASTNode *rhs, const Token& op, u16string_view source, u32 start, u32 end,
              u32 line_start)
       : ASTNode(AST_EXPR_BINARY, source, start, end, line_start), lhs(lhs), rhs(rhs), op(op) {
     add_child(lhs);
@@ -384,7 +387,7 @@ class BinaryExpr : public ASTNode {
 
 class AssignmentExpr : public ASTNode {
  public:
-  AssignmentExpr(ASTNode *lhs, ASTNode *rhs, std::u16string_view source, u32 start, u32 end,
+  AssignmentExpr(ASTNode *lhs, ASTNode *rhs, u16string_view source, u32 start, u32 end,
                  u32 line_start)
       : ASTNode(AST_EXPR_ASSIGN, source, start, end, line_start), lhs(lhs), rhs(rhs) {
     add_child(lhs);
@@ -417,8 +420,8 @@ class ProgramOrFunctionBody;
 class Function : public ASTNode {
  public:
 
-  Function(const Token& name, vector<std::u16string> params, ASTNode *body,
-           std::u16string_view source, u32 start, u32 end, u32 line_start)
+  Function(const Token& name, vector<u16string_view> params, ASTNode *body,
+           u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_FUNC, source, start, end, line_start), name(name), params(std::move(params)) {
     assert(body->type == ASTNode::AST_FUNC_BODY);
     this->body = body;
@@ -436,20 +439,20 @@ class Function : public ASTNode {
 
   bool has_name() { return name.type != Token::NONE; }
 
-  std::u16string get_name_str() { return std::u16string(name.text); }
+  u16string get_name_str() { return u16string(name.text); }
 
   Token name;
-  vector<std::u16string> params;
+  vector<u16string_view> params;
   bool is_stmt {false};
   ASTNode *body;
 };
 
 class VarDecl : public ASTNode {
  public:
-  VarDecl(const Token& id, std::u16string_view source, u32 start, u32 end, u32 line_start)
+  VarDecl(const Token& id, u16string_view source, u32 start, u32 end, u32 line_start)
       : VarDecl(id, nullptr, source, start, end, line_start) {}
 
-  VarDecl(const Token& id, ASTNode *var_init, std::u16string_view source, u32 start, u32 end, u32 line_start)
+  VarDecl(const Token& id, ASTNode *var_init, u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_STMT_VAR_DECL, source, start, end, line_start), id(id), var_init(var_init) {
     add_child(var_init);
   }
@@ -478,21 +481,15 @@ class ProgramOrFunctionBody : public ASTNode {
     add_child(stmt);
   }
 
-  // void set_var_decls(SmallVector<SymbolTableEntry, 10> var_decls) {
-  //   this->var_decls = std::move(var_decls);
-  // }
-
   bool strict;
   vector<ASTNode *> stmts;
   vector<Function *> func_decls;
-  // vector<VarDecl *> var_decls;
-  // SmallVector<SymbolTableEntry, 10> var_decls;
-  Scope scope;
+  unique_ptr<Scope> scope;
 };
 
 class LabelledStatement : public ASTNode {
  public:
-  LabelledStatement(const Token& label, ASTNode *stmt, std::u16string_view source, u32 start, u32 end,
+  LabelledStatement(const Token& label, ASTNode *stmt, u16string_view source, u32 start, u32 end,
                     u32 line_start)
       : ASTNode(AST_STMT_LABEL, source, start, end, line_start), label(label), statement(stmt) {}
 
@@ -504,10 +501,10 @@ class LabelledStatement : public ASTNode {
 
 class ContinueOrBreak : public ASTNode {
  public:
-  ContinueOrBreak(Type type, std::u16string_view source, u32 start, u32 end, u32 line_start)
+  ContinueOrBreak(Type type, u16string_view source, u32 start, u32 end, u32 line_start)
       : ContinueOrBreak(type, Token::none, source, start, end, line_start) {}
 
-  ContinueOrBreak(Type type, const Token& id, std::u16string_view source, u32 start, u32 end, u32 line_start)
+  ContinueOrBreak(Type type, const Token& id, u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(type, source, start, end, line_start), id(id) {}
 
   Token id;
@@ -515,7 +512,7 @@ class ContinueOrBreak : public ASTNode {
 
 class ReturnStatement : public ASTNode {
  public:
-  ReturnStatement(ASTNode *expr, std::u16string_view source, u32 start, u32 end, u32 line_start)
+  ReturnStatement(ASTNode *expr, u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_STMT_RETURN, source, start, end, line_start), expr(expr) {
     add_child(expr);
   }
@@ -529,7 +526,7 @@ class ReturnStatement : public ASTNode {
 
 class ThrowStatement : public ASTNode {
  public:
-  ThrowStatement(ASTNode *expr, std::u16string_view source, u32 start, u32 end, u32 line_start)
+  ThrowStatement(ASTNode *expr, u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_STMT_THROW, source, start, end, line_start), expr(expr) {}
 
   ~ThrowStatement() {
@@ -575,22 +572,22 @@ class Block : public ASTNode {
   }
 
   vector<ASTNode *> statements;
-  Scope scope;
+  unique_ptr<Scope> scope;
 };
 
 class TryStatement : public ASTNode {
  public:
-  TryStatement(ASTNode *try_block, const Token& catch_ident, ASTNode *catch_block, std::u16string_view source,
+  TryStatement(ASTNode *try_block, const Token& catch_ident, ASTNode *catch_block, u16string_view source,
                u32 start, u32 end, u32 line_start)
       : TryStatement(try_block, catch_ident, catch_block, nullptr, source, start, end, line_start) {}
 
-  TryStatement(ASTNode *try_block, ASTNode *finally_block, std::u16string_view source, u32 start,
+  TryStatement(ASTNode *try_block, ASTNode *finally_block, u16string_view source, u32 start,
                u32 end, u32 line_start)
       : TryStatement(try_block, Token::none, nullptr, finally_block, source, start,
                      end, line_start) {}
 
   TryStatement(ASTNode *try_block, const Token& catch_ident, ASTNode *catch_block, ASTNode *finally_block,
-               std::u16string_view source, u32 start, u32 end, u32 line_start)
+               u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_STMT_TRY, source, start, end, line_start), try_block(try_block),
         catch_ident(catch_ident), catch_block(catch_block), finally_block(finally_block) {
 
@@ -605,7 +602,7 @@ class TryStatement : public ASTNode {
     delete finally_block;
   }
 
-  std::u16string_view get_catch_identifier() { return catch_ident.text; };
+  u16string_view get_catch_identifier() { return catch_ident.text; };
 
   ASTNode *try_block;
   Token catch_ident;
@@ -615,11 +612,11 @@ class TryStatement : public ASTNode {
 
 class IfStatement : public ASTNode {
  public:
-  IfStatement(ASTNode *cond, ASTNode *if_block, std::u16string_view source, u32 start, u32 end,
+  IfStatement(ASTNode *cond, ASTNode *if_block, u16string_view source, u32 start, u32 end,
               u32 line_start)
       : IfStatement(cond, if_block, nullptr, source, start, end, line_start) {}
 
-  IfStatement(ASTNode *cond, ASTNode *if_block, ASTNode *else_block, std::u16string_view source,
+  IfStatement(ASTNode *cond, ASTNode *if_block, ASTNode *else_block, u16string_view source,
               u32 start, u32 end, u32 line_start)
       : ASTNode(AST_STMT_IF, source, start, end, line_start), condition_expr(cond), if_block(if_block),
         else_block(else_block) {
@@ -642,7 +639,7 @@ class IfStatement : public ASTNode {
 
 class WhileStatement : public ASTNode {
  public:
-  WhileStatement(ASTNode *condition_expr, ASTNode *body_stmt, std::u16string_view source, u32 start,
+  WhileStatement(ASTNode *condition_expr, ASTNode *body_stmt, u16string_view source, u32 start,
                  u32 end, u32 line_start)
       : ASTNode(AST_STMT_WHILE, source, start, end, line_start), condition_expr(condition_expr),
         body_stmt(body_stmt) {}
@@ -658,7 +655,7 @@ class WhileStatement : public ASTNode {
 
 class WithStatement : public ASTNode {
  public:
-  WithStatement(ASTNode *expr, ASTNode *stmt, std::u16string_view source, u32 start, u32 end,
+  WithStatement(ASTNode *expr, ASTNode *stmt, u16string_view source, u32 start, u32 end,
                 u32 line_start)
       : ASTNode(AST_STMT_WITH, source, start, end, line_start), expr(expr), stmt(stmt) {}
 
@@ -673,7 +670,7 @@ class WithStatement : public ASTNode {
 
 class DoWhileStatement : public ASTNode {
  public:
-  DoWhileStatement(ASTNode *condition_expr, ASTNode *body_stmt, std::u16string_view source, u32 start,
+  DoWhileStatement(ASTNode *condition_expr, ASTNode *body_stmt, u16string_view source, u32 start,
                    u32 end, u32 line_start)
       : ASTNode(AST_STMT_DO_WHILE, source, start, end, line_start), condition_expr(condition_expr),
         body_stmt(body_stmt) {}
@@ -736,7 +733,7 @@ class SwitchStatement : public ASTNode {
 class ForStatement : public ASTNode {
  public:
   ForStatement(vector<ASTNode *> init_expr, ASTNode *condition_expr, ASTNode *increment_expr,
-               ASTNode *body_stmt, std::u16string_view source, u32 start, u32 end, u32 line_start)
+               ASTNode *body_stmt, u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_STMT_FOR, source, start, end, line_start), init_expr(init_expr),
         condition_expr(condition_expr), increment_expr(increment_expr), body_stmt(body_stmt) {
     for (auto expr : init_expr) add_child(expr);
@@ -761,7 +758,7 @@ class ForStatement : public ASTNode {
 class ForInStatement : public ASTNode {
  public:
   ForInStatement(ASTNode *element_expr, ASTNode *collection_expr, ASTNode *body_stmt,
-                 std::u16string_view source, u32 start, u32 end, u32 line_start)
+                 u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_STMT_FOR_IN, source, start, end, line_start), element_expr(element_expr),
         collection_expr(collection_expr), body_stmt(body_stmt) {
     add_child(element_expr);

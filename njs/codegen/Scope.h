@@ -2,10 +2,12 @@
 #define NJS_SCOPE_H
 
 #include <optional>
+#include <memory>
+#include "SymbolTable.h"
 #include "njs/common/enums.h"
 #include "njs/common/enum_strings.h"
-#include "SymbolTable.h"
 #include "njs/include/robin_hood.h"
+#include "njs/vm/Instructions.h"
 
 namespace njs {
 
@@ -15,8 +17,14 @@ using std::u16string_view;
 using robin_hood::unordered_set;
 using robin_hood::unordered_map;
 using std::optional;
+using std::unique_ptr;
 using u32 = uint32_t;
 
+class Function;
+
+struct ScopeContext {
+  std::vector<Instruction> function_init_code;
+};
 
 class Scope {
  public:
@@ -46,11 +54,11 @@ class Scope {
     }
 
     if (type == ScopeType::FUNC || type == ScopeType::GLOBAL) {
-      outer_global_or_func = this;
+      outer_func = this;
     }
     else {
       assert(outer);
-      outer_global_or_func = outer->outer_global_or_func;
+      outer_func = outer->outer_func;
     }
   }
 
@@ -105,16 +113,40 @@ class Scope {
     return resolve_symbol_impl(name, 0, false);
   }
 
-  void set_outer(Scope *parent) {
-    this->outer_scope = parent;
+  void set_outer(Scope *outer) {
+    this->outer_scope = outer;
+    if (scope_type == ScopeType::BLOCK) {
+      assert(outer);
+    }
+
+    if (scope_type == ScopeType::FUNC || scope_type == ScopeType::GLOBAL) {
+      outer_func = this;
+    }
+    else {
+      assert(outer);
+      outer_func = outer->outer_func;
+    }
   }
 
   unordered_map<u16string_view, SymbolRecord>& get_symbol_table() {
     return symbol_table;
   }
 
-  SmallVector<SymbolResolveResult, 10>& get_capture_list() {
+  unordered_map<Function *, SmallVector<Instruction, 5>>& get_inner_func_init_code() {
+    return inner_func_init_code;
+  }
+
+  SmallVector<SymbolResolveResult, 5>& get_capture_list() {
     return capture_list;
+  }
+
+  Scope *get_outer_func() {
+    return outer_func;
+  }
+
+  ScopeContext* get_context() {
+    if (!context.get()) context = std::make_unique<ScopeContext>();
+    return context.get();
   }
 
   u32 param_count {0};
@@ -183,15 +215,20 @@ class Scope {
     // let or const
     // Blocks does not have a separate storage space, so `let` and `const` are stored in
     // the nearest function or global scope.
-    return outer_global_or_func->scope_type;
+    return outer_func->scope_type;
   }
 
   ScopeType scope_type;
   
   unordered_map<u16string_view, SymbolRecord> symbol_table;
-  SmallVector<SymbolResolveResult, 10> capture_list;
   Scope *outer_scope {nullptr};
-  Scope *outer_global_or_func {nullptr};
+  Scope *outer_func {nullptr}; // this can be global scope
+
+  unique_ptr<ScopeContext> context;
+
+  // for function scope
+  SmallVector<SymbolResolveResult, 5> capture_list;
+  unordered_map<Function *, SmallVector<Instruction, 5>> inner_func_init_code;
 };
 
 } // namespace njs

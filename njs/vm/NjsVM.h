@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "njs/common/enums.h"
+#include "NativeFunction.h"
 #include "Instructions.h"
 #include "njs/basic_types/GlobalObject.h"
 #include "njs/basic_types/JSFunction.h"
@@ -15,12 +16,14 @@
 namespace njs {
 
 using u32 = uint32_t;
+using std::u16string;
 using llvm::SmallVector;
 
 class CodegenVisitor;
 
 class NjsVM {
 friend class GCHeap;
+friend class InternalFunctions;
 
  public:
   // These parameters are only for temporary convenience
@@ -29,20 +32,19 @@ friend class GCHeap;
   void add_native_func_impl(u16string name, NativeFuncType func);
   void run();
 
-  std::vector<std::string> log_buffer;
-
  private:
   void execute();
   // push
   void exec_push(Instruction& inst);
   void exec_push_str(int str_idx, bool atom);
+  void exec_push_this();
   // pop or store
   void exec_pop(Instruction& inst);
   void exec_store(Instruction& inst);
   // function operation
   void exec_make_func(int meta_idx);
   void exec_capture(Instruction& inst);
-  void exec_call(int arg_count);
+  void exec_call(int arg_count, bool has_this_object);
   void exec_return();
   // object operation
   void exec_make_object();
@@ -67,18 +69,22 @@ friend class GCHeap;
   std::vector<Instruction> bytecode;
 
   // for constant
-  SmallVector<u16string, 10> str_list;
+  std::vector<u16string> str_list;
   SmallVector<double, 10> num_list;
   SmallVector<JSFunctionMeta, 10> func_meta;
 
   unordered_map<u16string, NativeFuncType> native_func_binding;
 
+  JSObject *invoker_this {nullptr};
+  JSObject top_level_this;
   GlobalObject global_object;
   // Now still using vector because it's good for debug
   std::vector<JSValue> rt_stack;
   u32 max_stack_size{10240};
 
   GCHeap heap;
+
+  std::vector<std::string> log_buffer;
 
   constexpr static u32 frame_meta_size = 2;
 

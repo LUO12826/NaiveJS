@@ -10,14 +10,14 @@ NjsVM::NjsVM(CodegenVisitor& visitor): heap(600, *this) {
   rt_stack = std::vector<JSValue>(max_stack_size);
 
   bytecode = std::move(visitor.bytecode);
-  str_list = std::move(visitor.str_list);
+  str_list = std::move(visitor.str_pool.get_list());
   num_list = std::move(visitor.num_list);
   func_meta = std::move(visitor.func_meta);
 
-  auto& global_sym_table = visitor.scope_chain[0].get_symbol_table();
+  auto& global_sym_table = visitor.scope_chain[0]->get_symbol_table();
 
   for (auto& [sym_name, sym_rec] : global_sym_table) {
-    global_object.props_index_map.emplace(std::u16string(sym_name), sym_rec.index);
+    global_object.props_index_map.emplace(u16string(sym_name), sym_rec.index + frame_meta_size);
   }
 
   sp = global_sym_table.size() + frame_meta_size;
@@ -34,11 +34,14 @@ void NjsVM::run() {
 
   std::cout << "### end of execution VM state: " << std::endl;
   std::cout << rt_stack[sp - 1].description() << std::endl << std::endl;
-  std::cout << "------------------------------" << std::endl << "log:" << std::endl;
 
-  for (auto& str: log_buffer) {
-    std::cout << str;
+  if (!log_buffer.empty()) {
+    std::cout << "------------------------------" << std::endl << "log:" << std::endl;
+    for (auto& str: log_buffer) {
+      std::cout << str;
+    }
   }
+
 }
 
 void NjsVM::execute() {
@@ -80,6 +83,9 @@ void NjsVM::execute() {
       case InstType::push_atom:
         exec_push_str(inst.operand.two.opr1, true);
         break;
+      case InstType::push_this:
+        exec_push_this();
+        break;
       case InstType::push_null:
         rt_stack[sp].tag = JSValue::JS_NULL;
         sp += 1;
@@ -90,7 +96,6 @@ void NjsVM::execute() {
         break;
       case InstType::pop:
         exec_pop(inst);
-        heap.gc();
         break;
       case InstType::pop_drop:
         sp -= 1;
@@ -98,11 +103,9 @@ void NjsVM::execute() {
         break;
       case InstType::store:
         exec_store(inst);
-        heap.gc();
         break;
       case InstType::prop_assign:
         exec_prop_assign();
-        heap.gc();
         break;
       case InstType::jmp:
         pc = inst.operand.two.opr1;
@@ -122,7 +125,7 @@ void NjsVM::execute() {
       case InstType::eq: break;
       case InstType::eq3: break;
       case InstType::call:
-        exec_call(inst.operand.two.opr1);
+        exec_call(inst.operand.two.opr1, bool(inst.operand.two.opr2));
         break;
       case InstType::ret:
         exec_return();
@@ -231,8 +234,8 @@ void NjsVM::exec_logi(InstType op_type) {
 
 void NjsVM::exec_fast_add(Instruction& inst) {
 
-  auto lhs_scope = int_to_scope_type(inst.operand.four.opr1);
-  auto rhs_scope = int_to_scope_type(inst.operand.four.opr3);
+  auto lhs_scope = scope_type_from_int(inst.operand.four.opr1);
+  auto rhs_scope = scope_type_from_int(inst.operand.four.opr3);
   auto lhs_index = inst.operand.four.opr2;
   auto rhs_index = inst.operand.four.opr4;
 
@@ -256,7 +259,7 @@ void NjsVM::exec_fast_add(Instruction& inst) {
 void NjsVM::exec_return() {
   u32 ret_val_addr = sp - 1;
 
-  u32 old_frame_bottom = rt_stack[frame_base_ptr + 1].val.as_int;
+  u32 old_frame_bottom = rt_stack[frame_base_ptr + 1].val.as_int64;
   u32 arg_cnt = rt_stack[frame_base_ptr + 1].flag_bits;
 
   u32 old_sp = frame_base_ptr - arg_cnt - 1;
@@ -278,7 +281,7 @@ void NjsVM::exec_return() {
 }
 
 void NjsVM::exec_push(Instruction& inst) {
-  auto var_scope = int_to_scope_type(inst.operand.two.opr1);
+  auto var_scope = scope_type_from_int(inst.operand.two.opr1);
   if (var_scope == ScopeType::CLOSURE) {
     JSValue& val = function_env()->captured_var[inst.operand.two.opr2];
     rt_stack[sp] = val.deref();
@@ -291,7 +294,7 @@ void NjsVM::exec_push(Instruction& inst) {
 }
 
 void NjsVM::exec_pop(Instruction& inst) {
-  auto var_scope = int_to_scope_type(inst.operand.two.opr1);
+  auto var_scope = scope_type_from_int(inst.operand.two.opr1);
   u32 var_addr = calc_var_addr(var_scope, inst.operand.two.opr2);
 
   sp -= 1;
@@ -310,7 +313,7 @@ void NjsVM::exec_pop(Instruction& inst) {
 }
 
 void NjsVM::exec_store(Instruction& inst) {
-  auto var_scope = int_to_scope_type(inst.operand.two.opr1);
+  auto var_scope = scope_type_from_int(inst.operand.two.opr1);
   u32 var_addr = calc_var_addr(var_scope, inst.operand.two.opr2);
 
   if (var_scope == ScopeType::CLOSURE) {
@@ -350,7 +353,7 @@ void NjsVM::exec_make_func(int meta_idx) {
 void NjsVM::exec_capture(Instruction& inst) {
   assert(rt_stack[sp - 1].is_object());
 
-  auto var_scope = int_to_scope_type(inst.operand.two.opr1);
+  auto var_scope = scope_type_from_int(inst.operand.two.opr1);
   JSFunction& func = *rt_stack[sp - 1].val.as_function;
 
   if (var_scope == ScopeType::CLOSURE) {
@@ -368,7 +371,7 @@ void NjsVM::exec_capture(Instruction& inst) {
   }
 }
 
-void NjsVM::exec_call(int arg_count) {
+void NjsVM::exec_call(int arg_count, bool has_this_object) {
   JSValue& func_val = rt_stack[sp - arg_count - 1];
   assert(func_val.tag == JSValue::FUNCTION);
   assert(func_val.val.as_object->obj_class == ObjectClass::CLS_FUNCTION);
@@ -380,14 +383,18 @@ void NjsVM::exec_call(int arg_count) {
   sp += def_param_cnt > arg_count ? (def_param_cnt - arg_count) : 0;
   u32 actual_arg_cnt = std::max(def_param_cnt, u32(arg_count));
 
+  // function parameters are considered `in memory` variables. So retain the RCObjects here.
   for (u32 addr = sp - actual_arg_cnt; addr < sp; addr++) {
     if (rt_stack[addr].is_RCObject()) {
-      rt_stack[addr].val.as_rc_object->retain();
+      rt_stack[addr].val.as_RCObject->retain();
     }
   }
 
+  // set up the `this` for the function.
+  func->This = has_this_object ? invoker_this : &global_object;
+
   if (func->is_native) {
-    func_val = func->native_func(*this, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
+    func_val = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
     for (u32 addr = sp - actual_arg_cnt; addr < sp; addr++) {
       rt_stack[addr].dispose();
     }
@@ -403,7 +410,7 @@ void NjsVM::exec_call(int arg_count) {
   // second cell of a function stack frame: saved `frame_base_ptr` and arguments count
   rt_stack[sp + 1].tag = JSValue::STACK_FRAME_META2;
   rt_stack[sp + 1].flag_bits = actual_arg_cnt;
-  rt_stack[sp + 1].val.as_int = frame_base_ptr;
+  rt_stack[sp + 1].val.as_int64 = frame_base_ptr;
 
   frame_base_ptr = sp;
   sp = frame_base_ptr + 2 + func->local_var_count;
@@ -424,8 +431,8 @@ void NjsVM::exec_make_array() {
 
 void NjsVM::exec_fast_assign(Instruction& inst) {
 
-  auto lhs_scope = int_to_scope_type(inst.operand.four.opr1);
-  auto rhs_scope = int_to_scope_type(inst.operand.four.opr3);
+  auto lhs_scope = scope_type_from_int(inst.operand.four.opr1);
+  auto rhs_scope = scope_type_from_int(inst.operand.four.opr3);
 
   JSValue& lhs_val = rt_stack[calc_var_addr(lhs_scope, inst.operand.four.opr2)].deref_if_needed();
   JSValue& rhs_val = rt_stack[calc_var_addr(rhs_scope, inst.operand.four.opr4)].deref_if_needed();
@@ -466,13 +473,24 @@ void NjsVM::exec_push_str(int str_idx, bool atom) {
   rt_stack[sp].tag = atom ? JSValue::JS_ATOM : JSValue::STRING;
 
   if (atom) {
-    rt_stack[sp].val.as_int = str_idx;
+    rt_stack[sp].val.as_int64 = str_idx;
   }
   else {
     auto str = new PrimitiveString(str_list[str_idx]);
     rt_stack[sp].val.as_primitive_string = str;
   }
 
+  sp += 1;
+}
+
+void NjsVM::exec_push_this() {
+  auto *func_env = function_env();
+  if (func_env != nullptr) {
+    rt_stack[sp] = JSValue(func_env->This);
+  }
+  else {
+    rt_stack[sp] = JSValue(&top_level_this);
+  }
   sp += 1;
 }
 
@@ -484,11 +502,13 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
   for (u32 i = sp - key_cnt; i < sp - 1; i++) {
     assert(val_obj.is_object());
     // val_obj is a reference, so we are directly modify the cell in the stack frame.
-    val_obj = val_obj.val.as_object->get_prop(rt_stack[i].val.as_int, false);
+    val_obj = val_obj.val.as_object->get_prop(rt_stack[i].val.as_int64, false);
     rt_stack[i].set_undefined();
   }
+  assert(val_obj.is_object());
   // visit the last component separately
-  val_obj = val_obj.val.as_object->get_prop(rt_stack[sp - 1].val.as_int, get_ref);
+  invoker_this = val_obj.val.as_object;
+  val_obj = val_obj.val.as_object->get_prop(rt_stack[sp - 1].val.as_int64, get_ref);
   rt_stack[sp - 1].set_undefined();
 
   sp = sp - key_cnt;
@@ -503,13 +523,12 @@ void NjsVM::exec_index_access(bool get_ref) {
         || index.tag == JSValue::NUM_FLOAT);
   assert(obj.is_object());
 
+  invoker_this = obj.val.as_object;
+
   if (obj.tag == JSValue::ARRAY) {
 
     if (index.tag == JSValue::NUM_FLOAT) {
       obj = obj.val.as_array->access_element(u32(index.val.as_float64), get_ref);
-    }
-    else if (index.tag == JSValue::JS_ATOM) {
-      assert(false);
     }
     else if (index.tag == JSValue::STRING) {
       auto *prim_str = index.val.as_primitive_string;
@@ -521,7 +540,9 @@ void NjsVM::exec_index_access(bool get_ref) {
         obj = obj.val.as_object->get_prop(prim_str, get_ref);
       }
     }
-
+    else if (index.tag == JSValue::JS_ATOM) {
+      assert(false);
+    }
   }
   else {
     if (index.tag == JSValue::NUM_FLOAT) {
@@ -529,12 +550,12 @@ void NjsVM::exec_index_access(bool get_ref) {
       auto *prim_str = new PrimitiveString(num_str);
       obj = obj.val.as_object->get_prop(prim_str, get_ref);
     }
-    else if (index.tag == JSValue::JS_ATOM) {
-      assert(false);
-    }
     else if (index.tag == JSValue::STRING) {
       auto *prim_str = index.val.as_primitive_string;
       obj = obj.val.as_object->get_prop(prim_str, get_ref);
+    }
+    else if (index.tag == JSValue::JS_ATOM) {
+      obj = obj.val.as_object->get_prop(index.val.as_int64, get_ref);
     }
   }
 

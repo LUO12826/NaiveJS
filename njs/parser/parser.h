@@ -14,13 +14,16 @@
 
 #define START_POS u32 start = lexer.current().start, line_start = lexer.current().line
 #define RENEW_START start = lexer.current().start; line_start = lexer.current().line
-#define SOURCE_PARSED_EXPR std::u16string_view(source.data() + start, lexer.current_pos() - start), \
+#define SOURCE_PARSED_EXPR u16string_view(source.data() + start, lexer.current_pos() - start), \
                             start, lexer.current_pos(), line_start
 
 #define TOKEN_SOURCE_EXPR token.text, token.start, token.end, token.line
 
 namespace njs {
 
+using std::u16string;
+using std::u16string_view;
+using std::unique_ptr;
 using TokenType = Token::TokenType;
 
 struct ParserContext {
@@ -34,7 +37,7 @@ struct ParsingError {
 
 class Parser {
  public:
-  Parser(std::u16string src) : source(src), lexer(src) {}
+  Parser(u16string src) : source(src), lexer(src) {}
 
   ASTNode* parse_primary_expression() {
     Token token = lexer.current();
@@ -50,6 +53,8 @@ class Parser {
         return new ASTNode(ASTNode::AST_EXPR_ID, TOKEN_SOURCE_EXPR);
       case TokenType::TK_NULL:
         return new ASTNode(ASTNode::AST_EXPR_NULL, TOKEN_SOURCE_EXPR);
+      case TokenType::TK_UNDEFINED:
+        return new ASTNode(ASTNode::AST_EXPR_UNDEFINED, TOKEN_SOURCE_EXPR);
       case TokenType::TK_BOOL:
         return new ASTNode(ASTNode::AST_EXPR_BOOL, TOKEN_SOURCE_EXPR);
       case TokenType::NUMBER:
@@ -76,7 +81,7 @@ class Parser {
         lexer.cursor_back(); // back to /
         if (token.type == TokenType::DIV_ASSIGN)
           lexer.cursor_back();
-        std::u16string pattern, flag;
+        u16string pattern, flag;
         token = lexer.scan_regexp_literal(pattern, flag);
         if (token.type == TokenType::REGEX) {
           return new RegExpLiteral(pattern, flag, TOKEN_SOURCE_EXPR);
@@ -94,31 +99,26 @@ error:
     return new ASTNode(ASTNode::AST_ILLEGAL, TOKEN_SOURCE_EXPR);
   }
 
-  bool parse_formal_parameter_list(std::vector<std::u16string>& params) {
+  bool parse_formal_parameter_list(std::vector<u16string_view>& params) {
     // if (!lexer.current_token().is_identifier()) {
     //   // This only happens in new Function(...)
     //   params = {};
     //   return lexer.current_token().type == TokenType::EOS;
     // }
-    params.emplace_back(lexer.current().text);
-    scope_chain.back().define_func_parameter(lexer.current().text);
+    if (!token_match(TokenType::LEFT_PAREN)) return false;
 
     Token token = lexer.next();
     // NOTE(zhuzilin) the EOS is for new Function("a,b,c", "")
     while (token.type != TokenType::RIGHT_PAREN && token.type != TokenType::EOS) {
-      if (token.type != TokenType::COMMA) {
-        params = {};
+      if (token.is_identifier()) {
+        params.emplace_back(token.text);
+      }
+      else if (token.type != TokenType::COMMA) {
         return false;
       }
-      token = lexer.next();
-      if (!token.is_identifier()) {
-        params = {};
-        return false;
-      }
-      params.emplace_back(token.text);
-      scope_chain.back().define_func_parameter(token.text);
       token = lexer.next();
     }
+    if (!token_match(TokenType::RIGHT_PAREN)) return false;
     return true;
   }
 
@@ -133,12 +133,13 @@ error:
     }
 
     Token name = Token::none;
-    std::vector<std::u16string> params;
+    std::vector<u16string_view> params;
+    Function *function;
     ASTNode* body;
 
     if (lexer.current().is_identifier()) {
       name = lexer.current();
-      bool res = scope_chain.back().define_symbol(VarKind::DECL_FUNCTION, name.text);
+      bool res = scope_chain.back()->define_symbol(VarKind::DECL_FUNCTION, name.text);
       if (!res) std::cout << "!!!!define original_symbol " << name.get_text_utf8() << " failed" << std::endl;
       lexer.next();
     }
@@ -146,19 +147,16 @@ error:
       goto error;
     }
 
-    if (!token_match(TokenType::LEFT_PAREN)) goto error;
-
-    push_scope(ScopeType::FUNC);
-
-    lexer.next();
-    if (lexer.current().is_identifier()) {
-      if (!parse_formal_parameter_list(params)) {
-        goto error;
-      }
+    if (!parse_formal_parameter_list(params)) {
+      goto error;
     }
-    if (!token_match(TokenType::RIGHT_PAREN)) goto error;
 
     if (lexer.next().type != TokenType::LEFT_BRACE) goto error;
+
+    push_scope(ScopeType::FUNC);
+    for (auto param : params) {
+      current_scope().define_func_parameter(param);
+    }
     
     lexer.next();
     body = parse_function_body();
@@ -168,8 +166,10 @@ error:
       delete body;
       goto error;
     }
-    
-    return new Function(name, params, body, SOURCE_PARSED_EXPR);
+    function = new Function(name, params, body, SOURCE_PARSED_EXPR);
+    current_scope().get_outer_func()->get_inner_func_init_code()
+                                      .emplace(function, SmallVector<Instruction, 5>());
+    return function;
 error:
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
@@ -666,7 +666,7 @@ error:
       }
       VarDecl* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
       
-      bool res = scope_chain.back().define_symbol(kind, id.text);
+      bool res = scope_chain.back()->define_symbol(kind, id.text);
       if (!res) std::cout << "!!!!define original_symbol " << id.get_text_utf8() << " failed" << std::endl;
       return var_decl;
     }
@@ -676,7 +676,7 @@ error:
     
     VarDecl* var_decl = new VarDecl(id, init, SOURCE_PARSED_EXPR);
     
-    bool res = scope_chain.back().define_symbol(kind, id.text);
+    bool res = scope_chain.back()->define_symbol(kind, id.text);
     if (!res) std::cout << "!!!!define original_symbol " << id.get_text_utf8() << " failed" << std::endl;
     return var_decl;
   }
@@ -819,7 +819,7 @@ error:
 
   ASTNode* parse_while_or_with_statement(ASTNode::Type type) {
     START_POS;
-    std::u16string keyword = type == ASTNode::AST_STMT_WHILE ? u"while" : u"with";
+    u16string keyword = type == ASTNode::AST_STMT_WHILE ? u"while" : u"with";
     assert(token_match(keyword));
     ASTNode* expr;
     ASTNode* stmt;
@@ -1020,7 +1020,7 @@ error:
 
   ASTNode* parse_continue_or_break_statement(ASTNode::Type type) {
     START_POS;
-    std::u16string_view keyword = type == ASTNode::AST_STMT_CONTINUE ? u"continue" : u"break";
+    u16string_view keyword = type == ASTNode::AST_STMT_CONTINUE ? u"continue" : u"break";
     assert(token_match(keyword));
     if (!lexer.try_skip_semicolon()) {
       Token id = lexer.next();
@@ -1100,7 +1100,7 @@ error:
     while (!token_match(TokenType::RIGHT_BRACE)) {
       ASTNode* case_expr = nullptr;
       std::vector<ASTNode*> stmts;
-      std::u16string_view type = lexer.current().text;
+      u16string_view type = lexer.current().text;
       if (type == u"case") {
         lexer.next();  // skip case
         case_expr = parse_expression(false);
@@ -1254,21 +1254,21 @@ error:
     return lexer.current().type == type;
   }
 
-  Scope& current_scope() { return scope_chain.back(); }
+  Scope& current_scope() { return *scope_chain.back(); }
 
   void push_scope(ScopeType scope_type) {
-    Scope *parent = scope_chain.size() > 0 ? &scope_chain.back() : nullptr;
-    scope_chain.emplace_back(scope_type, parent);
+    Scope *parent = scope_chain.size() > 0 ? scope_chain.back().get() : nullptr;
+    scope_chain.emplace_back(std::make_unique<Scope>(scope_type, parent));
 
 #ifdef DBG_SCOPE
-    std::cout << ">>>> push scope: " << scope_chain.back().get_scope_type_name() << std::endl;
+    std::cout << ">>>> push scope: " << scope_chain.back()->get_scope_type_name() << std::endl;
     std::cout << std::endl;
 #endif
   }
 
   void pop_scope() {
 #ifdef DBG_SCOPE
-    Scope& scope = scope_chain.back();
+    Scope& scope = *scope_chain.back();
 
     std::cout << "<<<< pop scope: " << scope.get_scope_type_name() << std::endl;
     std::cout << "  params count: " << scope.param_count
@@ -1290,6 +1290,7 @@ error:
 
   void add_builtin_functions() {
     current_scope().define_symbol(VarKind::DECL_FUNCTION, u"log", true);
+    current_scope().define_symbol(VarKind::DECL_FUNCTION, u"$gc", true);
   }
 
   void report_error(ParsingError err) {
@@ -1297,11 +1298,11 @@ error:
   }
 
   Lexer lexer;
-  std::u16string source;
+  u16string source;
   ParserContext context;
   SmallVector<ParsingError, 10> errors;
 
-  SmallVector<Scope, 10> scope_chain;
+  SmallVector<unique_ptr<Scope>, 10> scope_chain;
 
 };
 

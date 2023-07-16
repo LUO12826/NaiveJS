@@ -29,12 +29,12 @@ bool JSValue::tag_is(JSValueTag val_tag) const {
 
 JSValue& JSValue::deref() {
   assert(tag == VALUE_HANDLE || tag == HEAP_VAL);
-  if (tag == VALUE_HANDLE) return *val.as_js_value;
+  if (tag == VALUE_HANDLE) return *val.as_JSValue;
   else return val.as_heap_val->wrapped_val;
 }
 
 JSValue& JSValue::deref_if_needed() {
-  if (tag == VALUE_HANDLE) return *val.as_js_value;
+  if (tag == VALUE_HANDLE) return *val.as_JSValue;
   else if (tag == HEAP_VAL) return val.as_heap_val->wrapped_val;
   else return *this;
 }
@@ -53,7 +53,7 @@ std::string JSValue::description() const {
   stream << "JSValue(tag: " << js_value_tag_names[tag];
   if (tag == BOOLEAN) stream << ", val: " << val.as_bool;
   else if (tag == NUM_FLOAT) stream << ", val: " << val.as_float64;
-  else if (tag == NUM_INT) stream << ", val: " << val.as_int;
+  else if (tag == NUM_INT) stream << ", val: " << val.as_int64;
   else if (tag == STACK_FRAME_META1) {
     stream << ", function named: " << to_utf8_string(val.as_function->name)
            << " @" << std::hex << val.as_function;
@@ -71,7 +71,7 @@ std::string JSValue::to_string() const {
 
   if (tag == BOOLEAN) stream << val.as_bool;
   else if (tag == NUM_FLOAT) stream << val.as_float64;
-  else if (tag == NUM_INT) stream << val.as_int;
+  else if (tag == NUM_INT) stream << val.as_int64;
   else if (tag == UNDEFINED) stream << "undefined";
   else if (tag == JS_NULL) stream << "null";
   else if (tag == STRING) stream << to_utf8_string(val.as_primitive_string->str);
@@ -88,15 +88,15 @@ void JSValue::assign(JSValue& rhs) {
 
     // if this is an RC object, we are going to release the old object
     if (is_RCObject()) {
-      val.as_rc_object->release();
+      val.as_RCObject->release();
     }
     // copy
-    val.as_int = rhs.val.as_int;
+    val.as_int64 = rhs.val.as_int64;
     flag_bits = rhs.flag_bits;
     tag = rhs.tag;
     // if rhs is an RC object, we are going to retain the new object
     if (is_RCObject()) {
-      val.as_rc_object->retain();
+      val.as_RCObject->retain();
     }
 }
 

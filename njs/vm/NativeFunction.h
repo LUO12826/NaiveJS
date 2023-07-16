@@ -8,12 +8,13 @@
 namespace njs {
 
 class JSObject;
-
 class NjsVM;
 
-void add_basic_functions(NjsVM& vm);
-
-JSValue log(NjsVM& vm, ArrayRef<JSValue> args);
+class InternalFunctions {
+ public:
+  static JSValue log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
+  static JSValue js_gc(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
+};
 
 }
 

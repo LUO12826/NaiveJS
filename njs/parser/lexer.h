@@ -905,6 +905,10 @@ error:
       if (cursor - start != id_text.size()) goto error;
       return token_with_type(TokenType::TK_NULL, start);
     }
+    if (id_text == u"undefined") {
+      if (cursor - start != id_text.size()) goto error;
+      return token_with_type(TokenType::TK_UNDEFINED, start);
+    }
     if (id_text == u"true" || id_text == u"false") {
       if (cursor - start != id_text.size()) goto error;
       return token_with_type(TokenType::TK_BOOL, start);
