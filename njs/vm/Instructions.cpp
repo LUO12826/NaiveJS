@@ -113,10 +113,10 @@ std::string Instruction::description() {
       sprintf(buffer, "keypath_access  %d %s", operand.two.opr1, operand.two.opr2 ? "REF" : "");
       break;
     case InstType::index_access:
-      sprintf(buffer, "index_access  %d %s", operand.two.opr1, operand.two.opr2 ? "REF" : "");
+      sprintf(buffer, "index_access  %s", operand.two.opr1 ? "REF" : "");
       break;
     case InstType::call:
-      sprintf(buffer, "call  %d", operand.two.opr1);
+      sprintf(buffer, "call  %d %d", operand.two.opr1, operand.two.opr2);
       break;
     case InstType::ret:
       sprintf(buffer, "ret");

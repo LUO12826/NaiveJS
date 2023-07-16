@@ -66,33 +66,33 @@ friend class InternalFunctions;
   JSFunction *function_env();
   u32 calc_var_addr(ScopeType scope, int raw_index);
 
+
+  constexpr static u32 frame_meta_size {2};
+  u32 max_stack_size {10240};
+
+  // stack pointer
+  u32 sp;
+  // program counter
+  u32 pc {0};
+  // start of a stack frame
+  u32 frame_base_ptr {0};
+
   std::vector<Instruction> bytecode;
+  // Now still using vector because it's good for debug
+  std::vector<JSValue> rt_stack;
+  GCHeap heap;
 
   // for constant
   std::vector<u16string> str_list;
   SmallVector<double, 10> num_list;
   SmallVector<JSFunctionMeta, 10> func_meta;
 
-  unordered_map<u16string, NativeFuncType> native_func_binding;
-
   JSObject *invoker_this {nullptr};
   JSObject top_level_this;
   GlobalObject global_object;
-  // Now still using vector because it's good for debug
-  std::vector<JSValue> rt_stack;
-  u32 max_stack_size{10240};
-
-  GCHeap heap;
+  unordered_map<u16string, NativeFuncType> native_func_binding;
 
   std::vector<std::string> log_buffer;
-
-  constexpr static u32 frame_meta_size = 2;
-
-  // stack pointer
-  u32 sp;
-  // program counter
-  u32 pc {0};
-  u32 frame_base_ptr {0};
 };
 
 } // namespace njs

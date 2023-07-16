@@ -464,11 +464,10 @@ friend class NjsVM;
     }
   }
 
-  SmallVector<CodegenError, 10> error;
 
   std::vector<unique_ptr<Scope>> scope_chain;
-
   std::vector<Instruction> bytecode;
+  SmallVector<CodegenError, 10> error;
 
   // for constant
   StringPool str_pool;

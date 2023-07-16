@@ -139,7 +139,7 @@ error:
 
     if (lexer.current().is_identifier()) {
       name = lexer.current();
-      bool res = scope_chain.back()->define_symbol(VarKind::DECL_FUNCTION, name.text);
+      bool res = scope().define_symbol(VarKind::DECL_FUNCTION, name.text);
       if (!res) std::cout << "!!!!define original_symbol " << name.get_text_utf8() << " failed" << std::endl;
       lexer.next();
     }
@@ -155,7 +155,7 @@ error:
 
     push_scope(ScopeType::FUNC);
     for (auto param : params) {
-      current_scope().define_func_parameter(param);
+      scope().define_func_parameter(param);
     }
     
     lexer.next();
@@ -167,7 +167,7 @@ error:
       goto error;
     }
     function = new Function(name, params, body, SOURCE_PARSED_EXPR);
-    current_scope().get_outer_func()->get_inner_func_init_code()
+    scope().get_outer_func()->get_inner_func_init_code()
                                       .emplace(function, SmallVector<Instruction, 5>());
     return function;
 error:
@@ -666,7 +666,7 @@ error:
       }
       VarDecl* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
       
-      bool res = scope_chain.back()->define_symbol(kind, id.text);
+      bool res = scope().define_symbol(kind, id.text);
       if (!res) std::cout << "!!!!define original_symbol " << id.get_text_utf8() << " failed" << std::endl;
       return var_decl;
     }
@@ -676,7 +676,7 @@ error:
     
     VarDecl* var_decl = new VarDecl(id, init, SOURCE_PARSED_EXPR);
     
-    bool res = scope_chain.back()->define_symbol(kind, id.text);
+    bool res = scope().define_symbol(kind, id.text);
     if (!res) std::cout << "!!!!define original_symbol " << id.get_text_utf8() << " failed" << std::endl;
     return var_decl;
   }
@@ -1254,14 +1254,14 @@ error:
     return lexer.current().type == type;
   }
 
-  Scope& current_scope() { return *scope_chain.back(); }
+  Scope& scope() { return *scope_chain.back(); }
 
   void push_scope(ScopeType scope_type) {
     Scope *parent = scope_chain.size() > 0 ? scope_chain.back().get() : nullptr;
     scope_chain.emplace_back(std::make_unique<Scope>(scope_type, parent));
 
 #ifdef DBG_SCOPE
-    std::cout << ">>>> push scope: " << scope_chain.back()->get_scope_type_name() << std::endl;
+    std::cout << ">>>> push scope: " << scope().get_scope_type_name() << std::endl;
     std::cout << std::endl;
 #endif
   }
@@ -1289,8 +1289,8 @@ error:
   }
 
   void add_builtin_functions() {
-    current_scope().define_symbol(VarKind::DECL_FUNCTION, u"log", true);
-    current_scope().define_symbol(VarKind::DECL_FUNCTION, u"$gc", true);
+    scope().define_symbol(VarKind::DECL_FUNCTION, u"log", true);
+    scope().define_symbol(VarKind::DECL_FUNCTION, u"$gc", true);
   }
 
   void report_error(ParsingError err) {

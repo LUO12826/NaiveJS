@@ -39,7 +39,6 @@ class Lexer {
     }
 
     line_term_before = false;
-    // Token curr_token(TokenType::NONE, u"", 0, 0);
     curr_token.type = TokenType::NONE;
     do {
       u32 start = cursor;
