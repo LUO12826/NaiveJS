@@ -59,7 +59,6 @@ class GCHeap {
   void gc_visit_object(JSValue &handle, GCObject *obj);
 
  private:
-  // fixme
   std::vector<JSValue *> gather_roots();
 
   // Copying GC

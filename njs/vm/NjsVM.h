@@ -87,9 +87,9 @@ friend class InternalFunctions;
   SmallVector<double, 10> num_list;
   SmallVector<JSFunctionMeta, 10> func_meta;
 
-  JSObject *invoker_this {nullptr};
-  JSObject top_level_this;
-  GlobalObject global_object;
+  JSValue invoker_this {JSValue::UNDEFINED};
+  JSValue top_level_this;
+  JSValue global_object;
   unordered_map<u16string, NativeFuncType> native_func_binding;
 
   std::vector<std::string> log_buffer;

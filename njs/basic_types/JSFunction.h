@@ -46,7 +46,7 @@ class JSFunction : public JSObject {
   u32 local_var_count;
   u32 code_address;
 
-  JSObject *This {nullptr};
+  JSValue This {JSValue::undefined};
   std::vector<JSValue> captured_var;
   NativeFuncType native_func {nullptr};
 };

@@ -14,10 +14,14 @@ NjsVM::NjsVM(CodegenVisitor& visitor): heap(600, *this) {
   num_list = std::move(visitor.num_list);
   func_meta = std::move(visitor.func_meta);
 
+  global_object = JSValue(heap.new_object<GlobalObject>());
+  top_level_this = JSValue(heap.new_object<JSObject>());
+
   auto& global_sym_table = visitor.scope_chain[0]->get_symbol_table();
 
+  GlobalObject& global_obj = *static_cast<GlobalObject *>(global_object.val.as_object);
   for (auto& [sym_name, sym_rec] : global_sym_table) {
-    global_object.props_index_map.emplace(u16string(sym_name), sym_rec.index + frame_meta_size);
+    global_obj.props_index_map.emplace(u16string(sym_name), sym_rec.index + frame_meta_size);
   }
 
   sp = global_sym_table.size() + frame_meta_size;
@@ -257,7 +261,8 @@ void NjsVM::exec_fast_add(Instruction& inst) {
 }
 
 void NjsVM::exec_return() {
-  u32 ret_val_addr = sp - 1;
+  invoker_this.tag = JSValue::UNDEFINED;
+  rt_stack[frame_base_ptr].val.as_function->This.tag = JSValue::UNDEFINED;
 
   u32 old_frame_bottom = rt_stack[frame_base_ptr + 1].val.as_int64;
   u32 arg_cnt = rt_stack[frame_base_ptr + 1].flag_bits;
@@ -265,6 +270,7 @@ void NjsVM::exec_return() {
   u32 old_sp = frame_base_ptr - arg_cnt - 1;
   u32 old_pc = rt_stack[frame_base_ptr].flag_bits;
 
+  u32 ret_val_addr = sp - 1;
   for (u32 addr = old_sp + 1; addr < ret_val_addr; addr++) {
     rt_stack[addr].dispose();
   }
@@ -391,7 +397,7 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
   }
 
   // set up the `this` for the function.
-  func->This = has_this_object ? invoker_this : &global_object;
+  func->This = has_this_object ? invoker_this : JSValue(&global_object);
 
   if (func->is_native) {
     func_val = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
@@ -508,7 +514,7 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
   }
   assert(val_obj.is_object());
   // visit the last component separately
-  invoker_this = val_obj.val.as_object;
+  invoker_this = val_obj;
   std::cout << "...visit key " << to_utf8_string(str_list[rt_stack[sp - 1].val.as_int64]) << std::endl;
   val_obj = val_obj.val.as_object->get_prop(rt_stack[sp - 1].val.as_int64, get_ref);
   rt_stack[sp - 1].set_undefined();
@@ -525,7 +531,7 @@ void NjsVM::exec_index_access(bool get_ref) {
         || index.tag == JSValue::NUM_FLOAT);
   assert(obj.is_object());
 
-  invoker_this = obj.val.as_object;
+  invoker_this = obj;
 
   if (obj.tag == JSValue::ARRAY) {
 

@@ -47,6 +47,7 @@ void JSFunction::gc_scan_children(GCHeap& heap) {
       heap.gc_visit_object(the_value, the_value.as_GCObject());
     }
   }
+  if (This.needs_gc()) heap.gc_visit_object(This, This.as_GCObject());
 }
 
 std::string JSFunction::description() {
