@@ -29,6 +29,8 @@ Instruction::Instruction(InstType op, int opr1): op_type(op) {
 
 Instruction::Instruction(InstType op): op_type(op) {}
 
+Instruction::Instruction(): op_type(InstType::nop) {}
+
 void Instruction::swap_two_operands() {
   int temp = operand.two.opr1;
   operand.two.opr1 = operand.two.opr2;

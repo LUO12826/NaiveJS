@@ -69,7 +69,7 @@ std::string JSValue::description() const {
 std::string JSValue::to_string() const {
   std::ostringstream stream;
 
-  if (tag == BOOLEAN) stream << val.as_bool;
+  if (tag == BOOLEAN) stream << to_utf8_string(val.as_bool);
   else if (tag == NUM_FLOAT) stream << val.as_float64;
   else if (tag == NUM_INT) stream << val.as_int64;
   else if (tag == UNDEFINED) stream << "undefined";

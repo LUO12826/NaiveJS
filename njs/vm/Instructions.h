@@ -91,6 +91,8 @@ struct Instruction {
 
   explicit Instruction(InstType op);
 
+  Instruction();
+
   std::string description();
 
   void swap_two_operands();

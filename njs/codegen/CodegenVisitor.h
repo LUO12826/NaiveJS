@@ -14,12 +14,14 @@
 #include "njs/vm/Instructions.h"
 #include "njs/basic_types/JSFunction.h"
 #include "njs/common/StringPool.h"
+#include "njs/utils/Timer.h"
 
 namespace njs {
 
 using robin_hood::unordered_map;
 using std::u16string;
 using std::unique_ptr;
+using std::vector;
 using u32 = uint32_t;
 
 struct CodegenError {
@@ -40,7 +42,10 @@ friend class NjsVM;
     // add functions to the global scope
     add_builtin_functions();
     visit_program_or_function_body(*prog);
+
+    Timer timer("optimized");
     optimize();
+    timer.end();
 
     std::cout << "================ codegen result ================" << std::endl << std::endl;
 
@@ -76,8 +81,12 @@ friend class NjsVM;
 
   void optimize() {
     size_t len = bytecode.size();
+    u32 removed_inst_cnt = 0;
 
     if (len < 2) return;
+
+    vector<int> pos_moved(len);
+    pos_moved[0] = 0;
 
     for (size_t i = 1; i < len; i++) {
       auto& inst = bytecode[i];
@@ -86,12 +95,39 @@ friend class NjsVM;
       if (inst.op_type == InstType:: push && prev_inst.op_type == InstType::pop) {
         if (inst.operand.two.opr1 == prev_inst.operand.two.opr1
             && inst.operand.two.opr2 == prev_inst.operand.two.opr2) {
+          removed_inst_cnt += 1;
           inst.op_type = InstType::nop;
           prev_inst.op_type = InstType::store;
         }
       }
+
+      if (inst.op_type == InstType::jmp_true || inst.op_type == InstType::jmp) {
+        if (inst.operand.two.opr1 == i + 1) {
+          removed_inst_cnt += 1;
+          inst.op_type = InstType::nop;
+        }
+      }
+
+      pos_moved[i] = -removed_inst_cnt;
     }
 
+    size_t new_inst_ptr = 0;
+    for (size_t i = 0; i < len; i++) {
+
+      if (bytecode[i].op_type != InstType::nop) {
+        if (i != new_inst_ptr) {
+          auto& inst = bytecode[i];
+
+          if (inst.op_type == InstType::jmp || inst.op_type == InstType::jmp_true) {
+            inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
+          }
+          bytecode[new_inst_ptr] = inst;
+        }
+        new_inst_ptr += 1;
+      }
+    }
+
+    bytecode.resize(new_inst_ptr);
   }
 
   void visit(ASTNode *node) {
@@ -107,7 +143,7 @@ friend class NjsVM;
         visit_binary_expr(*static_cast<BinaryExpr *>(node));
         break;
       case ASTNode::AST_EXPR_UNARY:
-        assert(false);
+        visit_unary_expr(*static_cast<UnaryExpr *>(node));
         break;
       case ASTNode::AST_EXPR_ASSIGN:
         visit_assignment_expr(*static_cast<AssignmentExpr *>(node));
@@ -151,7 +187,7 @@ friend class NjsVM;
         break;
       case ASTNode::AST_EXPR_BOOL:
         if (node->get_source() == u"true") emit(InstType::push_bool, u32(1));
-        else if (node->get_source() == u"false") emit(InstType::push_bool, u32(0));
+        else emit(InstType::push_bool, u32(0));
         break;
       default:
         assert(false);
@@ -235,6 +271,16 @@ friend class NjsVM;
     }
   }
 
+  void visit_unary_expr(UnaryExpr& expr) {
+    if (expr.is_not_expr()) {
+      visit(expr.operand);
+      emit(InstType::logi_not);
+    }
+    else {
+      assert(false);
+    }
+  }
+
   void visit_binary_expr(BinaryExpr& expr) {
 
     if (expr.op.type == Token::ADD && expr.is_simple_expr()) {
@@ -248,9 +294,9 @@ friend class NjsVM;
     }
 
     if (expr.op.is_binary_logical()) {
-      std::vector<u32> true_list;
-      std::vector<u32> false_list;
-      visit_logical_expr(expr, true_list, false_list);
+      vector<u32> true_list;
+      vector<u32> false_list;
+      visit_logical_expr(expr, true_list, false_list, true);
 
       for (u32 idx : true_list) {
         bytecode[idx].operand.two.opr1 = int(bytecode_pos());
@@ -273,63 +319,64 @@ friend class NjsVM;
 
   }
 
-  void visit_expr_in_logical_expr(bool is_OR, ASTNode *expr, std::vector<u32>& true_list,
-                                  std::vector<u32>& false_list) {
+  void visit_expr_in_logical_expr(ASTNode& expr, vector<u32>& true_list, vector<u32>& false_list, bool need_value) {
+    if (expr.is_binary_logical_expr()) {
+      visit_logical_expr(*expr.as_binary_expr(), true_list, false_list, need_value);
+      return;
+    }
+    else if (expr.is_not_expr() && !need_value) {
+      auto *not_expr = static_cast<UnaryExpr *>(&expr);
+      visit_expr_in_logical_expr(*not_expr->operand, true_list, false_list, need_value);
 
-    if (expr->is_not_expr() && static_cast<UnaryExpr *>(expr)->operand->is_binary_logical_expr()) {
-      auto not_expr = static_cast<UnaryExpr *>(expr);
-      visit_logical_expr(*(not_expr->operand->as_binary_expr()), true_list, false_list);
-
-      std::vector<u32> temp = std::move(false_list);
+      vector<u32> temp = std::move(false_list);
       false_list = std::move(true_list);
       true_list = std::move(temp);
       return;
     }
 
-    visit(expr);
+    visit(&expr);
     true_list.push_back(bytecode_pos());
     emit(InstType::jmp_true);
     false_list.push_back(bytecode_pos());
     emit(InstType::jmp);
   }
 
-  void visit_logical_expr(BinaryExpr& expr, std::vector<u32>& true_list, std::vector<u32>& false_list) {
+  void visit_logical_expr(BinaryExpr& expr, vector<u32>& true_list, vector<u32>& false_list, bool need_value) {
 
+    vector<u32> lhs_true_list;
+    vector<u32> lhs_false_list;
+    visit_expr_in_logical_expr(*(expr.lhs), lhs_true_list, lhs_false_list, need_value);
+    
     bool is_OR = expr.op.type == Token::LOGICAL_OR;
-
-    if (expr.lhs->is_binary_logical_expr()) {
-      visit_logical_expr(*expr.lhs->as_binary_expr(), true_list, false_list);
-    }
-    else if (expr.lhs->is_expression()) {
-      visit_expr_in_logical_expr(is_OR, expr.lhs, true_list, false_list);
-    }
-    else
-      assert(false);
-
     if (is_OR) {
       // backpatch( B1.falselist, M.instr)
-      for (u32 idx : false_list) {
+      for (u32 idx : lhs_false_list) {
         bytecode[idx].operand.two.opr1 = int(bytecode_pos());
       }
-      false_list.clear();
+      true_list.insert(true_list.end(), lhs_true_list.begin(), lhs_true_list.end());
+      emit(InstType::pop_drop);
     }
     else {
-      for (u32 idx : true_list) {
+      for (u32 idx : lhs_true_list) {
         bytecode[idx].operand.two.opr1 = int(bytecode_pos());
       }
-      true_list.clear();
+      false_list.insert(false_list.end(), lhs_false_list.begin(), lhs_false_list.end());
+      emit(InstType::pop_drop);
     }
 
-    if (expr.rhs->is_binary_logical_expr()) {
-      if (is_OR) false_list.clear();
-      else true_list.clear();
-      visit_logical_expr(*expr.rhs->as_binary_expr(), true_list, false_list);
-    }
-    else if (expr.rhs->is_expression()) {
-      visit_expr_in_logical_expr(is_OR, expr.rhs, true_list, false_list);
-    }
-    else
-      assert(false);
+    // If the operator is OR, we take the rhs's false list as this expression's false list.
+    // And we implicitly merge the true list.
+    // if (is_OR) false_list.clear();
+    // else true_list.clear();
+
+    vector<u32> rhs_true_list;
+    vector<u32> rhs_false_list;
+    visit_expr_in_logical_expr(*(expr.rhs), rhs_true_list, rhs_false_list, need_value);
+
+    if (is_OR) false_list = std::move(rhs_false_list);
+    else true_list = std::move(rhs_true_list);
+    if (is_OR) true_list.insert(true_list.end(), rhs_true_list.begin(), rhs_true_list.end());
+    else false_list.insert(false_list.end(), rhs_false_list.begin(), rhs_false_list.end());
   }
 
   void visit_assignment_expr(AssignmentExpr& expr) {

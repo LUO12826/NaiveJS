@@ -87,6 +87,10 @@ void NjsVM::execute() {
       case InstType::push_atom:
         exec_push_str(inst.operand.two.opr1, true);
         break;
+      case InstType::push_bool:
+        rt_stack[sp] = JSValue(bool(inst.operand.two.opr1));
+        sp += 1;
+        break;
       case InstType::push_this:
         exec_push_this();
         break;
@@ -117,6 +121,13 @@ void NjsVM::execute() {
       case InstType::jmp_true:
         if (!rt_stack[sp - 1].is_falsy()) {
           pc = inst.operand.two.opr1;
+        }
+        break;
+      case InstType::jmp_cond:
+        if (!rt_stack[sp - 1].is_falsy()) {
+          pc = inst.operand.two.opr1;
+        } else {
+          pc = inst.operand.two.opr2;
         }
         break;
       case InstType::je: break;
