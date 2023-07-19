@@ -31,6 +31,10 @@ LeftHandSideExpr *ASTNode::as_lhs_expr() {
   return static_cast<LeftHandSideExpr *>(this);
 }
 
+BinaryExpr *ASTNode::as_binary_expr() {
+  return static_cast<BinaryExpr *>(this);
+}
+
 ProgramOrFunctionBody *ASTNode::as_func_body() {
   return static_cast<ProgramOrFunctionBody *>(this);
 }
@@ -62,5 +66,24 @@ bool ASTNode::is_expression() {
   return type > BEGIN_EXPR && type < END_EXPR;
 }
 
+bool ASTNode::is_binary_expr() {
+  return type == AST_EXPR_BINARY;
+}
+
+bool ASTNode::is_binary_logical_expr() {
+  if (!is_binary_expr()) return false;
+  auto *bin_expr = static_cast<BinaryExpr *>(this);
+  return bin_expr->op.is_binary_logical();
+}
+
+bool ASTNode::is_unary_expr() {
+  return type == AST_EXPR_UNARY;
+}
+
+bool ASTNode::is_not_expr() {
+  if (!is_unary_expr()) return false;
+  auto *unary_expr = static_cast<UnaryExpr *>(this);
+  return unary_expr->op.type == Token::LOGICAL_NOT && unary_expr->is_prefix_op;
+}
 
 } // end namespace njs

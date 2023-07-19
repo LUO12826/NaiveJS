@@ -29,6 +29,12 @@ Instruction::Instruction(InstType op, int opr1): op_type(op) {
 
 Instruction::Instruction(InstType op): op_type(op) {}
 
+void Instruction::swap_two_operands() {
+  int temp = operand.two.opr1;
+  operand.two.opr1 = operand.two.opr2;
+  operand.two.opr2 = temp;
+}
+
 std::string Instruction::description() {
 
   char buffer[80];
@@ -61,6 +67,9 @@ std::string Instruction::description() {
     case InstType::push_str:
       sprintf(buffer, "push_str  %d", operand.two.opr1);
       break;
+    case InstType::push_bool:
+      sprintf(buffer, "push_bool  %d", operand.two.opr1);
+      break;
     case InstType::push_atom:
       sprintf(buffer, "push_atom  %d", operand.two.opr1);
       break;
@@ -90,6 +99,9 @@ std::string Instruction::description() {
       break;
     case InstType::jmp_true:
       sprintf(buffer, "jmp_true  %d", operand.two.opr1);
+      break;
+    case InstType::jmp_cond:
+      sprintf(buffer, "jmp_cond  %d %d", operand.two.opr1, operand.two.opr2);
       break;
     case InstType::make_func:
       sprintf(buffer, "make_func  %d", operand.two.opr1);

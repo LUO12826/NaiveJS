@@ -28,6 +28,7 @@ using std::u16string_view;
 
 const u32 PRINT_TREE_INDENT = 2;
 
+class BinaryExpr;
 class LeftHandSideExpr;
 class ParenthesisExpr;
 class ProgramOrFunctionBody;
@@ -114,9 +115,8 @@ class ASTNode {
   void add_child(ASTNode *node);
 
   ParenthesisExpr *as_paren_expr();
-
   LeftHandSideExpr *as_lhs_expr();
-
+  BinaryExpr *as_binary_expr();
   ProgramOrFunctionBody *as_func_body();
 
   void print_tree(int level);
@@ -125,6 +125,10 @@ class ASTNode {
 
   bool is_illegal();
   bool is_expression();
+  bool is_binary_expr();
+  bool is_binary_logical_expr();
+  bool is_unary_expr();
+  bool is_not_expr();
 
   Type type;
  private:
@@ -342,7 +346,7 @@ class LeftHandSideExpr : public ASTNode {
     add_child(new ASTNode(AST_TOKEN, prop.text, prop.start, prop.end, prop.line));
   }
 
-  bool is_simple() {
+  bool is_id() {
     return base->type == ASTNode::AST_EXPR_ID && postfix_order.empty();
   }
 
@@ -370,10 +374,14 @@ class BinaryExpr : public ASTNode {
   }
 
   bool is_simple_expr() {
-    if (lhs->type != ASTNode::AST_EXPR_LHS || rhs->type != ASTNode::AST_EXPR_LHS) { return false; }
-
-    return static_cast<LeftHandSideExpr *>(lhs)->is_simple() &&
-           static_cast<LeftHandSideExpr *>(rhs)->is_simple();
+    bool lhs_simple = lhs->type == AST_EXPR_ID || (lhs->type == ASTNode::AST_EXPR_LHS
+                                                   &&
+                                                   static_cast<LeftHandSideExpr *>(lhs)->is_id());
+    if (!lhs_simple) return false;
+    bool rhs_simple = rhs->type == AST_EXPR_ID || (rhs->type == ASTNode::AST_EXPR_LHS
+                                                   &&
+                                                   static_cast<LeftHandSideExpr *>(rhs)->is_id());
+    return rhs_simple;
   }
 
   std::string description() override {
@@ -400,15 +408,19 @@ class AssignmentExpr : public ASTNode {
   }
 
   bool is_simple_assign() {
-    if (lhs->type != ASTNode::AST_EXPR_LHS || rhs->type != ASTNode::AST_EXPR_LHS) { return false; }
-
-    return static_cast<LeftHandSideExpr *>(lhs)->is_simple() &&
-           static_cast<LeftHandSideExpr *>(rhs)->is_simple();
+    return lhs_is_id() && rhs_is_id();
   }
 
   bool lhs_is_id() {
-    if (lhs->type != ASTNode::AST_EXPR_LHS) { return false; }
-    return static_cast<LeftHandSideExpr *>(lhs)->is_simple();
+    if (lhs->type == AST_EXPR_ID) return true;
+    if (lhs->type != AST_EXPR_LHS) { return false; }
+    return static_cast<LeftHandSideExpr *>(lhs)->is_id();
+  }
+
+  bool rhs_is_id() {
+    if (rhs->type == AST_EXPR_ID) return true;
+    if (rhs->type != AST_EXPR_LHS) { return false; }
+    return static_cast<LeftHandSideExpr *>(rhs)->is_id();
   }
 
   ASTNode *lhs;

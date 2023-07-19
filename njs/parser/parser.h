@@ -73,8 +73,9 @@ class Parser {
           delete value;
           goto error;
         }
-        return new ParenthesisExpr(value, value->get_source(),value->start_pos(), value->end_pos(),
-                                    value->get_line_start());
+        return value;
+//        return new ParenthesisExpr(value, value->get_source(),value->start_pos(), value->end_pos(),
+//                                    value->get_line_start());
       }
       case TokenType::DIV_ASSIGN:
       case TokenType::DIV: {  // /
@@ -297,7 +298,7 @@ error:
     if (lhs->is_illegal()) return lhs;
 
     // Not LeftHandSideExpression
-    if (lhs->type != ASTNode::AST_EXPR_LHS) {
+    if (lhs->type != ASTNode::AST_EXPR_LHS && lhs->type != ASTNode::AST_EXPR_ID) {
       return lhs;
     }
     
@@ -475,7 +476,11 @@ error:
           break;
         }
         default:
-
+          if (lhs->postfix_order.empty()) {
+            lhs->base = nullptr;
+            delete lhs;
+            return base;
+          }
           lhs->set_source(SOURCE_PARSED_EXPR);
           return lhs;
       }

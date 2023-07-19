@@ -106,6 +106,9 @@ friend class NjsVM;
       case ASTNode::AST_EXPR_BINARY:
         visit_binary_expr(*static_cast<BinaryExpr *>(node));
         break;
+      case ASTNode::AST_EXPR_UNARY:
+        assert(false);
+        break;
       case ASTNode::AST_EXPR_ASSIGN:
         visit_assignment_expr(*static_cast<AssignmentExpr *>(node));
         break;
@@ -145,6 +148,10 @@ friend class NjsVM;
         break;
       case ASTNode::AST_EXPR_PAREN:
         visit(static_cast<ParenthesisExpr *>(node)->expr);
+        break;
+      case ASTNode::AST_EXPR_BOOL:
+        if (node->get_source() == u"true") emit(InstType::push_bool, u32(1));
+        else if (node->get_source() == u"false") emit(InstType::push_bool, u32(0));
         break;
       default:
         assert(false);
@@ -237,19 +244,92 @@ friend class NjsVM;
 
       emit(InstType::fast_add, scope_type_int(lhs_sym.scope_type), lhs_sym.index,
            scope_type_int(rhs_sym.scope_type), rhs_sym.index);
+      return;
+    }
+
+    if (expr.op.is_binary_logical()) {
+      std::vector<u32> true_list;
+      std::vector<u32> false_list;
+      visit_logical_expr(expr, true_list, false_list);
+
+      for (u32 idx : true_list) {
+        bytecode[idx].operand.two.opr1 = int(bytecode_pos());
+      }
+      for (u32 idx : false_list) {
+        bytecode[idx].operand.two.opr1 = int(bytecode_pos());
+      }
+      return;
+    }
+
+    visit(expr.lhs);
+    visit(expr.rhs);
+    switch (expr.op.type) {
+      case Token::ADD: emit(InstType::add); break;
+      case Token::SUB: emit(InstType::sub); break;
+      case Token::MUL: emit(InstType::mul); break;
+      case Token::DIV: emit(InstType::div); break;
+      default: assert(false);
+    }
+
+  }
+
+  void visit_expr_in_logical_expr(bool is_OR, ASTNode *expr, std::vector<u32>& true_list,
+                                  std::vector<u32>& false_list) {
+
+    if (expr->is_not_expr() && static_cast<UnaryExpr *>(expr)->operand->is_binary_logical_expr()) {
+      auto not_expr = static_cast<UnaryExpr *>(expr);
+      visit_logical_expr(*(not_expr->operand->as_binary_expr()), true_list, false_list);
+
+      std::vector<u32> temp = std::move(false_list);
+      false_list = std::move(true_list);
+      true_list = std::move(temp);
+      return;
+    }
+
+    visit(expr);
+    true_list.push_back(bytecode_pos());
+    emit(InstType::jmp_true);
+    false_list.push_back(bytecode_pos());
+    emit(InstType::jmp);
+  }
+
+  void visit_logical_expr(BinaryExpr& expr, std::vector<u32>& true_list, std::vector<u32>& false_list) {
+
+    bool is_OR = expr.op.type == Token::LOGICAL_OR;
+
+    if (expr.lhs->is_binary_logical_expr()) {
+      visit_logical_expr(*expr.lhs->as_binary_expr(), true_list, false_list);
+    }
+    else if (expr.lhs->is_expression()) {
+      visit_expr_in_logical_expr(is_OR, expr.lhs, true_list, false_list);
+    }
+    else
+      assert(false);
+
+    if (is_OR) {
+      // backpatch( B1.falselist, M.instr)
+      for (u32 idx : false_list) {
+        bytecode[idx].operand.two.opr1 = int(bytecode_pos());
+      }
+      false_list.clear();
     }
     else {
-      visit(expr.lhs);
-      visit(expr.rhs);
-      switch (expr.op.type) {
-        case Token::ADD: emit(InstType::add); break;
-        case Token::SUB: emit(InstType::sub); break;
-        case Token::MUL: emit(InstType::mul); break;
-        case Token::DIV: emit(InstType::div); break;
-        default: assert(false);
+      for (u32 idx : true_list) {
+        bytecode[idx].operand.two.opr1 = int(bytecode_pos());
       }
-
+      true_list.clear();
     }
+
+    if (expr.rhs->is_binary_logical_expr()) {
+      if (is_OR) false_list.clear();
+      else true_list.clear();
+      visit_logical_expr(*expr.rhs->as_binary_expr(), true_list, false_list);
+    }
+    else if (expr.rhs->is_expression()) {
+      visit_expr_in_logical_expr(is_OR, expr.rhs, true_list, false_list);
+    }
+    else
+      assert(false);
   }
 
   void visit_assignment_expr(AssignmentExpr& expr) {
@@ -276,9 +356,6 @@ friend class NjsVM;
       // LeftHandSide Expression in it.
       if (expr.lhs->type == ASTNode::AST_EXPR_LHS) {
         visit_left_hand_side_expr(*static_cast<LeftHandSideExpr*>(expr.lhs), true);
-      }
-      else if (expr.lhs->type == ASTNode::AST_EXPR_PAREN) {
-        visit_left_hand_side_expr(*expr.lhs->as_paren_expr()->expr->as_lhs_expr(), true);
       }
       else assert(false);
 

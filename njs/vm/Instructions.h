@@ -23,6 +23,7 @@ enum class InstType {
   push,
   pushi,
   push_str,
+  push_bool,
   push_atom,
   push_this,
   push_null,
@@ -34,6 +35,7 @@ enum class InstType {
 
   jmp,
   jmp_true,
+  jmp_cond,
   je,
   jne,
 
@@ -90,6 +92,8 @@ struct Instruction {
   explicit Instruction(InstType op);
 
   std::string description();
+
+  void swap_two_operands();
 
   InstType op_type;
   union {

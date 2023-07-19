@@ -83,15 +83,15 @@ int main(int argc, char *argv[]) {
 
     codegen_timer.end();
 
-    Timer exec_timer("executed");
-
-    // execute bytecode
-    NjsVM vm(visitor);
-    vm.add_native_func_impl(u"log", InternalFunctions::log);
-    vm.add_native_func_impl(u"$gc", InternalFunctions::js_gc);
-    vm.run();
-
-    exec_timer.end();
+//    Timer exec_timer("executed");
+//
+//    // execute bytecode
+//    NjsVM vm(visitor);
+//    vm.add_native_func_impl(u"log", InternalFunctions::log);
+//    vm.add_native_func_impl(u"$gc", InternalFunctions::js_gc);
+//    vm.run();
+//
+//    exec_timer.end();
     
   }
   catch (const std::ifstream::failure &e) {
