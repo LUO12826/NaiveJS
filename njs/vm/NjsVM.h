@@ -62,6 +62,7 @@ friend class InternalFunctions;
   void exec_add();
   void exec_binary(InstType op_type);
   void exec_logi(InstType op_type);
+  void exec_strict_equality();
 
   JSFunction *function_env();
   u32 calc_var_addr(ScopeType scope, int raw_index);

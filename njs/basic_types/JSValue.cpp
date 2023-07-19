@@ -23,6 +23,10 @@ bool JSValue::is_falsy() const {
   return false;
 }
 
+bool JSValue::bool_value() const {
+  return !is_falsy();
+}
+
 bool JSValue::tag_is(JSValueTag val_tag) const {
   return tag == val_tag;
 }
@@ -82,7 +86,7 @@ std::string JSValue::to_string() const {
   return stream.str();
 }
 
-void JSValue::assign(JSValue& rhs) {
+void JSValue::assign(const JSValue& rhs) {
     assert(tag != STACK_FRAME_META1 && tag != STACK_FRAME_META2);
     assert(rhs.tag != STACK_FRAME_META1 && rhs.tag != STACK_FRAME_META2);
 

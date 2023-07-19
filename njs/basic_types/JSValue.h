@@ -16,6 +16,17 @@ struct JSHeapValue;
 extern const char *js_value_tag_names[25];
 
 /// Type for values in JavaScript
+/// JSValue may point to an object that manages memory by reference counting,
+/// so be especially careful when copying and destroying.
+///
+/// Here are some basic principles: JSValues on the operand stack are temporary values,
+/// so their reference count should not be changed when they're moved or copied. But when
+/// they disappears, `set_undefined` should be called in order to clear the temporary value
+/// and avoid memory leaks.
+///
+/// When a JSValue is transferred from the operand stack to somewhere on the stack frame,
+/// or to a non-temporary storage such as object attributes or array elements, `assign`
+/// must be called to handle reference counting correctly.
 struct JSValue {
   // has corresponding string representation, note to modify when adding
   enum JSValueTag {
@@ -71,6 +82,34 @@ struct JSValue {
   explicit JSValue(JSValueTag tag): tag(tag) {}
   ~JSValue() = default;
 
+  // Not trying to move anything here, since moving and copying cost the same for JSValue.
+  // Just to utilize the semantics of std::move to set the source value to undefined when it's moved.
+  JSValue(JSValue&& other) {
+    *this = other;
+    other.tag = UNDEFINED;
+  }
+
+  JSValue(const JSValue& other) {
+    *this = other;
+  }
+
+  JSValue& operator = (const JSValue& other) {
+    if (this == &other) return *this;
+    val = other.val;
+    tag = other.tag;
+    flag_bits = other.flag_bits;
+    return *this;
+  }
+
+  JSValue& operator = (JSValue&& other) {
+    if (this == &other) return *this;
+    val = other.val;
+    tag = other.tag;
+    flag_bits = other.flag_bits;
+    other.tag = UNDEFINED;
+    return *this;
+  }
+
   explicit JSValue(double number): tag(NUM_FLOAT) {
     val.as_float64 = number;
   }
@@ -89,6 +128,10 @@ struct JSValue {
 
   explicit JSValue(JSObject *obj): tag(OBJECT) {
     val.as_object = obj;
+  }
+
+  explicit JSValue(PrimitiveString *str): tag(STRING) {
+    val.as_primitive_string = str;
   }
 
   explicit JSValue(JSArray *array): tag(ARRAY) {
@@ -139,10 +182,11 @@ struct JSValue {
   GCObject *as_GCObject() const;
 
   bool is_falsy() const;
+  bool bool_value() const;
 
   bool tag_is(JSValueTag val_tag) const;
 
-  void assign(JSValue& rhs);
+  void assign(const JSValue& rhs);
 
   std::string description() const;
   std::string to_string() const;

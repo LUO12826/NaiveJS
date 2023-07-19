@@ -111,23 +111,23 @@ friend class NjsVM;
       pos_moved[i] = -removed_inst_cnt;
     }
 
-    size_t new_inst_ptr = 0;
-    for (size_t i = 0; i < len; i++) {
-
-      if (bytecode[i].op_type != InstType::nop) {
-        if (i != new_inst_ptr) {
-          auto& inst = bytecode[i];
-
-          if (inst.op_type == InstType::jmp || inst.op_type == InstType::jmp_true) {
-            inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
-          }
-          bytecode[new_inst_ptr] = inst;
-        }
-        new_inst_ptr += 1;
-      }
-    }
-
-    bytecode.resize(new_inst_ptr);
+//    size_t new_inst_ptr = 0;
+//    for (size_t i = 0; i < len; i++) {
+//
+//      if (bytecode[i].op_type != InstType::nop) {
+//        if (i != new_inst_ptr) {
+//          auto& inst = bytecode[i];
+//
+//          if (inst.op_type == InstType::jmp || inst.op_type == InstType::jmp_true) {
+//            inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
+//          }
+//          bytecode[new_inst_ptr] = inst;
+//        }
+//        new_inst_ptr += 1;
+//      }
+//    }
+//
+//    bytecode.resize(new_inst_ptr);
   }
 
   void visit(ASTNode *node) {
