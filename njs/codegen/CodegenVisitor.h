@@ -81,7 +81,7 @@ friend class NjsVM;
 
   void optimize() {
     size_t len = bytecode.size();
-    u32 removed_inst_cnt = 0;
+    int removed_inst_cnt = 0;
 
     if (len < 2) return;
 
@@ -91,6 +91,7 @@ friend class NjsVM;
     for (size_t i = 1; i < len; i++) {
       auto& inst = bytecode[i];
       auto& prev_inst = bytecode[i - 1];
+      pos_moved[i] = -removed_inst_cnt;
 
       if (inst.op_type == InstType:: push && prev_inst.op_type == InstType::pop) {
         if (inst.operand.two.opr1 == prev_inst.operand.two.opr1
@@ -107,27 +108,27 @@ friend class NjsVM;
           inst.op_type = InstType::nop;
         }
       }
-
-      pos_moved[i] = -removed_inst_cnt;
     }
 
-//    size_t new_inst_ptr = 0;
-//    for (size_t i = 0; i < len; i++) {
-//
-//      if (bytecode[i].op_type != InstType::nop) {
-//        if (i != new_inst_ptr) {
-//          auto& inst = bytecode[i];
-//
-//          if (inst.op_type == InstType::jmp || inst.op_type == InstType::jmp_true) {
-//            inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
-//          }
-//          bytecode[new_inst_ptr] = inst;
-//        }
-//        new_inst_ptr += 1;
-//      }
-//    }
-//
-//    bytecode.resize(new_inst_ptr);
+    size_t new_inst_ptr = 0;
+    for (size_t i = 0; i < len; i++) {
+
+      if (bytecode[i].op_type != InstType::nop) {
+        auto& inst = bytecode[i];
+        // Fix the jump target of the jmp instructions
+        if (inst.op_type == InstType::jmp || inst.op_type == InstType::jmp_true) {
+          inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
+        }
+        bytecode[new_inst_ptr] = inst;
+        new_inst_ptr += 1;
+      }
+    }
+    // Fix the jump target of the call instructions
+    for (auto& meta : func_meta) {
+      meta.code_address += pos_moved[meta.code_address];
+    }
+
+    bytecode.resize(new_inst_ptr);
   }
 
   void visit(ASTNode *node) {
