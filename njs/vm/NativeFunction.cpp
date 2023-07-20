@@ -11,7 +11,7 @@ JSValue InternalFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> ar
   std::ostringstream stream;
   stream << "\033[32m" << "[LOG] "; // green text
   for (int i = 0; i < args.size(); i++) {
-    stream << args[i].to_string() << ", ";
+    stream << args[i].to_string() << " ";
   }
   stream << std::endl;
   stream << "\033[0m";  // restore normal color

@@ -107,6 +107,16 @@ friend class NjsVM;
           removed_inst_cnt += 1;
           inst.op_type = InstType::nop;
         }
+
+        if (inst.op_type == InstType::jmp
+            && prev_inst.op_type == InstType::jmp_true
+            && prev_inst.operand.two.opr1 == i + 1) {
+          
+          prev_inst.op_type = InstType::jmp_false;
+          prev_inst.operand.two.opr1 = inst.operand.two.opr1;
+          inst.op_type = InstType::nop;
+          removed_inst_cnt += 1;
+        }
       }
     }
 
@@ -116,7 +126,8 @@ friend class NjsVM;
       if (bytecode[i].op_type != InstType::nop) {
         auto& inst = bytecode[i];
         // Fix the jump target of the jmp instructions
-        if (inst.op_type == InstType::jmp || inst.op_type == InstType::jmp_true) {
+        if (inst.op_type == InstType::jmp || inst.op_type == InstType::jmp_true
+            || inst.op_type == InstType::jmp_false) {
           inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
         }
         bytecode[new_inst_ptr] = inst;
@@ -366,17 +377,14 @@ friend class NjsVM;
       emit(InstType::pop_drop);
     }
 
-    // If the operator is OR, we take the rhs's false list as this expression's false list.
-    // And we implicitly merge the true list.
-    // if (is_OR) false_list.clear();
-    // else true_list.clear();
-
     vector<u32> rhs_true_list;
     vector<u32> rhs_false_list;
     visit_expr_in_logical_expr(*(expr.rhs), rhs_true_list, rhs_false_list, need_value);
-
+    // If the operator is OR, we take the rhs's false list as this expression's false list.
     if (is_OR) false_list = std::move(rhs_false_list);
     else true_list = std::move(rhs_true_list);
+
+    // merge the true list.
     if (is_OR) true_list.insert(true_list.end(), rhs_true_list.begin(), rhs_true_list.end());
     else false_list.insert(false_list.end(), rhs_false_list.begin(), rhs_false_list.end());
   }

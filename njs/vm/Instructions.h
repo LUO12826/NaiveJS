@@ -35,6 +35,7 @@ enum class InstType {
 
   jmp,
   jmp_true,
+  jmp_false,
   jmp_cond,
   je,
   jne,

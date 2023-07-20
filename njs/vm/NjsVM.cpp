@@ -125,6 +125,11 @@ void NjsVM::execute() {
           pc = inst.operand.two.opr1;
         }
         break;
+      case InstType::jmp_false:
+        if (rt_stack[sp - 1].is_falsy()) {
+          pc = inst.operand.two.opr1;
+        }
+        break;
       case InstType::jmp_cond:
         if (rt_stack[sp - 1].bool_value()) {
           pc = inst.operand.two.opr1;
