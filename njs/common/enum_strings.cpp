@@ -161,8 +161,9 @@ const char *scope_type_names[5] = {
 
 const char *js_value_tag_names[25] = {
   "UNDEFINED",
-  "JS_ATOM",
   "JS_NULL",
+
+  "JS_ATOM",
   "BOOLEAN",
   "NUM_INT",
   "NUM_FLOAT",

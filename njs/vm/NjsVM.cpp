@@ -591,16 +591,66 @@ void NjsVM::exec_index_access(bool get_ref) {
   sp -= 1;
 }
 
+bool NjsVM::are_strings_equal(const JSValue& lhs, const JSValue& rhs) {
+  if (lhs.tag == rhs.tag && lhs.tag_is(JSValue::JS_ATOM)) return true;
+
+  auto get_string_from_value = [this](const JSValue& val) {
+    u16string *str_data = nullptr;
+
+    if (val.tag_is(JSValue::JS_ATOM)) {
+      str_data = &str_list[val.val.as_int64];
+    }
+    else if (val.tag_is(JSValue::STRING) || val.tag_is(JSValue::STRING_REF)) {
+      str_data = &(val.val.as_primitive_string->str);
+    }
+    else if (val.tag_is(JSValue::STRING_OBJ)) {
+      assert(false);
+    }
+    return str_data;
+  };
+
+  u16string *lhs_str = get_string_from_value(lhs);
+  u16string *rhs_str = get_string_from_value(rhs);
+  
+  return *lhs_str == *rhs_str;
+}
+
 void NjsVM::exec_strict_equality() {
   JSValue& lhs = rt_stack[sp - 2];
   JSValue& rhs = rt_stack[sp - 1];
 
   if (lhs.tag != rhs.tag) {
+    bool equal = false;
+    if (lhs.is_string_type() && rhs.is_string_type()) {
+      equal = are_strings_equal(lhs, rhs);
+    }
     lhs.set_undefined();
-    lhs = JSValue(false);
+    lhs = JSValue(equal);
   }
   else {
+    assert(lhs.tag != JSValue::HEAP_VAL && lhs.tag != JSValue::VALUE_HANDLE);
+    auto tag = lhs.tag;
 
+    if (tag == JSValue::NUM_FLOAT) {
+      bool equal = lhs.val.as_float64 == rhs.val.as_float64;
+      lhs = JSValue(equal);
+    }
+    else if (tag == JSValue::JS_ATOM || tag == JSValue::NUM_INT) {
+      bool equal = lhs.val.as_int64 == rhs.val.as_int64;
+      lhs = JSValue(equal);
+    }
+    else if (lhs.is_string_type()) {
+      bool equal = are_strings_equal(lhs, rhs);
+      lhs.set_undefined();
+      lhs = JSValue(equal);
+    }
+    else if (lhs.tag_is(JSValue::UNDEFINED) || lhs.tag_is(JSValue::JS_NULL)) {
+      lhs = JSValue(true);
+    }
+    else if (lhs.is_object()) {
+      bool equal = lhs.val.as_object == rhs.val.as_object;
+      lhs = JSValue(equal);
+    }
   }
 
   rhs.set_undefined();

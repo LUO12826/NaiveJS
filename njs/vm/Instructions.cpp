@@ -47,9 +47,14 @@ std::string Instruction::description() {
     case InstType::mul: sprintf(buffer, "mul"); break;
     case InstType::div: sprintf(buffer, "div"); break;
     case InstType::neg: sprintf(buffer, "neg"); break;
+
+    case InstType::eq: sprintf(buffer, "eq"); break;
+    case InstType::eq3: sprintf(buffer, "eq3"); break;
+
     case InstType::logi_and: sprintf(buffer, "logi_and"); break;
     case InstType::logi_or: sprintf(buffer, "logi_or"); break;
     case InstType::logi_not: sprintf(buffer, "logi_not"); break;
+
     case InstType::fast_add:
       sprintf(buffer, "fast_add  %s %hu %s %hu",
                       scope_type_names[operand.four.opr1], operand.four.opr2,

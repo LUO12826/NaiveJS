@@ -66,7 +66,7 @@ friend class InternalFunctions;
 
   JSFunction *function_env();
   u32 calc_var_addr(ScopeType scope, int raw_index);
-
+  bool are_strings_equal(const JSValue& lhs, const JSValue& rhs);
 
   constexpr static u32 frame_meta_size {2};
   u32 max_stack_size {10240};

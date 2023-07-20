@@ -32,8 +32,9 @@ struct JSValue {
   enum JSValueTag {
     // The following types of values are stored inline in JSValue
     UNDEFINED,
-    JS_ATOM,
     JS_NULL,
+
+    JS_ATOM,
     BOOLEAN,
     NUM_INT,
     NUM_FLOAT,
@@ -167,6 +168,12 @@ struct JSValue {
   inline bool is_float() const { return tag == NUM_FLOAT; }
   inline bool is_bool() const { return tag == BOOLEAN; }
   inline bool is_primitive_string() const { return tag == STRING; }
+  inline bool is_inline() const { return tag >= JS_ATOM && tag <= NUM_FLOAT; }
+
+  inline bool is_string_type() const {
+    return tag == JS_ATOM || tag == STRING || tag == STRING_REF || tag == STRING_OBJ;
+  }
+
   inline bool is_object() const {
     return tag == OBJECT || tag == FUNCTION || tag == ARRAY;
   }
@@ -176,7 +183,7 @@ struct JSValue {
   }
 
   inline bool needs_gc() const {
-    return (tag >= NEED_GC_BEGIN) && (tag <= NEED_GC_END);
+    return tag >= NEED_GC_BEGIN && tag <= NEED_GC_END;
   }
 
   GCObject *as_GCObject() const;
