@@ -179,15 +179,6 @@ friend class NjsVM;
       case ASTNode::AST_EXPR_ARRAY:
         visit_array_literal(*static_cast<ArrayLiteral *>(node));
         break;
-      case ASTNode::AST_STMT_VAR:
-        visit_variable_statement(*static_cast<VarStatement *>(node));
-        break;
-      case ASTNode::AST_STMT_VAR_DECL:
-        visit_variable_declaration(*static_cast<VarDecl *>(node));
-        break;
-      case ASTNode::AST_STMT_RETURN:
-        visit_return_statement(*static_cast<ReturnStatement *>(node));
-        break;
       case ASTNode::AST_EXPR_NULL:
         emit(InstType::push_null);
         break;
@@ -200,6 +191,21 @@ friend class NjsVM;
       case ASTNode::AST_EXPR_BOOL:
         if (node->get_source() == u"true") emit(InstType::push_bool, u32(1));
         else emit(InstType::push_bool, u32(0));
+        break;
+      case ASTNode::AST_STMT_VAR:
+        visit_variable_statement(*static_cast<VarStatement *>(node));
+        break;
+      case ASTNode::AST_STMT_VAR_DECL:
+        visit_variable_declaration(*static_cast<VarDecl *>(node));
+        break;
+      case ASTNode::AST_STMT_RETURN:
+        visit_return_statement(*static_cast<ReturnStatement *>(node));
+        break;
+      case ASTNode::AST_STMT_IF:
+        visit_if_statement(*static_cast<IfStatement *>(node));
+        break;
+      case ASTNode::AST_STMT_BLOCK:
+        visit_block_statement(*static_cast<Block *>(node));
         break;
       default:
         assert(false);
@@ -522,6 +528,34 @@ friend class NjsVM;
   void visit_return_statement(ReturnStatement& return_stmt) {
     visit(return_stmt.expr);
     emit(InstType::ret);
+  }
+
+  void visit_if_statement(IfStatement& stmt) {
+    vector<u32> true_list;
+    vector<u32> false_list;
+    visit_expr_in_logical_expr(*stmt.condition_expr, true_list, false_list, false);
+    for (u32 idx : true_list) {
+        bytecode[idx].operand.two.opr1 = bytecode_pos();
+    }
+    emit(InstType::pop_drop);
+    visit(stmt.if_block);
+    u32 if_end_jmp = emit(InstType::jmp);
+
+    for (u32 idx : false_list) {
+        bytecode[idx].operand.two.opr1 = bytecode_pos();
+    }
+    emit(InstType::pop_drop);
+    visit(stmt.else_block);
+    bytecode[if_end_jmp].operand.two.opr1 = bytecode_pos();
+  }
+
+  void visit_block_statement(Block& block) {
+    push_scope(std::move(block.scope));
+
+    for (auto *stmt : block.statements) {
+        visit(stmt);
+    }
+    pop_scope();
   }
 
  private:

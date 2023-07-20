@@ -296,8 +296,10 @@ void NjsVM::exec_return() {
   u32 old_sp = frame_base_ptr - arg_cnt - 1;
   u32 old_pc = rt_stack[frame_base_ptr].flag_bits;
 
-  u32 ret_val_addr = sp - 1;
-  for (u32 addr = old_sp + 1; addr < ret_val_addr; addr++) {
+  JSValue& ret_val = rt_stack[sp - 1];
+  if (ret_val.is_RCObject()) ret_val.val.as_RCObject->retain();
+
+  for (u32 addr = old_sp + 1; addr < sp - 1; addr++) {
     rt_stack[addr].dispose();
   }
 
@@ -307,7 +309,7 @@ void NjsVM::exec_return() {
   frame_base_ptr = old_frame_bottom;
 
   // move return value
-  rt_stack[old_sp] = std::move(rt_stack[ret_val_addr]);
+  rt_stack[old_sp] = std::move(ret_val);
   sp += 1;
 }
 
