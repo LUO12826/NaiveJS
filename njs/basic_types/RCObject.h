@@ -44,7 +44,7 @@ struct PrimitiveString: public RCObject {
 /// @brief https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol
 struct JSSymbol: public RCObject {
 
-  static size_t global_count;
+  inline static size_t global_count {0};
 
   explicit JSSymbol(std::u16string name);
 

@@ -83,7 +83,7 @@ struct JSValue {
   explicit JSValue(JSValueTag tag): tag(tag) {}
   ~JSValue() = default;
 
-  // Not trying to move anything here, since moving and copying cost the same for JSValue.
+  // Not trying to move anything here, since moving and copying cost are the same for JSValue.
   // Just to utilize the semantics of std::move to set the source value to undefined when it's moved.
   JSValue(JSValue&& other) {
     *this = other;

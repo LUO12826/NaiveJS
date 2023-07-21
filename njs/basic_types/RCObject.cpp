@@ -6,8 +6,6 @@
 
 namespace njs {
 
-size_t JSSymbol::global_count = 0;
-
 void RCObject::retain() { ref_count += 1; }
 
 void RCObject::release() {

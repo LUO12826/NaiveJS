@@ -22,11 +22,12 @@ set(SOURCES
     njs/common/enums.cpp
     njs/gc/GCHeap.cpp
     njs/utils/Timer.cpp
-    njs/global_var.cpp
     njs/common/StringPool.cpp
     njs/parser/ast.cpp
     njs/codegen/Scope.cpp
-        njs/basic_types/JSArray.cpp njs/basic_types/JSArray.h njs/common/ArrayRef.h njs/vm/NativeFunction.cpp njs/vm/NativeFunction.h)
+    njs/basic_types/JSArray.cpp
+    njs/vm/NativeFunction.cpp
+)
 
 # executable is named `njs`
 add_executable(njs ${SOURCES} njs/codegen/Scope.cpp)

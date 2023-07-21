@@ -3,11 +3,8 @@
 
 #include "njs/basic_types/JSValue.h"
 #include "njs/common/ArrayRef.h"
-
-
 namespace njs {
 
-class JSObject;
 class NjsVM;
 
 class InternalFunctions {
