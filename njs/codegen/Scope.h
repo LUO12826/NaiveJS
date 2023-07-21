@@ -24,6 +24,9 @@ class Function;
 
 struct ScopeContext {
   std::vector<Instruction> function_init_code;
+  int64_t continue_pos {-1};
+  bool can_break {false};
+  std::vector<u32> break_list;
 };
 
 class Scope {
@@ -33,7 +36,7 @@ class Scope {
 
     static SymbolResolveResult none;
 
-    SymbolRecord*original_symbol {nullptr};
+    SymbolRecord *original_symbol {nullptr};
     ScopeType scope_type;
     u32 index;
 
@@ -64,6 +67,14 @@ class Scope {
 
   ScopeType get_scope_type() {
     return scope_type;
+  }
+
+  BlockType get_block_type() {
+    return block_type;
+  }
+
+  void set_block_type(BlockType block_type) {
+    this->block_type = block_type;
   }
 
   std::string get_scope_type_name() {
@@ -144,13 +155,38 @@ class Scope {
     return outer_func;
   }
 
-  ScopeContext* get_context() {
-    if (!context.get()) context = std::make_unique<ScopeContext>();
-    return context.get();
+  ScopeContext& get_context() {
+    if (!context) context = std::make_unique<ScopeContext>();
+    return *context.get();
   }
 
-  u32 param_count {0};
-  u32 local_var_count {0};
+  int64_t resolve_continue_pos() {
+    if (context && context->continue_pos != -1) {
+      return context->continue_pos;
+    }
+    else if (scope_type != ScopeType::FUNC && scope_type != ScopeType::GLOBAL && outer_scope) {
+      return outer_scope->resolve_continue_pos();
+    }
+    else {
+      return -1;
+    }
+  }
+
+  std::vector<u32> *resolve_break_list() {
+    if (context && context->can_break) {
+      return &context->break_list;
+    }
+    else if (scope_type != ScopeType::FUNC && scope_type != ScopeType::GLOBAL && outer_scope) {
+      return outer_scope->resolve_break_list();
+    }
+    else {
+      return nullptr;
+    }
+  }
+
+  u32 get_local_var_count() {
+    return local_var_count;
+  }
   
  private:
   SymbolResolveResult resolve_symbol_impl(u16string_view name, u32 depth, bool nonlocal) {
@@ -219,12 +255,16 @@ class Scope {
   }
 
   ScopeType scope_type;
+  BlockType block_type {BlockType::NOT_BLOCK};
   
   unordered_map<u16string_view, SymbolRecord> symbol_table;
   Scope *outer_scope {nullptr};
   Scope *outer_func {nullptr}; // this can be global scope
 
   unique_ptr<ScopeContext> context;
+
+  u32 param_count {0};
+  u32 local_var_count {0};
 
   // for function scope
   SmallVector<SymbolResolveResult, 5> capture_list;

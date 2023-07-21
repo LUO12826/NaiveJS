@@ -93,14 +93,14 @@ friend class NjsVM;
       auto& prev_inst = bytecode[i - 1];
       pos_moved[i] = -removed_inst_cnt;
 
-      if (inst.op_type == InstType:: push && prev_inst.op_type == InstType::pop) {
-        if (inst.operand.two.opr1 == prev_inst.operand.two.opr1
-            && inst.operand.two.opr2 == prev_inst.operand.two.opr2) {
-          removed_inst_cnt += 1;
-          inst.op_type = InstType::nop;
-          prev_inst.op_type = InstType::store;
-        }
-      }
+//      if (inst.op_type == InstType:: push && prev_inst.op_type == InstType::pop) {
+//        if (inst.operand.two.opr1 == prev_inst.operand.two.opr1
+//            && inst.operand.two.opr2 == prev_inst.operand.two.opr2) {
+//          removed_inst_cnt += 1;
+//          inst.op_type = InstType::nop;
+//          prev_inst.op_type = InstType::store;
+//        }
+//      }
 
       if (inst.op_type == InstType::jmp_true || inst.op_type == InstType::jmp) {
         if (inst.operand.two.opr1 == i + 1) {
@@ -204,6 +204,12 @@ friend class NjsVM;
       case ASTNode::AST_STMT_IF:
         visit_if_statement(*static_cast<IfStatement *>(node));
         break;
+      case ASTNode::AST_STMT_WHILE:
+        visit_while_statement(*static_cast<WhileStatement *>(node));
+        break;
+      case ASTNode::AST_STMT_CONTINUE:
+        visit_continue_break_statement(*static_cast<ContinueOrBreak *>(node));
+        break;
       case ASTNode::AST_STMT_BLOCK:
         visit_block_statement(*static_cast<Block *>(node));
         break;
@@ -225,10 +231,10 @@ friend class NjsVM;
 
     // Fill the function symbol initialization code to the very beginning
     // (because the function variable will be hoisted)
-    for (auto& inst : scope().get_context()->function_init_code) {
+    for (auto& inst : scope().get_context().function_init_code) {
       bytecode.push_back(inst);
     }
-    scope().get_context()->function_init_code.clear();
+    scope().get_context().function_init_code.clear();
 
     for (ASTNode *node : program.func_decls) {
       auto *func = static_cast<Function *>(node);
@@ -259,7 +265,7 @@ friend class NjsVM;
         .name_index = func.has_name() ? add_const(func.name.text) : 0,
         .is_anonymous = !func.has_name(),
         .param_count = (u32)func.params.size(),
-        .local_var_count = body->scope->local_var_count,
+        .local_var_count = body->scope->get_local_var_count(),
         .code_address = bytecode_pos(),
     });
 
@@ -545,8 +551,35 @@ friend class NjsVM;
         bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
     emit(InstType::pop_drop);
-    visit(stmt.else_block);
+
+    if (stmt.else_block) visit(stmt.else_block);
     bytecode[if_end_jmp].operand.two.opr1 = bytecode_pos();
+  }
+
+  void visit_while_statement(WhileStatement& stmt) {
+    vector<u32> true_list;
+    vector<u32> false_list;
+    u32 loop_start = bytecode_pos();
+    scope().get_context().continue_pos = loop_start;
+
+    visit_expr_in_logical_expr(*stmt.condition_expr, true_list, false_list, false);
+    for (u32 idx : true_list) {
+        bytecode[idx].operand.two.opr1 = bytecode_pos();
+    }
+    emit(InstType::pop_drop);
+    visit(stmt.body_stmt);
+    emit(InstType::jmp, loop_start);
+    for (u32 idx : false_list) {
+        bytecode[idx].operand.two.opr1 = bytecode_pos();
+    }
+    emit(InstType::pop_drop);
+  }
+
+  void visit_continue_break_statement(ContinueOrBreak& stmt) {
+    assert(stmt.type == ASTNode::AST_STMT_CONTINUE);
+    int64_t continue_pos = scope().resolve_continue_pos();
+    assert(continue_pos != -1);
+    emit(InstType::jmp, u32(continue_pos));
   }
 
   void visit_block_statement(Block& block) {
@@ -615,7 +648,7 @@ friend class NjsVM;
 
   void add_builtin_functions() {
     assert(scope().get_scope_type() == ScopeType::GLOBAL);
-    auto& func_init_code = scope().get_context()->function_init_code;
+    auto& func_init_code = scope().get_context().function_init_code;
 
     for (auto& [name, record] : scope().get_symbol_table()) {
       if (record.is_builtin && record.var_kind == VarKind::DECL_FUNCTION) {

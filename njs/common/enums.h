@@ -23,7 +23,19 @@ enum class ScopeType {
   // used to let the VM know to access the arguments within the argument store.
   FUNC_PARAM,
   BLOCK,
+  // `CLOSURE` scope does not really exist.
   CLOSURE
+};
+
+enum class BlockType {
+  NOT_BLOCK,
+  PLAIN,
+  IF,
+  FOR,
+  WHILE,
+  SWITCH,
+  TRY,
+  CATCH
 };
 
 ScopeType scope_type_from_int(int val);

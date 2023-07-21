@@ -12,7 +12,6 @@
 #include "njs/parser/parser.h"
 #include "njs/codegen/CodegenVisitor.h"
 #include "njs/vm/NjsVM.h"
-#include "njs/vm/NativeFunction.h"
 
 using namespace njs;
 using std::string;
