@@ -6,17 +6,15 @@
 
 namespace njs {
 
-NjsVM::NjsVM(CodegenVisitor& visitor): heap(600, *this) {
-  rt_stack = std::vector<JSValue>(max_stack_size);
-
-  bytecode = std::move(visitor.bytecode);
-  str_list = std::move(visitor.str_pool.get_list());
-  num_list = std::move(visitor.num_list);
-  func_meta = std::move(visitor.func_meta);
-
-  global_object = JSValue(heap.new_object<GlobalObject>());
-  top_level_this = JSValue(heap.new_object<JSObject>());
-
+NjsVM::NjsVM(CodegenVisitor& visitor) : heap(600, *this)
+                                      , rt_stack(max_stack_size)
+                                      , bytecode(std::move(visitor.bytecode))
+                                      , str_pool(std::move(visitor.str_pool))
+                                      , num_list(std::move(visitor.num_list))
+                                      , func_meta(std::move(visitor.func_meta))
+                                      , top_level_this(heap.new_object<JSObject>())
+                                      , global_object(heap.new_object<GlobalObject>())
+{
   auto& global_sym_table = visitor.scope_chain[0]->get_symbol_table();
 
   GlobalObject& global_obj = *static_cast<GlobalObject *>(global_object.val.as_object);
@@ -29,6 +27,16 @@ NjsVM::NjsVM(CodegenVisitor& visitor): heap(600, *this) {
 
 void NjsVM::add_native_func_impl(u16string name, NativeFuncType func) {
   native_func_binding.emplace(std::move(name), func);
+}
+
+void NjsVM::add_builtin_object(u16string name,
+                               std::function<JSObject*(GCHeap&, StringPool&)> builder) {
+  GlobalObject& global_obj = *static_cast<GlobalObject *>(global_object.val.as_object);
+  auto iter = global_obj.props_index_map.find(name);
+  if (iter == global_obj.props_index_map.end()) return;
+
+  u32 index = iter->second;
+  rt_stack[index] = JSValue(builder(heap, str_pool));
 }
 
 void NjsVM::run() {
@@ -373,7 +381,7 @@ void NjsVM::exec_prop_assign() {
 
 void NjsVM::exec_make_func(int meta_idx) {
   auto& meta = func_meta[meta_idx];
-  auto& name = str_list[meta.name_index];
+  auto& name = str_pool.get_list()[meta.name_index];
 
   auto *func = heap.new_object<JSFunction>(name, meta);
   if (meta.is_native) {
@@ -509,7 +517,7 @@ void NjsVM::exec_push_str(int str_idx, bool atom) {
     rt_stack[sp].val.as_int64 = str_idx;
   }
   else {
-    auto str = new PrimitiveString(str_list[str_idx]);
+    auto str = new PrimitiveString(str_pool.get_list()[str_idx]);
     rt_stack[sp].val.as_primitive_string = str;
   }
 
@@ -535,14 +543,16 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
   for (u32 i = sp - key_cnt; i < sp - 1; i++) {
     assert(val_obj.is_object());
     // val_obj is a reference, so we are directly modify the cell in the stack frame.
-    std::cout << "...visit key " << to_utf8_string(str_list[rt_stack[i].val.as_int64]) << std::endl;
+    std::cout << "...visit key " << to_utf8_string(str_pool.get_list()[rt_stack[i].val.as_int64])
+              << std::endl;
     val_obj = val_obj.val.as_object->get_prop(rt_stack[i].val.as_int64, false);
     rt_stack[i].set_undefined();
   }
   assert(val_obj.is_object());
   // visit the last component separately
   invoker_this = val_obj;
-  std::cout << "...visit key " << to_utf8_string(str_list[rt_stack[sp - 1].val.as_int64]) << std::endl;
+  std::cout << "...visit key " << to_utf8_string(str_pool.get_list()[rt_stack[sp - 1].val.as_int64])
+            << std::endl;
   val_obj = val_obj.val.as_object->get_prop(rt_stack[sp - 1].val.as_int64, get_ref);
   rt_stack[sp - 1].set_undefined();
 
@@ -605,7 +615,7 @@ bool NjsVM::are_strings_equal(const JSValue& lhs, const JSValue& rhs) {
     u16string *str_data = nullptr;
 
     if (val.tag_is(JSValue::JS_ATOM)) {
-      str_data = &str_list[val.val.as_int64];
+      str_data = &str_pool.get_list()[val.val.as_int64];
     }
     else if (val.tag_is(JSValue::STRING) || val.tag_is(JSValue::STRING_REF)) {
       str_data = &(val.val.as_primitive_string->str);

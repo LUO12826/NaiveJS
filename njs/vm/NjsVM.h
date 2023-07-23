@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <functional>
 
 #include "njs/common/enums.h"
 #include "NativeFunction.h"
@@ -12,6 +13,7 @@
 #include "njs/basic_types/JSValue.h"
 #include "njs/gc/GCHeap.h"
 #include "njs/include/SmallVector.h"
+#include "njs/common/StringPool.h"
 
 namespace njs {
 
@@ -30,6 +32,7 @@ friend class InternalFunctions;
   explicit NjsVM(CodegenVisitor& visitor);
 
   void add_native_func_impl(u16string name, NativeFuncType func);
+  void add_builtin_object(u16string name, std::function<JSObject*(GCHeap&, StringPool&)> builder);
   void run();
 
  private:
@@ -78,13 +81,13 @@ friend class InternalFunctions;
   // start of a stack frame
   u32 frame_base_ptr {0};
 
-  std::vector<Instruction> bytecode;
+  GCHeap heap;
   // Now still using vector because it's good for debug
   std::vector<JSValue> rt_stack;
-  GCHeap heap;
+  std::vector<Instruction> bytecode;
 
   // for constant
-  std::vector<u16string> str_list;
+  StringPool str_pool;
   SmallVector<double, 10> num_list;
   SmallVector<JSFunctionMeta, 10> func_meta;
 

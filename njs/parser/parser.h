@@ -533,6 +533,7 @@ error:
     lexer.next();
     push_scope(ScopeType::GLOBAL);
     add_builtin_functions();
+    add_builtin_variables();
     return parse_program_or_function_body(TokenType::EOS, ASTNode::AST_PROGRAM);
   }
 

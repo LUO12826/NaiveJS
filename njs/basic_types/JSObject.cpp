@@ -57,7 +57,7 @@ std::string JSObjectKey::to_string() const {
   __builtin_unreachable();
 }
 
-bool JSObject::add_prop(JSValue& key, JSValue& value) {
+bool JSObject::add_prop(const JSValue& key, const JSValue& value) {
   JSValue *val_placeholder = nullptr;
   if (key.tag == JSValue::JS_ATOM) {
     val_placeholder = &storage[JSObjectKey(key.val.as_int64)];

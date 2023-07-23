@@ -14,7 +14,7 @@ function add(a, b) {
 }
 
 obj.b.d.num = "aaaa"
-log(obj.b.d.num)
+console.log(obj.b.d.num)
 
 obj.b.d.str = 3
-log(obj.b.d.str)
+console.log(obj.b.d.str)

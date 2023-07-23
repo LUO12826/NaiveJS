@@ -16,4 +16,4 @@ function inc(clo_var) {
 
 let res = inc(1)()(300)
 
-log(res)
+console.log(res)

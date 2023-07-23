@@ -29,6 +29,7 @@ class JSFunction : public JSObject {
   JSFunction(u16string name, u32 param_cnt, u32 local_var_cnt, u32 code_addr);
   JSFunction(u16string name, u32 param_cnt);
   JSFunction(u16string name, const JSFunctionMeta& meta);
+  explicit JSFunction(const JSFunctionMeta& meta);
   ~JSFunction() override;
 
   void gc_scan_children(GCHeap& heap) override;

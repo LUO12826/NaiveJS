@@ -16,8 +16,11 @@ JSFunction::JSFunction(u16string name, u32 param_cnt, u32 local_var_cnt, u32 cod
 JSFunction::JSFunction(u16string name, u32 param_cnt)
     : JSObject(ObjectClass::CLS_FUNCTION), name(std::move(name)), param_count(param_cnt) {}
 
-JSFunction::JSFunction(u16string name, const JSFunctionMeta& meta)
-    : JSObject(ObjectClass::CLS_FUNCTION), name(std::move(name)) {
+JSFunction::JSFunction(u16string name, const JSFunctionMeta& meta) : JSFunction(meta) {
+  this->name = std::move(name);
+}
+
+JSFunction::JSFunction(const JSFunctionMeta& meta): JSObject(ObjectClass::CLS_FUNCTION) {
   param_count = meta.param_count;
   local_var_count = meta.local_var_count;
   code_address = meta.code_address;

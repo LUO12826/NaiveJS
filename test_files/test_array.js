@@ -11,8 +11,8 @@ let arr  =[
     13367816628,
 ]
 
-log(arr[2][0])
-log(arr[0].a)
+console.log(arr[2][0])
+console.log(arr[0].a)
 
 arr[0] = {
     c: 5,
@@ -28,4 +28,4 @@ function test_obj(obj) {
 }
 
 let func = test_obj(arr[0])
-log(func())
+console.log(func())

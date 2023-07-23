@@ -100,7 +100,7 @@ class JSObject : public GCObject {
   void gc_scan_children(GCHeap& heap) override;
   std::string description() override;
 
-  bool add_prop(JSValue& key, JSValue& value);
+  bool add_prop(const JSValue& key, const JSValue& value);
 
   template <typename KEY>
   JSValue get_prop(KEY&& key, bool get_ref) {

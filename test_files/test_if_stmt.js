@@ -30,7 +30,7 @@ function complexIfStatement(a, b, c, d) {
     return result;
 }
 
-log(complexIfStatement(true, true, false, false));
-log(complexIfStatement(true, false, false, true));
-log(complexIfStatement(true, true, true, true));
-log(complexIfStatement(false, false, false, false));
+console.log(complexIfStatement(true, true, false, false));
+console.log(complexIfStatement(true, false, false, true));
+console.log(complexIfStatement(true, true, true, true));
+console.log(complexIfStatement(false, false, false, false));
