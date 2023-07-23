@@ -46,7 +46,6 @@ class ASTNode {
     AST_EXPR_STRICT_FUTURE,
 
     AST_EXPR_NULL,
-    AST_EXPR_UNDEFINED,
     AST_EXPR_BOOL,
     AST_EXPR_NUMBER,
     AST_EXPR_STRING,
@@ -106,22 +105,21 @@ class ASTNode {
   virtual ~ASTNode();
 
   const u16string_view &get_source();
+  void set_source(const u16string_view &source, u32 start, u32 end, u32 line_start);
+
   u32 start_pos();
   u32 end_pos();
   u32 get_line_start();
 
-  void set_source(const u16string_view &source, u32 start, u32 end, u32 line_start);
-
+  // for printing the AST
   void add_child(ASTNode *node);
+  void print_tree(int level);
+  virtual std::string description();
 
   ParenthesisExpr *as_paren_expr();
   LeftHandSideExpr *as_lhs_expr();
   BinaryExpr *as_binary_expr();
   ProgramOrFunctionBody *as_func_body();
-
-  void print_tree(int level);
-
-  virtual std::string description();
 
   bool is_illegal();
   bool is_expression();
@@ -129,6 +127,8 @@ class ASTNode {
   bool is_binary_logical_expr();
   bool is_unary_expr();
   bool is_not_expr();
+  bool is_identifier();
+  bool is_lhs_expr();
 
   Type type;
  private:
@@ -190,8 +190,8 @@ class ObjectLiteral : public ASTNode {
   struct Property {
     enum Type {
       NORMAL = 0,
-      GET,
-      SET,
+      GETTER,
+      SETTER,
     };
 
     Property(const Token& key, ASTNode *val, Type type) : key(key), value(val), type(type) {}

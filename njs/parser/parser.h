@@ -37,7 +37,7 @@ struct ParsingError {
 
 class Parser {
  public:
-  Parser(u16string src) : source(src), lexer(src) {}
+  Parser(u16string src) : source(std::move(src)), lexer(this->source) {}
 
   ASTNode* parse_primary_expression() {
     Token token = lexer.current();
@@ -53,8 +53,6 @@ class Parser {
         return new ASTNode(ASTNode::AST_EXPR_ID, TOKEN_SOURCE_EXPR);
       case TokenType::TK_NULL:
         return new ASTNode(ASTNode::AST_EXPR_NULL, TOKEN_SOURCE_EXPR);
-      case TokenType::TK_UNDEFINED:
-        return new ASTNode(ASTNode::AST_EXPR_UNDEFINED, TOKEN_SOURCE_EXPR);
       case TokenType::TK_BOOL:
         return new ASTNode(ASTNode::AST_EXPR_BOOL, TOKEN_SOURCE_EXPR);
       case TokenType::NUMBER:
@@ -210,21 +208,38 @@ error:
     Token token = lexer.next();
     while (token.type != TokenType::RIGHT_BRACE) {
       if (token.is_property_name()) {
-        // getter or setter
-        if (token.text == u"get" || token.text == u"set") {
-          START_POS;
-
-          ObjectProp::Type type = token.text == u"get" ? ObjectLiteral::Property::GET
-                                                       : ObjectLiteral::Property::SET;
-
-          Token key = Token::none;
-          if (lexer.peek().is_property_name()) {
-            key = lexer.next();  // skip property name
+        // Ordinary proprietary syntax: key: value
+        if (lexer.peek().type == TokenType::COLON) {
+          lexer.next();
+          lexer.next();
+          ASTNode* value = parse_assignment_expression(false);
+          if (value->type == ASTNode::AST_ILLEGAL) {
+            delete obj;
+            return value;
           }
+          obj->set_property(ObjectProp(token, value, ObjectProp::NORMAL));
+        }
+        // ES6+ simplified function syntax
+        else if (lexer.peek().type == TokenType::LEFT_PAREN) {
+          ASTNode* func = parse_function(/*name_required*/true, /*func_keyword_required*/ false);
+          if (func->is_illegal()) {
+            delete obj;
+            return func;
+          }
+          obj->set_property(ObjectProp(token, func, ObjectProp::NORMAL));
+        }
+        // getter or setter
+        else if ((token.text == u"get" || token.text == u"set") && lexer.peek().is_property_name()) {
+          START_POS;
+          ObjectProp::Type type = token.text == u"get" ? ObjectLiteral::Property::GETTER
+                                                       : ObjectLiteral::Property::SETTER;
+          Token key = lexer.next();
 
-          if (!key.is_property_name() && key.type != Token::NONE) goto error;
-
-          ASTNode* get_set_func = parse_function(true, false);
+          // alternatives can be:
+          // get prop() { ... }
+          // get() { ... }
+          ASTNode* get_set_func = parse_function(/*name_required*/false,
+                                                 /*func_keyword_required*/ false);
           if (get_set_func->is_illegal()) {
             delete obj;
             return get_set_func;
@@ -233,15 +248,7 @@ error:
           obj->set_property(ObjectProp(key, get_set_func, type));
         }
         else {
-          if (lexer.next().type != TokenType::COLON) goto error;
-          
-          lexer.next();
-          ASTNode* value = parse_assignment_expression(false);
-          if (value->type == ASTNode::AST_ILLEGAL) {
-            delete obj;
-            return value;
-          }
-          obj->set_property(ObjectProp(token, value, ObjectProp::NORMAL));
+          goto error;
         }
       }
       else {
@@ -916,7 +923,7 @@ error:
         return parse_for_statement({init_expr}, start, line_start);  // for ( ExpressionNoIn;
       }
       // for ( LeftHandSideExpression in
-      else if (token_match(u"in") && init_expr->type == ASTNode::AST_EXPR_LHS) {
+      else if (token_match(u"in") && (init_expr->is_lhs_expr() || init_expr->is_identifier())) {
         return parse_for_in_statement(init_expr, start, line_start);  
       }
       else {
@@ -1298,12 +1305,18 @@ error:
     scope().define_symbol(VarKind::DECL_FUNCTION, u"$gc", true);
   }
 
+  void add_builtin_variables() {
+    scope().define_symbol(VarKind::DECL_VAR, u"undefined", true);
+    scope().define_symbol(VarKind::DECL_VAR, u"console", true);
+  }
+
   void report_error(ParsingError err) {
     errors.push_back(std::move(err));
   }
 
-  Lexer lexer;
   u16string source;
+
+  Lexer lexer;
   ParserContext context;
   SmallVector<ParsingError, 10> errors;
 

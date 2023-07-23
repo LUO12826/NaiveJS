@@ -19,14 +19,15 @@ namespace njs {
 
 using TokenType = Token::TokenType;
 using u32 = uint32_t;
+using std::u16string;
 using std::optional;
 using llvm::SmallVector;
 
 class Lexer {
  public:
   
-  explicit Lexer(std::u16string source): source(source), cursor(0),
-                                         ch(source[0]), length(source.size()) {}
+  explicit Lexer(const u16string& source): source(source), cursor(0),
+                                           ch(source[0]), length(source.size()) {}
 
   Lexer(const Lexer&) = delete;
   Lexer(Lexer&&) = delete;
@@ -904,10 +905,6 @@ error:
       if (cursor - start != id_text.size()) goto error;
       return token_with_type(TokenType::TK_NULL, start);
     }
-    if (id_text == u"undefined") {
-      if (cursor - start != id_text.size()) goto error;
-      return token_with_type(TokenType::TK_UNDEFINED, start);
-    }
     if (id_text == u"true" || id_text == u"false") {
       if (cursor - start != id_text.size()) goto error;
       return token_with_type(TokenType::TK_BOOL, start);
@@ -951,7 +948,7 @@ error:
     RIGHT,
   };
 
-  std::u16string source;
+  const std::u16string& source;
 
   u32 cursor;
   char16_t ch;

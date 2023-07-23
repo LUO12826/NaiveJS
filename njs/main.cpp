@@ -72,25 +72,23 @@ int main(int argc, char *argv[]) {
       std::cout << "illegal program at: " << to_utf8_string(ast->get_source())
                 << ", line: " << ast->get_line_start() + 1 << ", start: " << ast->start_pos()
                 << ", end: " << ast->end_pos() << std::endl;
+      return 1;
     }
 
-    Timer codegen_timer("code generated");
-
     // codegen
+    Timer codegen_timer("code generated");
     CodegenVisitor visitor;
     visitor.codegen(static_cast<ProgramOrFunctionBody *>(ast));
-
     codegen_timer.end();
 
-   Timer exec_timer("executed");
+    // execute bytecode
+    Timer exec_timer("executed");
+    NjsVM vm(visitor);
+    vm.add_native_func_impl(u"log", InternalFunctions::log);
+    vm.add_native_func_impl(u"$gc", InternalFunctions::js_gc);
+    vm.run();
 
-   // execute bytecode
-   NjsVM vm(visitor);
-   vm.add_native_func_impl(u"log", InternalFunctions::log);
-   vm.add_native_func_impl(u"$gc", InternalFunctions::js_gc);
-   vm.run();
-
-   exec_timer.end();
+    exec_timer.end();
     
   }
   catch (const std::ifstream::failure &e) {

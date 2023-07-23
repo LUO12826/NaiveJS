@@ -9,11 +9,11 @@ ASTNode::ASTNode(Type type, std::u16string_view source, u32 start, u32 end, u32 
 
 ASTNode::~ASTNode() = default;
 
-const std::u16string_view &ASTNode::get_source() { return text; }
 u32 ASTNode::start_pos() { return start; }
 u32 ASTNode::end_pos() { return end; }
 u32 ASTNode::get_line_start() { return line_start; }
 
+const std::u16string_view &ASTNode::get_source() { return text; }
 void ASTNode::set_source(const std::u16string_view &source, u32 start, u32 end, u32 line_start) {
   this->text = source;
   this->start = start;
@@ -22,22 +22,6 @@ void ASTNode::set_source(const std::u16string_view &source, u32 start, u32 end, 
 }
 
 void ASTNode::add_child(ASTNode *node) { children.push_back(node); }
-
-ParenthesisExpr *ASTNode::as_paren_expr() {
-  return static_cast<ParenthesisExpr *>(this);
-}
-
-LeftHandSideExpr *ASTNode::as_lhs_expr() {
-  return static_cast<LeftHandSideExpr *>(this);
-}
-
-BinaryExpr *ASTNode::as_binary_expr() {
-  return static_cast<BinaryExpr *>(this);
-}
-
-ProgramOrFunctionBody *ASTNode::as_func_body() {
-  return static_cast<ProgramOrFunctionBody *>(this);
-}
 
 void ASTNode::print_tree(int level) {
   std::string spaces(level * PRINT_TREE_INDENT, ' ');
@@ -58,6 +42,23 @@ std::string ASTNode::description() {
   }
 
   return desc;
+}
+
+
+ParenthesisExpr *ASTNode::as_paren_expr() {
+  return static_cast<ParenthesisExpr *>(this);
+}
+
+LeftHandSideExpr *ASTNode::as_lhs_expr() {
+  return static_cast<LeftHandSideExpr *>(this);
+}
+
+BinaryExpr *ASTNode::as_binary_expr() {
+  return static_cast<BinaryExpr *>(this);
+}
+
+ProgramOrFunctionBody *ASTNode::as_func_body() {
+  return static_cast<ProgramOrFunctionBody *>(this);
 }
 
 bool ASTNode::is_illegal() { return type == AST_ILLEGAL; }
@@ -84,6 +85,14 @@ bool ASTNode::is_not_expr() {
   if (!is_unary_expr()) return false;
   auto *unary_expr = static_cast<UnaryExpr *>(this);
   return unary_expr->op.type == Token::LOGICAL_NOT && unary_expr->is_prefix_op;
+}
+
+bool ASTNode::is_identifier() {
+  return type == AST_EXPR_ID;
+}
+
+bool ASTNode::is_lhs_expr() {
+  return type == AST_EXPR_LHS;
 }
 
 } // end namespace njs
