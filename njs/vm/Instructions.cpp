@@ -86,8 +86,8 @@ std::string Instruction::description() {
     case InstType::push_null:
       sprintf(buffer, "push_null");
       break;
-    case InstType::push_undefined:
-      sprintf(buffer, "push_undefined");
+    case InstType::push_undef:
+      sprintf(buffer, "push_undef");
       break;
     case InstType::pop:
       sprintf(buffer, "pop  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);

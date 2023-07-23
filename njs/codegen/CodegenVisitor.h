@@ -208,6 +208,7 @@ friend class NjsVM;
         visit_while_statement(*static_cast<WhileStatement *>(node));
         break;
       case ASTNode::AST_STMT_CONTINUE:
+      case ASTNode::AST_STMT_BREAK:
         visit_continue_break_statement(*static_cast<ContinueOrBreak *>(node));
         break;
       case ASTNode::AST_STMT_BLOCK:
@@ -545,15 +546,18 @@ friend class NjsVM;
     }
     emit(InstType::pop_drop);
     visit(stmt.if_block);
-    u32 if_end_jmp = emit(InstType::jmp);
+    u32 if_end_jmp;
+    if (stmt.else_block) if_end_jmp = emit(InstType::jmp);
 
     for (u32 idx : false_list) {
         bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
     emit(InstType::pop_drop);
 
-    if (stmt.else_block) visit(stmt.else_block);
-    bytecode[if_end_jmp].operand.two.opr1 = bytecode_pos();
+    if (stmt.else_block) {
+        visit(stmt.else_block);
+        bytecode[if_end_jmp].operand.two.opr1 = bytecode_pos();
+    }
   }
 
   void visit_while_statement(WhileStatement& stmt) {
@@ -561,6 +565,7 @@ friend class NjsVM;
     vector<u32> false_list;
     u32 loop_start = bytecode_pos();
     scope().get_context().continue_pos = loop_start;
+    scope().get_context().can_break = true;
 
     visit_expr_in_logical_expr(*stmt.condition_expr, true_list, false_list, false);
     for (u32 idx : true_list) {
@@ -569,17 +574,29 @@ friend class NjsVM;
     emit(InstType::pop_drop);
     visit(stmt.body_stmt);
     emit(InstType::jmp, loop_start);
+
     for (u32 idx : false_list) {
         bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
     emit(InstType::pop_drop);
+
+    for (u32 idx : scope().get_context().break_list) {
+        bytecode[idx].operand.two.opr1 = bytecode_pos();
+    }
+
+    scope().get_context().can_break = false;
   }
 
   void visit_continue_break_statement(ContinueOrBreak& stmt) {
-    assert(stmt.type == ASTNode::AST_STMT_CONTINUE);
-    int64_t continue_pos = scope().resolve_continue_pos();
-    assert(continue_pos != -1);
-    emit(InstType::jmp, u32(continue_pos));
+    if (stmt.type == ASTNode::AST_STMT_CONTINUE) {
+        int64_t continue_pos = scope().resolve_continue_pos();
+        assert(continue_pos != -1);
+        emit(InstType::jmp, u32(continue_pos));
+    }
+    else {
+        scope().resolve_break_list()->push_back(bytecode_pos());
+        emit(InstType::jmp);
+    }
   }
 
   void visit_block_statement(Block& block) {

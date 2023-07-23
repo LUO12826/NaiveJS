@@ -100,7 +100,7 @@ void NjsVM::execute() {
         rt_stack[sp].tag = JSValue::JS_NULL;
         sp += 1;
         break;
-      case InstType::push_undefined:
+      case InstType::push_undef:
         rt_stack[sp].tag = JSValue::UNDEFINED;
         sp += 1;
         break;
