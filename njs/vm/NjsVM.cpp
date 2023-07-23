@@ -545,7 +545,7 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
     // val_obj is a reference, so we are directly modify the cell in the stack frame.
     std::cout << "...visit key " << to_utf8_string(str_pool.get_list()[rt_stack[i].val.as_int64])
               << std::endl;
-    val_obj = val_obj.val.as_object->get_prop(rt_stack[i].val.as_int64, false);
+     val_obj = val_obj.val.as_object->get_prop(rt_stack[i].val.as_int64, false);
     rt_stack[i].set_undefined();
   }
   assert(val_obj.is_object());

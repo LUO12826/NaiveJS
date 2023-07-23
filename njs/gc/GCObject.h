@@ -8,8 +8,6 @@
 namespace njs {
 
 class GCHeap;
-
-using robin_hood::unordered_map;
 using u32 = uint32_t;
 
 class GCObject {

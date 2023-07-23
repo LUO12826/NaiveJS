@@ -16,7 +16,7 @@ namespace njs {
 
 using std::u16string;
 using std::u16string_view;
-using robin_hood::unordered_map;
+using robin_hood::unordered_flat_map;
 
 class GCHeap;
 
@@ -116,7 +116,7 @@ class JSObject : public GCObject {
   }
 
   ObjectClass obj_class;
-  unordered_map<JSObjectKey, JSValue> storage;
+  unordered_flat_map<JSObjectKey, JSValue> storage;
 };
 
 } // namespace njs

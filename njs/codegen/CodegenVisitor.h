@@ -136,6 +136,7 @@ friend class NjsVM;
     }
     // Fix the jump target of the call instructions
     for (auto& meta : func_meta) {
+      if (meta.is_native) continue;
       meta.code_address += pos_moved[meta.code_address];
     }
 

@@ -64,7 +64,7 @@ class GCHeap {
   // Copying GC
   void copy_alive();
 
-  void dealloc_garbage(byte *start, byte *end);
+  void dealloc_dead(byte *start, byte *end);
 
   // Copy a single object. Recursively copy its child objects.
   GCObject *copy_object(GCObject *obj);

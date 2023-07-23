@@ -16,7 +16,7 @@ void GCHeap::gc() {
   byte *start = from_start;
   byte *end = alloc_point;
   copy_alive();
-  dealloc_garbage(start, end);
+  dealloc_dead(start, end);
 
   if (Global::show_gc_statistics) {
     std::cout << "******************  gc ends  ******************" << std::endl;
@@ -73,7 +73,7 @@ void GCHeap::copy_alive() {
   std::swap(from_start, to_start);
 }
 
-void GCHeap::dealloc_garbage(byte *start, byte *end) {
+void GCHeap::dealloc_dead(byte *start, byte *end) {
   for (byte *ptr = start; ptr < end; ) {
     GCObject *obj = reinterpret_cast<GCObject *>(ptr);
     ptr += obj->size;
