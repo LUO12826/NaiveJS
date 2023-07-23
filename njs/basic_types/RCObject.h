@@ -35,6 +35,11 @@ struct PrimitiveString: public RCObject {
   explicit PrimitiveString(const std::u16string& str);
 
   bool operator == (const PrimitiveString& other) const;
+  bool operator != (const PrimitiveString& other) const;
+  bool operator < (const PrimitiveString& other) const;
+  bool operator > (const PrimitiveString& other) const;
+  bool operator >= (const PrimitiveString& other) const;
+  bool operator <= (const PrimitiveString& other) const;
 
   int64_t convert_to_index() const;
 

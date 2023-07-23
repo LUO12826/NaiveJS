@@ -45,6 +45,7 @@ enum class InstType {
   ge,
   le,
   ne,
+  ne3,
   eq,
   eq3,
 

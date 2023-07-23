@@ -61,15 +61,17 @@ friend class InternalFunctions;
   // binary operation
   void exec_fast_assign(Instruction& inst);
   void exec_fast_add(Instruction& inst);
+  void exec_comparison(InstType type);
 
   void exec_add();
   void exec_binary(InstType op_type);
   void exec_logi(InstType op_type);
-  void exec_strict_equality();
+  void exec_strict_equality(bool flip);
 
   JSFunction *function_env();
   u32 calc_var_addr(ScopeType scope, int raw_index);
   bool are_strings_equal(const JSValue& lhs, const JSValue& rhs);
+  double to_numeric_value(JSValue& val);
 
   constexpr static u32 frame_meta_size {2};
   u32 max_stack_size {10240};

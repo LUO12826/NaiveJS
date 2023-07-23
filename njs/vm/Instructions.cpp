@@ -48,6 +48,13 @@ std::string Instruction::description() {
     case InstType::div: sprintf(buffer, "div"); break;
     case InstType::neg: sprintf(buffer, "neg"); break;
 
+    case InstType::le: sprintf(buffer, "le"); break;
+    case InstType::ge: sprintf(buffer, "ge"); break;
+    case InstType::lt: sprintf(buffer, "lt"); break;
+    case InstType::gt: sprintf(buffer, "gt"); break;
+
+    case InstType::ne: sprintf(buffer, "ne"); break;
+    case InstType::ne3: sprintf(buffer, "ne3"); break;
     case InstType::eq: sprintf(buffer, "eq"); break;
     case InstType::eq3: sprintf(buffer, "eq3"); break;
 

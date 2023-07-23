@@ -341,6 +341,11 @@ friend class NjsVM;
       case Token::MUL: emit(InstType::mul); break;
       case Token::DIV: emit(InstType::div); break;
       case Token::EQ3: emit(InstType::eq3); break;
+      case Token::NE3: emit(InstType::ne3); break;
+      case Token::LE: emit(InstType::le); break;
+      case Token::LT: emit(InstType::lt); break;
+      case Token::GT: emit(InstType::gt); break;
+      case Token::GE: emit(InstType::ge); break;
       default: assert(false);
     }
 

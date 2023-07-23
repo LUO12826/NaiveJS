@@ -147,14 +147,19 @@ void NjsVM::execute() {
         break;
       case InstType::je: break;
       case InstType::jne: break;
-      case InstType::gt: break;
-      case InstType::lt: break;
-      case InstType::ge: break;
-      case InstType::le: break;
+      case InstType::gt:
+      case InstType::lt:
+      case InstType::ge:
+      case InstType::le:
+        exec_comparison(inst.op_type);
+        break;
       case InstType::ne: break;
       case InstType::eq: break;
+      case InstType::ne3:
+        exec_strict_equality(true);
+        break;
       case InstType::eq3:
-        exec_strict_equality();
+        exec_strict_equality(false);
         break;
       case InstType::call:
         exec_call(inst.operand.two.opr1, bool(inst.operand.two.opr2));
@@ -632,7 +637,7 @@ bool NjsVM::are_strings_equal(const JSValue& lhs, const JSValue& rhs) {
   return *lhs_str == *rhs_str;
 }
 
-void NjsVM::exec_strict_equality() {
+void NjsVM::exec_strict_equality(bool flip) {
   JSValue& lhs = rt_stack[sp - 2];
   JSValue& rhs = rt_stack[sp - 1];
 
@@ -669,7 +674,43 @@ void NjsVM::exec_strict_equality() {
       lhs = JSValue(equal);
     }
   }
+  if (flip) lhs.val.as_bool = !lhs.val.as_bool;
+  rhs.set_undefined();
+  sp -= 1;
+}
 
+double NjsVM::to_numeric_value(JSValue& val) {
+  if (val.tag_is(JSValue::NUM_FLOAT)) return val.val.as_float64;
+  if (val.tag_is(JSValue::NUM_INT)) return val.val.as_int64;
+  assert(false);
+}
+
+void NjsVM::exec_comparison(InstType type) {
+  JSValue& lhs = rt_stack[sp - 2];
+  JSValue& rhs = rt_stack[sp - 1];
+
+  bool res = false;
+  if (lhs.tag_is(JSValue::NUM_FLOAT) && rhs.tag_is(JSValue::NUM_FLOAT)) {
+    switch (type) {
+      case InstType::lt: res = lhs.val.as_float64 < rhs.val.as_float64; break;
+      case InstType::gt: res = lhs.val.as_float64 > rhs.val.as_float64; break;
+      case InstType::le: res = lhs.val.as_float64 <= rhs.val.as_float64; break;
+      case InstType::ge: res = lhs.val.as_float64 >= rhs.val.as_float64; break;
+    }
+  }
+  else if (lhs.tag_is(JSValue::STRING) && rhs.tag_is(JSValue::STRING)) {
+    switch (type) {
+      case InstType::lt: res = *lhs.val.as_primitive_string < *rhs.val.as_primitive_string; break;
+      case InstType::gt: res = *lhs.val.as_primitive_string > *rhs.val.as_primitive_string; break;
+      case InstType::le: res = *lhs.val.as_primitive_string <= *rhs.val.as_primitive_string; break;
+      case InstType::ge: res = *lhs.val.as_primitive_string >= *rhs.val.as_primitive_string; break;
+    }
+    lhs.set_undefined();
+  }
+  else
+    assert(false);
+
+  lhs = JSValue(res);
   rhs.set_undefined();
   sp -= 1;
 }

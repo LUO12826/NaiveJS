@@ -32,6 +32,26 @@ bool PrimitiveString::operator == (const PrimitiveString& other) const {
   return str == other.str;
 }
 
+bool PrimitiveString::operator != (const PrimitiveString& other) const {
+  return str != other.str;
+}
+
+bool PrimitiveString::operator < (const PrimitiveString& other) const {
+  return str < other.str;
+}
+
+bool PrimitiveString::operator > (const PrimitiveString& other) const {
+  return str > other.str;
+}
+
+bool PrimitiveString::operator >= (const PrimitiveString& other) const {
+  return str >= other.str;
+}
+
+bool PrimitiveString::operator <= (const PrimitiveString& other) const {
+  return str <= other.str;
+}
+
 int64_t PrimitiveString::convert_to_index() const {
   return scan_index_literal(this->str);
 }
