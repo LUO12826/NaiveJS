@@ -14,6 +14,7 @@
 #include "njs/gc/GCHeap.h"
 #include "njs/include/SmallVector.h"
 #include "njs/common/StringPool.h"
+#include "JSRunLoop.h"
 
 namespace njs {
 
@@ -22,8 +23,10 @@ using std::u16string;
 using llvm::SmallVector;
 
 class CodegenVisitor;
+struct JSTask;
 
 class NjsVM {
+friend class JSRunLoop;
 friend class GCHeap;
 friend class InternalFunctions;
 
@@ -37,6 +40,7 @@ friend class InternalFunctions;
 
  private:
   void execute();
+  void execute_task(JSTask& task);
   // push
   void exec_push(Instruction& inst);
   void exec_push_str(int str_idx, bool atom);
@@ -87,6 +91,7 @@ friend class InternalFunctions;
   // Now still using vector because it's good for debug
   std::vector<JSValue> rt_stack;
   std::vector<Instruction> bytecode;
+  JSRunLoop runloop;
 
   // for constant
   StringPool str_pool;

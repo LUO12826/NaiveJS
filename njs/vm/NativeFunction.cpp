@@ -16,6 +16,7 @@ JSValue InternalFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> ar
   stream << std::endl;
   stream << "\033[0m";  // restore normal color
 
+  std::cout << stream.str();
   vm.log_buffer.push_back(stream.str());
 
   return JSValue::undefined;
@@ -25,5 +26,22 @@ JSValue InternalFunctions::js_gc(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> 
   vm.heap.gc();
   return JSValue::undefined;
 }
+
+JSValue InternalFunctions::set_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  assert(args.size() >= 2);
+  assert(args[0].tag_is(JSValue::FUNCTION));
+  assert(args[1].tag_is(JSValue::NUM_FLOAT));
+  vm.runloop.add_timer_event(args[0].val.as_function, (size_t)args[1].val.as_float64, false);
+  return JSValue::undefined;
+}
+
+JSValue InternalFunctions::set_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  assert(args.size() >= 2);
+  assert(args[0].tag_is(JSValue::FUNCTION));
+  assert(args[1].tag_is(JSValue::NUM_FLOAT));
+  vm.runloop.add_timer_event(args[0].val.as_function, (size_t)args[1].val.as_float64, true);
+  return JSValue::undefined;
+}
+
 
 }

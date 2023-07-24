@@ -27,7 +27,7 @@ set(SOURCES
     njs/codegen/Scope.cpp
     njs/basic_types/JSArray.cpp
     njs/vm/NativeFunction.cpp
-)
+    njs/vm/JSRunLoop.cpp)
 
 # executable is named `njs`
 add_executable(njs ${SOURCES} njs/codegen/Scope.cpp)

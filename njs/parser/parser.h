@@ -1304,6 +1304,8 @@ error:
   void add_builtin_functions() {
     scope().define_symbol(VarKind::DECL_FUNCTION, u"log", true);
     scope().define_symbol(VarKind::DECL_FUNCTION, u"$gc", true);
+    scope().define_symbol(VarKind::DECL_FUNCTION, u"setTimeout", true);
+    scope().define_symbol(VarKind::DECL_FUNCTION, u"setInterval", true);
   }
 
   void add_builtin_variables() {

@@ -86,6 +86,9 @@ int main(int argc, char *argv[]) {
     NjsVM vm(visitor);
     vm.add_native_func_impl(u"log", InternalFunctions::log);
     vm.add_native_func_impl(u"$gc", InternalFunctions::js_gc);
+    vm.add_native_func_impl(u"setTimeout", InternalFunctions::set_timeout);
+    vm.add_native_func_impl(u"setInterval", InternalFunctions::set_interval);
+
     vm.add_builtin_object(u"console", [] (GCHeap& heap, StringPool& str_pool) {
       JSObject *obj = heap.new_object<JSObject>();
 

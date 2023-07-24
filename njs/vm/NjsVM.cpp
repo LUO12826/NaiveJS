@@ -3,12 +3,14 @@
 #include <iostream>
 #include "njs/basic_types/JSArray.h"
 #include "njs/codegen/CodegenVisitor.h"
+#include "njs/global_var.h"
 
 namespace njs {
 
 NjsVM::NjsVM(CodegenVisitor& visitor) : heap(600, *this)
                                       , rt_stack(max_stack_size)
                                       , bytecode(std::move(visitor.bytecode))
+                                      , runloop(*this)
                                       , str_pool(std::move(visitor.str_pool))
                                       , num_list(std::move(visitor.num_list))
                                       , func_meta(std::move(visitor.func_meta))
@@ -43,6 +45,7 @@ void NjsVM::run() {
   std::cout << "### VM starts execution" << std::endl;
 
   execute();
+  runloop.wait_for_event();
 
   std::cout << "### end of execution VM state: " << std::endl;
   std::cout << rt_stack[sp - 1].description() << std::endl << std::endl;
@@ -166,6 +169,11 @@ void NjsVM::execute() {
         break;
       case InstType::ret:
         exec_return();
+        if (pc == bytecode.size()) {
+          sp -= 1;
+          rt_stack[sp].set_undefined();
+          return;
+        }
         break;
       case InstType::fast_add:
         exec_fast_add(inst);
@@ -204,8 +212,17 @@ void NjsVM::execute() {
         exec_index_access((bool)inst.operand.two.opr1);
         break;
     }
-    printf("%-50s sp: %-3u   pc: %-3u\n", inst.description().c_str(), sp, pc);
+    if (Global::show_vm_exec_steps) {
+      printf("%-50s sp: %-3u   pc: %-3u\n", inst.description().c_str(), sp, pc);
+    }
   }
+}
+
+void NjsVM::execute_task(JSTask& task) {
+  rt_stack[sp] = task.task_func;
+  sp += 1;
+  exec_call(0, false);
+  execute();
 }
 
 u32 NjsVM::calc_var_addr(ScopeType scope, int raw_index) {
