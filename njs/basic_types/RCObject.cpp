@@ -1,8 +1,7 @@
-#include <cstddef>
 #include <iostream>
 #include "RCObject.h"
 #include "njs/global_var.h"
-#include "njs/utils/helper.h"
+#include "njs/utils/lexing_helper.h"
 
 namespace njs {
 

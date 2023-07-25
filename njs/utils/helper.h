@@ -26,10 +26,6 @@ std::string to_utf8_string(const void *ptr);
 
 std::u16string str_cat(const std::vector<u16string>& vals);
 
-// Scan index literal. Can only be decimal natural numbers
-int64_t scan_index_literal(const u16string& str);
-
-
 // From Knuth https://stackoverflow.com/a/253874/5163915
 static constexpr double kEpsilon = 1e-15;
 bool ApproximatelyEqual(double a, double b);
