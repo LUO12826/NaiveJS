@@ -90,6 +90,13 @@ void JSValue::assign(const JSValue& rhs) {
     assert(tag != STACK_FRAME_META1 && tag != STACK_FRAME_META2);
     assert(rhs.tag != STACK_FRAME_META1 && rhs.tag != STACK_FRAME_META2);
 
+    if (rhs.tag == tag && rhs.flag_bits == flag_bits && rhs.val.as_int64 == val.as_int64) return;
+
+    // if rhs is an RC object, we are going to retain the new object
+    if (rhs.is_RCObject()) {
+      rhs.val.as_RCObject->retain();
+    }
+
     // if this is an RC object, we are going to release the old object
     if (is_RCObject()) {
       val.as_RCObject->release();
@@ -98,10 +105,6 @@ void JSValue::assign(const JSValue& rhs) {
     val.as_int64 = rhs.val.as_int64;
     flag_bits = rhs.flag_bits;
     tag = rhs.tag;
-    // if rhs is an RC object, we are going to retain the new object
-    if (is_RCObject()) {
-      val.as_RCObject->retain();
-    }
 }
 
 JSValue JSValue::undefined = JSValue(JSValue::UNDEFINED);

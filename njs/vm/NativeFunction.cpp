@@ -8,17 +8,17 @@
 namespace njs {
 
 JSValue InternalFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-  std::ostringstream stream;
-  stream << "\033[32m" << "[LOG] "; // green text
+  std::string output = "\033[32m[LOG] ";
+
   for (int i = 0; i < args.size(); i++) {
-    stream << args[i].to_string() << " ";
+    output += args[i].to_string();
+    output += " ";
   }
-  stream << std::endl;
-  stream << "\033[0m";  // restore normal color
 
-  std::cout << stream.str();
-  vm.log_buffer.push_back(stream.str());
+  output += "\n\033[0m";
+  printf("%s", output.c_str());
 
+  vm.log_buffer.push_back(std::move(output));
   return JSValue::undefined;
 }
 
