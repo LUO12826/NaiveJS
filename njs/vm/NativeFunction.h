@@ -13,6 +13,8 @@ class InternalFunctions {
   static JSValue js_gc(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static JSValue set_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static JSValue set_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
+  static JSValue clear_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
+  static JSValue clear_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
 };
 
 }

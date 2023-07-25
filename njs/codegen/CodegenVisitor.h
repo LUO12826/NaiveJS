@@ -507,6 +507,7 @@ friend class NjsVM;
 
   void visit_identifier(ASTNode& id) {
     auto symbol = scope().resolve_symbol(id.get_source());
+    assert(!symbol.not_found());
     emit(InstType::push, scope_type_int(symbol.scope_type), symbol.index);
   }
 

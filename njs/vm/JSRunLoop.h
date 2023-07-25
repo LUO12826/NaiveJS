@@ -17,14 +17,17 @@ struct JSTask {
   JSValue task_func;
   size_t timeout;
   bool repeat {false};
+  bool canceled {false};
 };
 
 class JSRunLoop {
  public:
   explicit JSRunLoop(NjsVM& vm);
+  ~JSRunLoop();
 
   void wait_for_event();
-  size_t add_timer_event(JSFunction* func, size_t timeout, bool repeat);
+  size_t add_timer(JSFunction* func, size_t timeout, bool repeat);
+  bool remove_timer(size_t timer_id);
 
  private:
   NjsVM& vm;

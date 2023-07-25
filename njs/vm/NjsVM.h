@@ -101,7 +101,7 @@ friend class InternalFunctions;
   JSValue invoker_this {JSValue::UNDEFINED};
   JSValue top_level_this;
   JSValue global_object;
-  unordered_map<u16string, NativeFuncType> native_func_binding;
+  unordered_flat_map<u16string, NativeFuncType> native_func_binding;
 
   std::vector<std::string> log_buffer;
 };

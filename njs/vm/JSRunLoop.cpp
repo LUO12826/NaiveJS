@@ -1,5 +1,6 @@
 #include "JSRunLoop.h"
 
+#include <unistd.h>
 #include <sys/event.h>
 #include <vector>
 #include "NjsVM.h"
@@ -14,16 +15,22 @@ JSRunLoop::JSRunLoop(NjsVM& vm): vm(vm) {
   }
 }
 
+JSRunLoop::~JSRunLoop() {
+  close(kqueue_id);
+}
+
 void JSRunLoop::wait_for_event() {
   std::vector<struct kevent> event_slot(20);
   while (true) {
     while (!micro_task_queue.empty()) {
-      vm.execute_task(micro_task_queue.front());
+      JSTask& task = micro_task_queue.front();
+      if (!task.canceled) vm.execute_task(task);
       micro_task_queue.pop_front();
     }
 
     while (!macro_task_queue.empty()) {
-      vm.execute_task(macro_task_queue.front());
+      JSTask& task = macro_task_queue.front();
+      if (!task.canceled) vm.execute_task(task);
       macro_task_queue.pop_front();
     }
 
@@ -50,7 +57,7 @@ void JSRunLoop::wait_for_event() {
 
 }
 
-size_t JSRunLoop::add_timer_event(JSFunction* func, size_t timeout, bool repeat) {
+size_t JSRunLoop::add_timer(JSFunction* func, size_t timeout, bool repeat) {
 
   JSTask task {
       .task_id = task_counter,
@@ -84,6 +91,32 @@ size_t JSRunLoop::add_timer_event(JSFunction* func, size_t timeout, bool repeat)
 
   task_counter += 1;
   return task_counter - 1;
+}
+
+bool JSRunLoop::remove_timer(size_t timer_id) {
+  auto iter = task_pool.find(timer_id);
+  if (iter == task_pool.end()) {
+    for (auto& task : macro_task_queue) {
+      if (task.task_id == timer_id) {
+        task.canceled = true;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  task_pool.erase(timer_id);
+
+  struct kevent event;
+  EV_SET(&event, timer_id, EVFILT_TIMER, EV_DELETE, 0, 0, nullptr);
+
+  int ret = kevent(kqueue_id, &event, 1, nullptr, 0, nullptr);
+  if (ret == -1) {
+    perror("kqueue remove task failed.");
+    exit(1);
+  }
+
+  return true;
 }
 
 }

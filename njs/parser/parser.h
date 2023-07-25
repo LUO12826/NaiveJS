@@ -669,8 +669,10 @@ error:
   ASTNode* parse_variable_declaration(bool no_in, VarKind kind) {
     START_POS;
     Token id = lexer.current();
-    
     assert(id.is_identifier());
+
+    bool res = scope().define_symbol(kind, id.text);
+    if (!res) std::cout << "!!!!define original_symbol " << id.get_text_utf8() << " failed" << std::endl;
 
     if (lexer.peek().type != TokenType::ASSIGN) {
       if (kind == VarKind::DECL_CONST) {
@@ -678,20 +680,13 @@ error:
         return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
       }
       VarDecl* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
-      
-      bool res = scope().define_symbol(kind, id.text);
-      if (!res) std::cout << "!!!!define original_symbol " << id.get_text_utf8() << " failed" << std::endl;
       return var_decl;
     }
     
     ASTNode* init = parse_assignment_expression(no_in);
     if (init->is_illegal()) return init;
-    
-    VarDecl* var_decl = new VarDecl(id, init, SOURCE_PARSED_EXPR);
-    
-    bool res = scope().define_symbol(kind, id.text);
-    if (!res) std::cout << "!!!!define original_symbol " << id.get_text_utf8() << " failed" << std::endl;
-    return var_decl;
+
+    return new VarDecl(id, init, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_variable_statement(bool no_in) {
@@ -1306,6 +1301,8 @@ error:
     scope().define_symbol(VarKind::DECL_FUNCTION, u"$gc", true);
     scope().define_symbol(VarKind::DECL_FUNCTION, u"setTimeout", true);
     scope().define_symbol(VarKind::DECL_FUNCTION, u"setInterval", true);
+    scope().define_symbol(VarKind::DECL_FUNCTION, u"clearInterval", true);
+    scope().define_symbol(VarKind::DECL_FUNCTION, u"clearTimeout", true);
   }
 
   void add_builtin_variables() {

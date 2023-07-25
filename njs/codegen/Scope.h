@@ -194,7 +194,8 @@ class Scope {
       SymbolRecord& rec = symbol_table[name];
 
       if (nonlocal && scope_type != ScopeType::GLOBAL) rec.is_captured = true;
-      if (!rec.valid && !rec.is_captured) return SymbolResolveResult::none;
+      // TODO: check this
+      if (!rec.valid && !nonlocal) return SymbolResolveResult::none;
 
       return SymbolResolveResult{
           .original_symbol = &rec,
