@@ -36,6 +36,7 @@ class JSRunLoop {
 
  private:
   void timer_loop();
+  void setup_pipe();
 
   NjsVM& vm;
 
@@ -47,7 +48,8 @@ class JSRunLoop {
   std::condition_variable marco_queue_cv;
 
   int kqueue_id;
-  int kqueue_notify_pipe_fd;
+  int pipe_write_fd;
+  int pipe_read_fd;
   std::thread timer_thread;
 };
 

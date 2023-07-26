@@ -15,32 +15,16 @@ JSRunLoop::JSRunLoop(NjsVM& vm): vm(vm) {
     perror("kqueue init failed.");
     exit(EXIT_FAILURE);
   }
-
-  int pipe_fds[2];
-
-  if (pipe(pipe_fds) == -1) {
-    perror("pipe creation failed.");
-    exit(EXIT_FAILURE);
-  }
-
-  kqueue_notify_pipe_fd = pipe_fds[1];
-
-  struct kevent pipe_event;
-  EV_SET(&pipe_event, pipe_fds[0], EVFILT_READ, EV_ADD, 0, 0, nullptr);
-
-  if (kevent(kqueue_id, &pipe_event, 1, NULL, 0, NULL) == -1) {
-    perror("kqueue init failed.");
-    exit(EXIT_FAILURE);
-  }
-
+  setup_pipe();
   timer_thread = std::thread(&JSRunLoop::timer_loop, this);
 }
 
 JSRunLoop::~JSRunLoop() {
-  write(kqueue_notify_pipe_fd, "exit", 5);
+  write(pipe_write_fd, "exit", 5);
   timer_thread.join();
   close(kqueue_id);
-  close(kqueue_notify_pipe_fd);
+  close(pipe_read_fd);
+  close(pipe_write_fd);
 }
 
 void JSRunLoop::loop() {
@@ -58,8 +42,8 @@ void JSRunLoop::loop() {
     if (!task.canceled) vm.execute_task(task);
 
     while (!micro_task_queue.empty()) {
-      JSTask& task = micro_task_queue.front();
-      if (!task.canceled) vm.execute_task(task);
+      JSTask& micro_task = micro_task_queue.front();
+      if (!micro_task.canceled) vm.execute_task(micro_task);
       micro_task_queue.pop_front();
     }
 
@@ -74,6 +58,25 @@ void JSRunLoop::post_timer_fired_task(JSTask *task) {
   marco_queue_lock.unlock();
   marco_queue_cv.notify_one();
   if (!task->repeat) task_pool.erase(task->task_id);
+}
+
+void JSRunLoop::setup_pipe() {
+  int pipe_fds[2];
+
+  if (pipe(pipe_fds) == -1) {
+    perror("pipe creation failed.");
+    exit(EXIT_FAILURE);
+  }
+  pipe_read_fd = pipe_fds[0];
+  pipe_write_fd = pipe_fds[1];
+
+  struct kevent pipe_event;
+  EV_SET(&pipe_event, pipe_read_fd, EVFILT_READ, EV_ADD, 0, 0, nullptr);
+
+  if (kevent(kqueue_id, &pipe_event, 1, nullptr, 0, nullptr) == -1) {
+    perror("kqueue init failed.");
+    exit(EXIT_FAILURE);
+  }
 }
 
 void JSRunLoop::timer_loop() {
@@ -91,10 +94,10 @@ void JSRunLoop::timer_loop() {
       exit(EXIT_FAILURE);
     }
     for (int i = 0; i < ret; i++) {
-      if (event_slot[i].udata != nullptr) {
+      if (event_slot[i].filter == EVFILT_TIMER) {
         post_timer_fired_task((JSTask *)event_slot[i].udata);
       }
-      else if (event_slot[i].ident == kqueue_notify_pipe_fd) {
+      else if (event_slot[i].filter == EVFILT_READ && event_slot[i].ident == pipe_read_fd) {
         return;
       }
     }
