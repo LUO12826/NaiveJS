@@ -29,7 +29,7 @@ JSRunLoop::~JSRunLoop() {
 
 void JSRunLoop::loop() {
 
-  while (true) {
+  while (!task_pool.empty() || !macro_task_queue.empty()) {
     JSTask task;
     {
       std::unique_lock<std::mutex> lock(marco_queue_lock);
@@ -46,8 +46,6 @@ void JSRunLoop::loop() {
       if (!micro_task.canceled) vm.execute_task(micro_task);
       micro_task_queue.pop_front();
     }
-
-    if (task_pool.empty() && macro_task_queue.empty()) return;
   }
   
 }

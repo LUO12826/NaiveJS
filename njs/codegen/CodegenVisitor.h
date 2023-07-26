@@ -298,12 +298,28 @@ friend class NjsVM;
   }
 
   void visit_unary_expr(UnaryExpr& expr) {
-    if (expr.is_not_expr()) {
-      visit(expr.operand);
-      emit(InstType::logi_not);
-    }
-    else {
-      assert(false);
+
+    switch (expr.op.type) {
+      case Token::LOGICAL_NOT:
+        if (expr.is_prefix_op) {
+          visit(expr.operand);
+          emit(InstType::logi_not);
+        }
+        else {
+          assert(false);
+        }
+        break;
+      case Token::SUB:
+        if (expr.is_prefix_op) {
+          visit(expr.operand);
+          emit(InstType::neg);
+        }
+        else {
+          assert(false);
+        }
+        break;
+      default:
+        break;
     }
   }
 

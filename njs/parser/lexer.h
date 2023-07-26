@@ -11,6 +11,7 @@
 #include "njs/parser/token.h"
 #include "njs/utils/helper.h"
 #include "njs/include/SmallVector.h"
+#include "njs/utils/lexing_helper.h"
 
 using std::u16string;
 using std::u16string_view;
@@ -551,10 +552,18 @@ error:
   }
 
   inline void next_char(u32 step = 1) {
-    if (cursor + step < length) {
-      cursor += step;
+    cursor += step;
+    if (cursor < length) {
       ch = source[cursor];
     }
+    else {
+      cursor = length;
+      ch = character::EOS;
+    }
+  }
+
+  inline void update_char() {
+    if (cursor < length) ch = source[cursor];
     else {
       cursor = length;
       ch = character::EOS;
@@ -641,17 +650,6 @@ error:
       next_char();
     }
   }
-
-  // Token scan_line_terminator_sequence() {
-  //   assert(character::is_line_terminator(ch));
-  //   u32 start = cursor;
-  //   if (ch == character::CR && peek_char() == character::LF) {
-  //     next_char(); next_char();
-  //   } else {
-  //     next_char();
-  //   }
-  //   return token_with_type(TokenType::LINE_TERM, start);
-  // }
 
   void skip_line_terminators() {
     assert(character::is_line_terminator(ch));
@@ -741,29 +739,16 @@ error:
 
   // Scan decimal number. Only allows decimal digits.
   optional<uint64_t> scan_decimal_literal() {
-    if (!character::is_decimal_digit(ch)) {
-      return std::nullopt;
-    }
-    uint64_t int_val = 0;
-    while (character::is_decimal_digit(ch)) {
-      int_val = int_val * 10 + character::u16_char_to_digit(ch);
-      next_char();
-    }
-    return int_val;
+    auto val = njs::scan_decimal_literal(source.data(), length, cursor);
+    update_char();
+    return val;
   }
 
   // Scan integer. Allows decimal digits and hexadecimal digits.
   optional<uint64_t> scan_integer_literal(int base = 10) {
-    if (!character::is_hex_digit(ch)) {
-      return std::nullopt;
-    }
-
-    uint64_t int_val = 0;
-    while (character::is_hex_digit(ch)) {
-      int_val = int_val * base + character::u16_char_to_digit(ch);
-      next_char();
-    }
-    return int_val;
+    auto val = njs::scan_integer_literal(source.data(), length, cursor, base);
+    update_char();
+    return val;
   }
 
   Token scan_numeric_literal() {
