@@ -45,7 +45,7 @@ void NjsVM::run() {
   std::cout << "### VM starts execution" << std::endl;
 
   execute();
-  runloop.wait_for_event();
+  runloop.loop();
 
   std::cout << "### end of execution VM state: " << std::endl;
   std::cout << rt_stack[sp - 1].description() << std::endl << std::endl;

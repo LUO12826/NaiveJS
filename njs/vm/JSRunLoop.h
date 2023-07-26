@@ -2,6 +2,9 @@
 #define NJS_JSRUNLOOP_H
 
 #include <deque>
+#include <mutex>
+#include <thread>
+#include <condition_variable>
 
 #include "njs/basic_types/JSValue.h"
 #include "njs/include/robin_hood.h"
@@ -25,18 +28,27 @@ class JSRunLoop {
   explicit JSRunLoop(NjsVM& vm);
   ~JSRunLoop();
 
-  void wait_for_event();
+  void loop();
+  void post_timer_fired_task(JSTask *task);
+
   size_t add_timer(JSFunction* func, size_t timeout, bool repeat);
   bool remove_timer(size_t timer_id);
 
  private:
+  void timer_loop();
+
   NjsVM& vm;
 
-  int kqueue_id;
   size_t task_counter {0};
   unordered_map<size_t, JSTask> task_pool;
   std::deque<JSTask> micro_task_queue;
   std::deque<JSTask> macro_task_queue;
+  std::mutex marco_queue_lock;
+  std::condition_variable marco_queue_cv;
+
+  int kqueue_id;
+  int kqueue_notify_pipe_fd;
+  std::thread timer_thread;
 };
 
 }

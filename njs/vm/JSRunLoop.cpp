@@ -1,8 +1,10 @@
 #include "JSRunLoop.h"
 
+#include <cstdio>
 #include <unistd.h>
 #include <sys/event.h>
 #include <vector>
+#include <thread>
 #include "NjsVM.h"
 
 namespace njs {
@@ -11,50 +13,92 @@ JSRunLoop::JSRunLoop(NjsVM& vm): vm(vm) {
   kqueue_id = kqueue();
   if (kqueue_id == -1) {
     perror("kqueue init failed.");
-    exit(1);
+    exit(EXIT_FAILURE);
   }
+
+  int pipe_fds[2];
+
+  if (pipe(pipe_fds) == -1) {
+    perror("pipe creation failed.");
+    exit(EXIT_FAILURE);
+  }
+
+  kqueue_notify_pipe_fd = pipe_fds[1];
+
+  struct kevent pipe_event;
+  EV_SET(&pipe_event, pipe_fds[0], EVFILT_READ, EV_ADD, 0, 0, nullptr);
+
+  if (kevent(kqueue_id, &pipe_event, 1, NULL, 0, NULL) == -1) {
+    perror("kqueue init failed.");
+    exit(EXIT_FAILURE);
+  }
+
+  timer_thread = std::thread(&JSRunLoop::timer_loop, this);
 }
 
 JSRunLoop::~JSRunLoop() {
+  write(kqueue_notify_pipe_fd, "exit", 5);
+  timer_thread.join();
   close(kqueue_id);
+  close(kqueue_notify_pipe_fd);
 }
 
-void JSRunLoop::wait_for_event() {
-  std::vector<struct kevent> event_slot(20);
+void JSRunLoop::loop() {
+
   while (true) {
+    JSTask task;
+    {
+      std::unique_lock<std::mutex> lock(marco_queue_lock);
+      marco_queue_cv.wait(lock, [this] { return !macro_task_queue.empty(); });
+
+      task = macro_task_queue.front();
+      macro_task_queue.pop_front();
+    }
+
+    if (!task.canceled) vm.execute_task(task);
+
     while (!micro_task_queue.empty()) {
       JSTask& task = micro_task_queue.front();
       if (!task.canceled) vm.execute_task(task);
       micro_task_queue.pop_front();
     }
 
-    while (!macro_task_queue.empty()) {
-      JSTask& task = macro_task_queue.front();
-      if (!task.canceled) vm.execute_task(task);
-      macro_task_queue.pop_front();
-    }
-
     if (task_pool.empty() && macro_task_queue.empty()) return;
+  }
+  
+}
 
+void JSRunLoop::post_timer_fired_task(JSTask *task) {
+  marco_queue_lock.lock();
+  macro_task_queue.push_back(*task);
+  marco_queue_lock.unlock();
+  marco_queue_cv.notify_one();
+  if (!task->repeat) task_pool.erase(task->task_id);
+}
+
+void JSRunLoop::timer_loop() {
+
+  std::vector<struct kevent> event_slot(10);
+
+  while (true) {
     if (task_pool.size() > event_slot.size()) {
       event_slot.resize(task_pool.size());
     }
 
-    int ret = kevent(kqueue_id, nullptr, 0, event_slot.data(), task_pool.size(), nullptr);
+    int ret = kevent(kqueue_id, nullptr, 0, event_slot.data(), event_slot.size(), nullptr);
     if (ret == -1) {
       perror("kqueue poll failed.");
-      exit(1);
+      exit(EXIT_FAILURE);
     }
     for (int i = 0; i < ret; i++) {
-      auto *the_task = (JSTask*)event_slot[i].udata;
-      vm.execute_task(*the_task);
-
-      if (!the_task->repeat) {
-        task_pool.erase(the_task->task_id);
+      if (event_slot[i].udata != nullptr) {
+        post_timer_fired_task((JSTask *)event_slot[i].udata);
+      }
+      else if (event_slot[i].ident == kqueue_notify_pipe_fd) {
+        return;
       }
     }
   }
-
 }
 
 size_t JSRunLoop::add_timer(JSFunction* func, size_t timeout, bool repeat) {
@@ -67,7 +111,9 @@ size_t JSRunLoop::add_timer(JSFunction* func, size_t timeout, bool repeat) {
   };
 
   if (timeout == 0 && !repeat) {
+    marco_queue_lock.lock();
     macro_task_queue.push_back(task);
+    marco_queue_lock.unlock();
   }
   else {
     if (task.repeat) assert(task.timeout != 0);
@@ -85,7 +131,7 @@ size_t JSRunLoop::add_timer(JSFunction* func, size_t timeout, bool repeat) {
     int ret = kevent(kqueue_id, &event, 1, nullptr, 0, nullptr);
     if (ret == -1) {
       perror("kqueue add task failed.");
-      exit(1);
+      exit(EXIT_FAILURE);
     }
   }
 
@@ -96,6 +142,7 @@ size_t JSRunLoop::add_timer(JSFunction* func, size_t timeout, bool repeat) {
 bool JSRunLoop::remove_timer(size_t timer_id) {
   auto iter = task_pool.find(timer_id);
   if (iter == task_pool.end()) {
+    std::lock_guard<std::mutex> lock(marco_queue_lock);
     for (auto& task : macro_task_queue) {
       if (task.task_id == timer_id) {
         task.canceled = true;
@@ -113,7 +160,7 @@ bool JSRunLoop::remove_timer(size_t timer_id) {
   int ret = kevent(kqueue_id, &event, 1, nullptr, 0, nullptr);
   if (ret == -1) {
     perror("kqueue remove task failed.");
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
   return true;
