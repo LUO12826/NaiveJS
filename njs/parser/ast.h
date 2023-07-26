@@ -20,13 +20,14 @@
 
 namespace njs {
 
+const u32 PRINT_TREE_INDENT = 2;
+
 using std::pair;
 using std::vector;
 using std::unique_ptr;
 using std::u16string;
 using std::u16string_view;
-
-const u32 PRINT_TREE_INDENT = 2;
+using TokenType = Token::TokenType;
 
 class BinaryExpr;
 class LeftHandSideExpr;
@@ -395,9 +396,10 @@ class BinaryExpr : public ASTNode {
 
 class AssignmentExpr : public ASTNode {
  public:
-  AssignmentExpr(ASTNode *lhs, ASTNode *rhs, u16string_view source, u32 start, u32 end,
-                 u32 line_start)
-      : ASTNode(AST_EXPR_ASSIGN, source, start, end, line_start), lhs(lhs), rhs(rhs) {
+  AssignmentExpr(TokenType assign_type, ASTNode *lhs, ASTNode *rhs, u16string_view source,
+                 u32 start, u32 end, u32 line_start)
+      : ASTNode(AST_EXPR_ASSIGN, source, start, end, line_start),
+        assign_type(assign_type), lhs(lhs), rhs(rhs) {
     add_child(lhs);
     add_child(rhs);
   }
@@ -408,7 +410,7 @@ class AssignmentExpr : public ASTNode {
   }
 
   bool is_simple_assign() {
-    return lhs_is_id() && rhs_is_id();
+    return assign_type == TokenType::ASSIGN && lhs_is_id() && rhs_is_id();
   }
 
   bool lhs_is_id() {
@@ -423,6 +425,7 @@ class AssignmentExpr : public ASTNode {
     return static_cast<LeftHandSideExpr *>(rhs)->is_id();
   }
 
+  Token::TokenType assign_type;
   ASTNode *lhs;
   ASTNode *rhs;
 };

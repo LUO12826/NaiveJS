@@ -320,7 +320,7 @@ error:
       return rhs;
     }
 
-    return new AssignmentExpr(lhs, rhs, SOURCE_PARSED_EXPR);
+    return new AssignmentExpr(op.type, lhs, rhs, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_conditional_expression(bool no_in) {

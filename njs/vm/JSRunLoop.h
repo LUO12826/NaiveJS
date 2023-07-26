@@ -29,7 +29,6 @@ class JSRunLoop {
   ~JSRunLoop();
 
   void loop();
-  void post_timer_fired_task(JSTask *task);
 
   size_t add_timer(JSFunction* func, size_t timeout, bool repeat);
   bool remove_timer(size_t timer_id);
@@ -37,6 +36,7 @@ class JSRunLoop {
  private:
   void timer_loop();
   void setup_pipe();
+  void post_timer_fired_task(JSTask *task);
 
   NjsVM& vm;
 
