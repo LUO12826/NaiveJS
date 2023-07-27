@@ -36,7 +36,7 @@ class JSRunLoop {
  private:
   void timer_loop();
   void setup_pipe();
-  void post_timer_fired_task(JSTask *task);
+  void timer_post_task(JSTask *task);
 
   NjsVM& vm;
 

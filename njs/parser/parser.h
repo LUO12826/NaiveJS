@@ -310,7 +310,7 @@ error:
     }
     
     Token op = lexer.peek();
-    if (!op.is_assignment_operator()) return lhs;
+    if (!op.is_assignment_operator() || !op.is(TokenType::R_ARROW)) return lhs;
     
     lexer.next();
     lexer.next();

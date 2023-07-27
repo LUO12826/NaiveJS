@@ -50,7 +50,7 @@ void JSRunLoop::loop() {
   
 }
 
-void JSRunLoop::post_timer_fired_task(JSTask *task) {
+void JSRunLoop::timer_post_task(JSTask *task) {
   marco_queue_lock.lock();
   macro_task_queue.push_back(*task);
   marco_queue_lock.unlock();
@@ -93,7 +93,7 @@ void JSRunLoop::timer_loop() {
     }
     for (int i = 0; i < ret; i++) {
       if (event_slot[i].filter == EVFILT_TIMER) {
-        post_timer_fired_task((JSTask *)event_slot[i].udata);
+        timer_post_task((JSTask *)event_slot[i].udata);
       }
       else if (event_slot[i].filter == EVFILT_READ && event_slot[i].ident == pipe_read_fd) {
         return;

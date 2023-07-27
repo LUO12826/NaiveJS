@@ -159,6 +159,10 @@ class Token {
     return to_utf8_string(text);
   }
 
+  inline bool is(TokenType type) {
+    return this->type == type;
+  }
+
   inline bool is_assignment_operator() const {
     switch(type) {
       case ASSIGN:      // =
