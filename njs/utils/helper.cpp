@@ -33,19 +33,12 @@ std::string to_utf8_string(const std::u16string& str) {
 }
 
 std::string to_utf8_string(const std::u16string_view& u16view) {
-  std::u16string u16str(u16view);
   std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> converter;
-  return converter.to_bytes(u16str);
+  return converter.to_bytes(u16view.data(), u16view.data() + u16view.length());
 }
 
 std::string to_utf8_string(bool b) {
   return b ? "true" : "false";
-}
-
-std::string to_utf8_string(const void *ptr) {
-  std::stringstream ss;
-  ss << ptr;  
-  return ss.str();
 }
 
 std::u16string str_cat(const std::vector<std::u16string>& vals) {

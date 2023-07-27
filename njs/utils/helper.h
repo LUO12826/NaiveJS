@@ -22,8 +22,6 @@ std::string to_utf8_string(const u16string_view& u16view);
 
 std::string to_utf8_string(bool b);
 
-std::string to_utf8_string(const void *ptr);
-
 std::u16string str_cat(const std::vector<u16string>& vals);
 
 // From Knuth https://stackoverflow.com/a/253874/5163915

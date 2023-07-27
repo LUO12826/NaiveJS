@@ -17,7 +17,7 @@ using namespace njs;
 using std::string;
 using std::u16string;
 
-std::u16string read_file(const std::string &file_path);
+u16string read_file(const string &file_path);
 void print_tokens(u16string& source_code);
 
 int main(int argc, char *argv[]) {
@@ -135,12 +135,10 @@ void print_tokens(u16string& source_code) {
   }
 }
 
-std::u16string read_file(const std::string &file_path) {
-  std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> converter;
-
+u16string read_file(const string &file_path) {
   std::ifstream file(file_path);
   if (!file.is_open()) { throw std::ifstream::failure("Cannot open the file: " + file_path); }
 
-  std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-  return converter.from_bytes(content);
+  string content(std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{});
+  return std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>().from_bytes(content);
 }
