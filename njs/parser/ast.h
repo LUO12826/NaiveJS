@@ -265,7 +265,10 @@ class Expression : public ASTNode {
     for (auto element : elements) { delete element; }
   }
 
-  void add_element(ASTNode *element) { elements.push_back(element); }
+  void add_element(ASTNode *element) {
+    elements.push_back(element);
+    add_child(element);
+  }
 
   vector<ASTNode *> elements;
 };

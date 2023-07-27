@@ -33,6 +33,11 @@ class Lexer {
   Lexer(const Lexer&) = delete;
   Lexer(Lexer&&) = delete;
 
+  const Token& next_twice() {
+    next();
+    return next();
+  }
+
   const Token& next() {
 
     if (peeking) {

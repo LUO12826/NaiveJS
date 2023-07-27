@@ -64,7 +64,11 @@ class Parser {
       case TokenType::LEFT_BRACE:  // {
         return parse_object_literal();
       case TokenType::LEFT_PAREN: { // (
+        START_POS;
         lexer.next();   // skip (
+        if (lexer.current().type == TokenType::RIGHT_PAREN) {
+          return new ParenthesisExpr(nullptr, SOURCE_PARSED_EXPR);
+        }
         ASTNode* value = parse_expression(false);
         if (value->is_illegal()) return value;
         if (lexer.next().type != TokenType::RIGHT_PAREN) {
@@ -72,8 +76,6 @@ class Parser {
           goto error;
         }
         return value;
-//        return new ParenthesisExpr(value, value->get_source(),value->start_pos(), value->end_pos(),
-//                                    value->get_line_start());
       }
       case TokenType::DIV_ASSIGN:
       case TokenType::DIV: {  // /
@@ -146,17 +148,16 @@ error:
       goto error;
     }
 
+    push_scope(ScopeType::FUNC);
+
     if (!parse_formal_parameter_list(params)) {
       goto error;
     }
-
-    if (lexer.next().type != TokenType::LEFT_BRACE) goto error;
-
-    push_scope(ScopeType::FUNC);
     for (auto param : params) {
       scope().define_func_parameter(param);
     }
-    
+
+    if (lexer.next().type != TokenType::LEFT_BRACE) goto error;
     lexer.next();
     body = parse_function_body();
     if (body->is_illegal()) return body;
@@ -272,14 +273,9 @@ error:
     START_POS;
 
     ASTNode* element = parse_assignment_expression(no_in);
-    if (element->is_illegal()) {
-      return element;
-    }
-    // NOTE(zhuzilin) If expr has only one element, then just return the element.
-    // lexer.checkpoint();
-    if (lexer.peek().type != TokenType::COMMA) {
-      return element;
-    }
+    if (element->is_illegal()) return element;
+    // if this is the only expression, directly return it
+    if (lexer.peek().type != TokenType::COMMA) return element;
 
     Expression* expr = new Expression();
     expr->add_element(element);
@@ -304,23 +300,83 @@ error:
     ASTNode* lhs = parse_conditional_expression(no_in);
     if (lhs->is_illegal()) return lhs;
 
-    // Not LeftHandSideExpression
-    if (lhs->type != ASTNode::AST_EXPR_LHS && lhs->type != ASTNode::AST_EXPR_ID) {
-      return lhs;
-    }
-    
     Token op = lexer.peek();
-    if (!op.is_assignment_operator() || !op.is(TokenType::R_ARROW)) return lhs;
-    
+    if (!op.is_assignment_operator() && !op.is(TokenType::R_ARROW)) return lhs;
     lexer.next();
-    lexer.next();
-    ASTNode* rhs = parse_assignment_expression(no_in);
-    if (rhs->is_illegal()) {
-      delete lhs;
-      return rhs;
+
+    // normal assign
+    if (op.is_assignment_operator()) {
+      // require valid lhs expression.
+      if (lhs->type != ASTNode::AST_EXPR_LHS && lhs->type != ASTNode::AST_EXPR_ID) {
+        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+      }
+      lexer.next();
+      ASTNode* rhs = parse_assignment_expression(no_in);
+      if (rhs->is_illegal()) {
+        delete lhs;
+        return rhs;
+      }
+      return new AssignmentExpr(op.type, lhs, rhs, SOURCE_PARSED_EXPR);
+    }
+    // arrow function
+    else {
+      bool param_legal = check_expr_is_formal_parameter(lhs);
+      if (!param_legal) {
+        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+      }
+      push_scope(ScopeType::FUNC);
+      std::vector<u16string_view> params;
+
+      if (lhs->is_identifier()) {
+        scope().define_func_parameter(lhs->get_source());
+        params.push_back(lhs->get_source());
+      }
+      else if (lhs->type == ASTNode::AST_EXPR) {
+        auto& expr_list = static_cast<Expression *>(lhs)->elements;
+        for (auto expr : expr_list) {
+          assert(expr->is_identifier());
+          scope().define_func_parameter(expr->get_source());
+          params.push_back(expr->get_source());
+        }
+      }
+      lexer.next();
+      if (token_match(TokenType::LEFT_BRACE)) {
+        lexer.next();
+        ASTNode *func_body = parse_program_or_function_body(TokenType::RIGHT_BRACE, ASTNode::AST_FUNC_BODY);
+        if (func_body->is_illegal()) return func_body;
+
+        auto *func = new Function(Token::none, std::move(params), func_body, SOURCE_PARSED_EXPR);
+        scope().get_outer_func()->get_inner_func_init_code().emplace(func, SmallVector<Instruction, 5>());
+        return func;
+      }
+      else {
+        assert(false);
+      }
     }
 
-    return new AssignmentExpr(op.type, lhs, rhs, SOURCE_PARSED_EXPR);
+  }
+
+  bool check_expr_is_formal_parameter(ASTNode* param) {
+
+    if (param->type == ASTNode::AST_EXPR) {
+      auto& expr_list = static_cast<Expression *>(param)->elements;
+
+      for (auto expr : expr_list) {
+        if (expr->is_identifier()) continue; // legal formal parameter
+        if (expr->type == ASTNode::AST_EXPR_ASSIGN
+            && static_cast<AssignmentExpr *>(expr)->assign_type == TokenType::ASSIGN) {
+          assert(false); // Not supported yet.
+          continue; // legal formal parameter with default value
+        }
+        return false;
+      }
+      return true;
+    }
+    if (param->is_identifier()) return true;
+    if (param->type == ASTNode::AST_EXPR_PAREN) {
+      return (static_cast<ParenthesisExpr *>(param)->expr == nullptr);
+    }
+    return false;
   }
 
   ASTNode* parse_conditional_expression(bool no_in) {
@@ -332,8 +388,7 @@ error:
       return cond;
     }
       
-    lexer.next();
-    lexer.next();
+    lexer.next_twice();
     ASTNode* lhs = parse_assignment_expression(no_in);
     if (lhs->is_illegal()) {
       delete cond;
@@ -397,8 +452,7 @@ error:
     Token binary_op = lexer.peek();
 
     while (binary_op.binary_priority(no_in) > priority) {
-      lexer.next();
-      lexer.next();
+      lexer.next_twice();
       rhs = parse_binary_and_unary_expression(no_in, binary_op.binary_priority(no_in));
       if (rhs->is_illegal()) {
         delete lhs;
@@ -408,8 +462,7 @@ error:
       
       binary_op = lexer.peek();
     }
-    
-    lhs->set_source(SOURCE_PARSED_EXPR);
+
     return lhs;
   }
 
