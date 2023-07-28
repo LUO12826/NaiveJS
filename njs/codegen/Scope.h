@@ -65,13 +65,9 @@ class Scope {
     }
   }
 
-  ScopeType get_scope_type() {
-    return scope_type;
-  }
+  ScopeType get_scope_type() { return scope_type; }
 
-  BlockType get_block_type() {
-    return block_type;
-  }
+  BlockType get_block_type() { return block_type; }
 
   void set_block_type(BlockType block_type) {
     this->block_type = block_type;
@@ -81,11 +77,14 @@ class Scope {
     return scope_type_names[static_cast<int>(scope_type)];
   }
 
-  bool define_func_parameter(u16string_view name, bool strict = false) {
+  /// @brief Only for function scope: define a function parameter.
+  /// @return Succeeded or not.
+  bool define_func_parameter(u16string_view name, bool strict = true) {
     assert(scope_type == ScopeType::FUNC);
 
     if (symbol_table.contains(name)) {
-      return strict ? false : true;
+      // Strict mode doesn't allow duplicated parameter name.
+      return !strict;
     }
 
     symbol_table.emplace(name, SymbolRecord(VarKind::DECL_FUNC_PARAM, name, param_count, false));
@@ -93,6 +92,8 @@ class Scope {
     return true;
   }
 
+  /// @brief Define a symbol in this scope.
+  /// @return Succeeded or not.
   bool define_symbol(VarKind var_kind, u16string_view name, bool is_builtin = false) {
     assert(var_kind != VarKind::DECL_FUNC_PARAM);
     // var... or function...
@@ -115,6 +116,9 @@ class Scope {
     return true;
   }
 
+  /// @brief Variables defined by `let` or `const` are legal to access only after they are
+  /// initialized. Once they are initialized, call this method to mark them as valid.
+  /// TODO: The implementation logic here is still different from what it is in JavaScript
   void mark_symbol_as_valid(u16string_view name) {
     auto find_res = symbol_table.find(name);
     if (find_res != symbol_table.end()) find_res->second.valid = true;
@@ -124,12 +128,15 @@ class Scope {
     return resolve_symbol_impl(name, 0, false);
   }
 
+  void register_function(Function *func) {
+    outer_func->inner_func_init_code.emplace(func, SmallVector<Instruction, 5>());
+  }
+
   void set_outer(Scope *outer) {
     this->outer_scope = outer;
     if (scope_type == ScopeType::BLOCK) {
       assert(outer);
     }
-
     if (scope_type == ScopeType::FUNC || scope_type == ScopeType::GLOBAL) {
       outer_func = this;
     }

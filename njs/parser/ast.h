@@ -461,8 +461,10 @@ class Function : public ASTNode {
 
   Token name;
   vector<u16string_view> params;
-  bool is_stmt {false};
   ASTNode *body;
+
+  bool is_stmt {false};
+  bool is_arrow_func {false};
 };
 
 class VarDecl : public ASTNode {

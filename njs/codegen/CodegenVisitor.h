@@ -265,7 +265,8 @@ friend class NjsVM;
     // create metadata for function
     u32 func_idx = add_function_meta( JSFunctionMeta {
         .name_index = func.has_name() ? add_const(func.name.text) : 0,
-        .is_anonymous = !func.has_name(),
+        .is_anonymous = !func.has_name() || func.is_arrow_func,
+        .is_arrow_func = func.is_arrow_func,
         .param_count = (u32)func.params.size(),
         .local_var_count = body->scope->get_local_var_count(),
         .code_address = bytecode_pos(),

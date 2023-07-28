@@ -167,8 +167,7 @@ error:
       goto error;
     }
     function = new Function(name, params, body, SOURCE_PARSED_EXPR);
-    scope().get_outer_func()->get_inner_func_init_code()
-                                      .emplace(function, SmallVector<Instruction, 5>());
+    scope().register_function(function);
     return function;
 error:
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
@@ -184,7 +183,7 @@ error:
     Token token = lexer.next();
     while (token.type != TokenType::RIGHT_BRACK) {
       if (token.type != TokenType::COMMA) {
-        ASTNode *element = parse_assignment_expression(false);
+        ASTNode *element = parse_assign_or_arrow_function(false);
         if (element->type == ASTNode::AST_ILLEGAL) {
           delete array;
           return element;
@@ -213,7 +212,7 @@ error:
         if (lexer.peek().type == TokenType::COLON) {
           lexer.next();
           lexer.next();
-          ASTNode* value = parse_assignment_expression(false);
+          ASTNode* value = parse_assign_or_arrow_function(false);
           if (value->type == ASTNode::AST_ILLEGAL) {
             delete obj;
             return value;
@@ -272,7 +271,7 @@ error:
   ASTNode* parse_expression(bool no_in) {
     START_POS;
 
-    ASTNode* element = parse_assignment_expression(no_in);
+    ASTNode* element = parse_assign_or_arrow_function(no_in);
     if (element->is_illegal()) return element;
     // if this is the only expression, directly return it
     if (lexer.peek().type != TokenType::COMMA) return element;
@@ -283,7 +282,7 @@ error:
     while (lexer.peek().type == TokenType::COMMA) {
       lexer.next();
       lexer.next();
-      element = parse_assignment_expression(no_in);
+      element = parse_assign_or_arrow_function(no_in);
       if (element->is_illegal()) {
         delete expr;
         return element;
@@ -294,7 +293,7 @@ error:
     return expr;
   }
 
-  ASTNode* parse_assignment_expression(bool no_in) {
+  ASTNode* parse_assign_or_arrow_function(bool no_in) {
     START_POS;
 
     ASTNode* lhs = parse_conditional_expression(no_in);
@@ -311,7 +310,7 @@ error:
         return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
       }
       lexer.next();
-      ASTNode* rhs = parse_assignment_expression(no_in);
+      ASTNode* rhs = parse_assign_or_arrow_function(no_in);
       if (rhs->is_illegal()) {
         delete lhs;
         return rhs;
@@ -320,17 +319,21 @@ error:
     }
     // arrow function
     else {
+      // begin gather formal parameters
       bool param_legal = check_expr_is_formal_parameter(lhs);
       if (!param_legal) {
         return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
       }
+
       push_scope(ScopeType::FUNC);
       std::vector<u16string_view> params;
 
+      // no parenthesis, only one identifier
       if (lhs->is_identifier()) {
         scope().define_func_parameter(lhs->get_source());
         params.push_back(lhs->get_source());
       }
+      // a list of parameters. Parentheses have been removed before.
       else if (lhs->type == ASTNode::AST_EXPR) {
         auto& expr_list = static_cast<Expression *>(lhs)->elements;
         for (auto expr : expr_list) {
@@ -339,19 +342,37 @@ error:
           params.push_back(expr->get_source());
         }
       }
+      // end gather formal parameters, begin parsing function body
       lexer.next();
+      ASTNode *func_body;
+      // body with brace.
       if (token_match(TokenType::LEFT_BRACE)) {
         lexer.next();
-        ASTNode *func_body = parse_program_or_function_body(TokenType::RIGHT_BRACE, ASTNode::AST_FUNC_BODY);
+        func_body = parse_program_or_function_body(TokenType::RIGHT_BRACE, ASTNode::AST_FUNC_BODY);
         if (func_body->is_illegal()) return func_body;
-
-        auto *func = new Function(Token::none, std::move(params), func_body, SOURCE_PARSED_EXPR);
-        scope().get_outer_func()->get_inner_func_init_code().emplace(func, SmallVector<Instruction, 5>());
-        return func;
       }
+      // body with only one expression
       else {
-        assert(false);
+        auto *expr = parse_assign_or_arrow_function(true);
+        if (expr->is_illegal()) {
+          pop_scope();
+          return expr;
+        }
+        func_body = new ProgramOrFunctionBody(ASTNode::AST_FUNC_BODY, true);
+        auto *body = static_cast<ProgramOrFunctionBody *>(func_body);
+        // implicitilly return
+        body->add_statement(
+          new ReturnStatement(expr, expr->get_source(), expr->start_pos(),
+                              expr->end_pos(), expr->get_line_start())
+        );
+        body->scope = std::move(scope_chain.back());
+        pop_scope();
       }
+      // finally, make a AST node for the function.
+      auto *func = new Function(Token::none, std::move(params), func_body, SOURCE_PARSED_EXPR);
+      func->is_arrow_func = true;
+      scope().register_function(func);
+      return func;
     }
 
   }
@@ -389,7 +410,7 @@ error:
     }
       
     lexer.next_twice();
-    ASTNode* lhs = parse_assignment_expression(no_in);
+    ASTNode* lhs = parse_assign_or_arrow_function(no_in);
     if (lhs->is_illegal()) {
       delete cond;
       return lhs;
@@ -401,7 +422,7 @@ error:
       return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
     }
     lexer.next();
-    ASTNode* rhs = parse_assignment_expression(no_in);
+    ASTNode* rhs = parse_assign_or_arrow_function(no_in);
     if (lhs->is_illegal()) {
       delete cond;
       delete lhs;
@@ -558,7 +579,7 @@ error:
     lexer.next();
     while (!token_match(TokenType::RIGHT_PAREN)) {
       if (!token_match(TokenType::COMMA)) {
-        arg = parse_assignment_expression(false);
+        arg = parse_assign_or_arrow_function(false);
         if (arg->is_illegal()) {
           for (auto arg : args) delete arg;
           return arg;
@@ -736,7 +757,7 @@ error:
       return var_decl;
     }
     
-    ASTNode* init = parse_assignment_expression(no_in);
+    ASTNode* init = parse_assign_or_arrow_function(no_in);
     if (init->is_illegal()) return init;
 
     return new VarDecl(id, init, SOURCE_PARSED_EXPR);

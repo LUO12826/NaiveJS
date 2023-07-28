@@ -55,8 +55,11 @@ void JSFunction::gc_scan_children(GCHeap& heap) {
 
 std::string JSFunction::description() {
   std::ostringstream stream;
-  stream << "JSFunction named: " << to_utf8_string(name)
-         << ", is native: " << is_native << ".";
+  stream << "JSFunction ";
+  if (is_anonymous) stream << "(anonymous)";
+  else stream << "named: " << to_utf8_string(name);
+
+  stream << ", is native: " << to_utf8_string(is_native) << ".";
   stream << " props: " << JSObject::description();
 
   return stream.str();

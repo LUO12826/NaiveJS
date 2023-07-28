@@ -403,7 +403,7 @@ void NjsVM::exec_prop_assign() {
 
 void NjsVM::exec_make_func(int meta_idx) {
   auto& meta = func_meta[meta_idx];
-  auto& name = str_pool.get_list()[meta.name_index];
+  const u16string& name = meta.is_anonymous ? u"" : str_pool.get_list()[meta.name_index];
 
   auto *func = heap.new_object<JSFunction>(name, meta);
   if (meta.is_native) {
