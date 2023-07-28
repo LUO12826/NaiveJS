@@ -7,15 +7,16 @@
 
 namespace njs {
 
-NjsVM::NjsVM(CodegenVisitor& visitor) : heap(600, *this)
-                                      , rt_stack(max_stack_size)
-                                      , bytecode(std::move(visitor.bytecode))
-                                      , runloop(*this)
-                                      , str_pool(std::move(visitor.str_pool))
-                                      , num_list(std::move(visitor.num_list))
-                                      , func_meta(std::move(visitor.func_meta))
-                                      , top_level_this(heap.new_object<JSObject>())
-                                      , global_object(heap.new_object<GlobalObject>())
+NjsVM::NjsVM(CodegenVisitor& visitor)
+  : heap(600, *this)
+  , rt_stack(max_stack_size)
+  , bytecode(std::move(visitor.bytecode))
+  , runloop(*this)
+  , str_pool(std::move(visitor.str_pool))
+  , num_list(std::move(visitor.num_list))
+  , func_meta(std::move(visitor.func_meta))
+  , top_level_this(heap.new_object<JSObject>())
+  , global_object(heap.new_object<GlobalObject>())
 {
   auto& global_sym_table = visitor.scope_chain[0]->get_symbol_table();
 
@@ -42,13 +43,19 @@ void NjsVM::add_builtin_object(u16string name,
 }
 
 void NjsVM::run() {
-  std::cout << "### VM starts execution" << std::endl;
+  std::cout << "### VM starts execution, state: " << std::endl;
+  std::cout << "Stack top value: " << rt_stack[sp - 1].description() << std::endl;
+  std::cout << "sp: " << sp << std::endl;
+  std::cout << "---------------------------------------------------" << std::endl;
 
   execute();
   runloop.loop();
 
   std::cout << "### end of execution VM state: " << std::endl;
-  std::cout << rt_stack[sp - 1].description() << std::endl << std::endl;
+  std::cout << "Stack top value: " << rt_stack[sp - 1].description() << std::endl;
+  std::cout << "sp: " << sp << std::endl;
+  std::cout << "---------------------------------------------------" << std::endl;
+
 
 //  if (!log_buffer.empty()) {
 //    std::cout << "------------------------------" << std::endl << "log:" << std::endl;

@@ -27,13 +27,16 @@ int main(int argc, char *argv[]) {
   bool show_tokens = false;
 
   int option;
-  while ((option = getopt(argc, argv, "bgatf:")) != -1) {
+  while ((option = getopt(argc, argv, "bgatvf:")) != -1) {
     switch (option) {
     case 'b':
       Global::dump_bytecode = true;
       break;
     case 'g':
       Global::show_gc_statistics = true;
+      break;
+    case 'v':
+      Global::show_vm_exec_steps = true;
       break;
     case 'a':
       show_ast = true;
