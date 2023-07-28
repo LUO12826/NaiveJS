@@ -54,6 +54,7 @@ class Scope {
     if (type == ScopeType::BLOCK) {
       assert(outer);
       local_var_count = outer->local_var_count;
+      update_max_var_count(local_var_count);
     }
 
     if (type == ScopeType::FUNC || type == ScopeType::GLOBAL) {
@@ -112,6 +113,7 @@ class Scope {
 
     symbol_table.emplace(name, SymbolRecord(var_kind, name, local_var_count, is_builtin));
     local_var_count += 1;
+    update_max_var_count(local_var_count);
 
     return true;
   }
@@ -194,6 +196,14 @@ class Scope {
   u32 get_local_var_count() {
     return local_var_count;
   }
+
+  u32 get_max_var_count() {
+    return max_var_count;
+  }
+
+  void update_max_var_count(u32 count) {
+    max_var_count = std::max(count, max_var_count);
+  }
   
  private:
   SymbolResolveResult resolve_symbol_impl(u16string_view name, u32 depth, bool nonlocal) {
@@ -273,6 +283,7 @@ class Scope {
 
   u32 param_count {0};
   u32 local_var_count {0};
+  u32 max_var_count {0};
 
   // for function scope
   SmallVector<SymbolResolveResult, 5> capture_list;

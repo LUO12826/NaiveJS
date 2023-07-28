@@ -269,7 +269,7 @@ friend class NjsVM;
         .is_anonymous = !func.has_name() || func.is_arrow_func,
         .is_arrow_func = func.is_arrow_func,
         .param_count = (u16)func.params.size(),
-        .local_var_count = (u16)body->scope->get_local_var_count(),
+        .local_var_count = (u16)body->scope->get_max_var_count(),
         .code_address = bytecode_pos(),
     });
 
@@ -585,7 +585,7 @@ friend class NjsVM;
     emit(InstType::pop_drop);
     visit(stmt.if_block);
     u32 if_end_jmp;
-    if (stmt.else_block) if_end_jmp = emit(InstType::jmp);
+    if_end_jmp = emit(InstType::jmp);
 
     for (u32 idx : false_list) {
         bytecode[idx].operand.two.opr1 = bytecode_pos();
@@ -593,9 +593,9 @@ friend class NjsVM;
     emit(InstType::pop_drop);
 
     if (stmt.else_block) {
-        visit(stmt.else_block);
-        bytecode[if_end_jmp].operand.two.opr1 = bytecode_pos();
+      visit(stmt.else_block);
     }
+    bytecode[if_end_jmp].operand.two.opr1 = bytecode_pos();
   }
 
   void visit_while_statement(WhileStatement& stmt) {

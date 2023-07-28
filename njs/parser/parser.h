@@ -365,8 +365,7 @@ error:
           new ReturnStatement(expr, expr->get_source(), expr->start_pos(),
                               expr->end_pos(), expr->get_line_start())
         );
-        body->scope = std::move(scope_chain.back());
-        pop_scope();
+        body->scope = pop_scope();
       }
       // finally, make a AST node for the function.
       auto *func = new Function(Token::none, std::move(params), func_body, SOURCE_PARSED_EXPR);
@@ -649,9 +648,8 @@ error:
     assert(token_match(ending_token_type));
     
     #ifndef DBG_SCOPE
-    prog->scope = std::move(scope_chain.back());
+    prog->scope = pop_scope();
     #endif
-    pop_scope();
 
     prog->set_source(SOURCE_PARSED_EXPR);
     return prog;
@@ -733,9 +731,8 @@ error:
     block->set_source(SOURCE_PARSED_EXPR);
 
     #ifndef DBG_SCOPE
-    block->scope = std::move(scope_chain.back());
+    block->scope = pop_scope();
     #endif
-    pop_scope();
 
     return block;
   }
@@ -1348,7 +1345,7 @@ error:
 #endif
   }
 
-  void pop_scope() {
+  unique_ptr<Scope> pop_scope() {
 #ifdef DBG_SCOPE
     Scope& scope = *scope_chain.back();
 
@@ -1366,8 +1363,12 @@ error:
     std::cout << std::endl;
 
 #endif
-
+    unique_ptr<Scope> scope = std::move(scope_chain.back());
     scope_chain.pop_back();
+    if (scope->get_outer_func()) {
+      scope->get_outer_func()->update_max_var_count(scope->get_local_var_count());
+    }
+    return scope;
   }
 
   void add_builtin_functions() {

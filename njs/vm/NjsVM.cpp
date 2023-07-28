@@ -25,7 +25,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
     global_obj.props_index_map.emplace(u16string(sym_name), sym_rec.index + frame_meta_size);
   }
 
-  sp = global_sym_table.size() + frame_meta_size;
+  sp = visitor.scope_chain[0]->get_max_var_count() + frame_meta_size;
 }
 
 void NjsVM::add_native_func_impl(u16string name, NativeFuncType func) {
