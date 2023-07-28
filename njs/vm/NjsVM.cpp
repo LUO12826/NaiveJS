@@ -440,7 +440,7 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
   assert(func_val.val.as_object->obj_class == ObjectClass::CLS_FUNCTION);
   JSFunction *func = func_val.val.as_function;
 
-  u32 def_param_cnt = func->param_count;
+  u32 def_param_cnt = func->meta.param_count;
   // If the actually passed arguments are fewer than the formal parameters,
   // fill the vacancy with `undefined`.
   sp += def_param_cnt > arg_count ? (def_param_cnt - arg_count) : 0;
@@ -456,7 +456,7 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
   // set up the `this` for the function.
   func->This = has_this_object ? invoker_this : JSValue(&global_object);
 
-  if (func->is_native) {
+  if (func->meta.is_native) {
     func_val = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
     for (u32 addr = sp - actual_arg_cnt; addr < sp; addr++) {
       rt_stack[addr].dispose();
@@ -476,8 +476,8 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
   rt_stack[sp + 1].val.as_int64 = frame_base_ptr;
 
   frame_base_ptr = sp;
-  sp = frame_base_ptr + 2 + func->local_var_count;
-  pc = func->code_address;
+  sp = frame_base_ptr + 2 + func->meta.local_var_count;
+  pc = func->meta.code_address;
 }
 
 void NjsVM::exec_make_object() {

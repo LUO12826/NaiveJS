@@ -10,26 +10,23 @@ namespace njs {
 JSFunction::JSFunction() : JSObject(ObjectClass::CLS_FUNCTION) {}
 
 JSFunction::JSFunction(u16string name, u32 param_cnt, u32 local_var_cnt, u32 code_addr)
-    : JSObject(ObjectClass::CLS_FUNCTION), name(std::move(name)), param_count(param_cnt),
-      local_var_count(local_var_cnt), code_address(code_addr) {}
+    : JSObject(ObjectClass::CLS_FUNCTION), name(std::move(name)) {
+  meta.param_count = param_cnt;
+  meta.local_var_count = local_var_cnt;
+  meta.code_address = code_addr;
+}
 
 JSFunction::JSFunction(u16string name, u32 param_cnt)
-    : JSObject(ObjectClass::CLS_FUNCTION), name(std::move(name)), param_count(param_cnt) {}
+    : JSObject(ObjectClass::CLS_FUNCTION), name(std::move(name)) {
+  meta.param_count = param_cnt;
+}
 
 JSFunction::JSFunction(u16string name, const JSFunctionMeta& meta) : JSFunction(meta) {
   this->name = std::move(name);
 }
 
 JSFunction::JSFunction(const JSFunctionMeta& meta): JSObject(ObjectClass::CLS_FUNCTION) {
-  param_count = meta.param_count;
-  local_var_count = meta.local_var_count;
-  code_address = meta.code_address;
-
-  is_anonymous = meta.is_anonymous;
-  is_arrow_func = meta.is_arrow_func;
-  has_this_binding = meta.has_this_binding;
-  is_native = meta.is_native;
-
+  this->meta = meta;
   native_func = meta.native_func;
 }
 
@@ -56,10 +53,10 @@ void JSFunction::gc_scan_children(GCHeap& heap) {
 std::string JSFunction::description() {
   std::ostringstream stream;
   stream << "JSFunction ";
-  if (is_anonymous) stream << "(anonymous)";
+  if (meta.is_anonymous) stream << "(anonymous)";
   else stream << "named: " << to_utf8_string(name);
 
-  stream << ", is native: " << to_utf8_string(is_native) << ".";
+  stream << ", is native: " << to_utf8_string(meta.is_native) << ".";
   stream << " props: " << JSObject::description();
 
   return stream.str();

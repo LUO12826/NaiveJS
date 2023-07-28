@@ -216,6 +216,7 @@ friend class NjsVM;
         visit_block_statement(*static_cast<Block *>(node));
         break;
       default:
+        std::cout << node->description() << " not supported yet" << std::endl;
         assert(false);
     }
   }
@@ -267,8 +268,8 @@ friend class NjsVM;
         .name_index = func.has_name() ? add_const(func.name.text) : 0,
         .is_anonymous = !func.has_name() || func.is_arrow_func,
         .is_arrow_func = func.is_arrow_func,
-        .param_count = (u32)func.params.size(),
-        .local_var_count = body->scope->get_local_var_count(),
+        .param_count = (u16)func.params.size(),
+        .local_var_count = (u16)body->scope->get_local_var_count(),
         .code_address = bytecode_pos(),
     });
 
@@ -627,7 +628,11 @@ friend class NjsVM;
     push_scope(std::move(block.scope));
 
     for (auto *stmt : block.statements) {
-        visit(stmt);
+      visit(stmt);
+      if (stmt->type > ASTNode::BEGIN_EXPR && stmt->type < ASTNode::END_EXPR
+          && stmt->type != ASTNode::AST_EXPR_ASSIGN) {
+        emit(InstType::pop_drop);
+      }
     }
     pop_scope();
   }
