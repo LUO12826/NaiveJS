@@ -37,13 +37,12 @@ std::vector<JSValue *> GCHeap::gather_roots() {
 
   std::vector<JSValue *> roots;
 
-  for (u32 i = 0; i < vm.sp; i++) {
-    JSValue& js_val = vm.rt_stack[i];
+  for (JSValue *js_val = vm.rt_stack.data(); js_val < vm.sp; js_val++) {
 
-    if (js_val.needs_gc()) roots.push_back(&js_val);
+    if (js_val->needs_gc()) roots.push_back(js_val);
 
-    if (js_val.tag == JSValue::STACK_FRAME_META1) {
-      roots.push_back(&js_val);
+    if (js_val->tag == JSValue::STACK_FRAME_META1) {
+      roots.push_back(js_val);
     }
   }
   if (vm.invoker_this.needs_gc()) roots.push_back(&vm.invoker_this);

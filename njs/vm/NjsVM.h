@@ -85,7 +85,7 @@ friend class InternalFunctions;
   u32 max_stack_size {10240};
 
   // stack pointer
-  u32 sp;
+  JSValue *sp;
   // program counter
   u32 pc {0};
   // start of a stack frame
