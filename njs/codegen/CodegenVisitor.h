@@ -441,9 +441,22 @@ friend class NjsVM;
       }
     }
     else if (expr.lhs_is_id()) {
-      visit(expr.rhs);
       auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
-      emit(InstType::pop, scope_type_int(lhs_sym.scope_type), (int)lhs_sym.index);
+
+      if (expr.assign_type == TokenType::ASSIGN) {
+        visit(expr.rhs);
+        emit(InstType::pop, scope_type_int(lhs_sym.scope_type), (int)lhs_sym.index);
+      }
+      else if (expr.assign_type == TokenType::ADD_ASSIGN) {
+        if (expr.rhs->as_number_literal() && expr.rhs->as_number_literal()->num_val == 1) {
+          emit(InstType::inc, scope_type_int(lhs_sym.scope_type), (int)lhs_sym.index);
+        } else {
+          visit(expr.rhs);
+          emit(InstType::add_assign, scope_type_int(lhs_sym.scope_type), (int)lhs_sym.index);
+        }
+      }
+      else assert(false);
+      
     }
     else {
       // check if left hand side is LeftHandSide Expression (or Parenthesized Expression with

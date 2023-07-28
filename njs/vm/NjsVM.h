@@ -72,8 +72,12 @@ friend class InternalFunctions;
   void exec_logi(InstType op_type);
   void exec_strict_equality(bool flip);
 
+  void exec_add_assign(Instruction& inst);
+  void exec_inc_or_dec(Instruction& inst, bool inc);
+
   JSFunction *function_env();
   u32 calc_var_addr(ScopeType scope, int raw_index);
+  JSValue *get_value(ScopeType scope, int raw_index);
   bool are_strings_equal(const JSValue& lhs, const JSValue& rhs);
   double to_numeric_value(JSValue& val);
 

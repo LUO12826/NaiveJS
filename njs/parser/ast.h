@@ -33,6 +33,7 @@ class BinaryExpr;
 class LeftHandSideExpr;
 class ParenthesisExpr;
 class ProgramOrFunctionBody;
+class NumberLiteral;
 
 class ASTNode {
  public:
@@ -121,6 +122,7 @@ class ASTNode {
   LeftHandSideExpr *as_lhs_expr();
   BinaryExpr *as_binary_expr();
   ProgramOrFunctionBody *as_func_body();
+  NumberLiteral *as_number_literal();
 
   bool is_illegal();
   bool is_expression();

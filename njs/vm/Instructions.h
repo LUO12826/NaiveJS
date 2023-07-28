@@ -9,12 +9,21 @@ namespace njs {
 using u16 = uint16_t;
 using u32 = uint32_t;
 
+// has corresponding string representations
 enum class InstType {
   add,
   sub,
   neg,
   mul,
   div,
+
+  add_assign,
+  sub_assign,
+  mul_assign,
+  div_assign,
+
+  inc,
+  dec,
 
   logi_and,
   logi_or,

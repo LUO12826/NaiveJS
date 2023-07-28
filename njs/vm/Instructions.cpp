@@ -48,6 +48,27 @@ std::string Instruction::description() {
     case InstType::div: sprintf(buffer, "div"); break;
     case InstType::neg: sprintf(buffer, "neg"); break;
 
+    case InstType::add_assign:
+      sprintf(buffer, "add_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+      break;
+    case InstType::sub_assign:
+      sprintf(buffer, "sub_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+      break;
+    case InstType::mul_assign:
+      sprintf(buffer, "mul_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+      break;
+    case InstType::div_assign:
+      sprintf(buffer, "div_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+      break;
+
+    case InstType::inc:
+      sprintf(buffer, "inc  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+      break;
+
+    case InstType::dec:
+      sprintf(buffer, "dec  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+      break;
+
     case InstType::le: sprintf(buffer, "le"); break;
     case InstType::ge: sprintf(buffer, "ge"); break;
     case InstType::lt: sprintf(buffer, "lt"); break;

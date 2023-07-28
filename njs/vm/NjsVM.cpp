@@ -84,6 +84,12 @@ void NjsVM::execute() {
         assert(rt_stack[sp - 1].tag == JSValue::NUM_FLOAT);
         rt_stack[sp - 1].val.as_float64 = -rt_stack[sp - 1].val.as_float64;
         break;
+      case InstType::add_assign:
+        exec_add_assign(inst);
+        break;
+      case InstType::inc:
+        exec_inc_or_dec(inst, true);
+        break;
       case InstType::logi_and:
       case InstType::logi_or:
         exec_logi(inst.op_type);
@@ -244,6 +250,20 @@ u32 NjsVM::calc_var_addr(ScopeType scope, int raw_index) {
   __builtin_unreachable();
 }
 
+JSValue *NjsVM::get_value(ScopeType scope, int raw_index) {
+  u32 var_addr = calc_var_addr(scope, raw_index);
+
+  if (scope == ScopeType::CLOSURE) {
+    assert(function_env());
+    return &(function_env()->captured_var[var_addr].deref());
+  }
+  else {
+    JSValue& val = rt_stack[var_addr].tag == JSValue::HEAP_VAL ?
+                       rt_stack[var_addr].deref() : rt_stack[var_addr];
+    return &val;
+  }
+}
+
 JSFunction *NjsVM::function_env() {
   if (frame_base_ptr == 0) return nullptr;
   assert(rt_stack[frame_base_ptr].tag == JSValue::STACK_FRAME_META1);
@@ -262,6 +282,25 @@ void NjsVM::exec_add() {
   }
   sp -= 1;
   rt_stack[sp].set_undefined();
+}
+
+void NjsVM::exec_add_assign(Instruction& inst) {
+  JSValue *value = get_value(scope_type_from_int(inst.operand.two.opr1), inst.operand.two.opr2);
+  sp -= 1;
+  if (value->tag_is(JSValue::NUM_FLOAT)) {
+    value->val.as_float64 += rt_stack[sp].val.as_float64;
+  }
+  else if (value->tag_is(JSValue::STRING)) {
+    value->val.as_primitive_string->str += rt_stack[sp].val.as_primitive_string->str;
+  }
+  rt_stack[sp].set_undefined();
+}
+
+void NjsVM::exec_inc_or_dec(Instruction& inst, bool inc) {
+  JSValue *value = get_value(scope_type_from_int(inst.operand.two.opr1), inst.operand.two.opr2);
+  assert(value->tag_is(JSValue::NUM_FLOAT));
+  if (inc) value->val.as_float64 += 1;
+  else value->val.as_float64 -= 1;
 }
 
 void NjsVM::exec_binary(InstType op_type) {
