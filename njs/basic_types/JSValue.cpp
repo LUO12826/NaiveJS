@@ -1,7 +1,6 @@
 #include "JSValue.h"
 
 #include <sstream>
-#include <iomanip>
 #include <cmath>
 
 #include "njs/basic_types/JSObject.h"
@@ -15,23 +14,7 @@ GCObject *JSValue::as_GCObject() const {
   return static_cast<GCObject *>(val.as_object);
 }
 
-bool JSValue::is_falsy() const {
-  if (tag == BOOLEAN) return !val.as_bool;
-  if (tag == JS_NULL || tag == UNDEFINED) return true;
-  if (tag == NUM_FLOAT) return val.as_float64 == 0 || std::isnan(val.as_float64);
-  if (tag == STRING) return val.as_primitive_string->str.empty();
-  return false;
-}
-
-bool JSValue::bool_value() const {
-  return !is_falsy();
-}
-
-bool JSValue::tag_is(JSValueTag val_tag) const {
-  return tag == val_tag;
-}
-
-JSValue& JSValue::deref() {
+JSValue& JSValue::deref() const {
   assert(tag == VALUE_HANDLE || tag == HEAP_VAL);
   if (tag == VALUE_HANDLE) return *val.as_JSValue;
   else return val.as_heap_val->wrapped_val;
@@ -84,27 +67,6 @@ std::string JSValue::to_string() const {
   }
 
   return stream.str();
-}
-
-void JSValue::assign(const JSValue& rhs) {
-    assert(tag != STACK_FRAME_META1 && tag != STACK_FRAME_META2);
-    assert(rhs.tag != STACK_FRAME_META1 && rhs.tag != STACK_FRAME_META2);
-
-    if (rhs.tag == tag && rhs.flag_bits == flag_bits && rhs.val.as_int64 == val.as_int64) return;
-
-    // if rhs is an RC object, we are going to retain the new object
-    if (rhs.is_RCObject()) {
-      rhs.val.as_RCObject->retain();
-    }
-
-    // if this is an RC object, we are going to release the old object
-    if (is_RCObject()) {
-      val.as_RCObject->release();
-    }
-    // copy
-    val.as_int64 = rhs.val.as_int64;
-    flag_bits = rhs.flag_bits;
-    tag = rhs.tag;
 }
 
 JSValue JSValue::undefined = JSValue(JSValue::UNDEFINED);

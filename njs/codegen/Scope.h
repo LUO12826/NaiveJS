@@ -50,11 +50,11 @@ class Scope {
   Scope(): scope_type(ScopeType::GLOBAL) {}
   Scope(ScopeType type, Scope *outer): scope_type(type), outer_scope(outer) {
     // Blocks does not have a separate storage space, so it must inherit the
-    // local variable storage index from the upper scope
+    // local variable storage index from the outer scope
     if (type == ScopeType::BLOCK) {
       assert(outer);
-      local_var_count = outer->local_var_count;
-      update_max_var_count(local_var_count);
+      next_var_index = outer->next_var_index;
+      update_var_count(next_var_index);
     }
 
     if (type == ScopeType::FUNC || type == ScopeType::GLOBAL) {
@@ -111,9 +111,9 @@ class Scope {
       return can_redeclare;
     }
 
-    symbol_table.emplace(name, SymbolRecord(var_kind, name, local_var_count, is_builtin));
-    local_var_count += 1;
-    update_max_var_count(local_var_count);
+    symbol_table.emplace(name, SymbolRecord(var_kind, name, next_var_index, is_builtin));
+    next_var_index += 1;
+    update_var_count(next_var_index);
 
     return true;
   }
@@ -193,16 +193,16 @@ class Scope {
     }
   }
 
-  u32 get_local_var_count() {
-    return local_var_count;
+  u32 get_next_var_index() {
+    return next_var_index;
   }
 
-  u32 get_max_var_count() {
-    return max_var_count;
+  u32 get_var_count() {
+    return var_count;
   }
 
-  void update_max_var_count(u32 count) {
-    max_var_count = std::max(count, max_var_count);
+  void update_var_count(u32 count) {
+    var_count = std::max(count, var_count);
   }
   
  private:
@@ -282,8 +282,8 @@ class Scope {
   unique_ptr<ScopeContext> context;
 
   u32 param_count {0};
-  u32 local_var_count {0};
-  u32 max_var_count {0};
+  u32 next_var_index {0};
+  u32 var_count {0};
 
   // for function scope
   SmallVector<SymbolResolveResult, 5> capture_list;

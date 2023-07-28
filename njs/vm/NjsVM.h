@@ -42,11 +42,11 @@ friend class InternalFunctions;
   void execute();
   void execute_task(JSTask& task);
   // push
-  void exec_push(Instruction& inst);
+  void exec_push(int opr1, int opr2);
   void exec_push_str(int str_idx, bool atom);
   void exec_push_this();
   // pop or store
-  void exec_pop(Instruction& inst);
+  void exec_pop(int opr1, int opr2);
   void exec_store(Instruction& inst);
   // function operation
   void exec_make_func(int meta_idx);
@@ -90,6 +90,7 @@ friend class InternalFunctions;
   u32 pc {0};
   // start of a stack frame
   u32 frame_base_ptr {0};
+  u32 func_arg_count {0};
 
   GCHeap heap;
   // Now still using vector because it's good for debug

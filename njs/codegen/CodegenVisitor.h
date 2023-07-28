@@ -269,7 +269,7 @@ friend class NjsVM;
         .is_anonymous = !func.has_name() || func.is_arrow_func,
         .is_arrow_func = func.is_arrow_func,
         .param_count = (u16)func.params.size(),
-        .local_var_count = (u16)body->scope->get_max_var_count(),
+        .local_var_count = (u16)body->scope->get_var_count(),
         .code_address = bytecode_pos(),
     });
 

@@ -95,7 +95,6 @@ struct JSValue {
   }
 
   JSValue& operator = (const JSValue& other) {
-    if (this == &other) return *this;
     val = other.val;
     tag = other.tag;
     flag_bits = other.flag_bits;
@@ -103,7 +102,6 @@ struct JSValue {
   }
 
   JSValue& operator = (JSValue&& other) {
-    if (this == &other) return *this;
     val = other.val;
     tag = other.tag;
     flag_bits = other.flag_bits;
@@ -159,7 +157,7 @@ struct JSValue {
     tag = UNDEFINED;
   }
 
-  JSValue& deref();
+  JSValue& deref() const;
   JSValue& deref_if_needed();
 
   void move_to_heap();
@@ -188,12 +186,42 @@ struct JSValue {
 
   GCObject *as_GCObject() const;
 
-  bool is_falsy() const;
-  bool bool_value() const;
+  bool is_falsy() const {
+    if (tag == BOOLEAN) return !val.as_bool;
+    if (tag == JS_NULL || tag == UNDEFINED) return true;
+    if (tag == NUM_FLOAT) return val.as_float64 == 0 || std::isnan(val.as_float64);
+    if (tag == STRING) return val.as_primitive_string->str.empty();
+    return false;
+  }
 
-  bool tag_is(JSValueTag val_tag) const;
+  bool bool_value() const {
+    return !is_falsy();
+  }
 
-  void assign(const JSValue& rhs);
+  bool tag_is(JSValueTag val_tag) const {
+    return tag == val_tag;
+  }
+
+  void assign(const JSValue& rhs) {
+    assert(tag != STACK_FRAME_META1 && tag != STACK_FRAME_META2);
+    assert(rhs.tag != STACK_FRAME_META1 && rhs.tag != STACK_FRAME_META2);
+
+    if (rhs.tag == tag && rhs.flag_bits == flag_bits && rhs.val.as_int64 == val.as_int64) return;
+
+    // if rhs is an RC object, we are going to retain the new object
+    if (rhs.is_RCObject()) {
+      rhs.val.as_RCObject->retain();
+    }
+
+    // if this is an RC object, we are going to release the old object
+    if (is_RCObject()) {
+      val.as_RCObject->release();
+    }
+    // copy
+    val.as_int64 = rhs.val.as_int64;
+    flag_bits = rhs.flag_bits;
+    tag = rhs.tag;
+  }
 
   std::string description() const;
   std::string to_string() const;

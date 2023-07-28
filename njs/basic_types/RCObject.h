@@ -20,6 +20,7 @@ class RCObject {
 
   void retain();
   void release();
+  void mark_as_temp();
   void delete_temp_object();
   u32 get_ref_count();
 

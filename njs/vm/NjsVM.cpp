@@ -25,7 +25,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
     global_obj.props_index_map.emplace(u16string(sym_name), sym_rec.index + frame_meta_size);
   }
 
-  sp = rt_stack.data() + visitor.scope_chain[0]->get_max_var_count() + frame_meta_size;
+  sp = rt_stack.data() + visitor.scope_chain[0]->get_var_count() + frame_meta_size;
 }
 
 void NjsVM::add_native_func_impl(u16string name, NativeFuncType func) {
@@ -101,7 +101,7 @@ void NjsVM::execute() {
         break;
       }
       case InstType::push:
-        exec_push(inst);
+        exec_push(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
       case InstType::pushi:
         sp[0] = JSValue(inst.operand.num_float);
@@ -129,7 +129,7 @@ void NjsVM::execute() {
         sp += 1;
         break;
       case InstType::pop:
-        exec_pop(inst);
+        exec_pop(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
       case InstType::pop_drop:
         sp -= 1;
@@ -239,13 +239,12 @@ void NjsVM::execute_task(JSTask& task) {
 }
 
 u32 NjsVM::calc_var_addr(ScopeType scope, int raw_index) {
-  if (scope == ScopeType::GLOBAL) return 0 + frame_meta_size + raw_index;
   if (scope == ScopeType::FUNC) return frame_base_ptr + frame_meta_size + raw_index;
   if (scope == ScopeType::FUNC_PARAM) {
     assert(rt_stack[frame_base_ptr + 1].tag == JSValue::STACK_FRAME_META2);
-    u32 arg_count = rt_stack[frame_base_ptr + 1].flag_bits;
-    return frame_base_ptr - arg_count + raw_index;
+    return frame_base_ptr - func_arg_count + raw_index;
   }
+  if (scope == ScopeType::GLOBAL) return 0 + frame_meta_size + raw_index;
   if (scope == ScopeType::CLOSURE) return raw_index;
   __builtin_unreachable();
 }
@@ -364,58 +363,55 @@ void NjsVM::exec_fast_add(Instruction& inst) {
 
 void NjsVM::exec_return() {
   invoker_this.tag = JSValue::UNDEFINED;
-  rt_stack[frame_base_ptr].val.as_function->This.tag = JSValue::UNDEFINED;
+  JSValue *old_sp = rt_stack.data() + frame_base_ptr - func_arg_count - 1;
 
-  u32 old_frame_base = rt_stack[frame_base_ptr + 1].val.as_int64;
-  u32 arg_cnt = rt_stack[frame_base_ptr + 1].flag_bits;
-
-  JSValue *old_sp = rt_stack.data() + frame_base_ptr - arg_cnt - 1;
-  u32 old_pc = rt_stack[frame_base_ptr].flag_bits;
-
+  // retain the return value, in case it's deallocated due to the dispose stage bellow.
   JSValue& ret_val = sp[-1];
   if (ret_val.is_RCObject()) ret_val.val.as_RCObject->retain();
 
+  // dispose function local storage
   for (JSValue *addr = old_sp + 1; addr < sp - 1; addr++) {
     addr->dispose();
   }
+  // but the return value is actually a temporary value, so mark it as temp
+  if (ret_val.is_RCObject()) ret_val.val.as_RCObject->mark_as_temp();
+  // move the return value
+  old_sp[0] = std::move(ret_val);
 
   // restore old state
-  pc = old_pc;
-  sp = old_sp;
-  frame_base_ptr = old_frame_base;
-
-  // move return value
-  old_sp[0] = std::move(ret_val);
-  sp += 1;
+  sp = old_sp + 1;
+  pc = rt_stack[frame_base_ptr].flag_bits;
+  frame_base_ptr = rt_stack[frame_base_ptr + 1].val.as_int64;
+  func_arg_count = rt_stack[frame_base_ptr + 1].flag_bits;
 }
 
-void NjsVM::exec_push(Instruction& inst) {
-  auto var_scope = scope_type_from_int(inst.operand.two.opr1);
-  if (var_scope == ScopeType::CLOSURE) {
-    JSValue& val = function_env()->captured_var[inst.operand.two.opr2];
-    sp[0] = val.deref();
-  }
-  else {
-    JSValue& val = rt_stack[calc_var_addr(var_scope, inst.operand.two.opr2)];
+void NjsVM::exec_push(int opr1, int opr2) {
+  auto var_scope = scope_type_from_int(opr1);
+  if (var_scope != ScopeType::CLOSURE) {
+    JSValue& val = rt_stack[calc_var_addr(var_scope, opr2)];
     sp[0] = val.tag_is(JSValue::HEAP_VAL) ? val.deref() : val;
   }
+  else {
+    JSValue& val = function_env()->captured_var[opr2];
+    sp[0] = val.deref();
+  }
   sp += 1;
 }
 
-void NjsVM::exec_pop(Instruction& inst) {
-  auto var_scope = scope_type_from_int(inst.operand.two.opr1);
-  u32 var_addr = calc_var_addr(var_scope, inst.operand.two.opr2);
+void NjsVM::exec_pop(int opr1, int opr2) {
+  auto var_scope = scope_type_from_int(opr1);
+  u32 var_addr = calc_var_addr(var_scope, opr2);
 
   sp -= 1;
-  if (var_scope == ScopeType::CLOSURE) {
-    assert(function_env());
-    JSValue& closure_val = function_env()->captured_var[var_addr];
-    closure_val.deref().assign(sp[0]);
-  }
-  else {
+  if (var_scope != ScopeType::CLOSURE) {
     JSValue& val = rt_stack[var_addr].tag == JSValue::HEAP_VAL ?
                        rt_stack[var_addr].deref() : rt_stack[var_addr];
     val.assign(sp[0]);
+  }
+  else {
+    assert(function_env());
+    JSValue& closure_val = function_env()->captured_var[var_addr];
+    closure_val.deref().assign(sp[0]);
   }
 
   sp[0].set_undefined();
@@ -425,15 +421,15 @@ void NjsVM::exec_store(Instruction& inst) {
   auto var_scope = scope_type_from_int(inst.operand.two.opr1);
   u32 var_addr = calc_var_addr(var_scope, inst.operand.two.opr2);
 
-  if (var_scope == ScopeType::CLOSURE) {
-    assert(function_env());
-    JSValue& closure_val = function_env()->captured_var[var_addr];
-    closure_val.deref().assign(sp[-1]);
-  }
-  else {
+  if (var_scope != ScopeType::CLOSURE) {
     JSValue& val = rt_stack[var_addr].tag == JSValue::HEAP_VAL ?
                        rt_stack[var_addr].deref() : rt_stack[var_addr];
     val.assign(sp[-1]);
+  }
+  else {
+    assert(function_env());
+    JSValue& closure_val = function_env()->captured_var[var_addr];
+    closure_val.deref().assign(sp[-1]);
   }
 }
 
@@ -491,6 +487,7 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
   // fill the vacancy with `undefined`.
   sp += def_param_cnt > arg_count ? (def_param_cnt - arg_count) : 0;
   u32 actual_arg_cnt = std::max(def_param_cnt, u32(arg_count));
+  func_arg_count = actual_arg_cnt;
 
   // function parameters are considered `in memory` variables. So retain the RCObjects here.
   for (JSValue *addr = sp - actual_arg_cnt; addr < sp; addr++) {
@@ -709,39 +706,38 @@ void NjsVM::exec_strict_equality(bool flip) {
   JSValue& lhs = sp[-2];
   JSValue& rhs = sp[-1];
 
-  if (lhs.tag != rhs.tag) {
+  if (lhs.tag == rhs.tag) {
+    assert(lhs.tag != JSValue::HEAP_VAL && lhs.tag != JSValue::VALUE_HANDLE);
+    auto tag = lhs.tag;
+
+    if (tag == JSValue::NUM_FLOAT) {
+      lhs.val.as_bool = lhs.val.as_float64 == rhs.val.as_float64;
+    }
+    else if (tag == JSValue::JS_ATOM || tag == JSValue::NUM_INT) {
+      lhs.val.as_bool = lhs.val.as_int64 == rhs.val.as_int64;
+    }
+    else if (lhs.is_string_type()) {
+      bool equal = are_strings_equal(lhs, rhs);
+      lhs.set_undefined();
+      lhs.val.as_bool = equal;
+    }
+    else if (lhs.tag_is(JSValue::UNDEFINED) || lhs.tag_is(JSValue::JS_NULL)) {
+      lhs.val.as_bool = true;
+    }
+    else if (lhs.is_object()) {
+      lhs.val.as_bool = lhs.val.as_object == rhs.val.as_object;
+    }
+  }
+  else {
     bool equal = false;
     if (lhs.is_string_type() && rhs.is_string_type()) {
       equal = are_strings_equal(lhs, rhs);
     }
     lhs.set_undefined();
-    lhs = JSValue(equal);
+    lhs.val.as_bool = equal;
   }
-  else {
-    assert(lhs.tag != JSValue::HEAP_VAL && lhs.tag != JSValue::VALUE_HANDLE);
-    auto tag = lhs.tag;
 
-    if (tag == JSValue::NUM_FLOAT) {
-      bool equal = lhs.val.as_float64 == rhs.val.as_float64;
-      lhs = JSValue(equal);
-    }
-    else if (tag == JSValue::JS_ATOM || tag == JSValue::NUM_INT) {
-      bool equal = lhs.val.as_int64 == rhs.val.as_int64;
-      lhs = JSValue(equal);
-    }
-    else if (lhs.is_string_type()) {
-      bool equal = are_strings_equal(lhs, rhs);
-      lhs.set_undefined();
-      lhs = JSValue(equal);
-    }
-    else if (lhs.tag_is(JSValue::UNDEFINED) || lhs.tag_is(JSValue::JS_NULL)) {
-      lhs = JSValue(true);
-    }
-    else if (lhs.is_object()) {
-      bool equal = lhs.val.as_object == rhs.val.as_object;
-      lhs = JSValue(equal);
-    }
-  }
+  lhs.tag = JSValue::BOOLEAN;
   if (flip) lhs.val.as_bool = !lhs.val.as_bool;
   rhs.set_undefined();
   sp -= 1;

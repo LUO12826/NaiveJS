@@ -1351,7 +1351,7 @@ error:
 
     std::cout << "<<<< pop scope: " << scope.get_scope_type_name() << std::endl;
     std::cout << "  params count: " << scope.param_count
-              << ", local variables count: " << scope.local_var_count << std::endl;
+              << ", local variables count: " << scope.next_var_index << std::endl;
     std::cout << "  symbols in this scope: " << std::endl;
 
     for (auto& entry : scope.get_symbol_table()) {
@@ -1366,7 +1366,7 @@ error:
     unique_ptr<Scope> scope = std::move(scope_chain.back());
     scope_chain.pop_back();
     if (scope->get_outer_func()) {
-      scope->get_outer_func()->update_max_var_count(scope->get_local_var_count());
+      scope->get_outer_func()->update_var_count(scope->get_next_var_index());
     }
     return scope;
   }
