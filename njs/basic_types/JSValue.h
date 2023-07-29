@@ -94,14 +94,9 @@ struct JSValue {
     *this = other;
   }
 
-  JSValue& operator = (const JSValue& other) {
-    val = other.val;
-    tag = other.tag;
-    flag_bits = other.flag_bits;
-    return *this;
-  }
+  JSValue& operator = (const JSValue& other) = default;
 
-  JSValue& operator = (JSValue&& other) {
+  JSValue& operator = (JSValue&& other) noexcept {
     val = other.val;
     tag = other.tag;
     flag_bits = other.flag_bits;
@@ -138,6 +133,46 @@ struct JSValue {
   }
 
   explicit JSValue(JSFunction *func): tag(FUNCTION) {
+    val.as_function = func;
+  }
+
+  inline void set_val(double number) {
+    tag = NUM_FLOAT;
+    val.as_float64 = number;
+  }
+
+  inline void set_val(int64_t number) {
+    tag = NUM_INT;
+    val.as_int64 = number;
+  }
+
+  inline void set_val(bool boolean) {
+    tag = BOOLEAN;
+    val.as_bool = boolean;
+  }
+
+  inline void set_val(JSValue *js_val) {
+    tag = VALUE_HANDLE;
+    val.as_JSValue = js_val;
+  }
+
+  inline void set_val(JSObject *obj) {
+    tag = OBJECT;
+    val.as_object = obj;
+  }
+
+  inline void set_val(PrimitiveString *str) {
+    tag = STRING;
+    val.as_primitive_string = str;
+  }
+
+  inline void set_val(JSArray *array) {
+    tag = ARRAY;
+    val.as_array = array;
+  }
+
+  inline void set_val(JSFunction *func) {
+    tag = FUNCTION;
     val.as_function = func;
   }
 

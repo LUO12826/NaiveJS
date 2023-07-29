@@ -33,14 +33,14 @@ void NjsVM::add_native_func_impl(u16string name, NativeFuncType func) {
   native_func_binding.emplace(std::move(name), func);
 }
 
-void NjsVM::add_builtin_object(u16string name,
-                               std::function<JSObject*(GCHeap&, StringPool&)> builder) {
+void NjsVM::add_builtin_object(const u16string& name,
+                               const std::function<JSObject*(GCHeap&, StringPool&)>& builder) {
   GlobalObject& global_obj = *static_cast<GlobalObject *>(global_object.val.as_object);
   auto iter = global_obj.props_index_map.find(name);
   if (iter == global_obj.props_index_map.end()) return;
 
   u32 index = iter->second;
-  rt_stack[index] = JSValue(builder(heap, str_pool));
+  rt_stack[index].set_val(builder(heap, str_pool));
 }
 
 void NjsVM::run() {
@@ -72,7 +72,6 @@ void NjsVM::execute() {
     Instruction& inst = bytecode[pc++];
 
     switch (inst.op_type) {
-
       case InstType::add:
         exec_add();
         break;
@@ -86,10 +85,18 @@ void NjsVM::execute() {
         sp[-1].val.as_float64 = -sp[-1].val.as_float64;
         break;
       case InstType::add_assign:
-        exec_add_assign(inst);
+        exec_add_assign(inst.operand.two.opr1, inst.operand.two.opr2);
+        break;
+      case InstType::sub_assign:
+      case InstType::mul_assign:
+      case InstType::div_assign:
+        exec_compound_assign(inst.op_type, inst.operand.two.opr1, inst.operand.two.opr2);
         break;
       case InstType::inc:
-        exec_inc_or_dec(inst, true);
+        exec_inc_or_dec(inst, 1);
+        break;
+      case InstType::dec:
+        exec_inc_or_dec(inst, -1);
         break;
       case InstType::logi_and:
       case InstType::logi_or:
@@ -98,14 +105,14 @@ void NjsVM::execute() {
       case InstType::logi_not: {
         bool bool_val = sp[-1].bool_value();
         sp[-1].set_undefined();
-        sp[-1] = JSValue(!bool_val);
+        sp[-1].set_val(!bool_val);
         break;
       }
       case InstType::push:
         exec_push(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
       case InstType::pushi:
-        sp[0] = JSValue(inst.operand.num_float);
+        sp[0].set_val(inst.operand.num_float);
         sp += 1;
         break;
       case InstType::push_str:
@@ -115,7 +122,7 @@ void NjsVM::execute() {
         exec_push_str(inst.operand.two.opr1, true);
         break;
       case InstType::push_bool:
-        sp[0] = JSValue(bool(inst.operand.two.opr1));
+        sp[0].set_val(bool(inst.operand.two.opr1));
         sp += 1;
         break;
       case InstType::push_this:
@@ -253,14 +260,14 @@ u32 NjsVM::calc_var_addr(ScopeType scope, int raw_index) {
 JSValue *NjsVM::get_value(ScopeType scope, int raw_index) {
   u32 var_addr = calc_var_addr(scope, raw_index);
 
-  if (scope == ScopeType::CLOSURE) {
-    assert(function_env());
-    return &(function_env()->captured_var[var_addr].deref());
-  }
-  else {
+  if (scope != ScopeType::CLOSURE) {
     JSValue& val = rt_stack[var_addr].tag == JSValue::HEAP_VAL ?
                        rt_stack[var_addr].deref() : rt_stack[var_addr];
     return &val;
+  }
+  else {
+    assert(function_env());
+    return &(function_env()->captured_var[var_addr].deref());
   }
 }
 
@@ -273,34 +280,59 @@ JSFunction *NjsVM::function_env() {
 void NjsVM::exec_add() {
   if (sp[-2].tag_is(JSValue::NUM_FLOAT) && sp[-1].tag_is(JSValue::NUM_FLOAT)) {
     sp[-2].val.as_float64 += sp[-1].val.as_float64;
+    sp -= 1;
+    sp[0].set_undefined();
+    return;
   }
   else if (sp[-2].tag_is(JSValue::STRING) && sp[-1].tag_is(JSValue::STRING)) {
     auto *new_str = new PrimitiveString(sp[-2].val.as_primitive_string->str
                                         + sp[-1].val.as_primitive_string->str);
     sp[-2].set_undefined();
-    sp[-2] = JSValue(new_str);
+    sp[-2].set_val(new_str);
   }
   sp -= 1;
   sp[0].set_undefined();
 }
 
-void NjsVM::exec_add_assign(Instruction& inst) {
-  JSValue *value = get_value(scope_type_from_int(inst.operand.two.opr1), inst.operand.two.opr2);
+void NjsVM::exec_add_assign(int opr1, int opr2) {
+  JSValue *value = get_value(scope_type_from_int(opr1), opr2);
   sp -= 1;
-  if (value->tag_is(JSValue::NUM_FLOAT)) {
+  if (value->tag_is(JSValue::NUM_FLOAT) && sp[0].tag_is(JSValue::NUM_FLOAT)) {
     value->val.as_float64 += sp[0].val.as_float64;
+    sp[0].set_undefined();
+    return;
   }
-  else if (value->tag_is(JSValue::STRING)) {
+  else if (value->tag_is(JSValue::STRING) && sp[0].tag_is(JSValue::STRING)) {
     value->val.as_primitive_string->str += sp[0].val.as_primitive_string->str;
+    sp[0].set_undefined();
+    return;
   }
   sp[0].set_undefined();
 }
 
-void NjsVM::exec_inc_or_dec(Instruction& inst, bool inc) {
+void NjsVM::exec_compound_assign(InstType type, int opr1, int opr2) {
+  JSValue *value = get_value(scope_type_from_int(opr1), opr2);
+  sp -= 1;
+  // fast path
+  if (value->tag_is(JSValue::NUM_FLOAT) && sp[0].tag_is(JSValue::NUM_FLOAT)) {
+    switch (type) {
+      case InstType::sub_assign: value->val.as_float64 -= sp[0].val.as_float64; break;
+      case InstType::mul_assign: value->val.as_float64 *= sp[0].val.as_float64; break;
+      case InstType::div_assign: value->val.as_float64 /= sp[0].val.as_float64; break;
+    }
+    sp[0].set_undefined();
+    return;
+  }
+  else {
+
+  }
+  sp[0].set_undefined();
+}
+
+void NjsVM::exec_inc_or_dec(Instruction& inst, int inc) {
   JSValue *value = get_value(scope_type_from_int(inst.operand.two.opr1), inst.operand.two.opr2);
   assert(value->tag_is(JSValue::NUM_FLOAT));
-  if (inc) value->val.as_float64 += 1;
-  else value->val.as_float64 -= 1;
+  value->val.as_float64 += inc;
 }
 
 void NjsVM::exec_binary(InstType op_type) {
@@ -353,7 +385,7 @@ void NjsVM::exec_fast_add(Instruction& inst) {
                                   rt_stack[calc_var_addr(rhs_scope, rhs_index)];
 
   if (lhs_val.tag == JSValue::NUM_FLOAT && rhs_val.tag == JSValue::NUM_FLOAT) {
-    sp[0] = JSValue(lhs_val.val.as_float64 + rhs_val.val.as_float64);
+    sp[0].set_val(lhs_val.val.as_float64 + rhs_val.val.as_float64);
     sp += 1;
   }
   else {
@@ -364,14 +396,15 @@ void NjsVM::exec_fast_add(Instruction& inst) {
 
 void NjsVM::exec_return() {
   invoker_this.tag = JSValue::UNDEFINED;
-  JSValue *old_sp = rt_stack.data() + frame_base_ptr - func_arg_count - 1;
+  JSValue *frame_base = rt_stack.data() + frame_base_ptr;
+  JSValue *old_sp = frame_base - func_arg_count - 1;
 
   // retain the return value, in case it's deallocated due to the dispose stage bellow.
   JSValue& ret_val = sp[-1];
   if (ret_val.is_RCObject()) ret_val.val.as_RCObject->retain();
 
   // dispose function local storage
-  for (JSValue *addr = old_sp + 1; addr < sp - 1; addr++) {
+  for (JSValue *addr = old_sp + 1; addr < &ret_val; addr++) {
     addr->dispose();
   }
   // but the return value is actually a temporary value, so mark it as temp
@@ -381,8 +414,8 @@ void NjsVM::exec_return() {
 
   // restore old state
   sp = old_sp + 1;
-  pc = rt_stack[frame_base_ptr].flag_bits;
-  frame_base_ptr = rt_stack[frame_base_ptr + 1].val.as_int64;
+  pc = frame_base[0].flag_bits;
+  frame_base_ptr = frame_base[1].val.as_int64;
   func_arg_count = rt_stack[frame_base_ptr + 1].flag_bits;
 }
 
@@ -452,7 +485,7 @@ void NjsVM::exec_make_func(int meta_idx) {
   if (meta.is_native) {
     func->native_func = native_func_binding[name];
   }
-  sp[0] = JSValue(func);
+  sp[0].set_val(func);
   sp += 1;
 }
 
@@ -526,13 +559,13 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
 
 void NjsVM::exec_make_object() {
   auto *obj = heap.new_object<JSObject>();
-  sp[0] = JSValue(obj);
+  sp[0].set_val(obj);
   sp += 1;
 }
 
 void NjsVM::exec_make_array() {
   auto *array = heap.new_object<JSArray>();
-  sp[0] = JSValue(array);
+  sp[0].set_val(array);
   sp += 1;
 }
 
@@ -594,10 +627,10 @@ void NjsVM::exec_push_str(int str_idx, bool atom) {
 void NjsVM::exec_push_this() {
   auto *func_env = function_env();
   if (func_env != nullptr) {
-    sp[0] = JSValue(func_env->This);
+    sp[0].set_val(&func_env->This);
   }
   else {
-    sp[0] = JSValue(&top_level_this);
+    sp[0].set_val(&top_level_this);
   }
   sp += 1;
 }
@@ -781,7 +814,7 @@ void NjsVM::exec_comparison(InstType type) {
   else
     assert(false);
 
-  lhs = JSValue(res);
+  lhs.set_val(res);
   rhs.set_undefined();
   sp -= 1;
 }

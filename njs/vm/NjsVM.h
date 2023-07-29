@@ -35,7 +35,7 @@ friend class InternalFunctions;
   explicit NjsVM(CodegenVisitor& visitor);
 
   void add_native_func_impl(u16string name, NativeFuncType func);
-  void add_builtin_object(u16string name, std::function<JSObject*(GCHeap&, StringPool&)> builder);
+  void add_builtin_object(const u16string& name, const std::function<JSObject*(GCHeap&, StringPool&)>& builder);
   void run();
 
  private:
@@ -72,8 +72,8 @@ friend class InternalFunctions;
   void exec_logi(InstType op_type);
   void exec_strict_equality(bool flip);
 
-  void exec_add_assign(Instruction& inst);
-  void exec_inc_or_dec(Instruction& inst, bool inc);
+  void exec_add_assign(int opr1, int opr2);
+  void exec_inc_or_dec(Instruction& inst, int inc);
 
   JSFunction *function_env();
   u32 calc_var_addr(ScopeType scope, int raw_index);
@@ -109,6 +109,7 @@ friend class InternalFunctions;
   unordered_flat_map<u16string, NativeFuncType> native_func_binding;
 
   std::vector<std::string> log_buffer;
+  void exec_compound_assign(InstType type, int opr1, int opr2);
 };
 
 } // namespace njs
