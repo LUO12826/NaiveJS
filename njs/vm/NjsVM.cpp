@@ -4,6 +4,7 @@
 #include "njs/basic_types/JSArray.h"
 #include "njs/codegen/CodegenVisitor.h"
 #include "njs/global_var.h"
+#include "njs/utils/lexing_helper.h"
 
 namespace njs {
 
@@ -640,36 +641,42 @@ void NjsVM::exec_index_access(bool get_ref) {
 
   invoker_this = obj;
 
-  if (obj.tag == JSValue::ARRAY) {
-
-    if (index.tag == JSValue::NUM_FLOAT) {
+  if (obj.tag_is(JSValue::ARRAY)) {
+    if (index.tag_is(JSValue::NUM_FLOAT)) {
       obj = obj.val.as_array->access_element(u32(index.val.as_float64), get_ref);
     }
-    else if (index.tag == JSValue::STRING) {
-      auto *prim_str = index.val.as_primitive_string;
-      int64_t idx_num = prim_str->convert_to_index();
+    else if (index.tag_is(JSValue::STRING) || index.tag_is(JSValue::JS_ATOM)) {
+      auto& index_str = index.tag_is(JSValue::STRING)
+                                    ? index.val.as_primitive_string->str
+                                    : str_pool.get_list()[index.val.as_int64];
+
+      int64_t idx_num = scan_index_literal(index_str);
       if (idx_num != -1) {
+        // string can be converted to number
         obj = obj.val.as_array->access_element(u32(idx_num), get_ref);
+      } else {
+        // object property
+        u32 str_idx = index.tag_is(JSValue::STRING)
+                          ? str_pool.add_string(index_str)
+                          : (u32)index.val.as_int64;
+        obj = obj.val.as_object->get_prop((int64_t)str_idx, get_ref);
       }
-      else {
-        obj = obj.val.as_object->get_prop(prim_str, get_ref);
-      }
-    }
-    else if (index.tag == JSValue::JS_ATOM) {
-      assert(false);
     }
   }
-  else {
-    if (index.tag == JSValue::NUM_FLOAT) {
+  else if (obj.tag_is(JSValue::STRING)) {
+
+  }
+  else if (obj.tag_is(JSValue::OBJECT)) {
+    if (index.tag_is(JSValue::NUM_FLOAT)) {
       u16string num_str = to_utf16_string(std::to_string(index.val.as_float64));
       auto *prim_str = new PrimitiveString(num_str);
       obj = obj.val.as_object->get_prop(prim_str, get_ref);
     }
-    else if (index.tag == JSValue::STRING) {
-      auto *prim_str = index.val.as_primitive_string;
-      obj = obj.val.as_object->get_prop(prim_str, get_ref);
+    else if (index.tag_is(JSValue::STRING)) {
+      u32 str_idx = str_pool.add_string(index.val.as_primitive_string->str);
+      obj = obj.val.as_object->get_prop((int64_t)str_idx, get_ref);
     }
-    else if (index.tag == JSValue::JS_ATOM) {
+    else if (index.tag_is(JSValue::JS_ATOM)) {
       obj = obj.val.as_object->get_prop(index.val.as_int64, get_ref);
     }
   }

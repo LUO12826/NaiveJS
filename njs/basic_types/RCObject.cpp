@@ -22,6 +22,7 @@ void RCObject::mark_as_temp() {
 
 void RCObject::delete_temp_object() {
   assert(ref_count == 0);
+  if (Global::show_gc_statistics) std::cout << "RC remove an temporary RCObject" << std::endl;
   delete this;
 }
 
