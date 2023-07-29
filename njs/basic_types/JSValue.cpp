@@ -1,7 +1,6 @@
 #include "JSValue.h"
 
 #include <sstream>
-#include <cmath>
 
 #include "njs/basic_types/JSObject.h"
 #include "njs/basic_types/JSFunction.h"

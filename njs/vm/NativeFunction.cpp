@@ -1,9 +1,6 @@
 #include "NativeFunction.h"
 
-#include <iostream>
 #include "NjsVM.h"
-
-#include <sstream>
 
 namespace njs {
 

@@ -360,14 +360,14 @@ error:
         }
         func_body = new ProgramOrFunctionBody(ASTNode::AST_FUNC_BODY, true);
         auto *body = static_cast<ProgramOrFunctionBody *>(func_body);
-        // implicitilly return
+        // implicitly return
         body->add_statement(
           new ReturnStatement(expr, expr->get_source(), expr->start_pos(),
                               expr->end_pos(), expr->get_line_start())
         );
         body->scope = pop_scope();
       }
-      // finally, make a AST node for the function.
+      // finally, make an AST node for the function.
       auto *func = new Function(Token::none, std::move(params), func_body, SOURCE_PARSED_EXPR);
       func->is_arrow_func = true;
       scope().register_function(func);
@@ -434,8 +434,8 @@ error:
 
   ASTNode* parse_binary_and_unary_expression(bool no_in, int priority) {
     START_POS;
-    ASTNode* lhs = nullptr;
-    ASTNode* rhs = nullptr;
+    ASTNode* lhs;
+    ASTNode* rhs;
     // Prefix Operators.
     Token prefix_op = lexer.current();
     // NOTE(zhuzilin) !!a = !(!a)
@@ -1002,7 +1002,7 @@ error:
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_for_statement(std::vector<ASTNode*> init_expressions, u32 start, u32 line_start) {
+  ASTNode* parse_for_statement(const std::vector<ASTNode*>& init_expressions, u32 start, u32 line_start) {
     assert(lexer.current().is_semicolon());
     ASTNode* expr1 = nullptr;
     ASTNode* expr2 = nullptr;
@@ -1030,8 +1030,7 @@ error:
         for (auto expr : init_expressions) {
           delete expr;
         }
-        if (expr1 != nullptr)
-          delete expr1;
+        delete expr1;
         return expr2;
       }
     }
@@ -1046,8 +1045,8 @@ error:
       for (auto expr : init_expressions) {
         delete expr;
       }
-      if (expr1 != nullptr) delete expr1;
-      if (expr2 != nullptr) delete expr2;
+      delete expr1;
+      delete expr2;
       return stmt;
     }
 
@@ -1056,8 +1055,8 @@ error:
     for (auto expr : init_expressions) {
       delete expr;
     }
-    if (expr1 != nullptr) delete expr1;
-    if (expr2 != nullptr) delete expr2;
+    delete expr1;
+    delete expr2;
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
@@ -1154,8 +1153,8 @@ error:
   ASTNode* parse_switch_statement() {
     START_POS;
     SwitchStatement* switch_stmt = new SwitchStatement();
-    ASTNode* expr = nullptr;
-    // Token token = lexer.current();
+    ASTNode* expr;
+
     assert(token_match(u"switch"));
     if (lexer.next().type != TokenType::LEFT_PAREN) { // skip (
       goto error;
@@ -1256,6 +1255,7 @@ error:
       lexer.next();
       if (lexer.next().type != TokenType::LEFT_PAREN) {  // skip (
         delete try_block;
+        try_block = nullptr;
         goto error;
       }
       catch_id = lexer.next();  // skip identifier
@@ -1264,6 +1264,7 @@ error:
       }
       if (lexer.next().type != TokenType::RIGHT_PAREN) {  // skip )
         delete try_block;
+        try_block = nullptr;
         goto error;
       }
       lexer.next();
@@ -1281,8 +1282,7 @@ error:
       finally_block = parse_block_statement();
       if (finally_block->is_illegal()) {
         delete try_block;
-
-        if (catch_block != nullptr) delete catch_block;
+        delete catch_block;
         return finally_block;
       }
     }
@@ -1301,13 +1301,10 @@ error:
     assert(catch_block != nullptr && catch_id.is_identifier());
     assert(finally_block != nullptr);
     return new TryStatement(try_block, catch_id, catch_block, finally_block, SOURCE_PARSED_EXPR);
-error:
-    if (try_block != nullptr)
-      delete try_block;
-    if (catch_block != nullptr)
-      delete try_block;
-    if (finally_block != nullptr)
-      delete finally_block;
+  error:
+    delete try_block;
+    delete catch_block;
+    delete finally_block;
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 

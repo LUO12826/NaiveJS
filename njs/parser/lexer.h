@@ -347,7 +347,7 @@ class Lexer {
               break;
             case u'/':  // //
               next_char();
-              skip_singleline_comment();
+              skip_single_line_comment();
               break;
             case u'=':  // /=
               next_char();
@@ -416,7 +416,7 @@ class Lexer {
 
   // Try skipping a semicolon. This is actually used to detect if a statement is finished,
   // so if there is a line break, it is also considered as meeting a semicolon. If the semicolon
-  // is successfully skipped, the call of `next` will obtain the next nonblank token except semicolon
+  // is successfully skipped, the call of `next` will obtain the next non-blank token except semicolon
   // (it will skip semicolon).
   bool try_skip_semicolon() {
 
@@ -524,7 +524,7 @@ error:
 
   inline const Token* current_token_ptr() { return &current(); }
 
-  inline const double get_number_val() { return number_val; }
+  inline double get_number_val() const { return number_val; }
 
   inline u32 current_pos() {
     return peeking ? saved_state.cursor : cursor;
@@ -643,7 +643,7 @@ error:
     }
   }
 
-  void skip_singleline_comment() {
+  void skip_single_line_comment() {
     // This will not skip line terminators.
     while (cursor != source.size() && !character::is_line_terminator(ch)) {
       next_char();
