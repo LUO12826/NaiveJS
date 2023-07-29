@@ -758,92 +758,17 @@ error:
 
   Token scan_numeric_literal() {
     assert(ch == u'.' || character::is_decimal_digit(ch));
+
     u32 start = cursor;
+    auto res = njs::scan_numeric_literal(source.data(), length, cursor);
+    update_char();
 
-    uint64_t int_val = 0;
-    double double_val = 0;
-
-    bool is_hex = false;
-    bool is_double = false;
-
-    switch (ch) {
-      case u'0': {
-        next_char();
-        switch (ch) {
-          case u'x':
-          case u'X': {  // HexIntegerLiteral
-            next_char();
-            auto scan_res = scan_integer_literal(16);
-            if (!scan_res.has_value()) goto error;
-
-            int_val = scan_res.value();
-            is_hex = true;
-            break;
-          }
-          case u'.': {
-            is_double = true;
-            next_char();
-            double_val = scan_fractional_part();
-            break;
-          }
-          case u'b':
-          case u'B':
-            // TODO: support for binary literal.
-            break;
-        }
-        break;
-      }
-      case u'.': {
-        is_double = true;
-        next_char();
-        double_val = scan_fractional_part();
-        break;
-      }
-      default:  // NonZeroDigit
-        auto scan_res = scan_decimal_literal();
-        if (!scan_res.has_value()) goto error;
-        int_val = scan_res.value();
-
-        if (ch == u'.') {
-          is_double = true;
-          next_char();
-          double_val = (double)int_val + scan_fractional_part();
-        }
+    if (res.has_value()) {
+      number_val = res.value();
+      return token_with_type(TokenType::NUMBER, start);
+    } else {
+      return token_with_type(TokenType::ILLEGAL, start);
     }
-
-    if(!is_hex) {  // ExponentPart
-
-      bool neg_exp = false;
-      if (ch == u'e' || ch == u'E') {
-        next_char();
-        if (ch == u'+' || ch == u'-') {
-          neg_exp = ch == u'-';
-          next_char();
-        }
-        auto scan_res = scan_decimal_literal();
-        if (!scan_res.has_value()) goto error;
-
-        double exp = neg_exp ? -double(scan_res.value()) : double(scan_res.value());
-        if (is_double) {
-          double_val = double_val * std::pow(10, exp);
-        } else {
-          is_double = true;
-          double_val = double(int_val) * std::pow(10, exp);
-        }
-      }
-    }
-
-    // The source character immediately following a NumericLiteral must not
-    // be an IdentifierStart or DecimalDigit.
-    if (character::is_identifier_start(ch) || character::is_decimal_digit(ch)) {
-      next_char();
-      goto error;
-    }
-
-    number_val = is_double ? double_val : double(int_val);
-    return token_with_type(TokenType::NUMBER, start);
-error:
-    return token_with_type(TokenType::ILLEGAL, start);
   }
 
   bool skip_unicode_escape_sequence(std::u16string& str) {

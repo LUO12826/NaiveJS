@@ -51,6 +51,7 @@ inline VarKind get_var_kind_from_str(std::u16string_view str) {
   else if (str == u"let") return VarKind::DECL_LET;
   else if (str == u"const") return VarKind::DECL_CONST;
   else assert(false);
+  __builtin_unreachable();
 }
 
 inline bool var_kind_allow_redeclare(VarKind kind) {
