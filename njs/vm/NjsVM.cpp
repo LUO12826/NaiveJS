@@ -244,7 +244,11 @@ void NjsVM::execute() {
 void NjsVM::execute_task(JSTask& task) {
   sp[0] = task.task_func;
   sp += 1;
-  exec_call(0, false);
+  for (auto arg : task.args) {
+    sp[0] = arg;
+    sp += 1;
+  }
+  exec_call((int)task.args.size(), false);
   execute();
 }
 

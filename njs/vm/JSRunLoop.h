@@ -8,6 +8,7 @@
 
 #include "njs/basic_types/JSValue.h"
 #include "njs/include/robin_hood.h"
+#include "njs/include/BS_thread_pool.hpp"
 
 namespace njs {
 
@@ -34,10 +35,14 @@ class JSRunLoop {
   size_t add_timer(JSFunction* func, size_t timeout, bool repeat);
   bool remove_timer(size_t timer_id);
 
+  JSTask *add_task(JSFunction* func);
+  void post_task(JSTask *task);
+
+  BS::thread_pool& get_thread_pool() { return thread_pool; }
+
  private:
   void timer_loop();
   void setup_pipe();
-  void timer_post_task(JSTask *task);
 
   NjsVM& vm;
 
@@ -54,6 +59,7 @@ class JSRunLoop {
   int pipe_write_fd;
   int pipe_read_fd;
   std::thread timer_thread;
+  BS::thread_pool thread_pool {4};
 };
 
 }

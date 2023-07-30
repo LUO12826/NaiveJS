@@ -53,7 +53,7 @@ void JSRunLoop::loop() {
   
 }
 
-void JSRunLoop::timer_post_task(JSTask *task) {
+void JSRunLoop::post_task(JSTask *task) {
   macro_queue_lock.lock();
   macro_task_queue.push_back(task);
   macro_queue_lock.unlock();
@@ -95,7 +95,7 @@ void JSRunLoop::timer_loop() {
     }
     for (int i = 0; i < ret; i++) {
       if (event_slot[i].filter == EVFILT_TIMER) {
-        timer_post_task((JSTask *)event_slot[i].udata);
+        post_task((JSTask *)event_slot[i].udata);
       }
       else if (event_slot[i].filter == EVFILT_READ && event_slot[i].ident == pipe_read_fd) {
         return;
@@ -165,6 +165,16 @@ bool JSRunLoop::remove_timer(size_t timer_id) {
   }
 
   return true;
+}
+
+JSTask *JSRunLoop::add_task(JSFunction* func) {
+  JSTask task {
+      .task_id = task_counter++,
+      .task_func = JSValue(func),
+  };
+
+  auto [iter, succeeded] = task_pool.emplace(task.task_id, task);
+  return &iter->second;
 }
 
 }

@@ -93,6 +93,7 @@ int main(int argc, char *argv[]) {
     vm.add_native_func_impl(u"setInterval", InternalFunctions::set_interval);
     vm.add_native_func_impl(u"clearTimeout", InternalFunctions::clear_timeout);
     vm.add_native_func_impl(u"clearInterval", InternalFunctions::clear_interval);
+    vm.add_native_func_impl(u"fetch", InternalFunctions::fetch);
 
     vm.add_builtin_object(u"console", [] (GCHeap& heap, StringPool& str_pool) {
       JSObject *obj = heap.new_object<JSObject>();

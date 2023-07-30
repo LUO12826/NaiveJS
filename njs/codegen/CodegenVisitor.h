@@ -256,7 +256,12 @@ friend class NjsVM;
     }
 
     if (program.type == ASTNode::AST_PROGRAM) emit(InstType::halt);
-    else emit(InstType::ret);
+    else {
+      if (bytecode[bytecode_pos() - 1].op_type != InstType::ret) {
+        emit(InstType::push_undef);
+        emit(InstType::ret);
+      }
+    }
   }
 
   void gen_func_bytecode(Function& func, SmallVector<Instruction, 5>& init_code) {
@@ -571,7 +576,11 @@ friend class NjsVM;
   }
 
   void visit_return_statement(ReturnStatement& return_stmt) {
-    visit(return_stmt.expr);
+    if (return_stmt.expr) {
+        visit(return_stmt.expr);
+    } else {
+        emit(InstType::push_undef);
+    }
     emit(InstType::ret);
   }
 

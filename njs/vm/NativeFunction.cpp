@@ -1,6 +1,7 @@
 #include "NativeFunction.h"
 
 #include "NjsVM.h"
+#include "njs/include/httplib.h"
 
 namespace njs {
 
@@ -54,12 +55,47 @@ JSValue InternalFunctions::clear_timeout(NjsVM& vm, JSFunction& func, ArrayRef<J
   return JSValue::undefined;
 }
 
+void separate_host_and_path(const std::string& url, std::string& host, std::string& path) {
+  size_t start_pos = url.find("://");
+  if (start_pos != std::string::npos) {
+    start_pos += 3; // Move past the "://"
+  } else {
+    start_pos = 0;
+  }
+
+  size_t host_end_pos = url.find('/', start_pos);
+  if (host_end_pos != std::string::npos) {
+    host = url.substr(0, host_end_pos);
+    path = url.substr(host_end_pos);
+  } else {
+    host = url.substr(start_pos);
+    path = "/";
+  }
+}
+
 JSValue InternalFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 2);
   assert(args[0].tag_is(JSValue::STRING));
   assert(args[1].tag_is(JSValue::FUNCTION));
 
+  std::string url = to_utf8_string(args[0].val.as_primitive_string->str);
+  JSTask *task = vm.runloop.add_task(args[1].val.as_function);
 
+  vm.runloop.get_thread_pool().push_task([&vm, task] (const std::string& url) {
+    std::string host, path;
+    separate_host_and_path(url, host, path);
+
+    httplib::Client cli(host);
+    auto res = cli.Get(path);
+
+    task->args.emplace_back((double)res->status);
+    task->args.emplace_back(new PrimitiveString(to_utf16_string(res->body)));
+
+    vm.runloop.post_task(task);
+
+  }, std::move(url));
+
+  return JSValue::undefined;
 }
 
 

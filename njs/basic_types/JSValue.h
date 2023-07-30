@@ -79,8 +79,11 @@ struct JSValue {
   static JSValue undefined;
   static JSValue null;
 
-  JSValue(): tag(JSValueTag::UNDEFINED) {}
-  explicit JSValue(JSValueTag tag): tag(tag) {}
+  JSValue(): JSValue(JSValueTag::UNDEFINED) {}
+
+  explicit JSValue(JSValueTag tag): tag(tag) {
+    val.as_int64 = 0;
+  }
   ~JSValue() = default;
 
   // Not trying to move anything here, since moving and copying cost are the same for JSValue.
@@ -279,7 +282,7 @@ struct JSValue {
   } val;
 
   JSValueTag tag;
-  u32 flag_bits;
+  u32 flag_bits {0};
 };
 
 struct JSHeapValue: public RCObject {
