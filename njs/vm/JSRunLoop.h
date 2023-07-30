@@ -18,6 +18,7 @@ using robin_hood::unordered_map;
 struct JSTask {
   size_t task_id;
   JSValue task_func;
+  std::vector<JSValue> args;
   size_t timeout;
   bool repeat {false};
   bool canceled {false};
@@ -41,11 +42,13 @@ class JSRunLoop {
   NjsVM& vm;
 
   size_t task_counter {0};
+  // if a macro task has not been completed, it must be in the task pool.
   unordered_map<size_t, JSTask> task_pool;
+  // store pointers to the tasks, which are in the task pool.
+  std::deque<JSTask*> macro_task_queue;
   std::deque<JSTask> micro_task_queue;
-  std::deque<JSTask> macro_task_queue;
-  std::mutex marco_queue_lock;
-  std::condition_variable marco_queue_cv;
+  std::mutex macro_queue_lock;
+  std::condition_variable macro_queue_cv;
 
   int kqueue_id;
   int pipe_write_fd;

@@ -19,12 +19,12 @@ class StringPool {
  public:
   u32 add_string(u16string_view str_view);
 
-  std::vector<u16string>& get_list();
+  std::vector<u16string>& get_string_list();
 
  private:
   u32 next_id {0};
   unordered_map<u16string, u32> pool;
-  std::vector<u16string> str_list;
+  std::vector<u16string> string_list;
 };
 
 } // namespace njs

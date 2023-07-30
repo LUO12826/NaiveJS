@@ -10,7 +10,7 @@ u32 StringPool::add_string(u16string_view str_view) {
   }
   else {
     // copy this string and put it in the list.
-    str_list.emplace_back(str);
+    string_list.emplace_back(str);
     // now the string_view in the pool is viewing the string in the list.
     pool.emplace(std::move(str), next_id);
     next_id += 1;
@@ -18,8 +18,8 @@ u32 StringPool::add_string(u16string_view str_view) {
   }
 }
 
-std::vector<u16string>& StringPool::get_list() {
-  return str_list;
+std::vector<u16string>& StringPool::get_string_list() {
+  return string_list;
 }
 
 } // namespace njs

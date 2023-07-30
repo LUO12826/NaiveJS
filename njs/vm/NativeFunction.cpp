@@ -54,5 +54,13 @@ JSValue InternalFunctions::clear_timeout(NjsVM& vm, JSFunction& func, ArrayRef<J
   return JSValue::undefined;
 }
 
+JSValue InternalFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  assert(args.size() >= 2);
+  assert(args[0].tag_is(JSValue::STRING));
+  assert(args[1].tag_is(JSValue::FUNCTION));
+
+
+}
+
 
 }

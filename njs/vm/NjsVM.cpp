@@ -193,6 +193,7 @@ void NjsVM::execute() {
         if (pc == bytecode.size()) {
           sp -= 1;
           sp[0].set_undefined();
+          printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
           return;
         }
         break;
@@ -223,6 +224,7 @@ void NjsVM::execute() {
         exec_add_elements(inst.operand.two.opr1);
         break;
       case InstType::halt:
+        printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
         return;
       case InstType::nop:
         break;
@@ -479,7 +481,7 @@ void NjsVM::exec_prop_assign() {
 
 void NjsVM::exec_make_func(int meta_idx) {
   auto& meta = func_meta[meta_idx];
-  const u16string& name = meta.is_anonymous ? u"" : str_pool.get_list()[meta.name_index];
+  const u16string& name = meta.is_anonymous ? u"" : str_pool.get_string_list()[meta.name_index];
 
   auto *func = heap.new_object<JSFunction>(name, meta);
   if (meta.is_native) {
@@ -521,7 +523,6 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
   // fill the vacancy with `undefined`.
   sp += def_param_cnt > arg_count ? (def_param_cnt - arg_count) : 0;
   u32 actual_arg_cnt = std::max(def_param_cnt, u32(arg_count));
-  func_arg_count = actual_arg_cnt;
 
   // function parameters are considered `in memory` variables. So retain the RCObjects here.
   for (JSValue *addr = sp - actual_arg_cnt; addr < sp; addr++) {
@@ -552,6 +553,7 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
   sp[1].flag_bits = actual_arg_cnt;
   sp[1].val.as_int64 = frame_base_ptr;
 
+  func_arg_count = actual_arg_cnt;
   frame_base_ptr = sp - rt_stack.data();
   sp = sp + 2 + func->meta.local_var_count;
   pc = func->meta.code_address;
@@ -617,7 +619,7 @@ void NjsVM::exec_push_str(int str_idx, bool atom) {
     sp[0].val.as_int64 = str_idx;
   }
   else {
-    auto str = new PrimitiveString(str_pool.get_list()[str_idx]);
+    auto str = new PrimitiveString(str_pool.get_string_list()[str_idx]);
     sp[0].val.as_primitive_string = str;
   }
 
@@ -643,7 +645,7 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
   for (JSValue *key = sp - key_cnt; key < sp - 1; key++) {
     assert(val_obj.is_object());
     if (Global::show_vm_exec_steps) {
-      std::cout << "...visit key " << to_utf8_string(str_pool.get_list()[key->val.as_int64])
+      std::cout << "...visit key " << to_utf8_string(str_pool.get_string_list()[key->val.as_int64])
                 << std::endl;
     }
     // val_obj is a reference, so we are directly modify the cell in the stack frame.
@@ -654,7 +656,7 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
   // visit the last component separately
   invoker_this = val_obj;
   if (Global::show_vm_exec_steps) {
-    std::cout << "...visit key " << to_utf8_string(str_pool.get_list()[sp[-1].val.as_int64])
+    std::cout << "...visit key " << to_utf8_string(str_pool.get_string_list()[sp[-1].val.as_int64])
               << std::endl;
   }
   val_obj = val_obj.val.as_object->get_prop(sp[-1].val.as_int64, get_ref);
@@ -681,7 +683,7 @@ void NjsVM::exec_index_access(bool get_ref) {
     else if (index.tag_is(JSValue::STRING) || index.tag_is(JSValue::JS_ATOM)) {
       auto& index_str = index.tag_is(JSValue::STRING)
                                     ? index.val.as_primitive_string->str
-                                    : str_pool.get_list()[index.val.as_int64];
+                                    : str_pool.get_string_list()[index.val.as_int64];
 
       int64_t idx_num = scan_index_literal(index_str);
       if (idx_num != -1) {
@@ -725,7 +727,7 @@ bool NjsVM::are_strings_equal(const JSValue& lhs, const JSValue& rhs) {
     u16string *str_data = nullptr;
 
     if (val.tag_is(JSValue::JS_ATOM)) {
-      str_data = &str_pool.get_list()[val.val.as_int64];
+      str_data = &str_pool.get_string_list()[val.val.as_int64];
     }
     else if (val.tag_is(JSValue::STRING) || val.tag_is(JSValue::STRING_REF)) {
       str_data = &(val.val.as_primitive_string->str);

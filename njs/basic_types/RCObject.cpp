@@ -17,7 +17,8 @@ void RCObject::release() {
 }
 
 void RCObject::mark_as_temp() {
-  ref_count = 0;
+  ref_count -= 1;
+  assert(ref_count >= 0);
 }
 
 void RCObject::delete_temp_object() {

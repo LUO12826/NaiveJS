@@ -57,7 +57,7 @@ friend class NjsVM;
     }
     std::cout << std::endl;
 
-    std::vector<u16string>& str_list = str_pool.get_list();
+    std::vector<u16string>& str_list = str_pool.get_string_list();
 
     std::cout << ">>> string pool:" << std::endl;
     for (auto& str : str_list) {

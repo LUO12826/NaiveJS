@@ -30,16 +30,19 @@ JSRunLoop::~JSRunLoop() {
 void JSRunLoop::loop() {
 
   while (!task_pool.empty() || !macro_task_queue.empty()) {
-    JSTask task;
+    JSTask *task;
     {
-      std::unique_lock<std::mutex> lock(marco_queue_lock);
-      marco_queue_cv.wait(lock, [this] { return !macro_task_queue.empty(); });
+      std::unique_lock<std::mutex> lock(macro_queue_lock);
+      macro_queue_cv.wait(lock, [this] { return !macro_task_queue.empty(); });
 
       task = macro_task_queue.front();
       macro_task_queue.pop_front();
     }
+    // the task is canceled.
+    if (task == nullptr) continue;
 
-    if (!task.canceled) vm.execute_task(task);
+    if (!task->canceled) vm.execute_task(*task);
+    if (!task->repeat) task_pool.erase(task->task_id);
 
     while (!micro_task_queue.empty()) {
       JSTask& micro_task = micro_task_queue.front();
@@ -51,11 +54,10 @@ void JSRunLoop::loop() {
 }
 
 void JSRunLoop::timer_post_task(JSTask *task) {
-  marco_queue_lock.lock();
-  macro_task_queue.push_back(*task);
-  marco_queue_lock.unlock();
-  marco_queue_cv.notify_one();
-  if (!task->repeat) task_pool.erase(task->task_id);
+  macro_queue_lock.lock();
+  macro_task_queue.push_back(task);
+  macro_queue_lock.unlock();
+  macro_queue_cv.notify_one();
 }
 
 void JSRunLoop::setup_pipe() {
@@ -111,16 +113,16 @@ size_t JSRunLoop::add_timer(JSFunction* func, size_t timeout, bool repeat) {
       .repeat = repeat,
   };
 
+  auto [iter, succeeded] = task_pool.emplace(task.task_id, task);
+  JSTask *task_ptr = &iter->second;
+
   if (timeout == 0 && !repeat) {
-    marco_queue_lock.lock();
-    macro_task_queue.push_back(task);
-    marco_queue_lock.unlock();
+    macro_queue_lock.lock();
+    macro_task_queue.push_back(task_ptr);
+    macro_queue_lock.unlock();
   }
   else {
     if (task.repeat) assert(task.timeout != 0);
-
-    auto [iter, succeeded] = task_pool.emplace(task.task_id, task);
-    JSTask *task_ptr = &iter->second;
 
     uint16_t event_flags = EV_ADD | EV_ENABLE;
     if (!task.repeat) event_flags |= EV_ONESHOT;
@@ -143,18 +145,16 @@ size_t JSRunLoop::add_timer(JSFunction* func, size_t timeout, bool repeat) {
 bool JSRunLoop::remove_timer(size_t timer_id) {
   auto iter = task_pool.find(timer_id);
   if (iter == task_pool.end()) {
-    std::lock_guard<std::mutex> lock(marco_queue_lock);
-    for (auto& task : macro_task_queue) {
-      if (task.task_id == timer_id) {
-        task.canceled = true;
-        return true;
-      }
-    }
     return false;
   }
-
+  // remove the task from the macro task queue
+  for (auto& task : macro_task_queue) {
+    if (task->task_id == timer_id) task = nullptr;
+  }
+  // remove the task from the task pool
   task_pool.erase(timer_id);
 
+  // remove the timer from kqueue
   struct kevent event;
   EV_SET(&event, timer_id, EVFILT_TIMER, EV_DELETE, 0, 0, nullptr);
 
