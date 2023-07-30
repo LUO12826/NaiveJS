@@ -86,10 +86,14 @@ JSValue InternalFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> 
     separate_host_and_path(url, host, path);
 
     httplib::Client cli(host);
-    auto res = cli.Get(path);
 
-    task->args.emplace_back((double)res->status);
-    task->args.emplace_back(new PrimitiveString(to_utf16_string(res->body)));
+    if (auto res = cli.Get(path)) {
+      task->args.emplace_back((double)res->status);
+      task->args.emplace_back(new PrimitiveString(to_utf16_string(res->body)));
+    } else {
+      auto err = res.error();
+      std::cout << "HTTP error: " << httplib::to_string(err) << std::endl;
+    }
 
     vm.runloop.post_task(task);
 
