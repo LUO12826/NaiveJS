@@ -200,8 +200,8 @@ struct JSValue {
 
   void move_to_heap();
 
-  inline bool is_int() const { return tag == NUM_INT; }
-  inline bool is_float() const { return tag == NUM_FLOAT; }
+  inline bool is_int64() const { return tag == NUM_INT; }
+  inline bool is_float64() const { return tag == NUM_FLOAT; }
   inline bool is_bool() const { return tag == BOOLEAN; }
   inline bool is_primitive_string() const { return tag == STRING; }
   inline bool is_inline() const { return tag >= JS_ATOM && tag <= NUM_FLOAT; }
