@@ -42,15 +42,15 @@ friend class InternalFunctions;
   void execute();
   void execute_task(JSTask& task);
   // push
-  void exec_push(int opr1, int opr2);
+  void exec_push(int scope, int raw_index);
   void exec_push_str(int str_idx, bool atom);
   void exec_push_this();
   // pop or store
-  void exec_pop(int opr1, int opr2);
-  void exec_store(Instruction& inst);
+  void exec_pop(int scope, int raw_index);
+  void exec_store(int scope, int raw_index);
   // function operation
   void exec_make_func(int meta_idx);
-  void exec_capture(Instruction& inst);
+  void exec_capture(int scope, int raw_index);
   void exec_call(int arg_count, bool has_this_object);
   void exec_return();
   // object operation
@@ -72,12 +72,11 @@ friend class InternalFunctions;
   void exec_logi(InstType op_type);
   void exec_strict_equality(bool flip);
 
-  void exec_add_assign(int opr1, int opr2);
-  void exec_inc_or_dec(Instruction& inst, int inc);
+  void exec_add_assign(int scope, int raw_index);
+  void exec_inc_or_dec(int scope, int raw_index, int inc);
 
   JSFunction *function_env();
-  u32 calc_var_addr(ScopeType scope, int raw_index);
-  JSValue *get_value(ScopeType scope, int raw_index);
+  JSValue& get_value(ScopeType scope, int raw_index);
   bool are_strings_equal(const JSValue& lhs, const JSValue& rhs);
   double to_numeric_value(JSValue& val);
 
@@ -89,7 +88,7 @@ friend class InternalFunctions;
   // program counter
   u32 pc {0};
   // start of a stack frame
-  u32 frame_base_ptr {0};
+  JSValue *frame_base_ptr;
   u32 func_arg_count {0};
 
   GCHeap heap;
