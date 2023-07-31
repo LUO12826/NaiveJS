@@ -243,7 +243,7 @@ friend class NjsVM;
       auto *func = static_cast<Function *>(node);
       visit_function(*func);
       auto symbol = scope().resolve_symbol(func->name.text);
-      emit(InstType::pop, scope_type_int(symbol.scope_type), symbol.index);
+      emit(InstType::pop, scope_type_int(symbol.scope_type), symbol.get_index());
     }
     // End filling function symbol initialization code
 
@@ -293,7 +293,7 @@ friend class NjsVM;
     // capture closure variables
     for (auto symbol : capture_list) {
       init_code.emplace_back(InstType::capture, scope_type_int(symbol.scope_type),
-                             symbol.original_symbol->index);
+                                                symbol.get_index());
     }
   }
 
@@ -337,8 +337,8 @@ friend class NjsVM;
       auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
       auto rhs_sym = scope().resolve_symbol(expr.rhs->get_source());
 
-      emit(InstType::fast_add, scope_type_int(lhs_sym.scope_type), lhs_sym.index,
-           scope_type_int(rhs_sym.scope_type), rhs_sym.index);
+      emit(InstType::fast_add, scope_type_int(lhs_sym.scope_type), lhs_sym.get_index(),
+           scope_type_int(rhs_sym.scope_type), rhs_sym.get_index());
       return;
     }
 
@@ -438,8 +438,8 @@ friend class NjsVM;
       auto rhs_sym = scope().resolve_symbol(expr.rhs->get_source());
 
       if (lhs_sym.stack_scope() && rhs_sym.stack_scope()) {
-        emit(InstType::fast_assign, scope_type_int(lhs_sym.scope_type), lhs_sym.index,
-             scope_type_int(rhs_sym.scope_type), rhs_sym.index);
+        emit(InstType::fast_assign, scope_type_int(lhs_sym.scope_type), lhs_sym.get_index(),
+             scope_type_int(rhs_sym.scope_type), rhs_sym.get_index());
       }
       else {
 
@@ -450,14 +450,14 @@ friend class NjsVM;
 
       if (expr.assign_type == TokenType::ASSIGN) {
         visit(expr.rhs);
-        emit(InstType::pop, scope_type_int(lhs_sym.scope_type), (int)lhs_sym.index);
+        emit(InstType::pop, scope_type_int(lhs_sym.scope_type), (int)lhs_sym.get_index());
       }
       else if (expr.assign_type == TokenType::ADD_ASSIGN) {
         if (expr.rhs->as_number_literal() && expr.rhs->as_number_literal()->num_val == 1) {
-          emit(InstType::inc, scope_type_int(lhs_sym.scope_type), (int)lhs_sym.index);
+          emit(InstType::inc, scope_type_int(lhs_sym.scope_type), (int)lhs_sym.get_index());
         } else {
           visit(expr.rhs);
-          emit(InstType::add_assign, scope_type_int(lhs_sym.scope_type), (int)lhs_sym.index);
+          emit(InstType::add_assign, scope_type_int(lhs_sym.scope_type), (int)lhs_sym.get_index());
         }
       }
       else assert(false);
@@ -493,7 +493,7 @@ friend class NjsVM;
   }
 
   void visit_array_literal(ArrayLiteral& array_lit) {
-    emit(InstType::make_array);
+    emit(InstType::make_array, (int)array_lit.elements.size());
 
     for (auto& [idx, element] : array_lit.elements) {
       visit(element);
@@ -544,7 +544,7 @@ friend class NjsVM;
   void visit_identifier(ASTNode& id) {
     auto symbol = scope().resolve_symbol(id.get_source());
     assert(!symbol.not_found());
-    emit(InstType::push, scope_type_int(symbol.scope_type), symbol.index);
+    emit(InstType::push, scope_type_int(symbol.scope_type), symbol.get_index());
   }
 
   void visit_func_arguments(Arguments& args) {
@@ -728,7 +728,7 @@ friend class NjsVM;
             .native_func = nullptr,
         });
         func_init_code.emplace_back(InstType::make_func, int(meta_idx));
-        func_init_code.emplace_back(InstType::pop, scope_type_int(ScopeType::GLOBAL), (int)record.index);
+        func_init_code.emplace_back(InstType::pop, scope_type_int(ScopeType::GLOBAL), (int)record.offset_idx());
       }
     }
   }

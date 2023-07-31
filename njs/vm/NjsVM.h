@@ -60,7 +60,7 @@ friend class InternalFunctions;
   void exec_index_access(bool get_ref);
   void exec_prop_assign();
   // array operation
-  void exec_make_array();
+  void exec_make_array(int length);
   void exec_add_elements(int elements_cnt);
   // binary operation
   void exec_fast_assign(Instruction& inst);
@@ -89,6 +89,7 @@ friend class InternalFunctions;
   u32 pc {0};
   // start of a stack frame
   JSValue *frame_base_ptr;
+  JSValue *rt_stack_data_begin;
   u32 func_arg_count {0};
 
   GCHeap heap;

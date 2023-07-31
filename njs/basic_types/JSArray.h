@@ -12,7 +12,13 @@ using u32 = uint32_t;
 
 class JSArray: public JSObject {
  public:
-  JSArray(): JSObject(ObjectClass::CLS_ARRAY) {}
+  JSArray(): JSArray(0) {}
+  
+  explicit JSArray(int length): JSObject(ObjectClass::CLS_ARRAY) {
+    JSValue length_atom(JSValue::JS_ATOM);
+    length_atom.val.as_int64 = 0;
+    add_prop(length_atom, JSValue((double)length));
+  }
 
   void gc_scan_children(GCHeap& heap) override;
 

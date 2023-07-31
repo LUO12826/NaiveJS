@@ -26,8 +26,10 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
     global_obj.props_index_map.emplace(u16string(sym_name), sym_rec.index + frame_meta_size);
   }
 
-  sp = rt_stack.data() + visitor.scope_chain[0]->get_var_count() + frame_meta_size;
-  frame_base_ptr = rt_stack.data();
+  rt_stack_data_begin = rt_stack.data();
+  rt_stack_data_begin[0].val.as_function = nullptr;
+  frame_base_ptr = rt_stack_data_begin;
+  sp = frame_base_ptr + visitor.scope_chain[0]->get_var_count() + frame_meta_size;
 }
 
 void NjsVM::add_native_func_impl(u16string name, NativeFuncType func) {
@@ -218,7 +220,7 @@ void NjsVM::execute() {
         exec_make_object();
         break;
       case InstType::make_array:
-        exec_make_array();
+        exec_make_array(inst.operand.two.opr1);
         break;
       case InstType::add_props:
         exec_add_props(inst.operand.two.opr1);
@@ -259,7 +261,7 @@ void NjsVM::execute_task(JSTask& task) {
 
 JSValue& NjsVM::get_value(ScopeType scope, int raw_index) {
   if (scope == ScopeType::FUNC) {
-    JSValue &val = frame_base_ptr[frame_meta_size + raw_index];
+    JSValue &val = frame_base_ptr[raw_index];
     return val.tag_is(JSValue::HEAP_VAL) ? val.deref() : val;
   } 
   if (scope == ScopeType::FUNC_PARAM) {
@@ -268,8 +270,8 @@ JSValue& NjsVM::get_value(ScopeType scope, int raw_index) {
     return val.tag_is(JSValue::HEAP_VAL) ? val.deref() : val;
   }
   if (scope == ScopeType::GLOBAL) {
-    u32 var_addr = 0 + frame_meta_size + raw_index;
-    return rt_stack[var_addr];
+    u32 var_addr = 0 + raw_index;
+    return rt_stack_data_begin[var_addr];
   }
   if (scope == ScopeType::CLOSURE) {
     assert(function_env());
@@ -279,7 +281,6 @@ JSValue& NjsVM::get_value(ScopeType scope, int raw_index) {
 }
 
 JSFunction *NjsVM::function_env() {
-  if (frame_base_ptr == rt_stack.data()) return nullptr;
   assert(frame_base_ptr[0].tag == JSValue::STACK_FRAME_META1);
   return frame_base_ptr[0].val.as_function;
 }
@@ -507,7 +508,7 @@ void NjsVM::exec_capture(int scope, int raw_index) {
   }
   else {
     JSValue& stack_val = var_scope == ScopeType::FUNC 
-                        ? frame_base_ptr[frame_meta_size + raw_index]
+                        ? frame_base_ptr[raw_index]
                         : frame_base_ptr[raw_index - (int)func_arg_count];
 
     if (stack_val.tag != JSValue::HEAP_VAL) {
@@ -571,8 +572,8 @@ void NjsVM::exec_make_object() {
   sp += 1;
 }
 
-void NjsVM::exec_make_array() {
-  auto *array = heap.new_object<JSArray>();
+void NjsVM::exec_make_array(int length) {
+  auto *array = heap.new_object<JSArray>(length);
   sp[0].set_val(array);
   sp += 1;
 }
@@ -608,6 +609,8 @@ void NjsVM::exec_add_elements(int elements_cnt) {
   JSArray *array = val_array.val.as_array;
 
   array->dense_array.resize(elements_cnt);
+  // // 0 is the atom value for `length`
+  // array->get_prop((int64_t)0, true).deref().val.as_float64 = elements_cnt;
 
   u32 ele_idx = 0;
   for (JSValue *val = sp - elements_cnt; val < sp; val++, ele_idx++) {

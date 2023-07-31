@@ -17,8 +17,12 @@ using std::optional;
 
 class StringPool {
  public:
-  u32 add_string(u16string_view str_view);
+  StringPool() {
+    add_string(u"length");     // 0
+    add_string(u"prototype");  // 1
+  }
 
+  u32 add_string(u16string_view str_view);
   std::vector<u16string>& get_string_list();
 
  private:

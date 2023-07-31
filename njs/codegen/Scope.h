@@ -40,6 +40,13 @@ class Scope {
     ScopeType scope_type;
     u32 index;
 
+    u32 get_index() {
+      if (scope_type == ScopeType::GLOBAL || scope_type == ScopeType::FUNC) {
+        return index + 2;
+      }
+      return index;
+    }
+
     bool stack_scope() {
       return scope_type != ScopeType::CLOSURE && scope_type != ScopeType::BLOCK;
     }
