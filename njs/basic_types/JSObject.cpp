@@ -2,6 +2,7 @@
 
 #include "njs/gc/GCHeap.h"
 #include "JSValue.h"
+#include "njs/vm/NjsVM.h"
 #include <sstream>
 
 namespace njs {
@@ -106,6 +107,28 @@ std::string JSObject::description() {
 
   stream << "}";
   return stream.str();
+}
+
+void JSObject::to_json(u16string& output, NjsVM& vm) const {
+  output += u"{";
+
+  bool first = true;
+  for (auto& [key, value] : storage) {
+    if (first) first = false;
+    else output += u',';
+    
+    if (key.key_type == JSObjectKey::KEY_ATOM) {
+      output += u'"';
+      output += vm.str_pool.get_string_list()[key.key.atom];
+      output += u'"';
+    }
+    else assert(false);
+
+    output += u':';
+    value.to_json(output, vm);
+  }
+
+  output += u"}";
 }
 
 JSObject::~JSObject() {

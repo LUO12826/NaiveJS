@@ -3,8 +3,10 @@
 #include <sstream>
 
 #include "njs/basic_types/JSObject.h"
+#include "njs/basic_types/JSArray.h"
 #include "njs/basic_types/JSFunction.h"
 #include "njs/common/enum_strings.h"
+#include "njs/utils/helper.h"
 
 namespace njs {
 
@@ -66,6 +68,40 @@ std::string JSValue::to_string() const {
   }
 
   return stream.str();
+}
+
+void JSValue::to_json(u16string& output, NjsVM& vm) const {
+  char16_t num_buf[40];
+
+  switch (tag) {
+    case NUM_FLOAT: {
+      int len = print_double_u16string(val.as_float64, num_buf);
+      u16string_view sv(num_buf, len);
+      output += sv;
+      break;
+    }
+    case BOOLEAN:
+      output += val.as_bool ? u"true" : u"false";
+      break;
+    case JS_NULL:
+      output += u"null";
+      break;
+    case STRING:
+      output += u'"';
+      output += val.as_primitive_string->str;
+      output += u'"';
+      break;
+    case ARRAY:
+      val.as_array->to_json(output, vm);
+      break;
+    default:
+      if (is_object()) {
+        val.as_object->to_json(output, vm);
+      }
+      else {
+        assert(false);
+      }
+  }
 }
 
 JSValue JSValue::undefined = JSValue(JSValue::UNDEFINED);

@@ -113,6 +113,25 @@ int main(int argc, char *argv[]) {
       obj->add_prop(key, JSValue(log_func));
       return obj;
     });
+
+    vm.add_builtin_object(u"JSON", [] (GCHeap& heap, StringPool& str_pool) {
+      JSObject *obj = heap.new_object<JSObject>();
+
+      JSFunctionMeta func_meta {
+          .is_anonymous = true,
+          .is_native = true,
+          .param_count = 1,
+          .local_var_count = 0,
+          .native_func = InternalFunctions::json_stringify,
+      };
+      JSFunction *func = heap.new_object<JSFunction>(func_meta);
+
+      auto key_atom_value = str_pool.add_string(u"stringify");
+      obj->add_prop(JSValue::Atom(key_atom_value), JSValue(func));
+
+      return obj;
+    });
+
     vm.run();
 
     exec_timer.end();

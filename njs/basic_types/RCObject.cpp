@@ -32,6 +32,7 @@ u32 RCObject::get_ref_count() {
 }
 
 PrimitiveString::PrimitiveString(const std::u16string& str): str(str) {}
+PrimitiveString::PrimitiveString(std::u16string&& str): str(std::move(str)) {}
 
 bool PrimitiveString::operator == (const PrimitiveString& other) const {
   return str == other.str;

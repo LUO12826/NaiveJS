@@ -7,6 +7,7 @@
 
 namespace njs {
 
+class NjsVM;
 class JSObject;
 class GCObject;
 class JSFunction;
@@ -78,6 +79,12 @@ struct JSValue {
 
   static JSValue undefined;
   static JSValue null;
+
+  static JSValue Atom(int64_t val) {
+    JSValue atom(JS_ATOM);
+    atom.val.as_int64 = val;
+    return atom;
+  }
 
   JSValue(): JSValue(JSValueTag::UNDEFINED) {}
 
@@ -263,6 +270,7 @@ struct JSValue {
 
   std::string description() const;
   std::string to_string() const;
+  void to_json(u16string& output, NjsVM& vm) const;
 
   union {
     double as_float64;

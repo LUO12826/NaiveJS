@@ -1381,6 +1381,7 @@ error:
   void add_builtin_variables() {
     scope().define_symbol(VarKind::DECL_VAR, u"undefined", true);
     scope().define_symbol(VarKind::DECL_VAR, u"console", true);
+    scope().define_symbol(VarKind::DECL_VAR, u"JSON", true);
   }
 
   void report_error(ParsingError err) {

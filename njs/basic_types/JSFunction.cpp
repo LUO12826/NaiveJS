@@ -51,15 +51,20 @@ void JSFunction::gc_scan_children(GCHeap& heap) {
 }
 
 std::string JSFunction::description() {
-  std::ostringstream stream;
-  stream << "JSFunction ";
-  if (meta.is_anonymous) stream << "(anonymous)";
-  else stream << "named: " << to_utf8_string(name);
+  std::string desc;
+  desc += "JSFunction ";
+  if (meta.is_anonymous) desc += "(anonymous)";
+  else {
+    desc += "named: ";
+    desc += to_utf8_string(name);
+  }
 
-  stream << ", is native: " << to_utf8_string(meta.is_native) << ".";
-  stream << " props: " << JSObject::description();
+  desc += ", is native: ";
+  desc += to_utf8_string(meta.is_native);
+  desc += "  Props: ";
+  desc += JSObject::description();
 
-  return stream.str();
+  return desc;
 }
 
 std::string JSFunctionMeta::description() const {

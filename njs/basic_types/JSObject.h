@@ -98,7 +98,9 @@ class JSObject : public GCObject {
   ~JSObject() override;
 
   void gc_scan_children(GCHeap& heap) override;
+
   std::string description() override;
+  void to_json(u16string& output, NjsVM& vm) const;
 
   bool add_prop(const JSValue& key, const JSValue& value);
 

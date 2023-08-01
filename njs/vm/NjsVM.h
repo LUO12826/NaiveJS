@@ -28,6 +28,7 @@ struct JSTask;
 class NjsVM {
 friend class JSRunLoop;
 friend class GCHeap;
+friend class JSObject;
 friend class InternalFunctions;
 
  public:
@@ -37,6 +38,8 @@ friend class InternalFunctions;
   void add_native_func_impl(u16string name, NativeFuncType func);
   void add_builtin_object(const u16string& name, const std::function<JSObject*(GCHeap&, StringPool&)>& builder);
   void run();
+
+  u16string dump_json_object(JSValue val);
 
  private:
   void execute();

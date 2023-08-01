@@ -3,6 +3,7 @@
 #include <codecvt>
 #include <sstream>
 #include <cstdarg>
+#include <cstdlib>
 #include "njs/parser/character.h"
 
 #ifdef DBGPRINT
@@ -55,19 +56,46 @@ std::u16string str_cat(const std::vector<std::u16string>& vals) {
   return res;
 }
 
-bool ApproximatelyEqual(double a, double b) {
+int print_double_u16string(double val, char16_t *str) {
+  double test_val;
+  char output_buffer[40] = {0};
+  int length;
+
+  if (std::isnan(val) || std::isinf(val)) {
+    length = sprintf(output_buffer, "null");
+  }
+  else {
+     /* Try 15 decimal places of precision to avoid nonsignificant nonzero digits */
+    length = sprintf(output_buffer, "%1.15g", val);
+    /* Check whether the original double can be recovered */
+    if ((sscanf(output_buffer, "%lg", &test_val) != 1) || !approximately_equal(test_val, val)) {
+      /* If not, print with 17 decimal places of precision */
+      length = sprintf(output_buffer, "%1.17g", val);
+    }
+  }
+
+  for (int i = 0; i < length; i++) {
+    *str = output_buffer[i];
+    str += 1;
+  }
+  *str = 0;
+   
+  return length;
+}
+
+bool approximately_equal(double a, double b) {
   return fabs(a - b) <= ((fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * kEpsilon);
 }
 
-bool EssentiallyEqual(double a, double b) {
+bool essentially_equal(double a, double b) {
   return fabs(a - b) <= ((fabs(a) > fabs(b) ? fabs(b) : fabs(a)) * kEpsilon);
 }
 
-bool DefinitelyGreaterThan(double a, double b) {
+bool definitely_greater_than(double a, double b) {
   return (a - b) > ((fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * kEpsilon);
 }
 
-bool DefinitelyLessThan(double a, double b) {
+bool definitely_less_than(double a, double b) {
   return (b - a) > ((fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * kEpsilon);
 }
 

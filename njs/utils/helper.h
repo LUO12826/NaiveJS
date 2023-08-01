@@ -24,15 +24,17 @@ std::string to_utf8_string(bool b);
 
 std::u16string str_cat(const std::vector<u16string>& vals);
 
+int print_double_u16string(double val, char16_t *str);
+
 // From Knuth https://stackoverflow.com/a/253874/5163915
 static constexpr double kEpsilon = 1e-15;
-bool ApproximatelyEqual(double a, double b);
+bool approximately_equal(double a, double b);
 
-bool EssentiallyEqual(double a, double b);
+bool essentially_equal(double a, double b);
 
-bool DefinitelyGreaterThan(double a, double b);
+bool definitely_greater_than(double a, double b);
 
-bool DefinitelyLessThan(double a, double b);
+bool definitely_less_than(double a, double b);
 
 template <typename T>
 inline void hash_combine(size_t& seed, const T& val) {

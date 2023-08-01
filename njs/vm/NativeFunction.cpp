@@ -102,5 +102,12 @@ JSValue InternalFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> 
   return JSValue::undefined;
 }
 
+JSValue InternalFunctions::json_stringify(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  assert(args.size() >= 1);
+  u16string json_string;
+  args[0].to_json(json_string, vm);
+  return JSValue(new PrimitiveString(std::move(json_string)));
+}
+
 
 }

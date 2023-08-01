@@ -713,7 +713,7 @@ void NjsVM::exec_index_access(bool get_ref) {
   else if (obj.tag_is(JSValue::OBJECT)) {
     if (index.is_float64()) {
       u16string num_str = to_utf16_string(std::to_string(index.val.as_float64));
-      auto *prim_str = new PrimitiveString(num_str);
+      auto *prim_str = new PrimitiveString(std::move(num_str));
       obj = obj.val.as_object->get_prop(prim_str, get_ref);
     }
     else if (index.tag_is(JSValue::STRING)) {
@@ -828,6 +828,11 @@ void NjsVM::exec_comparison(InstType type) {
   lhs.set_val(res);
   rhs.set_undefined();
   sp -= 1;
+}
+
+u16string NjsVM::dump_json_object(JSValue val) {
+  u16string res;
+  return res;
 }
 
 }

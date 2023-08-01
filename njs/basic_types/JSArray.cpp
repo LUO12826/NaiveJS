@@ -1,6 +1,6 @@
 #include "JSArray.h"
 
-#include <sstream>
+#include <string>
 #include "njs/gc/GCHeap.h"
 
 namespace njs {
@@ -15,16 +15,37 @@ void JSArray::gc_scan_children(GCHeap& heap) {
 }
 
 std::string JSArray::description() {
-  std::ostringstream stream;
+  std::string desc = "Array[ ";
 
-  stream << "Array[ ";
   for (auto& val : dense_array) {
-    stream << val.to_string() << ", ";
+    desc += val.to_string();
+    desc += ", ";
   }
-  stream << "]";
-  stream << " props: " << JSObject::description();
+  desc += "]";
+  desc += " props: ";
+  desc += JSObject::description();
 
-  return stream.str();
+  return desc;
+}
+
+void JSArray::to_json(u16string& output, NjsVM& vm) const {
+  output += u"[";
+
+  bool first = true;
+  
+  for (auto& val : dense_array) {
+    if (first) first = false;
+    else output += u',';
+
+    if (val.tag_is(JSValue::JS_NULL) || val.tag_is(JSValue::UNDEFINED)) {
+      output += u"null";
+    }
+    else {
+      val.to_json(output, vm);
+    }
+  }
+
+  output += u"]";
 }
 
 JSValue JSArray::access_element(u32 index, bool create_ref) {

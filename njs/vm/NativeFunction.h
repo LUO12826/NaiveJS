@@ -16,6 +16,7 @@ class InternalFunctions {
   static JSValue clear_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static JSValue clear_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static JSValue fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
+  static JSValue json_stringify(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
 };
 
 }
