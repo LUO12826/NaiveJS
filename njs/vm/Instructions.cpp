@@ -138,6 +138,15 @@ std::string Instruction::description() {
     case InstType::jmp_false:
       sprintf(buffer, "jmp_false  %d", operand.two.opr1);
       break;
+    case InstType::pop_jmp:
+      sprintf(buffer, "pop_jmp  %d", operand.two.opr1);
+      break;
+    case InstType::pop_jmp_true:
+      sprintf(buffer, "pop_jmp_true  %d", operand.two.opr1);
+      break;
+    case InstType::pop_jmp_false:
+      sprintf(buffer, "pop_jmp_false  %d", operand.two.opr1);
+      break;
     case InstType::jmp_cond:
       sprintf(buffer, "jmp_cond  %d %d", operand.two.opr1, operand.two.opr2);
       break;
