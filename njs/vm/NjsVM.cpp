@@ -263,15 +263,14 @@ JSValue& NjsVM::get_value(ScopeType scope, int raw_index) {
   if (scope == ScopeType::FUNC) {
     JSValue &val = frame_base_ptr[raw_index];
     return val.tag_is(JSValue::HEAP_VAL) ? val.deref() : val;
-  } 
+  }
   if (scope == ScopeType::FUNC_PARAM) {
     assert(frame_base_ptr[1].tag == JSValue::STACK_FRAME_META2);
     JSValue &val = frame_base_ptr[raw_index - (int)func_arg_count];
     return val.tag_is(JSValue::HEAP_VAL) ? val.deref() : val;
   }
   if (scope == ScopeType::GLOBAL) {
-    u32 var_addr = 0 + raw_index;
-    return rt_stack_data_begin[var_addr];
+    return rt_stack_data_begin[raw_index];
   }
   if (scope == ScopeType::CLOSURE) {
     assert(function_env());
@@ -385,12 +384,8 @@ void NjsVM::exec_fast_add(Instruction& inst) {
   auto lhs_index = inst.operand.four.opr2;
   auto rhs_index = inst.operand.four.opr4;
 
-  JSValue& lhs_val = lhs_scope == ScopeType::CLOSURE ?
-                                  function_env()->captured_var[lhs_index].deref():
-                                  get_value(lhs_scope, lhs_index);
-  JSValue& rhs_val = rhs_scope == ScopeType::CLOSURE ?
-                                  function_env()->captured_var[rhs_index].deref():
-                                  get_value(rhs_scope, rhs_index);
+  JSValue& lhs_val = get_value(lhs_scope, lhs_index);
+  JSValue& rhs_val = get_value(rhs_scope, rhs_index);
 
   if (lhs_val.is_float64() && rhs_val.is_float64()) {
     sp[0].set_val(lhs_val.val.as_float64 + rhs_val.val.as_float64);
@@ -427,46 +422,19 @@ void NjsVM::exec_return() {
 }
 
 void NjsVM::exec_push(int scope, int raw_index) {
-  auto var_scope = scope_type_from_int(scope);
-  if (var_scope != ScopeType::CLOSURE) {
-    JSValue& val = get_value(var_scope, raw_index);
-    sp[0] = val.tag_is(JSValue::HEAP_VAL) ? val.deref() : val;
-  }
-  else {
-    JSValue& val = function_env()->captured_var[raw_index];
-    sp[0] = val.deref();
-  }
+  sp[0] = get_value(scope_type_from_int(scope), raw_index);
   sp += 1;
 }
 
 void NjsVM::exec_pop(int scope, int raw_index) {
-  auto var_scope = scope_type_from_int(scope);
-
   sp -= 1;
-  if (var_scope != ScopeType::CLOSURE) {
-    get_value(var_scope, raw_index).assign(sp[0]);
-  }
-  else {
-    assert(function_env());
-    JSValue& closure_val = function_env()->captured_var[raw_index];
-    closure_val.deref().assign(sp[0]);
-  }
-
+  get_value(scope_type_from_int(scope), raw_index).assign(sp[0]);
   sp[0].set_undefined();
 }
 
 void NjsVM::exec_store(int scope, int raw_index) {
   auto var_scope = scope_type_from_int(scope);
-
-  if (var_scope != ScopeType::CLOSURE) {
-    JSValue& val = get_value(var_scope, raw_index);
-    val.assign(sp[-1]);
-  }
-  else {
-    assert(function_env());
-    JSValue& closure_val = function_env()->captured_var[raw_index];
-    closure_val.deref().assign(sp[-1]);
-  }
+  get_value(var_scope, raw_index).assign(sp[-1]);
 }
 
 void NjsVM::exec_prop_assign() {
@@ -700,9 +668,8 @@ void NjsVM::exec_index_access(bool get_ref) {
         obj = obj.val.as_array->access_element(u32(idx_num), get_ref);
       } else {
         // object property
-        u32 str_idx = index.tag_is(JSValue::STRING)
-                          ? str_pool.add_string(index_str)
-                          : (u32)index.val.as_int64;
+        u32 str_idx = index.tag_is(JSValue::STRING) ? str_pool.add_string(index_str)
+                                                    : (u32)index.val.as_int64;
         obj = obj.val.as_object->get_prop((int64_t)str_idx, get_ref);
       }
     }
@@ -828,11 +795,6 @@ void NjsVM::exec_comparison(InstType type) {
   lhs.set_val(res);
   rhs.set_undefined();
   sp -= 1;
-}
-
-u16string NjsVM::dump_json_object(JSValue val) {
-  u16string res;
-  return res;
 }
 
 }
