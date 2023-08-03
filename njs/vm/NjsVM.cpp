@@ -331,7 +331,7 @@ void NjsVM::exec_compound_assign(InstType type, int scope, int raw_index) {
     return;
   }
   else {
-
+    assert(false);
   }
   sp[0].set_undefined();
 }
@@ -652,10 +652,11 @@ void NjsVM::exec_index_access(bool get_ref) {
   assert(obj.is_object());
 
   invoker_this = obj;
+  u32 num_idx = u32(index.val.as_float64);
 
   if (obj.tag_is(JSValue::ARRAY)) {
     if (index.is_float64()) {
-      obj = obj.val.as_array->access_element(u32(index.val.as_float64), get_ref);
+      obj = obj.val.as_array->access_element(num_idx, get_ref);
     }
     else if (index.tag_is(JSValue::STRING) || index.tag_is(JSValue::JS_ATOM)) {
       auto& index_str = index.tag_is(JSValue::STRING)

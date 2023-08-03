@@ -432,35 +432,53 @@ friend class NjsVM;
   }
 
   void visit_assignment_expr(AssignmentExpr& expr) {
-
+    // a = b
     if (expr.is_simple_assign()) {
       auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
       auto rhs_sym = scope().resolve_symbol(expr.rhs->get_source());
 
-      if (lhs_sym.stack_scope() && rhs_sym.stack_scope()) {
-        emit(InstType::fast_assign, scope_type_int(lhs_sym.scope_type), lhs_sym.get_index(),
-             scope_type_int(rhs_sym.scope_type), rhs_sym.get_index());
-      }
-      else {
-
-      }
+      emit(InstType::fast_assign, scope_type_int(lhs_sym.scope_type), lhs_sym.get_index(),
+           scope_type_int(rhs_sym.scope_type), rhs_sym.get_index());
     }
+    // a = ... or a += ...
     else if (expr.lhs_is_id()) {
       auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
-
+      int lhs_scope = scope_type_int(lhs_sym.scope_type);
+      int lhs_sym_index = (int)lhs_sym.get_index();
+      // a = ...
       if (expr.assign_type == TokenType::ASSIGN) {
         visit(expr.rhs);
-        emit(InstType::pop, scope_type_int(lhs_sym.scope_type), (int)lhs_sym.get_index());
+        emit(InstType::pop, lhs_scope, lhs_sym_index);
       }
+      // a += ...
       else if (expr.assign_type == TokenType::ADD_ASSIGN) {
         if (expr.rhs->as_number_literal() && expr.rhs->as_number_literal()->num_val == 1) {
-          emit(InstType::inc, scope_type_int(lhs_sym.scope_type), (int)lhs_sym.get_index());
+          emit(InstType::inc, lhs_scope, lhs_sym_index);
         } else {
           visit(expr.rhs);
-          emit(InstType::add_assign, scope_type_int(lhs_sym.scope_type), (int)lhs_sym.get_index());
+          emit(InstType::add_assign, lhs_scope, lhs_sym_index);
         }
       }
-      else assert(false);
+      // a -= ...
+      else if (expr.assign_type == TokenType::SUB_ASSIGN) {
+        if (expr.rhs->as_number_literal() && expr.rhs->as_number_literal()->num_val == 1) {
+          emit(InstType::dec, lhs_scope, lhs_sym_index);
+        } else {
+          visit(expr.rhs);
+          emit(InstType::sub_assign, lhs_scope, lhs_sym_index);
+        }
+      }
+      else {
+        visit(expr.rhs);
+        switch (expr.assign_type) {
+          case TokenType::MUL_ASSIGN:
+            emit(InstType::mul_assign, lhs_scope, lhs_sym_index);
+            break;
+          case TokenType::DIV_ASSIGN:
+            emit(InstType::div_assign, lhs_scope, lhs_sym_index);
+            break;
+        }
+      }
       
     }
     else {

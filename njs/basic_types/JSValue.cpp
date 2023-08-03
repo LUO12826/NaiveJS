@@ -15,17 +15,6 @@ GCObject *JSValue::as_GCObject() const {
   return static_cast<GCObject *>(val.as_object);
 }
 
-JSValue& JSValue::deref() const {
-  assert(tag == VALUE_HANDLE || tag == HEAP_VAL);
-  if (tag == VALUE_HANDLE) return *val.as_JSValue;
-  else return val.as_heap_val->wrapped_val;
-}
-
-JSValue& JSValue::deref_if_needed() {
-  if (tag == VALUE_HANDLE) return *val.as_JSValue;
-  else if (tag == HEAP_VAL) return val.as_heap_val->wrapped_val;
-  else return *this;
-}
 
 void JSValue::move_to_heap() {
   auto *heap_val = new JSHeapValue(*this);

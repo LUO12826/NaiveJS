@@ -25,11 +25,23 @@ class JSArray: public JSObject {
   std::string description() override;
   void to_json(u16string& output, NjsVM& vm) const;
 
-  JSValue access_element(u32 index, bool create_ref);
+  inline JSValue access_element(u32 index, bool create_ref);
 
 
   std::vector<JSValue> dense_array;
 };
+
+inline JSValue JSArray::access_element(u32 index, bool create_ref) {
+  if (!create_ref) {
+    if (index < dense_array.size()) return dense_array[index];
+    return JSValue::undefined;
+  }
+  else {
+    if (index < dense_array.size()) return JSValue(&dense_array[index]);
+    dense_array.resize(long(index * 1.2));
+    return JSValue(&dense_array[index]);
+  }
+}
 
 }
 

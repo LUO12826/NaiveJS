@@ -202,8 +202,8 @@ struct JSValue {
     tag = UNDEFINED;
   }
 
-  JSValue& deref() const;
-  JSValue& deref_if_needed();
+  inline JSValue& deref() const;
+  inline JSValue& deref_if_needed();
 
   void move_to_heap();
 
@@ -301,6 +301,18 @@ struct JSHeapValue: public RCObject {
 
   JSValue wrapped_val;
 };
+
+inline JSValue& JSValue::deref() const {
+  assert(tag == VALUE_HANDLE || tag == HEAP_VAL);
+  if (tag == VALUE_HANDLE) return *val.as_JSValue;
+  else return val.as_heap_val->wrapped_val;
+}
+
+inline JSValue& JSValue::deref_if_needed() {
+  if (tag == VALUE_HANDLE) return *val.as_JSValue;
+  else if (tag == HEAP_VAL) return val.as_heap_val->wrapped_val;
+  else return *this;
+}
 
 } // namespace njs
 
