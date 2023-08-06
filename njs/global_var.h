@@ -5,9 +5,9 @@ namespace njs {
 
 class Global {
  public:
-  inline static bool dump_bytecode {false};
+  inline static bool show_codegen_result {true};
   inline static bool show_gc_statistics {false};
-  inline static bool show_vm_end_state {false};
+  inline static bool show_vm_state {false};
   inline static bool show_vm_exec_steps {false};
 };
 

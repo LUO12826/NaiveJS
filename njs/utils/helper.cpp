@@ -2,6 +2,7 @@
 
 #include <codecvt>
 #include <sstream>
+#include <iostream>
 #include <cstdarg>
 #include <cstdlib>
 #include "njs/parser/character.h"
@@ -81,6 +82,13 @@ int print_double_u16string(double val, char16_t *str) {
   *str = 0;
    
   return length;
+}
+
+void print_red_line(const std::string& text) {
+  const std::string RED_COLOR_CODE = "\033[1;31m";
+  const std::string RESET_COLOR_CODE = "\033[0m";
+
+  std::cout << RED_COLOR_CODE << text << RESET_COLOR_CODE << '\n';
 }
 
 bool approximately_equal(double a, double b) {

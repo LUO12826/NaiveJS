@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "njs/codegen/Scope.h"
-#include "njs/codegen/SymbolTable.h"
+#include "njs/codegen/SymbolRecord.h"
 #include "njs/common/enum_strings.h"
 #include "njs/common/enums.h"
 #include "njs/include/SmallVector.h"
@@ -490,7 +490,7 @@ class ProgramOrFunctionBody : public ASTNode {
 
   ~ProgramOrFunctionBody() override {
     for (auto func_decl : func_decls) delete func_decl;
-    for (auto stmt : stmts) delete stmt;
+    for (auto stmt : statements) delete stmt;
   }
 
   void add_function_decl(ASTNode *func) {
@@ -499,12 +499,12 @@ class ProgramOrFunctionBody : public ASTNode {
     add_child(func);
   }
   void add_statement(ASTNode *stmt) {
-    stmts.emplace_back(stmt);
+    statements.emplace_back(stmt);
     add_child(stmt);
   }
 
   bool strict;
-  vector<ASTNode *> stmts;
+  vector<ASTNode *> statements;
   vector<Function *> func_decls;
   unique_ptr<Scope> scope;
 };

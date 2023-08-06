@@ -1,13 +1,13 @@
 #ifndef NJS_SCOPE_H
 #define NJS_SCOPE_H
 
-#include <optional>
-#include <memory>
-#include "SymbolTable.h"
-#include "njs/common/enums.h"
+#include "SymbolRecord.h"
 #include "njs/common/enum_strings.h"
+#include "njs/common/enums.h"
 #include "njs/include/robin_hood.h"
 #include "njs/vm/Instructions.h"
+#include <memory>
+#include <optional>
 
 namespace njs {
 
@@ -21,9 +21,10 @@ using std::unique_ptr;
 using u32 = uint32_t;
 
 class Function;
-
+/*
+ * Additional, on-demand scope-related information.
+ */
 struct ScopeContext {
-  std::vector<Instruction> function_init_code;
   int64_t continue_pos {-1};
   bool can_break {false};
   std::vector<u32> break_list;
@@ -33,13 +34,6 @@ class Scope {
  public:
 
   struct SymbolResolveResult {
-
-    static SymbolResolveResult none;
-
-    SymbolRecord *original_symbol {nullptr};
-    ScopeType storage_scope;
-    ScopeType def_scope;
-    u32 index;
 
     u32 get_index() {
       if (storage_scope == ScopeType::GLOBAL || storage_scope == ScopeType::FUNC) {
@@ -53,6 +47,13 @@ class Scope {
     }
 
     bool not_found() { return original_symbol == nullptr; }
+
+    static SymbolResolveResult none;
+
+    SymbolRecord *original_symbol {nullptr};
+    ScopeType storage_scope;
+    ScopeType def_scope;
+    u32 index;
   };
 
   Scope(): scope_type(ScopeType::GLOBAL) {}
@@ -107,9 +108,9 @@ class Scope {
     assert(var_kind != VarKind::DECL_FUNC_PARAM);
     // var... or function...
     if (var_kind == VarKind::DECL_VAR || var_kind == VarKind::DECL_FUNCTION) {
-      if (scope_type != ScopeType::GLOBAL && scope_type != ScopeType::FUNC) {
-        assert(outer_scope);
-        return outer_scope->define_symbol(var_kind, name);
+      assert(outer_func);
+      if (outer_func != this) {
+        return outer_func->define_symbol(var_kind, name);
       }
     }
 
@@ -203,15 +204,15 @@ class Scope {
     }
   }
 
-  u32 get_next_var_index() {
+  u32 get_next_var_index() const {
     return next_var_index;
   }
 
-  u32 get_var_count() {
+  u32 get_var_count() const {
     return var_count;
   }
 
-  u32 get_param_count() {
+  u32 get_param_count() const {
     return param_count;
   }
 

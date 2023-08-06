@@ -10,6 +10,7 @@
 #include <iostream>
 
 #include "GCObject.h"
+#include "njs/global_var.h"
 #include "njs/basic_types/JSValue.h"
 #include "njs/basic_types/JSObject.h"
 #include "njs/basic_types/JSArray.h"
@@ -29,10 +30,13 @@ class GCHeap {
       : heap_size(size_mb * 1024 * 1024), storage((byte *)malloc(size_mb * 1024 * 1024)),
         from_start(storage), to_start(storage + heap_size / 2), alloc_point(storage),
         vm(vm) {
-    std::cout << "GCHeap init, from_start == " << (size_t)from_start << std::endl;
-    std::cout << "sizeof JSFunction: " << sizeof(JSFunction) << std::endl;
-    std::cout << "sizeof JSObject:  " << sizeof(JSObject) << std::endl;
-    std::cout << "sizeof JSArray:  " << sizeof(JSArray) << std::endl;
+
+    if (Global::show_gc_statistics) {
+      std::cout << "GCHeap init, from_start == " << (size_t)from_start << '\n';
+      std::cout << "sizeof JSFunction: " << sizeof(JSFunction) << '\n';
+      std::cout << "sizeof JSObject:  " << sizeof(JSObject) << '\n';
+      std::cout << "sizeof JSArray:  " << sizeof(JSArray) << '\n';
+    }
   }
 
   /// @brief Create a new object on heap.

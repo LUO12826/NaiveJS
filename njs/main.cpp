@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
   while ((option = getopt(argc, argv, "bgatvf:")) != -1) {
     switch (option) {
     case 'b':
-      Global::dump_bytecode = true;
+      Global::show_codegen_result = true;
       break;
     case 'g':
       Global::show_gc_statistics = true;
@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
       file_path = string(optarg);
       break;
     case '?':
-      std::cerr << "Unknown option: " << static_cast<char>(optopt) << std::endl;
+      std::cerr << "Unknown option: " << static_cast<char>(optopt) << '\n';
       break;
     }
   }
@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
     if (ast->is_illegal()) {
       std::cout << "illegal program at: " << to_utf8_string(ast->get_source())
                 << ", line: " << ast->get_line_start() + 1 << ", start: " << ast->start_pos()
-                << ", end: " << ast->end_pos() << std::endl;
+                << ", end: " << ast->end_pos() << '\n';
       return 1;
     }
 

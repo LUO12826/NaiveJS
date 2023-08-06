@@ -47,19 +47,29 @@ void NjsVM::add_builtin_object(const u16string& name,
 }
 
 void NjsVM::run() {
-  std::cout << "### VM starts execution, state: " << std::endl;
-  std::cout << "Stack top value: " << sp[-1].description() << std::endl;
-  std::cout << "sp: " << sp - rt_stack.data() << std::endl;
-  std::cout << "---------------------------------------------------" << std::endl;
+
+  auto start_sp = sp - rt_stack.data();
+  if (Global::show_vm_state) {
+    std::cout << "### VM starts execution, state:\n";
+    std::cout << "Stack top value: " << sp[-1].description() << '\n';
+    std::cout << "sp: " << start_sp << '\n';
+    std::cout << "---------------------------------------------------\n";
+  }
 
   execute();
   runloop.loop();
 
-  std::cout << "### end of execution VM state: " << std::endl;
-  std::cout << "Stack top value: " << sp[-1].description() << std::endl;
-  std::cout << "sp: " << sp - rt_stack.data() << std::endl;
-  std::cout << "---------------------------------------------------" << std::endl;
+  auto end_sp = sp - rt_stack.data();
+  if (Global::show_vm_state) {
+    std::cout << "### end of execution VM state:\n";
+    std::cout << "Stack top value: " << sp[-1].description() << '\n';
+    std::cout << "sp: " << end_sp << '\n';
+    std::cout << "---------------------------------------------------\n";
+  }
 
+  if (start_sp != end_sp) {
+    print_red_line("err: start sp != end_sp");
+  }
 
 //  if (!log_buffer.empty()) {
 //    std::cout << "------------------------------" << std::endl << "log:" << std::endl;
@@ -262,23 +272,23 @@ void NjsVM::execute_task(JSTask& task) {
   execute();
 }
 
-JSValue& NjsVM::get_value(ScopeType scope, int raw_index) {
+JSValue& NjsVM::get_value(ScopeType scope, int index) {
   if (scope == ScopeType::FUNC) {
-    JSValue &val = frame_base_ptr[raw_index];
+    JSValue &val = frame_base_ptr[index];
     return val.tag != JSValue::HEAP_VAL ? val : val.deref();
   }
   if (scope == ScopeType::FUNC_PARAM) {
     assert(frame_base_ptr[1].tag == JSValue::STACK_FRAME_META2);
-    JSValue &val = frame_base_ptr[raw_index - (int)func_arg_count];
+    JSValue &val = frame_base_ptr[index - (int)func_arg_count];
     return val.tag != JSValue::HEAP_VAL ? val : val.deref();
   }
   if (scope == ScopeType::GLOBAL) {
-    JSValue &val = rt_stack_data_begin[raw_index];
+    JSValue &val = rt_stack_data_begin[index];
     return val.tag != JSValue::HEAP_VAL ? val : val.deref();
   }
   if (scope == ScopeType::CLOSURE) {
     assert(function_env());
-    return function_env()->captured_var[raw_index].deref();
+    return function_env()->captured_var[index].deref();
   }
   __builtin_unreachable();
 }
@@ -305,8 +315,8 @@ void NjsVM::exec_add() {
   sp[0].set_undefined();
 }
 
-void NjsVM::exec_add_assign(int scope, int raw_index) {
-  JSValue& value = get_value(scope_type_from_int(scope), raw_index);
+void NjsVM::exec_add_assign(int scope, int index) {
+  JSValue& value = get_value(scope_type_from_int(scope), index);
   sp -= 1;
   if (value.is_float64() && sp[0].is_float64()) {
     value.val.as_float64 += sp[0].val.as_float64;
@@ -321,8 +331,8 @@ void NjsVM::exec_add_assign(int scope, int raw_index) {
   sp[0].set_undefined();
 }
 
-void NjsVM::exec_compound_assign(InstType type, int scope, int raw_index) {
-  JSValue& value = get_value(scope_type_from_int(scope), raw_index);
+void NjsVM::exec_compound_assign(InstType type, int scope, int index) {
+  JSValue& value = get_value(scope_type_from_int(scope), index);
   sp -= 1;
   // fast path
   if (value.is_float64() && sp[0].is_float64()) {
@@ -340,8 +350,8 @@ void NjsVM::exec_compound_assign(InstType type, int scope, int raw_index) {
   sp[0].set_undefined();
 }
 
-void NjsVM::exec_inc_or_dec(int scope, int raw_index, int inc) {
-  JSValue& value = get_value(scope_type_from_int(scope), raw_index);
+void NjsVM::exec_inc_or_dec(int scope, int index, int inc) {
+  JSValue& value = get_value(scope_type_from_int(scope), index);
   assert(value.is_float64());
   value.val.as_float64 += inc;
 }
@@ -425,20 +435,20 @@ void NjsVM::exec_return() {
   func_arg_count = frame_base_ptr[1].flag_bits;
 }
 
-void NjsVM::exec_push(int scope, int raw_index) {
-  sp[0] = get_value(scope_type_from_int(scope), raw_index);
+void NjsVM::exec_push(int scope, int index) {
+  sp[0] = get_value(scope_type_from_int(scope), index);
   sp += 1;
 }
 
-void NjsVM::exec_pop(int scope, int raw_index) {
+void NjsVM::exec_pop(int scope, int index) {
   sp -= 1;
-  get_value(scope_type_from_int(scope), raw_index).assign(sp[0]);
+  get_value(scope_type_from_int(scope), index).assign(sp[0]);
   sp[0].set_undefined();
 }
 
-void NjsVM::exec_store(int scope, int raw_index) {
+void NjsVM::exec_store(int scope, int index) {
   auto var_scope = scope_type_from_int(scope);
-  get_value(var_scope, raw_index).assign(sp[-1]);
+  get_value(var_scope, index).assign(sp[-1]);
 }
 
 void NjsVM::exec_prop_assign() {
@@ -470,7 +480,7 @@ void NjsVM::exec_make_func(int meta_idx) {
   sp += 1;
 }
 
-void NjsVM::exec_capture(int scope, int raw_index) {
+void NjsVM::exec_capture(int scope, int index) {
   auto var_scope = scope_type_from_int(scope);
 
   assert(sp[-1].tag_is(JSValue::FUNCTION));
@@ -480,18 +490,18 @@ void NjsVM::exec_capture(int scope, int raw_index) {
   if (var_scope == ScopeType::CLOSURE) {
     JSFunction *env_func = function_env();
     assert(env_func);
-    JSValue& closure_val = env_func->captured_var[raw_index];
+    JSValue& closure_val = env_func->captured_var[index];
     closure_val.val.as_heap_val->retain();
     func.captured_var.push_back(closure_val);
   }
   else {
     JSValue* stack_val;
     if (var_scope == ScopeType::FUNC) {
-      stack_val = frame_base_ptr + raw_index;
+      stack_val = frame_base_ptr + index;
     } else if (var_scope == ScopeType::FUNC_PARAM) {
-      stack_val = frame_base_ptr + raw_index - (int)func_arg_count;
+      stack_val = frame_base_ptr + index - (int)func_arg_count;
     } else if (var_scope == ScopeType::GLOBAL) {
-      stack_val = rt_stack_data_begin + raw_index;
+      stack_val = rt_stack_data_begin + index;
     } else {
       assert(false);
     }
@@ -651,7 +661,7 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
   invoker_this = val_obj;
   if (Global::show_vm_exec_steps) {
     std::cout << "...visit key " << to_utf8_string(str_pool.get_string_list()[sp[-1].val.as_int64])
-              << std::endl;
+              << '\n';
   }
   val_obj = val_obj.val.as_object->get_prop(sp[-1].val.as_int64, get_ref);
   sp[-1].set_undefined();

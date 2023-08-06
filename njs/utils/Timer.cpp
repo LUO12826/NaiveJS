@@ -14,7 +14,7 @@ long long Timer::end(bool print_res) {
 
   if (print_res) {
     std::cout << "\033[33m"; // yellow text
-    std::cout << "Timer: \"" << name << "\" in " << duration.count() << " microseconds." << std::endl;
+    std::cout << "Timer: \"" << name << "\" in " << duration.count() << " microseconds.\n";
     std::cout << "\033[0m";  // restore normal color
   }
   return duration.count();

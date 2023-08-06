@@ -92,7 +92,7 @@ JSValue InternalFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> 
       task->args.emplace_back(new PrimitiveString(to_utf16_string(res->body)));
     } else {
       auto err = res.error();
-      std::cout << "HTTP error: " << httplib::to_string(err) << std::endl;
+      std::cout << "HTTP error: " << httplib::to_string(err) << '\n';
     }
 
     vm.runloop.post_task(task);

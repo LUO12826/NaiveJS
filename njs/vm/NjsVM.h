@@ -43,15 +43,15 @@ friend class InternalFunctions;
   void execute();
   void execute_task(JSTask& task);
   // push
-  void exec_push(int scope, int raw_index);
+  void exec_push(int scope, int index);
   void exec_push_str(int str_idx, bool atom);
   void exec_push_this();
   // pop or store
-  void exec_pop(int scope, int raw_index);
-  void exec_store(int scope, int raw_index);
+  void exec_pop(int scope, int index);
+  void exec_store(int scope, int index);
   // function operation
   void exec_make_func(int meta_idx);
-  void exec_capture(int scope, int raw_index);
+  void exec_capture(int scope, int index);
   void exec_call(int arg_count, bool has_this_object);
   void exec_return();
   // object operation
@@ -74,13 +74,13 @@ friend class InternalFunctions;
   void exec_logi(InstType op_type);
   void exec_strict_equality(bool flip);
 
-  void exec_add_assign(int scope, int raw_index);
-  void exec_inc_or_dec(int scope, int raw_index, int inc);
+  void exec_add_assign(int scope, int index);
+  void exec_inc_or_dec(int scope, int index, int inc);
 
   void exec_var_dispose(int scope, int index);
 
   JSFunction *function_env();
-  JSValue& get_value(ScopeType scope, int raw_index);
+  JSValue& get_value(ScopeType scope, int index);
   bool are_strings_equal(const JSValue& lhs, const JSValue& rhs);
   double to_numeric_value(JSValue& val);
 

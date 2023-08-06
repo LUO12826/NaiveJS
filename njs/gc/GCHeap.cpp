@@ -11,7 +11,7 @@ void GCHeap::gc() {
   Timer timer("gc");
   if (Global::show_gc_statistics) {
     std::cout << "\033[33m";
-    std::cout << "****************** gc starts ******************" << std::endl;
+    std::cout << "****************** gc starts ******************\n";
   }
   byte *start = from_start;
   byte *end = alloc_point;
@@ -19,7 +19,7 @@ void GCHeap::gc() {
   dealloc_dead(start, end);
 
   if (Global::show_gc_statistics) {
-    std::cout << "******************  gc ends  ******************" << std::endl;
+    std::cout << "******************  gc ends  ******************\n";
     std::cout << "\033[0m";
     timer.end(true);
   }

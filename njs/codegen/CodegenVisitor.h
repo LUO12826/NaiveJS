@@ -47,36 +47,35 @@ friend class NjsVM;
     optimize();
     timer.end();
 
-    std::cout << "================ codegen result ================" << std::endl << std::endl;
+    if (!Global::show_codegen_result) return;
+    std::cout << "================ codegen result ================\n\n";
 
-    std::cout << ">>> instructions:" << std::endl;
-    int i = 0;
-    for (auto& inst : bytecode) {
-      std::cout << std::setw(6) << std::left << i << inst.description() << std::endl;
-      i += 1;
+    std::cout << ">>> instructions:\n";
+    for (int i = 0; i < bytecode.size(); i++) {
+      std::cout << std::setw(6) << std::left << i << bytecode[i].description() << '\n';
     }
-    std::cout << std::endl;
+    std::cout << '\n';
 
     std::vector<u16string>& str_list = str_pool.get_string_list();
 
-    std::cout << ">>> string pool:" << std::endl;
+    std::cout << ">>> string pool:\n";
     for (auto& str : str_list) {
-      std::cout << to_utf8_string(str) << std::endl;
+      std::cout << to_utf8_string(str) << '\n';
     }
-    std::cout << std::endl;
+    std::cout << '\n';
 
-    std::cout << ">>> number pool:" << std::endl;
+    std::cout << ">>> number pool:\n";
     for (auto num : num_list) {
-      std::cout << num << std::endl;
+      std::cout << num << '\n';
     }
-    std::cout << std::endl;
+    std::cout << '\n';
 
-    std::cout << ">>> function metadata:" << std::endl;
+    std::cout << ">>> function metadata:\n";
     for (auto& meta : func_meta) {
-      std::cout << meta.description() << std::endl;
+      std::cout << meta.description() << '\n';
     }
-    std::cout << std::endl;
-    std::cout << "============== end codegen result ==============" << std::endl << std::endl;
+    std::cout << '\n';
+    std::cout << "============== end codegen result ==============\n\n";
   }
 
   void optimize() {
@@ -224,7 +223,7 @@ friend class NjsVM;
   void visit_program_or_function_body(ProgramOrFunctionBody& program) {
 
     // First, allocate space for the variables in this scope
-    for (ASTNode *node : program.stmts) {
+    for (ASTNode *node : program.statements) {
       if (node->type != ASTNode::AST_STMT_VAR) continue;
 
       auto& var_stmt = *static_cast<VarStatement *>(node);
@@ -257,17 +256,10 @@ friend class NjsVM;
       // End filling function symbol initialization code
     }
 
+    // if this is the global environment (program), initialize the builtin functions.
+    if (program.type == ASTNode::AST_PROGRAM) add_builtin_functions();
 
-    // Now this is only for the builtin functions.
-    // Fill the function symbol initialization code to the very beginning
-    // (because the function variable will be hoisted)
-    for (auto& inst : scope().get_context().function_init_code) {
-      bytecode.push_back(inst);
-    }
-    scope().get_context().function_init_code.clear();
-
-
-    for (ASTNode *node : program.stmts) {
+    for (ASTNode *node : program.statements) {
       visit(node);
       if (node->type > ASTNode::BEGIN_EXPR && node->type < ASTNode::END_EXPR
           && node->type != ASTNode::AST_EXPR_ASSIGN) {
@@ -275,8 +267,9 @@ friend class NjsVM;
       }
     }
 
-    if (program.type == ASTNode::AST_PROGRAM) emit(InstType::halt);
-    else {
+    if (program.type == ASTNode::AST_PROGRAM) {
+      emit(InstType::halt);
+    } else { // function body
       if (bytecode[bytecode_pos() - 1].op_type != InstType::ret) {
         emit(InstType::push_undef);
         emit(InstType::ret);
@@ -802,7 +795,6 @@ friend class NjsVM;
 
   void add_builtin_functions() {
     assert(scope().get_scope_type() == ScopeType::GLOBAL);
-    auto& func_init_code = scope().get_context().function_init_code;
 
     for (auto& [name, record] : scope().get_symbol_table()) {
       if (record.is_builtin && record.var_kind == VarKind::DECL_FUNCTION) {
@@ -813,8 +805,8 @@ friend class NjsVM;
             .local_var_count = 0,
             .native_func = nullptr,
         });
-        func_init_code.emplace_back(InstType::make_func, int(meta_idx));
-        func_init_code.emplace_back(InstType::pop, scope_type_int(ScopeType::GLOBAL), (int)record.offset_idx());
+        emit(InstType::make_func, int(meta_idx));
+        emit(InstType::pop, scope_type_int(ScopeType::GLOBAL), (int)record.offset_idx());
       }
     }
   }

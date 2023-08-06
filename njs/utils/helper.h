@@ -26,6 +26,8 @@ std::u16string str_cat(const std::vector<u16string>& vals);
 
 int print_double_u16string(double val, char16_t *str);
 
+void print_red_line(const std::string& text);
+
 // From Knuth https://stackoverflow.com/a/253874/5163915
 static constexpr double kEpsilon = 1e-15;
 bool approximately_equal(double a, double b);

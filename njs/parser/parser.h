@@ -4,13 +4,13 @@
 #include <stack>
 #include <iostream>
 
-#include "njs/common/enums.h"
+#include "njs/codegen/SymbolRecord.h"
 #include "njs/common/common_types.h"
+#include "njs/common/enums.h"
 #include "njs/include/SmallVector.h"
-#include "njs/parser/lexer.h"
 #include "njs/parser/ast.h"
+#include "njs/parser/lexer.h"
 #include "njs/utils/helper.h"
-#include "njs/codegen/SymbolTable.h"
 
 #define START_POS u32 start = lexer.current().start, line_start = lexer.current().line
 #define RENEW_START start = lexer.current().start; line_start = lexer.current().line
@@ -1335,8 +1335,7 @@ error:
     scope_chain.emplace_back(std::make_unique<Scope>(scope_type, parent));
 
 #ifdef DBG_SCOPE
-    std::cout << ">>>> push scope: " << scope().get_scope_type_name() << std::endl;
-    std::cout << std::endl;
+    std::cout << ">>>> push scope: " << scope().get_scope_type_name() << "\n\n";
 #endif
   }
 
@@ -1345,10 +1344,10 @@ error:
     unique_ptr<Scope> scope = std::move(scope_chain.back());
     scope_chain.pop_back();
 #ifdef DBG_SCOPE
-    std::cout << "<<<< pop scope: " << scope->get_scope_type_name() << std::endl;
+    std::cout << "<<<< pop scope: " << scope->get_scope_type_name() << '\n';
     std::cout << "  params count: " << scope->get_param_count()
-              << ", local variables count (accumulated): " << scope->get_var_count() << std::endl;
-    std::cout << "  local variables in this scope: " << std::endl;
+              << ", local variables count (accumulated): " << scope->get_var_count() << '\n';
+    std::cout << "  local variables in this scope:\n";
 
     vector<SymbolRecord*> sym_records(scope->get_symbol_table().size() - scope->get_param_count());
 
@@ -1361,7 +1360,7 @@ error:
       printf("   index:%3d  %18s  %s\n", rec->index, get_var_kind_str(rec->var_kind).c_str(),
                                                       to_utf8_string(rec->name).c_str());
     }
-    std::cout << std::endl;
+    std::cout << '\n';
 #endif
     if (scope->get_outer_func()) {
       scope->get_outer_func()->update_var_count(scope->get_next_var_index());
