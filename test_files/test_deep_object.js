@@ -11,8 +11,8 @@ let obj = {
     }
 }
 
-while (a < 2000) {
+while (a < 3) {
     let str = obj.key.key.key.key
-    // console.log()
+    console.log(str)
     a = a + 1
 }

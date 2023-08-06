@@ -8,4 +8,4 @@ function fibonacci(n) {
     }
 }
 
-console.log(fibonacci(36));
+console.log(fibonacci(20));

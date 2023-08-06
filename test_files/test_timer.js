@@ -1,6 +1,6 @@
 setTimeout(() => {
     console.log("hello timeout")
-}, 1000)
+}, 500)
 
 let id1 = setTimeout(() => {
     console.log("this will be canceled")
@@ -14,4 +14,4 @@ let id2 = setInterval(() => {
     counter += 1
     console.log("this will be canceled after 5 times")
     if (counter === 5) clearInterval(id2)
-}, 2000)
+}, 200)
