@@ -294,8 +294,8 @@ struct JSValue {
 };
 
 struct JSHeapValue: public RCObject {
-  JSHeapValue(JSValue val): wrapped_val(val) {}
-  ~JSHeapValue() {
+  explicit JSHeapValue(JSValue val): wrapped_val(val) {}
+  ~JSHeapValue() override {
     wrapped_val.dispose();
   }
 

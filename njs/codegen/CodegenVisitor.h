@@ -197,7 +197,7 @@ friend class NjsVM;
         visit_variable_statement(*static_cast<VarStatement *>(node));
         break;
       case ASTNode::AST_STMT_VAR_DECL:
-        visit_variable_declaration(*static_cast<VarDecl *>(node));
+        assert(false);
         break;
       case ASTNode::AST_STMT_RETURN:
         visit_return_statement(*static_cast<ReturnStatement *>(node));
@@ -223,15 +223,42 @@ friend class NjsVM;
 
   void visit_program_or_function_body(ProgramOrFunctionBody& program) {
 
-    u32 jmp_inst_idx = emit(InstType::jmp);
+    // First, allocate space for the variables in this scope
+    for (ASTNode *node : program.stmts) {
+      if (node->type != ASTNode::AST_STMT_VAR) continue;
 
-    // generate bytecode for functions first, then record its function meta index in the map.
-    for (auto& [func, init_code] : scope().get_inner_func_init_code()) {
-      gen_func_bytecode(*func, init_code);
+      auto& var_stmt = *static_cast<VarStatement *>(node);
+      for (VarDecl *decl : var_stmt.declarations) {
+        if (var_stmt.kind == VarKind::DECL_LET || var_stmt.kind == VarKind::DECL_CONST) {
+          bool res = scope().define_symbol(var_stmt.kind, decl->id.text);
+          if (!res) std::cout << "!!!!define symbol " << decl->id.get_text_utf8() << " failed" << std::endl;
+        }
+      }
     }
-    // skip function bytecode
-    bytecode[jmp_inst_idx].operand.two.opr1 = bytecode_pos();
 
+    // begin codegen for inner functions
+    if (!scope().get_inner_func_init_code().empty()) {
+      u32 jmp_inst_idx = emit(InstType::jmp);
+
+      // generate bytecode for functions first, then record its function meta index in the map.
+      for (auto& [func, init_code] : scope().get_inner_func_init_code()) {
+        gen_func_bytecode(*func, init_code);
+      }
+      // skip function bytecode
+      bytecode[jmp_inst_idx].operand.two.opr1 = bytecode_pos();
+
+      for (ASTNode *node : program.func_decls) {
+        auto *func = static_cast<Function *>(node);
+        visit_function(*func);
+        auto symbol = scope().resolve_symbol(func->name.text);
+        assert(!symbol.not_found());
+        emit(InstType::pop, scope_type_int(symbol.storage_scope), symbol.get_index());
+      }
+      // End filling function symbol initialization code
+    }
+
+
+    // Now this is only for the builtin functions.
     // Fill the function symbol initialization code to the very beginning
     // (because the function variable will be hoisted)
     for (auto& inst : scope().get_context().function_init_code) {
@@ -239,13 +266,6 @@ friend class NjsVM;
     }
     scope().get_context().function_init_code.clear();
 
-    for (ASTNode *node : program.func_decls) {
-      auto *func = static_cast<Function *>(node);
-      visit_function(*func);
-      auto symbol = scope().resolve_symbol(func->name.text);
-      emit(InstType::pop, scope_type_int(symbol.scope_type), symbol.get_index());
-    }
-    // End filling function symbol initialization code
 
     for (ASTNode *node : program.stmts) {
       visit(node);
@@ -267,23 +287,24 @@ friend class NjsVM;
   void gen_func_bytecode(Function& func, SmallVector<Instruction, 5>& init_code) {
 
     ProgramOrFunctionBody *body = func.body->as_func_body();
+    u32 func_start_pos = bytecode_pos();
+    push_scope(std::move(body->scope));
+
+    // generate bytecode for function body
+    visit_program_or_function_body(*body);
+
+    // Only after visiting the body do we know which variables are captured
+    auto capture_list = std::move(scope().get_capture_list());
 
     // create metadata for function
     u32 func_idx = add_function_meta( JSFunctionMeta {
         .name_index = func.has_name() ? add_const(func.name.text) : 0,
         .is_anonymous = !func.has_name() || func.is_arrow_func,
         .is_arrow_func = func.is_arrow_func,
-        .param_count = (u16)func.params.size(),
-        .local_var_count = (u16)body->scope->get_var_count(),
-        .code_address = bytecode_pos(),
+        .param_count = (u16)scope().get_param_count(),
+        .local_var_count = (u16)scope().get_var_count(),
+        .code_address = func_start_pos,
     });
-
-    push_scope(std::move(body->scope));
-    // generate bytecode for function body
-    // Only after visiting the body do we know which variables are captured
-    visit_program_or_function_body(*body);
-    auto capture_list = std::move(scope().get_capture_list());
-
     // The rest of the work is done in the scope of the outer function, so pop scope here.
     pop_scope();
 
@@ -292,7 +313,7 @@ friend class NjsVM;
 
     // capture closure variables
     for (auto symbol : capture_list) {
-      init_code.emplace_back(InstType::capture, scope_type_int(symbol.scope_type),
+      init_code.emplace_back(InstType::capture, scope_type_int(symbol.storage_scope),
                                                 symbol.get_index());
     }
   }
@@ -337,8 +358,8 @@ friend class NjsVM;
       auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
       auto rhs_sym = scope().resolve_symbol(expr.rhs->get_source());
 
-      emit(InstType::fast_add, scope_type_int(lhs_sym.scope_type), lhs_sym.get_index(),
-           scope_type_int(rhs_sym.scope_type), rhs_sym.get_index());
+      emit(InstType::fast_add, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index(),
+           scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
       return;
     }
 
@@ -437,13 +458,13 @@ friend class NjsVM;
       auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
       auto rhs_sym = scope().resolve_symbol(expr.rhs->get_source());
 
-      emit(InstType::fast_assign, scope_type_int(lhs_sym.scope_type), lhs_sym.get_index(),
-           scope_type_int(rhs_sym.scope_type), rhs_sym.get_index());
+      emit(InstType::fast_assign, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index(),
+           scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
     }
     // a = ... or a += ...
     else if (expr.lhs_is_id()) {
       auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
-      int lhs_scope = scope_type_int(lhs_sym.scope_type);
+      int lhs_scope = scope_type_int(lhs_sym.storage_scope);
       int lhs_sym_index = (int)lhs_sym.get_index();
       // a = ...
       if (expr.assign_type == TokenType::ASSIGN) {
@@ -562,7 +583,7 @@ friend class NjsVM;
   void visit_identifier(ASTNode& id) {
     auto symbol = scope().resolve_symbol(id.get_source());
     assert(!symbol.not_found());
-    emit(InstType::push, scope_type_int(symbol.scope_type), symbol.get_index());
+    emit(InstType::push, scope_type_int(symbol.storage_scope), symbol.get_index());
   }
 
   void visit_func_arguments(Arguments& args) {
@@ -667,12 +688,60 @@ friend class NjsVM;
   void visit_block_statement(Block& block) {
     push_scope(std::move(block.scope));
 
+    // First, allocate space for the variables in this scope
+    for (ASTNode *node : block.statements) {
+        if (node->type != ASTNode::AST_STMT_VAR) continue;
+
+        auto& var_stmt = *static_cast<VarStatement *>(node);
+        for (VarDecl *decl : var_stmt.declarations) {
+          if (var_stmt.kind == VarKind::DECL_LET || var_stmt.kind == VarKind::DECL_CONST) {
+            bool res = scope().define_symbol(var_stmt.kind, decl->id.text);
+            if (!res) std::cout << "!!!!define symbol " << decl->id.get_text_utf8() << " failed" << std::endl;
+          }
+        }
+    }
+
+    // begin codegen for inner functions
+    if (!scope().get_inner_func_init_code().empty()) {
+      u32 jmp_inst_idx = emit(InstType::jmp);
+
+      // generate bytecode for functions first, then record its function meta index in the map.
+      for (auto& [func, init_code] : scope().get_inner_func_init_code()) {
+        gen_func_bytecode(*func, init_code);
+      }
+      // skip function bytecode
+      bytecode[jmp_inst_idx].operand.two.opr1 = bytecode_pos();
+
+      for (ASTNode *node : block.statements) {
+        if (node->type != ASTNode::AST_FUNC) continue;
+
+        auto *func = static_cast<Function *>(node);
+        visit_function(*func);
+        auto symbol = scope().resolve_symbol(func->name.text);
+        assert(!symbol.not_found());
+        emit(InstType::pop, scope_type_int(symbol.storage_scope), symbol.get_index());
+      }
+      // End filling function symbol initialization code
+    }
+
     for (auto *stmt : block.statements) {
       visit(stmt);
       if (stmt->type > ASTNode::BEGIN_EXPR && stmt->type < ASTNode::END_EXPR
           && stmt->type != ASTNode::AST_EXPR_ASSIGN) {
         emit(InstType::pop_drop);
       }
+    }
+
+    // dispose the scope variables after leaving the block scope
+    auto& sym_table = scope().get_symbol_table();
+    for (auto& [name, sym_rec] : sym_table) {
+      if (sym_rec.var_kind == VarKind::DECL_VAR
+          || sym_rec.var_kind == VarKind::DECL_FUNC_PARAM
+          || sym_rec.var_kind == VarKind::DECL_FUNCTION) {
+        assert(false);
+      }
+      auto scope_type = scope().get_outer_func()->get_scope_type();
+      emit(InstType::var_dispose, scope_type_int(scope_type), sym_rec.offset_idx());
     }
     pop_scope();
   }
@@ -681,11 +750,6 @@ friend class NjsVM;
   /// Get current scope.
   Scope& scope() { return *scope_chain.back(); }
 
-  void push_scope(ScopeType scope_type) {
-    Scope *outer = !scope_chain.empty() ? scope_chain.back().get() : nullptr;
-    scope_chain.emplace_back(std::make_unique<Scope>(scope_type, outer));
-  }
-
   void push_scope(unique_ptr<Scope> scope) {
     Scope *outer = !scope_chain.empty() ? scope_chain.back().get() : nullptr;
     scope->set_outer(outer);
@@ -693,7 +757,11 @@ friend class NjsVM;
   }
 
   void pop_scope() {
+    unique_ptr<Scope> scope = std::move(scope_chain.back());
     scope_chain.pop_back();
+    if (scope->get_outer_func()) {
+      scope->get_outer_func()->update_var_count(scope->get_next_var_index());
+    }
   }
 
   template <typename... Args>

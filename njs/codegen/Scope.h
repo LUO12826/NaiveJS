@@ -37,18 +37,19 @@ class Scope {
     static SymbolResolveResult none;
 
     SymbolRecord *original_symbol {nullptr};
-    ScopeType scope_type;
+    ScopeType storage_scope;
+    ScopeType def_scope;
     u32 index;
 
     u32 get_index() {
-      if (scope_type == ScopeType::GLOBAL || scope_type == ScopeType::FUNC) {
+      if (storage_scope == ScopeType::GLOBAL || storage_scope == ScopeType::FUNC) {
         return index + 2;
       }
       return index;
     }
 
     bool stack_scope() {
-      return scope_type != ScopeType::CLOSURE && scope_type != ScopeType::BLOCK;
+      return storage_scope != ScopeType::CLOSURE && storage_scope != ScopeType::BLOCK;
     }
 
     bool not_found() { return original_symbol == nullptr; }
@@ -138,13 +139,15 @@ class Scope {
   }
 
   void register_function(Function *func) {
-    outer_func->inner_func_init_code.emplace(func, SmallVector<Instruction, 5>());
+    inner_func_init_code.emplace(func, SmallVector<Instruction, 5>());
   }
 
   void set_outer(Scope *outer) {
     this->outer_scope = outer;
     if (scope_type == ScopeType::BLOCK) {
       assert(outer);
+      next_var_index = outer->next_var_index;
+      update_var_count(next_var_index);
     }
     if (scope_type == ScopeType::FUNC || scope_type == ScopeType::GLOBAL) {
       outer_func = this;
@@ -208,6 +211,10 @@ class Scope {
     return var_count;
   }
 
+  u32 get_param_count() {
+    return param_count;
+  }
+
   void update_var_count(u32 count) {
     var_count = std::max(count, var_count);
   }
@@ -223,7 +230,8 @@ class Scope {
 
       return SymbolResolveResult{
           .original_symbol = &rec,
-          .scope_type = get_storage_scope(rec.var_kind),
+          .storage_scope = get_storage_scope(rec.var_kind),
+          .def_scope = this->scope_type,
           .index = rec.index,
       };
     }
@@ -234,7 +242,8 @@ class Scope {
 
         return SymbolResolveResult{
             .original_symbol = capture_list[i].original_symbol,
-            .scope_type = ScopeType::CLOSURE,
+            .storage_scope = ScopeType::CLOSURE,
+            .def_scope = ScopeType::CLOSURE,
             .index = u32(i),
         };
       }
@@ -255,12 +264,15 @@ class Scope {
       if (!res.original_symbol) return SymbolResolveResult::none;
 
       // global variables are always available. We don't need to capture them.
-      if (res.scope_type == ScopeType::GLOBAL) return res;
+      if (res.storage_scope == ScopeType::GLOBAL && res.def_scope == ScopeType::GLOBAL) {
+        return res;
+      }
 
       capture_list.push_back(res);
       return SymbolResolveResult{
           .original_symbol = res.original_symbol,
-          .scope_type = ScopeType::CLOSURE,
+          .storage_scope = ScopeType::CLOSURE,
+          .def_scope = res.def_scope,
           .index = (u32)capture_list.size() - 1
       };
     }

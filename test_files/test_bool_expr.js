@@ -32,6 +32,7 @@ const expr16 = !((false && !(true || false)) || (true && (false || true)));
 const expr17 = (true || (false && true) && !(true || (false && true))) && !(true && false);
 
 
-
-// log(expr1, expr2, expr3, expr4, expr5, expr6, expr7, expr12, expr13, expr14, expr15, expr16, expr17)
-console.log(expr1, expr2, expr3, expr4, expr5, expr6, expr7, expr12, expr13, expr14, expr15, expr16, expr17)
+// these are true
+console.log(expr1, expr2, expr4, expr5, expr6, expr7, expr12, expr14, expr15, expr17)
+// these are false
+console.log(expr3, expr13, expr16)

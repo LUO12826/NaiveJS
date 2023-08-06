@@ -41,6 +41,7 @@ enum class InstType {
   pop_drop,
   store,
   prop_assign,
+  var_dispose,
 
   jmp,
   jmp_true,

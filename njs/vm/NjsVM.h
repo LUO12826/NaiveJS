@@ -60,6 +60,7 @@ friend class InternalFunctions;
   void exec_keypath_access(int key_cnt, bool get_ref);
   void exec_index_access(bool get_ref);
   void exec_prop_assign();
+  void exec_compound_assign(InstType type, int opr1, int opr2);
   // array operation
   void exec_make_array(int length);
   void exec_add_elements(int elements_cnt);
@@ -75,6 +76,8 @@ friend class InternalFunctions;
 
   void exec_add_assign(int scope, int raw_index);
   void exec_inc_or_dec(int scope, int raw_index, int inc);
+
+  void exec_var_dispose(int scope, int index);
 
   JSFunction *function_env();
   JSValue& get_value(ScopeType scope, int raw_index);
@@ -110,7 +113,6 @@ friend class InternalFunctions;
   unordered_flat_map<u16string, NativeFuncType> native_func_binding;
 
   std::vector<std::string> log_buffer;
-  void exec_compound_assign(InstType type, int opr1, int opr2);
 };
 
 } // namespace njs

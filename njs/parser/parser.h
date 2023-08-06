@@ -123,7 +123,7 @@ error:
     return true;
   }
 
-  ASTNode* parse_function(bool name_required, bool func_keyword_required) {
+  ASTNode* parse_function(bool name_required, bool func_keyword_required, bool is_stmt) {
     START_POS;
     if (func_keyword_required) {
       assert(token_match(u"function"));
@@ -140,8 +140,10 @@ error:
 
     if (lexer.current().is_identifier()) {
       name = lexer.current();
-      bool res = scope().define_symbol(VarKind::DECL_FUNCTION, name.text);
-      if (!res) std::cout << "!!!!define original_symbol " << name.get_text_utf8() << " failed" << std::endl;
+      if (is_stmt) {
+        bool res = scope().define_symbol(VarKind::DECL_FUNCTION, name.text);
+        if (!res) std::cout << "!!!!define symbol " << name.get_text_utf8() << " failed" << std::endl;
+      }
       lexer.next();
     }
     else if (name_required) {
@@ -221,7 +223,7 @@ error:
         }
         // ES6+ simplified function syntax
         else if (lexer.peek().type == TokenType::LEFT_PAREN) {
-          ASTNode* func = parse_function(/*name_required*/true, /*func_keyword_required*/ false);
+          ASTNode* func = parse_function(/*name_required*/true, /*func_keyword_required*/ false, false);
           if (func->is_illegal()) {
             delete obj;
             return func;
@@ -239,7 +241,7 @@ error:
           // get prop() { ... }
           // get() { ... }
           ASTNode* get_set_func = parse_function(/*name_required*/false,
-                                                 /*func_keyword_required*/ false);
+                                                 /*func_keyword_required*/ false, false);
           if (get_set_func->is_illegal()) {
             delete obj;
             return get_set_func;
@@ -500,7 +502,7 @@ error:
     }
 
     if (base == nullptr && token.text == u"function") {
-      base = parse_function(false, true);
+      base = parse_function(false, true, false);
     }
     else if (base == nullptr) {
       base = parse_primary_expression();
@@ -646,11 +648,8 @@ error:
       lexer.next();
     }
     assert(token_match(ending_token_type));
-    
-    #ifndef DBG_SCOPE
-    prog->scope = pop_scope();
-    #endif
 
+    prog->scope = pop_scope();
     prog->set_source(SOURCE_PARSED_EXPR);
     return prog;
   }
@@ -680,7 +679,7 @@ error:
         else if (token.text == u"throw") return parse_throw_statement();
         else if (token.text == u"try") return parse_try_statement();
         else if (token.text == u"function") {
-          auto func = parse_function(true, true);
+          auto func = parse_function(true, true, true);
           if (func->type == ASTNode::AST_FUNC) {
             static_cast<Function*>(func)->is_stmt = true;
           }
@@ -730,10 +729,7 @@ error:
     assert(token_match(TokenType::RIGHT_BRACE));
     block->set_source(SOURCE_PARSED_EXPR);
 
-    #ifndef DBG_SCOPE
     block->scope = pop_scope();
-    #endif
-
     return block;
   }
 
@@ -742,8 +738,10 @@ error:
     Token id = lexer.current();
     assert(id.is_identifier());
 
-    bool res = scope().define_symbol(kind, id.text);
-    if (!res) std::cout << "!!!!define original_symbol " << id.get_text_utf8() << " failed" << std::endl;
+    if (kind == VarKind::DECL_VAR) {
+      bool res = scope().define_symbol(kind, id.text);
+      if (!res) std::cout << "!!!!define symbol " << id.get_text_utf8() << " failed" << std::endl;
+    }
 
     if (lexer.peek().type != TokenType::ASSIGN) {
       if (kind == VarKind::DECL_CONST) {
@@ -1343,25 +1341,28 @@ error:
   }
 
   unique_ptr<Scope> pop_scope() {
-#ifdef DBG_SCOPE
-    Scope& scope = *scope_chain.back();
 
-    std::cout << "<<<< pop scope: " << scope.get_scope_type_name() << std::endl;
-    std::cout << "  params count: " << scope.param_count
-              << ", local variables count: " << scope.next_var_index << std::endl;
-    std::cout << "  symbols in this scope: " << std::endl;
-
-    for (auto& entry : scope.get_symbol_table()) {
-      std::cout << "  " << get_var_kind_str(entry.second.var_kind) << "  "
-                << to_utf8_string(entry.second.name) << "  "
-                << entry.second.index << "  "
-                << std::endl;
-    }
-    std::cout << std::endl;
-
-#endif
     unique_ptr<Scope> scope = std::move(scope_chain.back());
     scope_chain.pop_back();
+#ifdef DBG_SCOPE
+    std::cout << "<<<< pop scope: " << scope->get_scope_type_name() << std::endl;
+    std::cout << "  params count: " << scope->get_param_count()
+              << ", local variables count (accumulated): " << scope->get_var_count() << std::endl;
+    std::cout << "  local variables in this scope: " << std::endl;
+
+    vector<SymbolRecord*> sym_records(scope->get_symbol_table().size() - scope->get_param_count());
+
+    for (auto& entry : scope->get_symbol_table()) {
+      if (entry.second.var_kind != VarKind::DECL_FUNC_PARAM) {
+        sym_records[entry.second.index] = &entry.second;
+      }
+    }
+    for (auto rec : sym_records) {
+      printf("   index:%3d  %18s  %s\n", rec->index, get_var_kind_str(rec->var_kind).c_str(),
+                                                      to_utf8_string(rec->name).c_str());
+    }
+    std::cout << std::endl;
+#endif
     if (scope->get_outer_func()) {
       scope->get_outer_func()->update_var_count(scope->get_next_var_index());
     }

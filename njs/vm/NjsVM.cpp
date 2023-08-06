@@ -152,6 +152,9 @@ void NjsVM::execute() {
       case InstType::prop_assign:
         exec_prop_assign();
         break;
+      case InstType::var_dispose:
+        exec_var_dispose(inst.operand.two.opr1, inst.operand.two.opr2);
+        break;
       case InstType::jmp:
         pc = inst.operand.two.opr1;
         break;
@@ -262,15 +265,16 @@ void NjsVM::execute_task(JSTask& task) {
 JSValue& NjsVM::get_value(ScopeType scope, int raw_index) {
   if (scope == ScopeType::FUNC) {
     JSValue &val = frame_base_ptr[raw_index];
-    return val.tag_is(JSValue::HEAP_VAL) ? val.deref() : val;
+    return val.tag != JSValue::HEAP_VAL ? val : val.deref();
   }
   if (scope == ScopeType::FUNC_PARAM) {
     assert(frame_base_ptr[1].tag == JSValue::STACK_FRAME_META2);
     JSValue &val = frame_base_ptr[raw_index - (int)func_arg_count];
-    return val.tag_is(JSValue::HEAP_VAL) ? val.deref() : val;
+    return val.tag != JSValue::HEAP_VAL ? val : val.deref();
   }
   if (scope == ScopeType::GLOBAL) {
-    return rt_stack_data_begin[raw_index];
+    JSValue &val = rt_stack_data_begin[raw_index];
+    return val.tag != JSValue::HEAP_VAL ? val : val.deref();
   }
   if (scope == ScopeType::CLOSURE) {
     assert(function_env());
@@ -447,6 +451,13 @@ void NjsVM::exec_prop_assign() {
   sp -= 2;
 }
 
+void NjsVM::exec_var_dispose(int scope, int index) {
+  auto var_scope = scope_type_from_int(scope);
+  assert(var_scope == ScopeType::FUNC || var_scope == ScopeType::GLOBAL);
+  JSValue& val = var_scope == ScopeType::FUNC ? frame_base_ptr[index] : rt_stack_data_begin[index];
+  val.dispose();
+}
+
 void NjsVM::exec_make_func(int meta_idx) {
   auto& meta = func_meta[meta_idx];
   const u16string& name = meta.is_anonymous ? u"" : str_pool.get_string_list()[meta.name_index];
@@ -463,7 +474,6 @@ void NjsVM::exec_capture(int scope, int raw_index) {
   auto var_scope = scope_type_from_int(scope);
 
   assert(sp[-1].tag_is(JSValue::FUNCTION));
-  assert(var_scope != ScopeType::GLOBAL);
 
   JSFunction& func = *sp[-1].val.as_function;
 
@@ -475,15 +485,22 @@ void NjsVM::exec_capture(int scope, int raw_index) {
     func.captured_var.push_back(closure_val);
   }
   else {
-    JSValue& stack_val = var_scope == ScopeType::FUNC 
-                        ? frame_base_ptr[raw_index]
-                        : frame_base_ptr[raw_index - (int)func_arg_count];
-
-    if (stack_val.tag != JSValue::HEAP_VAL) {
-      stack_val.move_to_heap();
+    JSValue* stack_val;
+    if (var_scope == ScopeType::FUNC) {
+      stack_val = frame_base_ptr + raw_index;
+    } else if (var_scope == ScopeType::FUNC_PARAM) {
+      stack_val = frame_base_ptr + raw_index - (int)func_arg_count;
+    } else if (var_scope == ScopeType::GLOBAL) {
+      stack_val = rt_stack_data_begin + raw_index;
+    } else {
+      assert(false);
     }
-    stack_val.val.as_heap_val->retain();
-    func.captured_var.push_back(stack_val);
+
+    if (stack_val->tag != JSValue::HEAP_VAL) {
+      stack_val->move_to_heap();
+    }
+    stack_val->val.as_heap_val->retain();
+    func.captured_var.push_back(*stack_val);
   }
 }
 

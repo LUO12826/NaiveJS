@@ -1,4 +1,4 @@
-let arr  =[
+let arr  = [
     {
         a: 233,
         b: 466
@@ -9,10 +9,21 @@ let arr  =[
     },
     [1, 2, 3, 4, 5],
     13367816628,
+    "string in an array",
+    undefined,
+    null
 ]
 
-console.log(arr[2][0])
+let len = arr.length
+let cnt = 0
+while (cnt < len) {
+    console.log(arr[cnt])
+    cnt += 1
+}
+
 console.log(arr[0].a)
+console.log(arr[2][0])
+
 
 arr[0] = {
     c: 5,

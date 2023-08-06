@@ -1,19 +1,29 @@
-function inc(clo_var) {
+function inc(param) {
+    let clo_var = "clo var"
 
-    clo_var = 10
     function inner1() {
 
-        clo_var = 1
+        param = 1
         function inner2(b) {
-            return clo_var + b
+            param += 2
+            return param + b
         }
         return inner2
     }
-    return inner1
+
+    function inner3() {
+        console.log(param)
+        return [clo_var]
+    }
+
+    return [inner1, inner3]
 }
 
 
 
-let res = inc(1)()(300)
+let res = inc(10)
+let inner1 = res[0]
+let inner3 = res[1]
 
-console.log(res)
+console.log(inner1()(300))
+console.log(inner3()[0])
