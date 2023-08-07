@@ -119,7 +119,7 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
     
     if (key.key_type == JSObjectKey::KEY_ATOM) {
       output += u'"';
-      output += vm.str_pool.get_string_list()[key.key.atom];
+      output += vm.str_pool.get_string(key.key.atom);
       output += u'"';
     }
     else assert(false);

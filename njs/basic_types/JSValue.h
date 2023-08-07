@@ -219,7 +219,7 @@ struct JSValue {
   }
 
   /// @brief NOTE: this method does not check the tag.
-  bool is_non_egative() const {
+  bool is_non_negative() const {
     return val.as_float64 >= 0;
   }
 

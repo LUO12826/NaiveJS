@@ -23,6 +23,7 @@ class StringPool {
   }
 
   u32 add_string(u16string_view str_view);
+  u16string& get_string(size_t index);
   std::vector<u16string>& get_string_list();
 
   inline static u32 ATOM_length;
@@ -33,6 +34,29 @@ class StringPool {
   unordered_map<u16string, u32> pool;
   std::vector<u16string> string_list;
 };
+
+inline u32 StringPool::add_string(u16string_view str_view) {
+  u16string str(str_view);
+  if (pool.contains(str)) {
+    return pool[str];
+  }
+  else {
+    // copy this string and put it in the list.
+    string_list.emplace_back(str);
+    // now the string_view in the pool is viewing the string in the list.
+    pool.emplace(std::move(str), next_id);
+    next_id += 1;
+    return next_id - 1;
+  }
+}
+
+inline std::vector<u16string>& StringPool::get_string_list() {
+  return string_list;
+}
+
+inline u16string& StringPool::get_string(size_t index) {
+  return string_list[index];
+}
 
 } // namespace njs
 

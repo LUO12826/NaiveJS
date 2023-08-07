@@ -476,7 +476,7 @@ void NjsVM::exec_var_dispose(int scope, int index) {
 
 void NjsVM::exec_make_func(int meta_idx) {
   auto& meta = func_meta[meta_idx];
-  const u16string& name = meta.is_anonymous ? u"" : str_pool.get_string_list()[meta.name_index];
+  const u16string& name = meta.is_anonymous ? u"" : str_pool.get_string(meta.name_index);
 
   auto *func = heap.new_object<JSFunction>(name, meta);
   if (meta.is_native) {
@@ -627,7 +627,7 @@ void NjsVM::exec_push_str(int str_idx, bool atom) {
     sp[0].val.as_int64 = str_idx;
   }
   else {
-    auto str = new PrimitiveString(str_pool.get_string_list()[str_idx]);
+    auto str = new PrimitiveString(str_pool.get_string(str_idx));
     sp[0].val.as_primitive_string = str;
   }
 
@@ -653,8 +653,7 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
   for (JSValue *key = sp - key_cnt; key < sp - 1; key++) {
     assert(val_obj.is_object());
     if (Global::show_vm_exec_steps) {
-      std::cout << "...visit key " << to_utf8_string(str_pool.get_string_list()[key->val.as_int64])
-                << std::endl;
+      std::cout << "...visit key " << to_utf8_string(str_pool.get_string(key->val.as_int64)) << '\n';
     }
     // val_obj is a reference, so we are directly modify the cell in the stack frame.
     val_obj = val_obj.val.as_object->get_prop(key->val.as_int64, false);
@@ -663,8 +662,7 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
 
   // visit the last component separately
   if (Global::show_vm_exec_steps) {
-    std::cout << "...visit key " << to_utf8_string(str_pool.get_string_list()[sp[-1].val.as_int64])
-              << '\n';
+    std::cout << "...visit key " << to_utf8_string(str_pool.get_string(sp[-1].val.as_int64)) << '\n';
   }
   invoker_this = val_obj;
 
@@ -672,13 +670,11 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
     val_obj = val_obj.val.as_object->get_prop(sp[-1].val.as_int64, get_ref);
   }
   else if (val_obj.is_primitive_string()) {
+    val_obj.set_undefined();
+
     if (sp[-1].val.as_int64 == StringPool::ATOM_length) {
       auto len = val_obj.val.as_primitive_string->length();
-      val_obj.set_undefined();
       val_obj.set_val(double(len));
-    }
-    else {
-      assert(false);
     }
   }
   
@@ -696,34 +692,34 @@ void NjsVM::exec_index_access(bool get_ref) {
   assert(obj.is_object());
 
   invoker_this = obj;
-  u32 num_idx = u32(index.val.as_float64);
+  u32 index_int = u32(index.val.as_float64);
   
   // Index an array
   if (obj.tag_is(JSValue::ARRAY)) {
     // The float value can be interpreted as array index
-    if (index.is_float64() && index.is_integer() && index.is_non_egative()) {
-      obj = obj.val.as_array->access_element(num_idx, get_ref);
+    if (index.is_float64() && index.is_integer() && index.is_non_negative()) {
+      obj = obj.val.as_array->access_element(index_int, get_ref);
     }
     // in this case, the float value is interpreted as an ordinary property key
     else if (index.is_float64()) {
       u16string num_str = to_utf16_string(std::to_string(index.val.as_float64));
-      u32 str_idx = str_pool.add_string(num_str);
-      obj = obj.val.as_object->get_prop((int64_t)str_idx, get_ref);
+      int64_t atom = str_pool.add_string(num_str);
+      obj = obj.val.as_object->get_prop(atom, get_ref);
     }
     else if (index.tag_is(JSValue::STRING) || index.tag_is(JSValue::JS_ATOM)) {
       auto& index_str = index.tag_is(JSValue::STRING)
                                     ? index.val.as_primitive_string->str
-                                    : str_pool.get_string_list()[index.val.as_int64];
+                                    : str_pool.get_string(index.val.as_int64);
 
-      int64_t idx_num = scan_index_literal(index_str);
-      if (idx_num != -1) {
+      int64_t idx_int = scan_index_literal(index_str);
+      if (idx_int != -1) {
         // string can be converted to number
-        obj = obj.val.as_array->access_element(u32(idx_num), get_ref);
+        obj = obj.val.as_array->access_element(u32(idx_int), get_ref);
       } else {
         // object property
-        u32 str_idx = index.tag_is(JSValue::STRING) ? str_pool.add_string(index_str)
-                                                    : (u32)index.val.as_int64;
-        obj = obj.val.as_object->get_prop((int64_t)str_idx, get_ref);
+        int64_t atom = index.tag_is(JSValue::STRING) ? str_pool.add_string(index_str)
+                                                     : (u32)index.val.as_int64;
+        obj = obj.val.as_object->get_prop(atom, get_ref);
       }
     }
   }
@@ -732,11 +728,11 @@ void NjsVM::exec_index_access(bool get_ref) {
     obj.set_undefined();
 
     // The float value can be interpreted as string index
-    if (index.is_float64() && index.is_integer() && index.is_non_egative()) {
+    if (index.is_float64() && index.is_integer() && index.is_non_negative()) {
       u16string& str = obj.val.as_primitive_string->str;
 
-      if (num_idx < str.size()) {
-        auto new_str = new PrimitiveString(u16string(1, str[num_idx]));
+      if (index_int < str.size()) {
+        auto new_str = new PrimitiveString(u16string(1, str[index_int]));
         obj.set_val(new_str);
       }
     }
@@ -749,12 +745,12 @@ void NjsVM::exec_index_access(bool get_ref) {
   else if (obj.tag_is(JSValue::OBJECT)) {
     if (index.is_float64()) {
       u16string num_str = to_utf16_string(std::to_string(index.val.as_float64));
-      u32 str_idx = str_pool.add_string(num_str);
-      obj = obj.val.as_object->get_prop((int64_t)str_idx, get_ref);
+      int64_t atom = str_pool.add_string(num_str);
+      obj = obj.val.as_object->get_prop(atom, get_ref);
     }
     else if (index.tag_is(JSValue::STRING)) {
-      u32 str_idx = str_pool.add_string(index.val.as_primitive_string->str);
-      obj = obj.val.as_object->get_prop((int64_t)str_idx, get_ref);
+      int64_t atom = str_pool.add_string(index.val.as_primitive_string->str);
+      obj = obj.val.as_object->get_prop(atom, get_ref);
     }
     else if (index.tag_is(JSValue::JS_ATOM)) {
       obj = obj.val.as_object->get_prop(index.val.as_int64, get_ref);
@@ -772,7 +768,7 @@ bool NjsVM::are_strings_equal(const JSValue& lhs, const JSValue& rhs) {
     u16string *str_data = nullptr;
 
     if (val.tag_is(JSValue::JS_ATOM)) {
-      str_data = &str_pool.get_string_list()[val.val.as_int64];
+      str_data = &str_pool.get_string(val.val.as_int64);
     }
     else if (val.tag_is(JSValue::STRING) || val.tag_is(JSValue::STRING_REF)) {
       str_data = &(val.val.as_primitive_string->str);
