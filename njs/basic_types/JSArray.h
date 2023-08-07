@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "JSObject.h"
+#include "njs/common/StringPool.h"
 #include "njs/include/SmallVector.h"
 
 namespace njs {
@@ -16,7 +17,7 @@ class JSArray: public JSObject {
   
   explicit JSArray(int length): JSObject(ObjectClass::CLS_ARRAY) {
     JSValue length_atom(JSValue::JS_ATOM);
-    length_atom.val.as_int64 = 0;
+    length_atom.val.as_int64 = StringPool::ATOM_length;
     add_prop(length_atom, JSValue((double)length));
   }
 

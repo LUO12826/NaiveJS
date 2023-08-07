@@ -1,5 +1,7 @@
 import os
 
+BUILD_DIR = "build"
+
 file_and_expected = {
     "test_array.js": [
         "{ Atom(13): 233, Atom(10): 466, }",
@@ -60,8 +62,7 @@ file_and_expected = {
     ],
 }
 
-
-def check_test_files(directory):
+def check_test_files(directory, exec_path):
     num_not_match = 0
 
     for file in os.listdir(directory):
@@ -73,7 +74,7 @@ def check_test_files(directory):
 
         file_path = os.path.join(directory, file)
 
-        cmd_str = f"./cmake-build-debug/njs -f {file_path}"
+        cmd_str = f"{exec_path} -f {file_path}"
         output_lines = os.popen(cmd_str).readlines()
 
         if file in file_and_expected:
@@ -111,4 +112,5 @@ def print_red_text(text):
 
 if __name__ == "__main__":
     current_directory = os.path.dirname(os.path.abspath(__file__))
-    check_test_files(current_directory)
+    njs_exec_path = os.path.join(current_directory, f"../{BUILD_DIR}/njs")
+    check_test_files(current_directory, njs_exec_path)

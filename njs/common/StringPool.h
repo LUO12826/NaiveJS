@@ -18,12 +18,15 @@ using std::optional;
 class StringPool {
  public:
   StringPool() {
-    add_string(u"length");     // 0
-    add_string(u"prototype");  // 1
+    ATOM_length = add_string(u"length");     // 0
+    ATOM_prototype = add_string(u"prototype");  // 1
   }
 
   u32 add_string(u16string_view str_view);
   std::vector<u16string>& get_string_list();
+
+  inline static u32 ATOM_length;
+  inline static u32 ATOM_prototype;
 
  private:
   u32 next_id {0};

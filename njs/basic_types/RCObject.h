@@ -44,6 +44,9 @@ struct PrimitiveString: public RCObject {
   bool operator <= (const PrimitiveString& other) const;
 
   int64_t convert_to_index() const;
+  size_t length() const {
+    return str.length();
+  }
 
   std::u16string str;
 };

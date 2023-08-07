@@ -452,9 +452,15 @@ void NjsVM::exec_store(int scope, int index) {
 }
 
 void NjsVM::exec_prop_assign() {
+  assert(sp[-1].tag != JSValue::VALUE_HANDLE && sp[-1].tag != JSValue::HEAP_VAL);
+
   JSValue& target_val = sp[-2];
-  assert(target_val.tag == JSValue::VALUE_HANDLE);
-  target_val.deref().assign(sp[-1].deref_if_needed());
+  if (target_val.tag == JSValue::VALUE_HANDLE) {
+    target_val.val.as_JSValue->assign(sp[-1]);
+  }
+  else {
+    printf("VM warning: invalid property assign.\n");
+  }
 
   sp[-1].set_undefined();
   sp[-2].set_undefined();
@@ -604,8 +610,6 @@ void NjsVM::exec_add_elements(int elements_cnt) {
   JSArray *array = val_array.val.as_array;
 
   array->dense_array.resize(elements_cnt);
-  // // 0 is the atom value for `length`
-  // array->get_prop((int64_t)0, true).deref().val.as_float64 = elements_cnt;
 
   u32 ele_idx = 0;
   for (JSValue *val = sp - elements_cnt; val < sp; val++, ele_idx++) {
@@ -656,16 +660,29 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
     val_obj = val_obj.val.as_object->get_prop(key->val.as_int64, false);
     key->set_undefined();
   }
-  assert(val_obj.is_object());
+
   // visit the last component separately
-  invoker_this = val_obj;
   if (Global::show_vm_exec_steps) {
     std::cout << "...visit key " << to_utf8_string(str_pool.get_string_list()[sp[-1].val.as_int64])
               << '\n';
   }
-  val_obj = val_obj.val.as_object->get_prop(sp[-1].val.as_int64, get_ref);
-  sp[-1].set_undefined();
+  invoker_this = val_obj;
 
+  if (val_obj.is_object()) {
+    val_obj = val_obj.val.as_object->get_prop(sp[-1].val.as_int64, get_ref);
+  }
+  else if (val_obj.is_primitive_string()) {
+    if (sp[-1].val.as_int64 == StringPool::ATOM_length) {
+      auto len = val_obj.val.as_primitive_string->length();
+      val_obj.set_undefined();
+      val_obj.set_val(double(len));
+    }
+    else {
+      assert(false);
+    }
+  }
+  
+  sp[-1].set_undefined();
   sp = sp - key_cnt;
 }
 
@@ -680,10 +697,18 @@ void NjsVM::exec_index_access(bool get_ref) {
 
   invoker_this = obj;
   u32 num_idx = u32(index.val.as_float64);
-
+  
+  // Index an array
   if (obj.tag_is(JSValue::ARRAY)) {
-    if (index.is_float64()) {
+    // The float value can be interpreted as array index
+    if (index.is_float64() && index.is_integer() && index.is_non_egative()) {
       obj = obj.val.as_array->access_element(num_idx, get_ref);
+    }
+    // in this case, the float value is interpreted as an ordinary property key
+    else if (index.is_float64()) {
+      u16string num_str = to_utf16_string(std::to_string(index.val.as_float64));
+      u32 str_idx = str_pool.add_string(num_str);
+      obj = obj.val.as_object->get_prop((int64_t)str_idx, get_ref);
     }
     else if (index.tag_is(JSValue::STRING) || index.tag_is(JSValue::JS_ATOM)) {
       auto& index_str = index.tag_is(JSValue::STRING)
@@ -702,14 +727,30 @@ void NjsVM::exec_index_access(bool get_ref) {
       }
     }
   }
+  // Index a string
   else if (obj.tag_is(JSValue::STRING)) {
+    obj.set_undefined();
 
+    // The float value can be interpreted as string index
+    if (index.is_float64() && index.is_integer() && index.is_non_egative()) {
+      u16string& str = obj.val.as_primitive_string->str;
+
+      if (num_idx < str.size()) {
+        auto new_str = new PrimitiveString(u16string(1, str[num_idx]));
+        obj.set_val(new_str);
+      }
+    }
+    else if (index.tag_is(JSValue::JS_ATOM)) {
+      if (index.val.as_int64 == StringPool::ATOM_length) {
+        obj.set_val(double(obj.val.as_primitive_string->length()));
+      }
+    }
   }
   else if (obj.tag_is(JSValue::OBJECT)) {
     if (index.is_float64()) {
       u16string num_str = to_utf16_string(std::to_string(index.val.as_float64));
-      auto *prim_str = new PrimitiveString(std::move(num_str));
-      obj = obj.val.as_object->get_prop(prim_str, get_ref);
+      u32 str_idx = str_pool.add_string(num_str);
+      obj = obj.val.as_object->get_prop((int64_t)str_idx, get_ref);
     }
     else if (index.tag_is(JSValue::STRING)) {
       u32 str_idx = str_pool.add_string(index.val.as_primitive_string->str);

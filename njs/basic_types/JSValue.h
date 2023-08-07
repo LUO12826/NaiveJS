@@ -146,49 +146,49 @@ struct JSValue {
     val.as_function = func;
   }
 
-  inline void set_val(double number) {
+  void set_val(double number) {
     tag = NUM_FLOAT;
     val.as_float64 = number;
   }
 
-  inline void set_val(int64_t number) {
+  void set_val(int64_t number) {
     tag = NUM_INT;
     val.as_int64 = number;
   }
 
-  inline void set_val(bool boolean) {
+  void set_val(bool boolean) {
     tag = BOOLEAN;
     val.as_bool = boolean;
   }
 
-  inline void set_val(JSValue *js_val) {
+  void set_val(JSValue *js_val) {
     tag = VALUE_HANDLE;
     val.as_JSValue = js_val;
   }
 
-  inline void set_val(JSObject *obj) {
+  void set_val(JSObject *obj) {
     tag = OBJECT;
     val.as_object = obj;
   }
 
-  inline void set_val(PrimitiveString *str) {
+  void set_val(PrimitiveString *str) {
     tag = STRING;
     val.as_primitive_string = str;
   }
 
-  inline void set_val(JSArray *array) {
+  void set_val(JSArray *array) {
     tag = ARRAY;
     val.as_array = array;
   }
 
-  inline void set_val(JSFunction *func) {
+  void set_val(JSFunction *func) {
     tag = FUNCTION;
     val.as_function = func;
   }
 
   /// Use this method to destroy a temporary value (in general, a temporary value
   /// is a value on the operand stack)
-  inline void set_undefined() {
+  void set_undefined() {
     if (is_RCObject() && val.as_RCObject->get_ref_count() == 0) {
       val.as_RCObject->delete_temp_object();
     }
@@ -197,35 +197,45 @@ struct JSValue {
 
   /// Use this method to destroy a in-memory value (the memory here is NjsVM's memory, i.e.,
   /// function call stack and GCHeap.
-  inline void dispose() {
+  void dispose() {
     if (is_RCObject()) val.as_RCObject->release();
     tag = UNDEFINED;
   }
 
-  inline JSValue& deref() const;
-  inline JSValue& deref_if_needed();
+  JSValue& deref() const;
+  JSValue& deref_if_needed();
 
   void move_to_heap();
 
-  inline bool is_int64() const { return tag == NUM_INT; }
-  inline bool is_float64() const { return tag == NUM_FLOAT; }
-  inline bool is_bool() const { return tag == BOOLEAN; }
-  inline bool is_primitive_string() const { return tag == STRING; }
-  inline bool is_inline() const { return tag >= JS_ATOM && tag <= NUM_FLOAT; }
+  bool is_int64() const { return tag == NUM_INT; }
+  bool is_float64() const { return tag == NUM_FLOAT; }
+  bool is_bool() const { return tag == BOOLEAN; }
+  bool is_primitive_string() const { return tag == STRING; }
+  bool is_inline() const { return tag >= JS_ATOM && tag <= NUM_FLOAT; }
 
-  inline bool is_string_type() const {
+  /// @brief NOTE: this method does not check the tag.
+  bool is_integer() const {
+    return double(int64_t(val.as_float64)) == val.as_float64;
+  }
+
+  /// @brief NOTE: this method does not check the tag.
+  bool is_non_egative() const {
+    return val.as_float64 >= 0;
+  }
+
+  bool is_string_type() const {
     return tag == JS_ATOM || tag == STRING || tag == STRING_REF || tag == STRING_OBJ;
   }
 
-  inline bool is_object() const {
+  bool is_object() const {
     return tag == OBJECT || tag == FUNCTION || tag == ARRAY;
   }
 
-  inline bool is_RCObject() const {
+  bool is_RCObject() const {
     return tag > NEED_RC_BEGIN && tag < NEED_RC_END;
   }
 
-  inline bool needs_gc() const {
+  bool needs_gc() const {
     return tag >= NEED_GC_BEGIN && tag <= NEED_GC_END;
   }
 
