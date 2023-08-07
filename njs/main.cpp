@@ -18,39 +18,15 @@ using std::u16string;
 
 u16string read_file(const string &file_path);
 void print_tokens(u16string& source_code);
+void read_options(int argc, char *argv[]);
+
+static string file_path = "../test_files/temp_test.js";
+static bool show_ast = false;
+static bool show_tokens = false;
 
 int main(int argc, char *argv[]) {
 
-  string file_path = "../test_files/temp_test.js";
-  bool show_ast = false;
-  bool show_tokens = false;
-
-  int option;
-  while ((option = getopt(argc, argv, "bgatvf:")) != -1) {
-    switch (option) {
-    case 'b':
-      Global::show_codegen_result = true;
-      break;
-    case 'g':
-      Global::show_gc_statistics = true;
-      break;
-    case 'v':
-      Global::show_vm_exec_steps = true;
-      break;
-    case 'a':
-      show_ast = true;
-      break;
-    case 't':
-      show_tokens = true;
-      break;
-    case 'f':
-      file_path = string(optarg);
-      break;
-    case '?':
-      std::cerr << "Unknown option: " << static_cast<char>(optopt) << '\n';
-      break;
-    }
-  }
+  read_options(argc, argv);
 
   try {
     u16string source_code = read_file(file_path);
@@ -86,58 +62,42 @@ int main(int argc, char *argv[]) {
     // execute bytecode
     Timer exec_timer("executed");
     NjsVM vm(visitor);
-    vm.add_native_func_impl(u"log", InternalFunctions::log);
-    vm.add_native_func_impl(u"$gc", InternalFunctions::js_gc);
-    vm.add_native_func_impl(u"setTimeout", InternalFunctions::set_timeout);
-    vm.add_native_func_impl(u"setInterval", InternalFunctions::set_interval);
-    vm.add_native_func_impl(u"clearTimeout", InternalFunctions::clear_timeout);
-    vm.add_native_func_impl(u"clearInterval", InternalFunctions::clear_interval);
-    vm.add_native_func_impl(u"fetch", InternalFunctions::fetch);
-
-    vm.add_builtin_object(u"console", [] (GCHeap& heap, StringPool& str_pool) {
-      JSObject *obj = heap.new_object<JSObject>();
-
-      JSFunctionMeta log_meta {
-          .is_anonymous = true,
-          .is_native = true,
-          .param_count = 0,
-          .local_var_count = 0,
-          .native_func = InternalFunctions::log,
-      };
-      JSFunction *log_func = heap.new_object<JSFunction>(log_meta);
-
-      JSValue key(JSValue::JS_ATOM);
-      key.val.as_int64 = str_pool.add_string(u"log");
-
-      obj->add_prop(key, JSValue(log_func));
-      return obj;
-    });
-
-    vm.add_builtin_object(u"JSON", [] (GCHeap& heap, StringPool& str_pool) {
-      JSObject *obj = heap.new_object<JSObject>();
-
-      JSFunctionMeta func_meta {
-          .is_anonymous = true,
-          .is_native = true,
-          .param_count = 1,
-          .local_var_count = 0,
-          .native_func = InternalFunctions::json_stringify,
-      };
-      JSFunction *func = heap.new_object<JSFunction>(func_meta);
-
-      auto key_atom_value = str_pool.add_string(u"stringify");
-      obj->add_prop(JSValue::Atom(key_atom_value), JSValue(func));
-
-      return obj;
-    });
-
+    vm.setup();
     vm.run();
-
     exec_timer.end();
     
   }
   catch (const std::ifstream::failure &e) {
     fprintf(stderr, "%s\n", e.what());
+  }
+}
+
+void read_options(int argc, char *argv[]) {
+  int option;
+  while ((option = getopt(argc, argv, "bgatvf:")) != -1) {
+    switch (option) {
+    case 'b':
+      Global::show_codegen_result = true;
+      break;
+    case 'g':
+      Global::show_gc_statistics = true;
+      break;
+    case 'v':
+      Global::show_vm_exec_steps = true;
+      break;
+    case 'a':
+      show_ast = true;
+      break;
+    case 't':
+      show_tokens = true;
+      break;
+    case 'f':
+      file_path = string(optarg);
+      break;
+    case '?':
+      std::cerr << "Unknown option: " << static_cast<char>(optopt) << '\n';
+      break;
+    }
   }
 }
 

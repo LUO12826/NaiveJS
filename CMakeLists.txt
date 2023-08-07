@@ -9,6 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(SOURCES
     njs/vm/NjsVM.cpp
+    njs/vm/NjsVM_setup.cpp
     njs/vm/Instructions.cpp
     njs/basic_types/GlobalObject.cpp
     njs/basic_types/RCObject.cpp

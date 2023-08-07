@@ -37,6 +37,7 @@ friend class InternalFunctions;
 
   void add_native_func_impl(u16string name, NativeFuncType func);
   void add_builtin_object(const u16string& name, const std::function<JSObject*(GCHeap&, StringPool&)>& builder);
+  void setup();
   void run();
 
  private:
