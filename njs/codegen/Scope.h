@@ -27,7 +27,9 @@ class Function;
 struct ScopeContext {
   int64_t continue_pos {-1};
   bool can_break {false};
-  std::vector<u32> break_list;
+  bool has_try {false};
+  SmallVector<u32, 3> break_list;
+  SmallVector<u32, 3> throw_list;
 };
 
 class Scope {
@@ -175,6 +177,15 @@ class Scope {
     return outer_func;
   }
 
+  Scope *get_outer() {
+    return outer_scope;
+  }
+
+  bool has_try() {
+    if (!context) return false;
+    return context->has_try;
+  }
+
   ScopeContext& get_context() {
     if (!context) context = std::make_unique<ScopeContext>();
     return *context.get();
@@ -192,7 +203,7 @@ class Scope {
     }
   }
 
-  std::vector<u32> *resolve_break_list() {
+  SmallVector<u32, 3> *resolve_break_list() {
     if (context && context->can_break) {
       return &context->break_list;
     }
@@ -201,6 +212,19 @@ class Scope {
     }
     else {
       return nullptr;
+    }
+  }
+
+  SmallVector<u32, 3> *resolve_throw_list() {
+    if (context && context->has_try) {
+      return &context->throw_list;
+    }
+    else if (scope_type == ScopeType::FUNC || scope_type == ScopeType::GLOBAL) {
+      return &get_context().throw_list;
+    }
+    else {
+      assert(outer_scope);
+      return outer_scope->resolve_throw_list();
     }
   }
 

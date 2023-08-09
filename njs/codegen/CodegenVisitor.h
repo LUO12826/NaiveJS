@@ -212,7 +212,13 @@ friend class NjsVM;
         visit_continue_break_statement(*static_cast<ContinueOrBreak *>(node));
         break;
       case ASTNode::AST_STMT_BLOCK:
-        visit_block_statement(*static_cast<Block *>(node));
+        visit_block_statement(*static_cast<Block *>(node), {});
+        break;
+      case ASTNode::AST_STMT_THROW:
+        visit_throw_statement(*static_cast<ThrowStatement *>(node));
+        break;
+      case ASTNode::AST_STMT_TRY:
+        visit_try_statement(*static_cast<TryStatement *>(node));
         break;
       default:
         std::cout << node->description() << " not supported yet" << std::endl;
@@ -255,9 +261,6 @@ friend class NjsVM;
       }
       // End filling function symbol initialization code
     }
-
-    // if this is the global environment (program), initialize the builtin functions.
-    if (program.type == ASTNode::AST_PROGRAM) add_builtin_functions();
 
     for (ASTNode *node : program.statements) {
       visit(node);
@@ -678,10 +681,19 @@ friend class NjsVM;
     }
   }
 
-  void visit_block_statement(Block& block) {
+  // If `extra_var` is not empty, it means that the external wants to define some variables
+  // in advance in this block.
+  void visit_block_statement(Block& block, const vector<pair<u16string_view, VarKind>>& extra_var) {
     push_scope(std::move(block.scope));
 
     // First, allocate space for the variables in this scope
+    for (auto& [name, kind] : extra_var) {
+      assert(kind == VarKind::DECL_LET || kind == VarKind::DECL_CONST);
+      bool res = scope().define_symbol(kind, name);
+      scope().mark_symbol_as_valid(name);
+      if (!res) std::cout << "!!!!define symbol " << to_utf8_string(name) << " failed\n";
+    }
+
     for (ASTNode *node : block.statements) {
         if (node->type != ASTNode::AST_STMT_VAR) continue;
 
@@ -689,7 +701,7 @@ friend class NjsVM;
         for (VarDecl *decl : var_stmt.declarations) {
           if (var_stmt.kind == VarKind::DECL_LET || var_stmt.kind == VarKind::DECL_CONST) {
             bool res = scope().define_symbol(var_stmt.kind, decl->id.text);
-            if (!res) std::cout << "!!!!define symbol " << decl->id.get_text_utf8() << " failed" << std::endl;
+            if (!res) std::cout << "!!!!define symbol " << decl->id.get_text_utf8() << " failed\n";
           }
         }
     }
@@ -726,17 +738,71 @@ friend class NjsVM;
     }
 
     // dispose the scope variables after leaving the block scope
-    auto& sym_table = scope().get_symbol_table();
+    gen_scope_var_dispose_code(scope());
+    pop_scope();
+  }
+
+  void gen_scope_var_dispose_code(Scope& the_scope) {
+    auto& sym_table = the_scope.get_symbol_table();
     for (auto& [name, sym_rec] : sym_table) {
       if (sym_rec.var_kind == VarKind::DECL_VAR
           || sym_rec.var_kind == VarKind::DECL_FUNC_PARAM
           || sym_rec.var_kind == VarKind::DECL_FUNCTION) {
         assert(false);
       }
-      auto scope_type = scope().get_outer_func()->get_scope_type();
+      auto scope_type = the_scope.get_outer_func()->get_scope_type();
       emit(InstType::var_dispose, scope_type_int(scope_type), sym_rec.offset_idx());
     }
-    pop_scope();
+  }
+
+  void visit_try_statement(TryStatement& stmt) {
+    assert(stmt.try_block->type == ASTNode::AST_STMT_BLOCK);
+    scope().get_context().has_try = true;
+    visit(stmt.try_block);
+    u32 try_end_jmp = emit(InstType::jmp);
+
+    u32 throw_jmp_pos = bytecode_pos();
+    for (u32 idx : scope().get_context().throw_list) {
+      bytecode[idx].operand.two.opr1 = throw_jmp_pos;
+    }
+    // in the case of `catch (a) ...`, we are going to store the top-of-stack value to a local
+    // variable. The variable is defined as `let`.
+    if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
+      // 2 for the stack frame metadata size. Should find a better way to write this.
+      int catch_id_addr = scope().get_next_var_index() + 2;
+      emit(InstType::pop, scope_type_int(scope().get_scope_type()), catch_id_addr);
+    }
+    else {
+      emit(InstType::pop_drop);
+    }
+
+    auto *catch_block = static_cast<Block *>(stmt.catch_block);
+
+    vector<pair<u16string_view, VarKind>> catch_id;
+    if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
+      catch_id.emplace_back(stmt.catch_ident.text, VarKind::DECL_LET);
+    }
+    visit_block_statement(*catch_block, catch_id);
+    bytecode[try_end_jmp].operand.two.opr1 = bytecode_pos();
+  }
+
+  void visit_throw_statement(ThrowStatement& stmt) {
+    assert(stmt.expr->is_expression());
+    visit(stmt.expr);
+
+    Scope *scope_to_clean = &scope();
+    while (true) {
+      bool should_clean = scope_to_clean->get_scope_type() != ScopeType::GLOBAL
+                          && scope_to_clean->get_scope_type() != ScopeType::FUNC
+                          && !scope_to_clean->has_try();
+      if (!should_clean) break;
+
+      gen_scope_var_dispose_code(*scope_to_clean);
+      scope_to_clean = scope_to_clean->get_outer();
+    }
+
+    scope().resolve_throw_list()->push_back(bytecode_pos());
+    emit(InstType::jmp);
   }
 
  private:
