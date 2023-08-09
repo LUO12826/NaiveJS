@@ -18,6 +18,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   , func_meta(std::move(visitor.func_meta))
   , top_level_this(heap.new_object<JSObject>())
   , global_object(heap.new_object<GlobalObject>())
+  , catch_table(std::move(visitor.scope_chain[0]->get_context().catch_table))
 {
   auto& global_sym_table = visitor.scope_chain[0]->get_symbol_table();
 
@@ -26,9 +27,9 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
     global_obj.props_index_map.emplace(u16string(sym_name), sym_rec.index + frame_meta_size);
   }
 
-  rt_stack_data_begin = rt_stack.data();
-  rt_stack_data_begin[0].val.as_function = nullptr;
-  frame_base_ptr = rt_stack_data_begin;
+  rt_stack_begin = rt_stack.data();
+  rt_stack_begin[0].val.as_function = nullptr;
+  frame_base_ptr = rt_stack_begin;
   sp = frame_base_ptr + visitor.scope_chain[0]->get_var_count() + frame_meta_size;
 }
 
@@ -165,6 +166,11 @@ void NjsVM::execute() {
       case InstType::var_dispose:
         exec_var_dispose(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
+      case InstType::dup_stack_top:
+        if (sp[-1].is_RCObject() && sp[-1].val.as_RCObject->get_ref_count() != 0) {
+          sp[-1].val.as_RCObject = sp[-1].val.as_RCObject->copy();
+        }
+        break;
       case InstType::jmp:
         pc = inst.operand.two.opr1;
         break;
@@ -206,7 +212,7 @@ void NjsVM::execute() {
         break;
       case InstType::ret:
         exec_return();
-        if (pc == bytecode.size()) {
+        if (pc == bytecode.size() || pc == bytecode.size() - 1) {
           sp -= 1;
           sp[0].set_undefined();
           if (Global::show_vm_exec_steps) {
@@ -215,6 +221,37 @@ void NjsVM::execute() {
           return;
         }
         break;
+      case InstType::ret_err: {
+        exec_return_error();
+        // error happens in tasks
+        if (pc == bytecode.size() || pc == bytecode.size() - 1) {
+          sp -= 1;
+          printf("unhandled error: %s\n", sp[0].description().c_str());
+          sp[0].set_undefined();
+          if (Global::show_vm_exec_steps) {
+            printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
+          }
+          return;
+        }
+        u32 err_throw_pos = pc - 1;
+        auto& catch_table = frame_base_ptr != rt_stack_begin ? function_env()->meta.catch_table : this->catch_table;
+        assert(catch_table.size() >= 1);
+
+        bool found = false;
+        for (auto& entry : catch_table) {
+          if (entry.pos_in_range(err_throw_pos)) {
+            pc = entry.goto_pos;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          assert(catch_table[catch_table.size() - 1].start_pos == catch_table[catch_table.size() - 1].end_pos);
+          pc = catch_table[catch_table.size() - 1].goto_pos;
+        }
+
+        break;
+      }
       case InstType::fast_add:
         exec_fast_add(inst);
         break;
@@ -242,6 +279,14 @@ void NjsVM::execute() {
         exec_add_elements(inst.operand.two.opr1);
         break;
       case InstType::halt:
+        if (Global::show_vm_exec_steps) {
+          printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
+        }
+        return;
+      case InstType::halt_err:
+        sp -= 1;
+        printf("unhandled error: %s\n", sp[0].description().c_str());
+        sp[0].set_undefined();
         if (Global::show_vm_exec_steps) {
           printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
         }
@@ -283,11 +328,10 @@ JSValue& NjsVM::get_value(ScopeType scope, int index) {
     return val.tag != JSValue::HEAP_VAL ? val : val.deref();
   }
   if (scope == ScopeType::GLOBAL) {
-    JSValue &val = rt_stack_data_begin[index];
+    JSValue &val = rt_stack_begin[index];
     return val.tag != JSValue::HEAP_VAL ? val : val.deref();
   }
   if (scope == ScopeType::CLOSURE) {
-    assert(function_env());
     return function_env()->captured_var[index].deref();
   }
   __builtin_unreachable();
@@ -435,6 +479,36 @@ void NjsVM::exec_return() {
   func_arg_count = frame_base_ptr[1].flag_bits;
 }
 
+void NjsVM::exec_return_error() {
+  invoker_this.tag = JSValue::UNDEFINED;
+  JSValue *old_sp = frame_base_ptr - func_arg_count - 1;
+  JSValue *local_var_end = frame_base_ptr + function_env()->meta.local_var_count + 2;
+
+  // retain the return value, in case it's deallocated due to the dispose stage bellow.
+  JSValue& ret_val = sp[-1];
+  if (ret_val.is_RCObject()) ret_val.val.as_RCObject->retain();
+
+  // dispose function local storage
+  for (JSValue *addr = old_sp + 1; addr < local_var_end; addr++) {
+    addr->dispose();
+  }
+  // dispose the operand stack
+  // TODO: check correctness
+  for (JSValue *addr = local_var_end; addr < &ret_val; addr++) {
+    addr->set_undefined();
+  }
+  // but the return value is actually a temporary value, so mark it as temp
+  if (ret_val.is_RCObject()) ret_val.val.as_RCObject->mark_as_temp();
+  // move the return value
+  old_sp[0] = std::move(ret_val);
+
+  // restore old state
+  sp = old_sp + 1;
+  pc = frame_base_ptr[0].flag_bits;
+  frame_base_ptr = frame_base_ptr[1].val.as_JSValue;
+  func_arg_count = frame_base_ptr[1].flag_bits;
+}
+
 void NjsVM::exec_push(int scope, int index) {
   sp[0] = get_value(scope_type_from_int(scope), index);
   sp += 1;
@@ -470,7 +544,7 @@ void NjsVM::exec_prop_assign() {
 void NjsVM::exec_var_dispose(int scope, int index) {
   auto var_scope = scope_type_from_int(scope);
   assert(var_scope == ScopeType::FUNC || var_scope == ScopeType::GLOBAL);
-  JSValue& val = var_scope == ScopeType::FUNC ? frame_base_ptr[index] : rt_stack_data_begin[index];
+  JSValue& val = var_scope == ScopeType::FUNC ? frame_base_ptr[index] : rt_stack_begin[index];
   val.dispose();
 }
 
@@ -507,7 +581,7 @@ void NjsVM::exec_capture(int scope, int index) {
     } else if (var_scope == ScopeType::FUNC_PARAM) {
       stack_val = frame_base_ptr + index - (int)func_arg_count;
     } else if (var_scope == ScopeType::GLOBAL) {
-      stack_val = rt_stack_data_begin + index;
+      stack_val = rt_stack_begin + index;
     } else {
       assert(false);
     }

@@ -262,11 +262,18 @@ friend class NjsVM;
       // End filling function symbol initialization code
     }
 
+    std::vector<u32> top_level_throw;
+
     for (ASTNode *node : program.statements) {
       visit(node);
       if (node->type > ASTNode::BEGIN_EXPR && node->type < ASTNode::END_EXPR
           && node->type != ASTNode::AST_EXPR_ASSIGN) {
         emit(InstType::pop_drop);
+      }
+      if (scope().has_context()) {
+        auto &throw_list = scope().get_context().throw_list;
+        top_level_throw.insert(top_level_throw.end(), throw_list.begin(), throw_list.end());
+        throw_list.clear();
       }
     }
 
@@ -277,6 +284,18 @@ friend class NjsVM;
         emit(InstType::push_undef);
         emit(InstType::ret);
       }
+    }
+
+    scope().get_outer_func()->get_context().catch_table.emplace_back(0, 0, bytecode_pos());
+
+    for (u32 idx : top_level_throw) {
+      bytecode[idx].operand.two.opr1 = bytecode_pos();
+    }
+
+    if (program.type == ASTNode::AST_PROGRAM) {
+      emit(InstType::halt_err);
+    } else {
+      emit(InstType::ret_err);
     }
   }
 
@@ -300,6 +319,7 @@ friend class NjsVM;
         .param_count = (u16)scope().get_param_count(),
         .local_var_count = (u16)scope().get_var_count(),
         .code_address = func_start_pos,
+        .catch_table = std::move(scope().get_context().catch_table)
     });
     // The rest of the work is done in the scope of the outer function, so pop scope here.
     pop_scope();
@@ -758,19 +778,30 @@ friend class NjsVM;
   void visit_try_statement(TryStatement& stmt) {
     assert(stmt.try_block->type == ASTNode::AST_STMT_BLOCK);
     scope().get_context().has_try = true;
+    
+    u32 try_start = bytecode_pos();
     visit(stmt.try_block);
-    u32 try_end_jmp = emit(InstType::jmp);
+    u32 try_end = bytecode_pos() - 1;
 
-    u32 throw_jmp_pos = bytecode_pos();
+    scope().get_context().has_try = false;
+
+    u32 try_end_jmp = emit(InstType::jmp);
+    u32 catch_pos = try_end_jmp + 1;
+
+    // `throw` statements will jump here
     for (u32 idx : scope().get_context().throw_list) {
-      bytecode[idx].operand.two.opr1 = throw_jmp_pos;
+      bytecode[idx].operand.two.opr1 = catch_pos;
     }
+    scope().get_context().throw_list.clear();
+    // also, any error in the try block will jump here.
+    scope().get_outer_func()->get_context().catch_table.emplace_back(try_start, try_end, catch_pos);
+
     // in the case of `catch (a) ...`, we are going to store the top-of-stack value to a local
     // variable. The variable is defined as `let`.
     if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
       // 2 for the stack frame metadata size. Should find a better way to write this.
       int catch_id_addr = scope().get_next_var_index() + 2;
-      emit(InstType::pop, scope_type_int(scope().get_scope_type()), catch_id_addr);
+      emit(InstType::pop, scope_type_int(scope().get_outer_func()->get_scope_type()), catch_id_addr);
     }
     else {
       emit(InstType::pop_drop);
@@ -789,6 +820,7 @@ friend class NjsVM;
   void visit_throw_statement(ThrowStatement& stmt) {
     assert(stmt.expr->is_expression());
     visit(stmt.expr);
+    emit(InstType::dup_stack_top);
 
     Scope *scope_to_clean = &scope();
     while (true) {

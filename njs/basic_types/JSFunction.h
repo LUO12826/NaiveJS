@@ -7,6 +7,7 @@
 #include "JSObject.h"
 #include "njs/include/SmallVector.h"
 #include "njs/common/ArrayRef.h"
+#include "njs/codegen/CatchTableEntry.h"
 
 namespace njs {
 
@@ -35,6 +36,8 @@ struct JSFunctionMeta {
   u16 param_count;
   u16 local_var_count;
   u32 code_address;
+
+  SmallVector<CatchTableEntry, 3> catch_table;
 
   NativeFuncType native_func {nullptr};
 

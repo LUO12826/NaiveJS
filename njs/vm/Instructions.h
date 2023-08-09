@@ -42,6 +42,7 @@ enum class InstType {
   store,
   prop_assign,
   var_dispose,
+  dup_stack_top,
 
   jmp,
   jmp_true,
@@ -64,6 +65,7 @@ enum class InstType {
 
   call,
   ret,
+  ret_err,
 
   fast_add,
   fast_bin,
@@ -79,6 +81,7 @@ enum class InstType {
   index_access,
 
   halt,
+  halt_err,
   nop,
 };
 

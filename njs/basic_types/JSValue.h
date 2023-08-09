@@ -309,6 +309,10 @@ struct JSHeapValue: public RCObject {
     wrapped_val.dispose();
   }
 
+  RCObject *copy() override {
+    return new JSHeapValue(wrapped_val);
+  }
+
   JSValue wrapped_val;
 };
 

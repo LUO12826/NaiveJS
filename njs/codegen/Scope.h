@@ -6,6 +6,7 @@
 #include "njs/common/enums.h"
 #include "njs/include/robin_hood.h"
 #include "njs/vm/Instructions.h"
+#include "njs/codegen/CatchTableEntry.h"
 #include <memory>
 #include <optional>
 
@@ -30,6 +31,7 @@ struct ScopeContext {
   bool has_try {false};
   SmallVector<u32, 3> break_list;
   SmallVector<u32, 3> throw_list;
+  SmallVector<CatchTableEntry, 3> catch_table;
 };
 
 class Scope {
@@ -189,6 +191,10 @@ class Scope {
   ScopeContext& get_context() {
     if (!context) context = std::make_unique<ScopeContext>();
     return *context.get();
+  }
+
+  bool has_context() {
+    return context != nullptr;
   }
 
   int64_t resolve_continue_pos() {

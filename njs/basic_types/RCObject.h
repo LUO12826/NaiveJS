@@ -18,6 +18,10 @@ class RCObject {
   RCObject(const RCObject& obj) = delete;
   RCObject(RCObject&& obj) = delete;
 
+  virtual RCObject *copy() {
+    return new RCObject();
+  }
+
   void retain();
   void release();
   void mark_as_temp();
@@ -35,6 +39,10 @@ struct PrimitiveString: public RCObject {
 
   explicit PrimitiveString(const std::u16string& str);
   explicit PrimitiveString(std::u16string&& str);
+
+  RCObject *copy() override {
+    return new PrimitiveString(this->str);
+  }
 
   bool operator == (const PrimitiveString& other) const;
   bool operator != (const PrimitiveString& other) const;
@@ -56,7 +64,15 @@ struct JSSymbol: public RCObject {
 
   inline static size_t global_count {0};
 
+  JSSymbol() {}
   explicit JSSymbol(std::u16string name);
+
+  RCObject *copy() override {
+    auto *sym = new JSSymbol();
+    sym->seq = this->seq;
+    sym->name = this->name;
+    return sym;
+  }
 
   bool operator == (const JSSymbol& other) const;
 

@@ -55,6 +55,7 @@ friend class InternalFunctions;
   void exec_capture(int scope, int index);
   void exec_call(int arg_count, bool has_this_object);
   void exec_return();
+  void exec_return_error();
   // object operation
   void exec_make_object();
   void exec_add_props(int props_cnt);
@@ -94,7 +95,7 @@ friend class InternalFunctions;
   u32 pc {0};
   // start of a stack frame
   JSValue *frame_base_ptr;
-  JSValue *rt_stack_data_begin;
+  JSValue *rt_stack_begin;
   u32 func_arg_count {0};
 
   GCHeap heap;
@@ -111,6 +112,9 @@ friend class InternalFunctions;
   JSValue invoker_this {JSValue::UNDEFINED};
   JSValue top_level_this;
   JSValue global_object;
+
+  SmallVector<CatchTableEntry, 3> catch_table;
+
   unordered_flat_map<u16string, NativeFuncType> native_func_binding;
 
   std::vector<std::string> log_buffer;
