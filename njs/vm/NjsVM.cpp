@@ -18,7 +18,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   , func_meta(std::move(visitor.func_meta))
   , top_level_this(heap.new_object<JSObject>())
   , global_object(heap.new_object<GlobalObject>())
-  , catch_table(std::move(visitor.scope_chain[0]->get_context().catch_table))
+  , global_catch_table(std::move(visitor.scope_chain[0]->get_context().catch_table))
 {
   auto& global_sym_table = visitor.scope_chain[0]->get_symbol_table();
 
@@ -234,12 +234,14 @@ void NjsVM::execute() {
           return;
         }
         u32 err_throw_pos = pc - 1;
-        auto& catch_table = frame_base_ptr != rt_stack_begin ? function_env()->meta.catch_table : this->catch_table;
+        auto& catch_table = frame_base_ptr != rt_stack_begin
+                                                              ? function_env()->meta.catch_table
+                                                              : this->global_catch_table;
         assert(catch_table.size() >= 1);
 
         bool found = false;
         for (auto& entry : catch_table) {
-          if (entry.pos_in_range(err_throw_pos)) {
+          if (entry.range_include(err_throw_pos)) {
             pc = entry.goto_pos;
             found = true;
             break;

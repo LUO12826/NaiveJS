@@ -113,7 +113,7 @@ friend class InternalFunctions;
   JSValue top_level_this;
   JSValue global_object;
 
-  SmallVector<CatchTableEntry, 3> catch_table;
+  SmallVector<CatchTableEntry, 3> global_catch_table;
 
   unordered_flat_map<u16string, NativeFuncType> native_func_binding;
 

@@ -15,7 +15,7 @@ struct CatchTableEntry {
   CatchTableEntry(u32 start, u32 end, u32 goto_pos)
     : start_pos(start), end_pos(end), goto_pos(goto_pos) {}
 
-  bool pos_in_range(u32 pos) {
+  bool range_include(u32 pos) const {
     return pos >= start_pos && pos <= end_pos;
   }
 };
