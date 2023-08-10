@@ -40,6 +40,32 @@ class JSRunLoop {
 
   BS::thread_pool& get_thread_pool() { return thread_pool; }
 
+  std::vector<JSValue *> gc_gather_roots() {
+    std::vector<JSValue *> roots;
+
+    for (auto& task : micro_task_queue) {
+      roots.push_back(&task.task_func);
+
+      for (auto& val : task.args) {
+        if (val.needs_gc()) {
+          roots.push_back(&val);
+        }
+      }
+    }
+
+    for (auto& [task_id, task] : task_pool) {
+      roots.push_back(&task.task_func);
+
+      for (auto& val : task.args) {
+        if (val.needs_gc()) {
+          roots.push_back(&val);
+        }
+      }
+    }
+
+    return roots;
+  }
+
  private:
   void timer_loop();
   void setup_pipe();

@@ -57,6 +57,10 @@ BinaryExpr *ASTNode::as_binary_expr() {
   return static_cast<BinaryExpr *>(this);
 }
 
+UnaryExpr *ASTNode::as_unary_expr() {
+  return static_cast<UnaryExpr *>(this);
+}
+
 ProgramOrFunctionBody *ASTNode::as_func_body() {
   return static_cast<ProgramOrFunctionBody *>(this);
 }

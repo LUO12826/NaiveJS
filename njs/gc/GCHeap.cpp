@@ -37,10 +37,10 @@ std::vector<JSValue *> GCHeap::gather_roots() {
 
   std::vector<JSValue *> roots;
 
+  // All values on the rt_stack are possible roots
   for (JSValue *js_val = vm.rt_stack.data(); js_val < vm.sp; js_val++) {
-
     if (js_val->needs_gc()) roots.push_back(js_val);
-
+    // STACK_FRAME_META1 contains the pointer to the function that owns the stack frame
     if (js_val->tag == JSValue::STACK_FRAME_META1) {
       roots.push_back(js_val);
     }
@@ -48,6 +48,9 @@ std::vector<JSValue *> GCHeap::gather_roots() {
   if (vm.invoker_this.needs_gc()) roots.push_back(&vm.invoker_this);
   roots.push_back(&vm.global_object);
   roots.push_back(&vm.top_level_this);
+
+  auto task_roots = vm.runloop.gc_gather_roots();
+  roots.insert(roots.end(), task_roots.begin(), task_roots.end());
 
   return roots;
 }
@@ -57,12 +60,12 @@ void GCHeap::copy_alive() {
   std::vector<JSValue *> roots = gather_roots();
 
   if (Global::show_gc_statistics) {
-    std::cout << "GC found roots:" << std::endl;
-    if (roots.empty()) std::cout << "(empty)" << std::endl;
+    std::cout << "GC found roots:\n";
+    if (roots.empty()) std::cout << "(empty)\n";
     for (JSValue *root : roots) {
-      std::cout << root->as_GCObject()->description() << std::endl;
+      std::cout << root->as_GCObject()->description() << '\n';
     }
-    std::cout << "---------------" << std::endl;
+    std::cout << "---------------\n";
   }
 
   for (JSValue *root : roots) {
@@ -79,7 +82,7 @@ void GCHeap::dealloc_dead(byte *start, byte *end) {
     if (obj->forward_ptr == nullptr) {
       if (Global::show_gc_statistics) {
         std::cout << "GC deallocate an object: "
-                  << static_cast<JSObject *>(obj)->description() << std::endl;
+                  << static_cast<JSObject *>(obj)->description() << '\n';
       }
       obj->~GCObject();
     }
@@ -89,7 +92,7 @@ void GCHeap::dealloc_dead(byte *start, byte *end) {
 GCObject *GCHeap::copy_object(GCObject *obj) {
   if (obj->forward_ptr == nullptr) {
     if (Global::show_gc_statistics) {
-      std::cout << "Copy object: " << static_cast<JSObject *>(obj)->description() << std::endl;
+      std::cout << "Copy object: " << static_cast<JSObject *>(obj)->description() << '\n';
     }
     memcpy(alloc_point, (void *)obj, obj->size);
     obj->forward_ptr = (GCObject *)alloc_point;

@@ -30,6 +30,7 @@ using std::u16string_view;
 using TokenType = Token::TokenType;
 
 class BinaryExpr;
+class UnaryExpr;
 class LeftHandSideExpr;
 class ParenthesisExpr;
 class ProgramOrFunctionBody;
@@ -121,6 +122,7 @@ class ASTNode {
   ParenthesisExpr *as_paren_expr();
   LeftHandSideExpr *as_lhs_expr();
   BinaryExpr *as_binary_expr();
+  UnaryExpr *as_unary_expr();
   ProgramOrFunctionBody *as_func_body();
   NumberLiteral *as_number_literal();
 

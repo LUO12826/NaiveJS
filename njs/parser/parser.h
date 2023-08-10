@@ -440,12 +440,18 @@ error:
     ASTNode* rhs;
     // Prefix Operators.
     Token prefix_op = lexer.current();
-    // NOTE(zhuzilin) !!a = !(!a)
+    // Operators that are closer to the operand are executed first.
     if (prefix_op.unary_priority() >= priority) {
       lexer.next();
       lhs = parse_binary_and_unary_expression(no_in, prefix_op.unary_priority());
       if (lhs->is_illegal()) return lhs;
 
+      // prefix ++ and -- can only be applied to left-hand-side values.
+      if (prefix_op.is(TokenType::INC) || prefix_op.is((TokenType::DEC))) {
+        if (!(lhs->type == ASTNode::AST_EXPR_ID || lhs->type == ASTNode::AST_EXPR_LHS)) {
+          return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+        }
+      }
       lhs = new UnaryExpr(lhs, prefix_op, true);
     }
     else {
@@ -1251,21 +1257,21 @@ error:
     
     if (lexer.peek().text == u"catch") {
       lexer.next();
-      if (lexer.next().type != TokenType::LEFT_PAREN) {  // skip (
-        delete try_block;
-        try_block = nullptr;
+      // optional catch id
+      if (lexer.next().type == TokenType::LEFT_PAREN) { // skip (
+        catch_id = lexer.next();
+        if (!catch_id.is_identifier()) {
+          goto error;
+        }
+        if (lexer.next().type != TokenType::RIGHT_PAREN) {  // skip )
+          goto error;
+        }
+        lexer.next();
+      }
+      // expect {
+      if (!token_match(TokenType::LEFT_BRACE)) {
         goto error;
       }
-      catch_id = lexer.next();  // skip identifier
-      if (!catch_id.is_identifier()) {
-        goto error;
-      }
-      if (lexer.next().type != TokenType::RIGHT_PAREN) {  // skip )
-        delete try_block;
-        try_block = nullptr;
-        goto error;
-      }
-      lexer.next();
       catch_block = parse_block_statement();
       if (catch_block->is_illegal()) {
         delete try_block;
@@ -1289,14 +1295,14 @@ error:
       goto error;
     }
     else if (finally_block == nullptr) {
-      assert(catch_block != nullptr && catch_id.is_identifier());
+      assert(catch_block != nullptr);
       return new TryStatement(try_block, catch_id, catch_block, SOURCE_PARSED_EXPR);
     }
     else if (catch_block == nullptr) {
       assert(finally_block != nullptr);
       return new TryStatement(try_block, finally_block, SOURCE_PARSED_EXPR);
     }
-    assert(catch_block != nullptr && catch_id.is_identifier());
+    assert(catch_block != nullptr);
     assert(finally_block != nullptr);
     return new TryStatement(try_block, catch_id, catch_block, finally_block, SOURCE_PARSED_EXPR);
   error:

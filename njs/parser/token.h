@@ -252,6 +252,8 @@ class Token {
     }
   }
 
+  // all prefix unary operators are given the same priority. In this way,
+  // operators that are closer to the operand are executed first.
   inline int unary_priority() const {
     switch (type) {
       // Prefix
@@ -261,7 +263,7 @@ class Token {
       case SUB:
       case BIT_NOT:
       case LOGICAL_NOT:
-        return 100;  // UnaryExpresion always have higher priority.
+        return 100;
 
       case KEYWORD:
         if (text == u"delete" || text == u"void" || text == u"typeof") {
@@ -277,7 +279,7 @@ class Token {
     switch (type) {
       case INC:
       case DEC:
-        return 200;  // UnaryExpresion always have higher priority.
+        return 200;
       default:
         return -1;
     }
