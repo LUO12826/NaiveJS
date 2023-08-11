@@ -2,7 +2,7 @@
 
 NaiveJS is a personal experimental JavaScript engine. My primary goal is to learn the implementation of well-known features in JavaScript such as closures, event loops, objects, etc., rather than implementing the language strictly according to the ECMA specification. Having said that, I do hope to bring NaiveJS closer to the specification as time goes on.
 
-### Checklist
+### Language Feature Checklist
 
 - [x] Lexer, parser, and AST (adapted from [this work](https://github.com/zhuzilin/es))
 - [x] Static scope chain
@@ -20,9 +20,10 @@ NaiveJS is a personal experimental JavaScript engine. My primary goal is to lear
 - [x] Copy-based GC
 - [x] Event loop and `setInterval`, `setTimeout` (using kqueue)
 - [x] Third-party libraries for HTTP requests
+- [x] Runtime exception and error handling (try-catch)
+- [ ] `finally` block
 - [ ] Global scope (that works correctly)
 - [ ] For loop
-- [ ] Runtime exception and error handling
 - [ ] Regular expression
 - [ ] `new` operator
 - [ ] Prototype chain
@@ -31,9 +32,12 @@ NaiveJS is a personal experimental JavaScript engine. My primary goal is to lear
 ### Other To Do
 
 - [ ] Reorganize the parser code
+- [ ] Compactly stored bytecode
+- [ ] Eliminates redundant jump instructions
 - [ ] Improve error handling in the parser and code generator
 - [ ] Use smart pointers instead of raw pointers in AST nodes. (This was previously found to cause performance degradation on macOS with Clang)
 - [ ] GC and object system optimization: allowing GC to move objects safely
+- [ ] fully managed memory: all memory is allocated on the GC Heap
 - [ ] Utilizing the "label as value" technique in the VM
 
 ### Acknowledgement

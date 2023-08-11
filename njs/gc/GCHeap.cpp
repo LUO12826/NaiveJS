@@ -8,20 +8,26 @@
 namespace njs {
 
 void GCHeap::gc() {
-  Timer timer("gc");
   if (Global::show_gc_statistics) {
     std::cout << "\033[33m";
     std::cout << "****************** gc starts ******************\n";
   }
+  Timer timer("gc");
+
+  Timer timer_copy("copy alive");
   byte *start = from_start;
   byte *end = alloc_point;
   copy_alive();
+  timer_copy.end(Global::show_gc_statistics);
+
+  Timer timer_dealloc("dealloc dead");
   dealloc_dead(start, end);
+  timer_dealloc.end(Global::show_gc_statistics);
 
   if (Global::show_gc_statistics) {
+    timer.end(true);
     std::cout << "******************  gc ends  ******************\n";
     std::cout << "\033[0m";
-    timer.end(true);
   }
   else {
     timer.end(false);
