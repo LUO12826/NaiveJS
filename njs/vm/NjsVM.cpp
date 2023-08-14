@@ -30,7 +30,8 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   rt_stack_begin = rt_stack.data();
   rt_stack_begin[0].val.as_function = nullptr;
   frame_base_ptr = rt_stack_begin;
-  sp = frame_base_ptr + visitor.scope_chain[0]->get_var_count() + frame_meta_size;
+  global_sp = frame_base_ptr + visitor.scope_chain[0]->get_var_count() + frame_meta_size;
+  sp = global_sp;
 }
 
 void NjsVM::add_native_func_impl(u16string name, NativeFuncType func) {
@@ -223,31 +224,55 @@ void NjsVM::execute() {
         break;
       case InstType::ret_err: {
         exec_return_error();
-        // error happens in tasks
+        // 1. error happens in tasks
         if (pc == bytecode.size() || pc == bytecode.size() - 1) {
-          sp -= 1;
-          printf("unhandled error: %s\n", sp[0].description().c_str());
-          sp[0].set_undefined();
+          printf("unhandled error: %s\n", sp[-1].description().c_str());
+          // dispose the operand stack
+          for (JSValue *val = global_sp; val < sp; val++) {
+            val->set_undefined();
+          }
+          sp = global_sp;
           if (Global::show_vm_exec_steps) {
             printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
           }
           return;
         }
+        // 2. error happens in a normal function
         u32 err_throw_pos = pc - 1;
         auto& catch_table = frame_base_ptr != rt_stack_begin
-                                                              ? function_env()->meta.catch_table
-                                                              : this->global_catch_table;
+                                                            ? function_env()->meta.catch_table
+                                                            : this->global_catch_table;
         assert(catch_table.size() >= 1);
 
-        bool found = false;
+        CatchTableEntry *catch_entry = nullptr;
         for (auto& entry : catch_table) {
+          // 2. error happens in a normal function, and is caught by a `catch` statement
           if (entry.range_include(err_throw_pos)) {
             pc = entry.goto_pos;
-            found = true;
+            catch_entry = &entry;
+            // restore the sp
+            JSValue *sp_restore = (frame_base_ptr == rt_stack_begin) ?
+                             global_sp : frame_base_ptr + function_env()->meta.local_var_count + 2;
+
+            // dispose the operand stack if needed
+            if (sp - 1 != sp_restore) {
+              for (JSValue *val = sp_restore; val < sp - 1; val++) {
+                val->set_undefined();
+              }
+              *sp_restore = std::move(sp[-1]);
+              sp = sp_restore + 1;
+            }
+
+            // dispose local variables
+            JSValue *local_start = frame_base_ptr + entry.var_dispose_start;
+            for (JSValue *val = local_start; val < frame_base_ptr + entry.var_dispose_end; val++) {
+              val->dispose();
+            }
+
             break;
           }
         }
-        if (!found) {
+        if (!catch_entry) {
           assert(catch_table[catch_table.size() - 1].start_pos == catch_table[catch_table.size() - 1].end_pos);
           pc = catch_table[catch_table.size() - 1].goto_pos;
         }

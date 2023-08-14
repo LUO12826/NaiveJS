@@ -37,7 +37,7 @@ friend class NjsVM;
 
   void codegen(ProgramOrFunctionBody *prog) {
 
-    push_scope(std::move(prog->scope));
+    push_scope(prog->scope.get());
 
     // add functions to the global scope
     add_builtin_functions();
@@ -141,6 +141,14 @@ friend class NjsVM;
     for (auto& meta : func_meta) {
       if (meta.is_native) continue;
       meta.code_address += pos_moved[meta.code_address];
+
+      for (auto& entry : meta.catch_table) {
+        entry.goto_pos += pos_moved[entry.goto_pos];
+      }
+    }
+
+    for (auto& entry : scope_chain[0]->get_context().catch_table) {
+      entry.goto_pos += pos_moved[entry.goto_pos];
     }
 
     bytecode.resize(new_inst_ptr);
@@ -307,7 +315,7 @@ friend class NjsVM;
 
     ProgramOrFunctionBody *body = func.body->as_func_body();
     u32 func_start_pos = bytecode_pos();
-    push_scope(std::move(body->scope));
+    push_scope(body->scope.get());
 
     // generate bytecode for function body
     visit_program_or_function_body(*body);
@@ -706,7 +714,7 @@ friend class NjsVM;
   // If `extra_var` is not empty, it means that the external wants to define some variables
   // in advance in this block.
   void visit_block_statement(Block& block, const vector<pair<u16string_view, VarKind>>& extra_var) {
-    push_scope(std::move(block.scope));
+    push_scope(block.scope.get());
 
     // First, allocate space for the variables in this scope
     for (auto& [name, kind] : extra_var) {
@@ -780,10 +788,16 @@ friend class NjsVM;
   void visit_try_statement(TryStatement& stmt) {
     assert(stmt.try_block->type == ASTNode::AST_STMT_BLOCK);
     scope().get_context().has_try = true;
-    
+
+    // visit the try block to emit bytecode
     u32 try_start = bytecode_pos();
     visit(stmt.try_block);
     u32 try_end = bytecode_pos() - 1;
+
+    // We are going to record the address of the variables in the try block.
+    // When an exception happens, we should dispose the variables in this block.
+    u32 var_dispose_start = scope().get_next_var_index() + 2;
+    u32 var_dispose_end = stmt.try_block->as_block()->scope->get_var_count() + 2;
 
     scope().get_context().has_try = false;
 
@@ -792,11 +806,14 @@ friend class NjsVM;
 
     // `throw` statements will jump here
     for (u32 idx : scope().get_context().throw_list) {
-      bytecode[idx].operand.two.opr1 = catch_pos;
+      bytecode[idx].operand.two.opr1 = int(catch_pos);
     }
     scope().get_context().throw_list.clear();
-    // also, any error in the try block will jump here.
-    scope().get_outer_func()->get_context().catch_table.emplace_back(try_start, try_end, catch_pos);
+    // also, any error in the try block will jump here. So we should add a catch table entry.
+    auto& catch_table = scope().get_outer_func()->get_context().catch_table;
+    catch_table.emplace_back(try_start, try_end, catch_pos);
+    catch_table.back().var_dispose_start = var_dispose_start;
+    catch_table.back().var_dispose_end = var_dispose_end;
 
     // in the case of `catch (a) ...`, we are going to store the top-of-stack value to a local
     // variable. The variable is defined as `let`.
@@ -843,14 +860,14 @@ friend class NjsVM;
   /// Get current scope.
   Scope& scope() { return *scope_chain.back(); }
 
-  void push_scope(unique_ptr<Scope> scope) {
-    Scope *outer = !scope_chain.empty() ? scope_chain.back().get() : nullptr;
+  void push_scope(Scope *scope) {
+    Scope *outer = !scope_chain.empty() ? scope_chain.back() : nullptr;
     scope->set_outer(outer);
-    scope_chain.emplace_back(std::move(scope));
+    scope_chain.emplace_back(scope);
   }
 
   void pop_scope() {
-    unique_ptr<Scope> scope = std::move(scope_chain.back());
+    Scope *scope = scope_chain.back();
     scope_chain.pop_back();
     if (scope->get_outer_func()) {
       scope->get_outer_func()->update_var_count(scope->get_next_var_index());
@@ -912,7 +929,7 @@ friend class NjsVM;
   }
 
 
-  std::vector<unique_ptr<Scope>> scope_chain;
+  std::vector<Scope *> scope_chain;
   std::vector<Instruction> bytecode;
   SmallVector<CodegenError, 10> error;
 

@@ -190,7 +190,7 @@ class Scope {
 
   ScopeContext& get_context() {
     if (!context) context = std::make_unique<ScopeContext>();
-    return *context.get();
+    return *context;
   }
 
   bool has_context() {

@@ -31,6 +31,10 @@ friend class GCHeap;
 friend class JSObject;
 friend class InternalFunctions;
 
+struct TryContext {
+  JSValue *sp;
+};
+
  public:
   // These parameters are only for temporary convenience
   explicit NjsVM(CodegenVisitor& visitor);
@@ -91,6 +95,7 @@ friend class InternalFunctions;
 
   // stack pointer
   JSValue *sp;
+  JSValue *global_sp;
   // program counter
   u32 pc {0};
   // start of a stack frame
@@ -114,6 +119,7 @@ friend class InternalFunctions;
   JSValue global_object;
 
   SmallVector<CatchTableEntry, 3> global_catch_table;
+  SmallVector<TryContext, 5> try_stack;
 
   unordered_flat_map<u16string, NativeFuncType> native_func_binding;
 

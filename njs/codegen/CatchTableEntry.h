@@ -12,6 +12,9 @@ struct CatchTableEntry {
   u32 end_pos;
   u32 goto_pos;
 
+  u32 var_dispose_start;
+  u32 var_dispose_end;
+
   CatchTableEntry(u32 start, u32 end, u32 goto_pos)
     : start_pos(start), end_pos(end), goto_pos(goto_pos) {}
 
