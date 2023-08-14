@@ -35,7 +35,8 @@ function outer() {
 
 
 try {
-  setInterval(() => {
+  let itv = setInterval(() => {
+    clearInterval(itv)
     throw 4
   }, 2000)
   outer()

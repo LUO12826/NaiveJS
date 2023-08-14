@@ -71,8 +71,12 @@ friend class NjsVM;
     std::cout << '\n';
 
     std::cout << ">>> function metadata:\n";
+    int counter = 0;
     for (auto& meta : func_meta) {
-      std::cout << meta.description() << '\n';
+      std::cout << "index: " << counter
+                << ", name: " << std::setw(40) << to_utf8_string(str_list[meta.name_index])
+                << " addr: " << meta.code_address << '\n';
+      counter += 1;
     }
     std::cout << '\n';
     std::cout << "============== end codegen result ==============\n\n";
@@ -171,7 +175,7 @@ friend class NjsVM;
         break;
       case ASTNode::AST_EXPR_NUMBER: visit_number_literal(*static_cast<NumberLiteral *>(node));
         break;
-      case ASTNode::AST_EXPR_STRING: visit_string_literal(*node);
+      case ASTNode::AST_EXPR_STRING: visit_string_literal(*static_cast<StringLiteral *>(node));
         break;
       case ASTNode::AST_EXPR_OBJ:
         visit_object_literal(*static_cast<ObjectLiteral *>(node));
@@ -489,7 +493,7 @@ friend class NjsVM;
       }
       // a += ...
       else if (expr.assign_type == TokenType::ADD_ASSIGN) {
-        if (expr.rhs->as_number_literal() && expr.rhs->as_number_literal()->num_val == 1) {
+        if (expr.rhs->is(ASTNode::AST_EXPR_NUMBER) && expr.rhs->as_number_literal()->num_val == 1) {
           emit(InstType::inc, lhs_scope, lhs_sym_index);
         } else {
           visit(expr.rhs);
@@ -498,7 +502,7 @@ friend class NjsVM;
       }
       // a -= ...
       else if (expr.assign_type == TokenType::SUB_ASSIGN) {
-        if (expr.rhs->as_number_literal() && expr.rhs->as_number_literal()->num_val == 1) {
+        if (expr.rhs->is(ASTNode::AST_EXPR_NUMBER) && expr.rhs->as_number_literal()->num_val == 1) {
           emit(InstType::dec, lhs_scope, lhs_sym_index);
         } else {
           visit(expr.rhs);
@@ -612,11 +616,9 @@ friend class NjsVM;
     emit(Instruction::num_imm(node.num_val));
   }
 
-  void visit_string_literal(ASTNode& node) {
-    auto str_view = node.get_source();
-    str_view.remove_prefix(1);
-    str_view.remove_suffix(1);
-    emit(InstType::push_str, (int)add_const(str_view));
+  void visit_string_literal(StringLiteral& node) {
+    auto& str = node.str_val;
+    emit(InstType::push_str, (int)add_const(str));
   }
 
   void visit_variable_statement(VarStatement& var_stmt) {

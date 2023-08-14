@@ -1,0 +1,21 @@
+console.log("Hello, World!")
+console.log("123")
+console.log("JavaScript is fun")
+console.log("Special characters: \n\t\"")
+console.log('Hello, World!')
+console.log('123')
+console.log('JavaScript is fun')
+console.log('Special characters: \n\t\'')
+// console.log(`Hello, World!`)
+// console.log(`The result is ${233}`)
+// console.log(`Multiline
+// string`)
+console.log("Newline: \n")
+console.log("Tab: \t")
+console.log("Backslash: \\")
+console.log("Quote: \"")
+console.log("\u0041")
+// console.log("\u{1F602}")
+// console.log(`This is a
+// multiline
+// string`)

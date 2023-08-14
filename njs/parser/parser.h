@@ -58,7 +58,7 @@ class Parser {
       case TokenType::NUMBER:
         return new NumberLiteral(lexer.get_number_val(), TOKEN_SOURCE_EXPR);
       case TokenType::STRING:
-        return new ASTNode(ASTNode::AST_EXPR_STRING, TOKEN_SOURCE_EXPR);
+        return new StringLiteral(std::move(lexer.get_string_val()), TOKEN_SOURCE_EXPR);
       case TokenType::LEFT_BRACK:  // [
         return parse_array_literal();
       case TokenType::LEFT_BRACE:  // {

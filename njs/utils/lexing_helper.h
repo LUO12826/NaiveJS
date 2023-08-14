@@ -184,6 +184,73 @@ error:
   cursor = pos;
   return std::nullopt;
 }
+
+inline bool scan_unicode_escape_sequence(const char16_t *str, u32 str_len,
+                                            u32& cursor, std::u16string& res_str) {
+  u32 pos = cursor;
+  char16_t ch = str[pos];
+
+  if (ch != u'u') {
+    return false;
+  }
+  NEXT_CHAR
+  char16_t c = 0;
+  for (u32 i = 0; i < 4; i++) {
+    if (!character::is_hex_digit(ch)) {
+      cursor = pos;
+      return false;
+    }
+    c = c << 4 | character::u16_char_to_digit(ch);
+    NEXT_CHAR
+  }
+  res_str += c;
+  cursor = pos;
+  return true;
+}
+
+// TODO: fix json string scanning rules
+inline optional<u16string> scan_json_string_literal(const char16_t *str, u32 str_len, u32& cursor) {
+  u32 pos = cursor;
+  char16_t ch = str[pos];
+  char16_t quote = ch;
+
+  u16string tmp;
+  NEXT_CHAR
+  while(pos != str_len && ch != quote && !character::is_line_terminator(ch)) {
+
+    if (ch == u'\\') {
+      NEXT_CHAR
+      switch (ch) {
+        case u'u': {  // unicode escape sequence
+          bool suc = scan_unicode_escape_sequence(str, str_len, pos, tmp);
+          UPDATE_CHAR
+          if (!suc) goto error;
+          break;
+        }
+        default:
+          // TODO: fix this
+          if (character::is_char_escape_sequence(ch)) {
+          } else {
+          }
+      }
+    }
+    else {
+      tmp += ch;
+    }
+
+  }
+
+  if (ch == quote) {
+    NEXT_CHAR
+    return tmp;
+  }
+  return std::nullopt;
+  
+error:
+  NEXT_CHAR
+  return std::nullopt;
+}
+
 }
 
 #endif // NJS_LEXING_HELPER_H

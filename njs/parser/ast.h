@@ -35,6 +35,7 @@ class LeftHandSideExpr;
 class ParenthesisExpr;
 class ProgramOrFunctionBody;
 class NumberLiteral;
+class Block;
 
 class ASTNode {
  public:
@@ -125,7 +126,9 @@ class ASTNode {
   UnaryExpr *as_unary_expr();
   ProgramOrFunctionBody *as_func_body();
   NumberLiteral *as_number_literal();
+  Block *as_block();
 
+  bool is(Type t) { return this->type == t; }
   bool is_illegal();
   bool is_expression();
   bool is_binary_expr();
@@ -154,6 +157,18 @@ class NumberLiteral : public ASTNode {
   }
 
   double num_val;
+};
+
+class StringLiteral : public ASTNode {
+ public:
+  StringLiteral(u16string str, u16string_view source, u32 start, u32 end, u32 line_start)
+      : ASTNode(AST_EXPR_STRING, source, start, end, line_start), str_val(std::move(str)) {}
+
+  std::string description() override {
+    return ASTNode::description() + " " + to_utf8_string(str_val);
+  }
+
+  u16string str_val;
 };
 
 class RegExpLiteral : public ASTNode {

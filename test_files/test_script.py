@@ -71,7 +71,8 @@ def check_test_files(directory, exec_path):
 
         if not file.endswith(".js"):
             continue
-
+        
+        print(">>> running " + file)
         file_path = os.path.join(directory, file)
 
         cmd_str = f"{exec_path} -f {file_path}"

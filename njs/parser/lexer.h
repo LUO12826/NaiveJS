@@ -526,6 +526,8 @@ error:
 
   inline double get_number_val() const { return number_val; }
 
+  inline u16string& get_string_val() { return string_val; }
+
   inline u32 current_pos() {
     return peeking ? saved_state.cursor : cursor;
   }
@@ -674,87 +676,64 @@ error:
     std::u16string tmp;
     next_char();
     while(cursor != source.size() && ch != quote && !character::is_line_terminator(ch)) {
-      switch (ch) {
-        case u'\\': {
-          next_char();
-          // TODO(zhuzilin) Find out if "\1" will trigger error.
-          switch (ch) {
-            case u'0': {
-              next_char();
-              if (character::is_decimal_digit(peek_char())) {
-                next_char();
-                goto error;
-              }
-              break;
+      if (ch == u'\\') {
+        next_char();
+        // TODO(zhuzilin) Find out if "\1" will trigger error.
+        switch (ch) {
+          case u'0': {
+            tmp += u'\0';
+            next_char();
+            if (character::is_decimal_digit(ch)) {
+              goto error;
             }
-            case u'x': {  // HexEscapeSequence
-              next_char();
-              for (u32 i = 0; i < 2; i++) {
-                if (!character::is_hex_digit(ch)) {
-                  next_char();
-                  goto error;
-                }
-                next_char();
-              }
-              break;
-            }
-            case u'u': {  // UnicodeEscapeSequence
-              // TODO(zhuzilin) May need to interpret unicode here
-              if (!skip_unicode_escape_sequence(tmp)) {
-                next_char();
-                goto error;
-              }
-              break;
-            }
-            default:
-              if (character::is_line_terminator(ch)) {
-                skip_line_terminators();
-              } else if (character::is_char_escape_sequence(ch)) {
-                next_char();
-              } else {
-                next_char();
-                goto error;
-              }
+            break;
           }
-          break;
+          case u'x': {  // HexEscapeSequence
+            next_char();
+            char16_t c = 0;
+            for (u32 i = 0; i < 2; i++) {
+              if (!character::is_hex_digit(ch)) {
+                goto error;
+              }
+              c = c << 4 | character::u16_char_to_digit(ch);
+              next_char();
+            }
+            tmp += c;
+            break;
+          }
+          case u'u': {  // UnicodeEscapeSequence
+            if (!skip_unicode_escape_sequence(tmp)) {
+              goto error;
+            }
+            break;
+          }
+          default:
+            if (character::is_line_terminator(ch)) {
+              skip_line_terminators();
+            } else if (character::is_char_escape_sequence(ch)) {
+              next_char();
+            } else {
+              goto error;
+            }
         }
-        default:
-          next_char();
+      }
+      else {
+        tmp += ch;
+        next_char();
       }
     }
 
     if (ch == quote) {
       next_char();
+      string_val = std::move(tmp);
       return token_with_type(TokenType::STRING, start);
     }
+    return token_with_type(TokenType::ILLEGAL, start);
 error:
+    next_char();
     return token_with_type(TokenType::ILLEGAL, start);
   }
 
-  double scan_fractional_part() {
-    u32 dec_start = cursor;
-    auto scan_res = scan_decimal_literal();
-
-    if (scan_res.has_value()) {
-      u32 len = cursor - dec_start;
-      return scan_res.value() / std::pow(10, len);
-    }
-    return 0;
-  }
-
-  // Scan decimal number. Only allows decimal digits.
-  optional<uint64_t> scan_decimal_literal() {
-    auto val = njs::scan_decimal_literal(source.data(), length, cursor);
-    update_char();
-    return val;
-  }
-
-  // Scan integer. Allows decimal digits and hexadecimal digits.
-  optional<uint64_t> scan_integer_literal(int base = 10) {
-    auto val = njs::scan_integer_literal(source.data(), length, cursor, base);
-    update_char();
-    return val;
-  }
 
   Token scan_numeric_literal() {
     assert(ch == u'.' || character::is_decimal_digit(ch));
@@ -873,6 +852,7 @@ error:
 
   Token curr_token {Token::none};
   double number_val {0};
+  u16string string_val {0};
 
   u32 curr_line {0};
   u32 curr_line_start_pos {0};

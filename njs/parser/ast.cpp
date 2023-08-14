@@ -66,8 +66,11 @@ ProgramOrFunctionBody *ASTNode::as_func_body() {
 }
 
 NumberLiteral *ASTNode::as_number_literal() {
-  if (type != AST_EXPR_NUMBER) return nullptr;
   return static_cast<NumberLiteral *>(this);
+}
+
+Block *ASTNode::as_block() {
+  return static_cast<Block *>(this);
 }
 
 bool ASTNode::is_illegal() { return type == AST_ILLEGAL; }
