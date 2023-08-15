@@ -213,32 +213,12 @@ void NjsVM::execute() {
         break;
       case InstType::ret:
         exec_return();
-        if (pc == bytecode.size() || pc == bytecode.size() - 1) {
-          sp -= 1;
-          sp[0].set_undefined();
-          if (Global::show_vm_exec_steps) {
-            printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
-          }
-          return;
-        }
         break;
       case InstType::ret_err: {
         exec_return_error();
-        // 1. error happens in tasks
-        if (pc == bytecode.size() || pc == bytecode.size() - 1) {
-          printf("unhandled error: %s\n", sp[-1].description().c_str());
-          // dispose the operand stack
-          for (JSValue *val = global_sp; val < sp; val++) {
-            val->set_undefined();
-          }
-          sp = global_sp;
-          if (Global::show_vm_exec_steps) {
-            printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
-          }
-          return;
-        }
-        // 2. error happens in a normal function
-        u32 err_throw_pos = pc - 1;
+        // 1. error happens in a function (or a task)
+        // if the error does not happen in a task, the error position should be (pc - 1)
+        u32 err_throw_pc = pc - u32(!global_end);
         auto& catch_table = frame_base_ptr != rt_stack_begin
                                                             ? function_env()->meta.catch_table
                                                             : this->global_catch_table;
@@ -246,13 +226,14 @@ void NjsVM::execute() {
 
         CatchTableEntry *catch_entry = nullptr;
         for (auto& entry : catch_table) {
-          // 2. error happens in a normal function, and is caught by a `catch` statement
-          if (entry.range_include(err_throw_pos)) {
+          // 1.1 an error happens, and is caught by a `catch` statement
+          if (entry.range_include(err_throw_pc)) {
             pc = entry.goto_pos;
             catch_entry = &entry;
             // restore the sp
-            JSValue *sp_restore = (frame_base_ptr == rt_stack_begin) ?
-                             global_sp : frame_base_ptr + function_env()->meta.local_var_count + 2;
+            JSValue *sp_restore;
+            if (frame_base_ptr == rt_stack_begin) sp_restore = global_sp;
+            else sp_restore = frame_base_ptr + function_env()->meta.local_var_count + frame_meta_size;
 
             // dispose the operand stack if needed
             if (sp - 1 != sp_restore) {
@@ -272,6 +253,7 @@ void NjsVM::execute() {
             break;
           }
         }
+        // 1.2 an error happens but there is no `catch`
         if (!catch_entry) {
           assert(catch_table[catch_table.size() - 1].start_pos == catch_table[catch_table.size() - 1].end_pos);
           pc = catch_table[catch_table.size() - 1].goto_pos;
@@ -306,14 +288,32 @@ void NjsVM::execute() {
         exec_add_elements(inst.operand.two.opr1);
         break;
       case InstType::halt:
+        if (!global_end) {
+          global_end = true;
+          assert(global_sp == sp);
+        }
+        // return from a task
+        else {
+          assert(global_sp + 1 == sp);
+          sp -= 1;
+          sp[0].set_undefined();
+        }
         if (Global::show_vm_exec_steps) {
           printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
         }
         return;
       case InstType::halt_err:
-        sp -= 1;
-        printf("unhandled error: %s\n", sp[0].description().c_str());
-        sp[0].set_undefined();
+        if (!global_end) {
+          global_end = true;
+        }
+        assert(sp > global_sp);
+
+        printf("unhandled error: %s\n", sp[-1].description().c_str());
+        // dispose the operand stack
+        for (JSValue *val = global_sp; val < sp; val++) {
+          val->set_undefined();
+        }
+        sp = global_sp;
         if (Global::show_vm_exec_steps) {
           printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
         }
@@ -340,6 +340,8 @@ void NjsVM::execute_task(JSTask& task) {
     sp[0] = arg;
     sp += 1;
   }
+  // let the pc point to `halt`
+  pc = bytecode.size() - 2;
   exec_call((int)task.args.size(), false);
   execute();
 }
@@ -509,7 +511,7 @@ void NjsVM::exec_return() {
 void NjsVM::exec_return_error() {
   invoker_this.tag = JSValue::UNDEFINED;
   JSValue *old_sp = frame_base_ptr - func_arg_count - 1;
-  JSValue *local_var_end = frame_base_ptr + function_env()->meta.local_var_count + 2;
+  JSValue *local_var_end = frame_base_ptr + function_env()->meta.local_var_count + frame_meta_size;
 
   // retain the return value, in case it's deallocated due to the dispose stage bellow.
   JSValue& ret_val = sp[-1];
@@ -664,7 +666,7 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
 
   func_arg_count = actual_arg_cnt;
   frame_base_ptr = sp;
-  sp = sp + 2 + func->meta.local_var_count;
+  sp = sp + frame_meta_size + func->meta.local_var_count;
   pc = func->meta.code_address;
 }
 

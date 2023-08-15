@@ -796,8 +796,8 @@ friend class NjsVM;
 
     // We are going to record the address of the variables in the try block.
     // When an exception happens, we should dispose the variables in this block.
-    u32 var_dispose_start = scope().get_next_var_index() + 2;
-    u32 var_dispose_end = stmt.try_block->as_block()->scope->get_var_count() + 2;
+    u32 var_dispose_start = scope().get_next_var_index() + frame_meta_size;
+    u32 var_dispose_end = stmt.try_block->as_block()->scope->get_var_count() + frame_meta_size;
 
     scope().get_context().has_try = false;
 
@@ -819,7 +819,7 @@ friend class NjsVM;
     // variable. The variable is defined as `let`.
     if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
       // 2 for the stack frame metadata size. Should find a better way to write this.
-      int catch_id_addr = scope().get_next_var_index() + 2;
+      int catch_id_addr = scope().get_next_var_index() + frame_meta_size;
       emit(InstType::pop, scope_type_int(scope().get_outer_func()->get_scope_type()), catch_id_addr);
     }
     else {
@@ -928,6 +928,7 @@ friend class NjsVM;
     }
   }
 
+  static constexpr u32 frame_meta_size {2};
 
   std::vector<Scope *> scope_chain;
   std::vector<Instruction> bytecode;

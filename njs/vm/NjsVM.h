@@ -31,10 +31,6 @@ friend class GCHeap;
 friend class JSObject;
 friend class InternalFunctions;
 
-struct TryContext {
-  JSValue *sp;
-};
-
  public:
   // These parameters are only for temporary convenience
   explicit NjsVM(CodegenVisitor& visitor);
@@ -103,6 +99,8 @@ struct TryContext {
   JSValue *rt_stack_begin;
   u32 func_arg_count {0};
 
+  bool global_end {false};
+
   GCHeap heap;
   // Now still using vector because it's good for debug
   std::vector<JSValue> rt_stack;
@@ -119,7 +117,6 @@ struct TryContext {
   JSValue global_object;
 
   SmallVector<CatchTableEntry, 3> global_catch_table;
-  SmallVector<TryContext, 5> try_stack;
 
   unordered_flat_map<u16string, NativeFuncType> native_func_binding;
 

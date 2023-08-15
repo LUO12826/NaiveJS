@@ -80,13 +80,13 @@ def check_test_files(directory, exec_path):
 
         if file in file_and_expected:
             if output_match(file_and_expected[file], output_lines):
-                print(file + " match")
+                print("   ✅ match")
             else:
                 num_not_match += 1
-                print_red_text("!!!" + file + " not match")
+                print_red_text("   ❌ not match")
 
         else:
-            print(file + ": expected result not provided.")
+            print("   ⛔️ expected result not provided.")
 
     print()
     print(f"Number of files that do not match: {num_not_match}")
