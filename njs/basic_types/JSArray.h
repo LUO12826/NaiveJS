@@ -24,7 +24,7 @@ class JSArray: public JSObject {
   void gc_scan_children(GCHeap& heap) override;
 
   std::string description() override;
-  void to_json(u16string& output, NjsVM& vm) const;
+  void to_json(u16string& output, NjsVM& vm) const override;
 
   inline JSValue access_element(u32 index, bool create_ref);
 

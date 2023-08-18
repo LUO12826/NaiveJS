@@ -99,10 +99,17 @@ class JSObject : public GCObject {
 
   void gc_scan_children(GCHeap& heap) override;
 
+  virtual u16string_view get_class_name() {
+    return class_name;
+  }
+
   std::string description() override;
-  void to_json(u16string& output, NjsVM& vm) const;
+  virtual std::string to_string(NjsVM& vm);
+  virtual void to_json(u16string& output, NjsVM& vm) const;
 
   bool add_prop(const JSValue& key, const JSValue& value);
+  bool add_prop(int64_t key_atom, const JSValue& value);
+  bool add_prop(u16string_view key_str, const JSValue& value, NjsVM& vm);
 
   template <typename KEY>
   JSValue get_prop(KEY&& key, bool get_ref) {
@@ -118,6 +125,7 @@ class JSObject : public GCObject {
   }
 
   ObjectClass obj_class;
+  u16string class_name {u"Object"};
   unordered_flat_map<JSObjectKey, JSValue> storage;
 };
 

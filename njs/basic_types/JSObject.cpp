@@ -83,6 +83,17 @@ bool JSObject::add_prop(const JSValue& key, const JSValue& value) {
   return true;
 }
 
+bool JSObject::add_prop(int64_t key_atom, const JSValue& value) {
+  storage[JSObjectKey(key_atom)].assign(value);
+  return true;
+}
+
+bool JSObject::add_prop(u16string_view key_str, const JSValue& value, NjsVM& vm) {
+  u32 key_idx = vm.str_pool.add_string(key_str);
+  storage[JSObjectKey(key_idx)].assign(value);
+  return true;
+}
+
 void JSObject::gc_scan_children(GCHeap& heap) {
   for (auto& [key, value]: storage) {
     if (value.needs_gc()) {
@@ -99,7 +110,7 @@ std::string JSObject::description() {
   u32 i = 0;
   for (auto& [key, value] : storage) {
     stream << key.to_string() << ": ";
-    stream << value.to_string() << ", ";
+    stream << value.description() << ", ";
 
     i += 1;
     if (i == print_prop_num) break;
@@ -109,11 +120,30 @@ std::string JSObject::description() {
   return stream.str();
 }
 
+std::string JSObject::to_string(NjsVM& vm) {
+  std::string output = "{ ";
+
+  for (auto& [key, value] : storage) {
+    if (key.key_type == JSObjectKey::KEY_ATOM) {
+      output += to_utf8_string(vm.str_pool.get_string(key.key.atom));
+    }
+    else assert(false);
+
+    output += ": ";
+    output += value.to_string(vm);
+    output += ", ";
+  }
+
+  output += "}";
+  return output;
+}
+
 void JSObject::to_json(u16string& output, NjsVM& vm) const {
   output += u"{";
 
   bool first = true;
   for (auto& [key, value] : storage) {
+    if (value.tag_is(JSValue::UNDEFINED)) continue;
     if (first) first = false;
     else output += u',';
     

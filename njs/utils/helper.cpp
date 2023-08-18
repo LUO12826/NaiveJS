@@ -58,29 +58,36 @@ std::u16string str_cat(const std::vector<std::u16string>& vals) {
 }
 
 int print_double_u16string(double val, char16_t *str) {
-  double test_val;
   char output_buffer[40] = {0};
-  int length;
-
-  if (std::isnan(val) || std::isinf(val)) {
-    length = sprintf(output_buffer, "null");
-  }
-  else {
-     /* Try 15 decimal places of precision to avoid nonsignificant nonzero digits */
-    length = sprintf(output_buffer, "%1.15g", val);
-    /* Check whether the original double can be recovered */
-    if ((sscanf(output_buffer, "%lg", &test_val) != 1) || !approximately_equal(test_val, val)) {
-      /* If not, print with 17 decimal places of precision */
-      length = sprintf(output_buffer, "%1.17g", val);
-    }
-  }
-
-  for (int i = 0; i < length; i++) {
+  int len = print_double_string(val, output_buffer);
+  // Convert to utf16 string
+  for (int i = 0; i < len; i++) {
     *str = output_buffer[i];
     str += 1;
   }
   *str = 0;
    
+  return len;
+}
+
+
+int print_double_string(double val, char *str) {
+  double test_val;
+  int length;
+
+  if (std::isnan(val) || std::isinf(val)) {
+    length = sprintf(str, "null");
+  }
+  else {
+    /* Try 15 decimal places of precision to avoid nonsignificant nonzero digits */
+    length = sprintf(str, "%1.15g", val);
+    /* Check whether the original double can be recovered */
+    if ((sscanf(str, "%lg", &test_val) != 1) || !approximately_equal(test_val, val)) {
+      /* If not, print with 17 decimal places of precision */
+      length = sprintf(str, "%1.17g", val);
+    }
+  }
+
   return length;
 }
 

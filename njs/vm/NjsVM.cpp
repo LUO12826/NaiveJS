@@ -307,8 +307,7 @@ void NjsVM::execute() {
           global_end = true;
         }
         assert(sp > global_sp);
-
-        printf("unhandled error: %s\n", sp[-1].description().c_str());
+        printf("Unhandled throw: %s\n", sp[-1].to_string(*this).c_str());
         // dispose the operand stack
         for (JSValue *val = global_sp; val < sp; val++) {
           val->set_undefined();
@@ -344,6 +343,36 @@ void NjsVM::execute_task(JSTask& task) {
   pc = bytecode.size() - 2;
   exec_call((int)task.args.size(), false);
   execute();
+}
+
+using StackTraceItem = NjsVM::StackTraceItem;
+
+std::vector<StackTraceItem> NjsVM::capture_stack_trace() {
+  std::vector<StackTraceItem> trace;
+
+  JSValue *frame_ptr = frame_base_ptr;
+
+  while (frame_ptr != rt_stack_begin) {
+    assert(frame_ptr->tag_is(JSValue::STACK_FRAME_META1));
+    auto *func = frame_ptr->val.as_function;
+
+    trace.emplace_back(StackTraceItem {
+        .func_name = func->meta.is_anonymous ? u"(anonymous)" : func->name,
+        .source_line = func->meta.source_line,
+    });
+
+    // visit the deeper stack frame
+    frame_ptr = frame_ptr[1].val.as_JSValue;
+  }
+
+  if (!global_end) {
+    trace.emplace_back(StackTraceItem {
+        .func_name = u"(global)",
+        .source_line = 0,
+    });
+  }
+
+  return trace;
 }
 
 JSValue& NjsVM::get_value(ScopeType scope, int index) {

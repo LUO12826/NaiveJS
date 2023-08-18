@@ -24,6 +24,8 @@ std::string to_utf8_string(bool b);
 
 std::u16string str_cat(const std::vector<u16string>& vals);
 
+int print_double_string(double val, char *str);
+
 int print_double_u16string(double val, char16_t *str);
 
 void print_red_line(const std::string& text);

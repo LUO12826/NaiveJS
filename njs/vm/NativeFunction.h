@@ -10,6 +10,7 @@ class NjsVM;
 class InternalFunctions {
  public:
   static JSValue log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
+  static JSValue debug_log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static JSValue js_gc(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static JSValue set_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static JSValue set_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
@@ -17,6 +18,7 @@ class InternalFunctions {
   static JSValue clear_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static JSValue fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static JSValue json_stringify(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
+  static JSValue error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
 };
 
 }

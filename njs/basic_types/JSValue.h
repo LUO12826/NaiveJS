@@ -278,8 +278,11 @@ struct JSValue {
     tag = rhs.tag;
   }
 
+  /// `description()` is for internal debugging.
   std::string description() const;
-  std::string to_string() const;
+  /// `to_string(NjsVM&)` is for console.log.
+  std::string to_string(NjsVM& vm) const;
+  /// `to_json(u16string&, NjsVM&)` is for JSON.stringify.
   void to_json(u16string& output, NjsVM& vm) const;
 
   union {

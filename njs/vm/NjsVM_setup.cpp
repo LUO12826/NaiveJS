@@ -3,13 +3,14 @@
 namespace njs {
 
 void NjsVM::setup() {
-  add_native_func_impl(u"log", InternalFunctions::log);
+  add_native_func_impl(u"log", InternalFunctions::debug_log);
   add_native_func_impl(u"$gc", InternalFunctions::js_gc);
   add_native_func_impl(u"setTimeout", InternalFunctions::set_timeout);
   add_native_func_impl(u"setInterval", InternalFunctions::set_interval);
   add_native_func_impl(u"clearTimeout", InternalFunctions::clear_timeout);
   add_native_func_impl(u"clearInterval", InternalFunctions::clear_interval);
   add_native_func_impl(u"fetch", InternalFunctions::fetch);
+  add_native_func_impl(u"Error", InternalFunctions::error_ctor);
 
   add_builtin_object(u"console", [] (GCHeap& heap, StringPool& str_pool) {
     JSObject *obj = heap.new_object<JSObject>();

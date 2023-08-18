@@ -31,6 +31,9 @@ std::string JSValue::description() const {
   if (tag == BOOLEAN) stream << ", val: " << val.as_bool;
   else if (tag == NUM_FLOAT) stream << ", val: " << val.as_float64;
   else if (tag == NUM_INT) stream << ", val: " << val.as_int64;
+  else if (is_object()) {
+    stream << ", obj: " << as_GCObject()->description();
+  }
   else if (tag == STACK_FRAME_META1) {
     stream << ", function named: " << to_utf8_string(val.as_function->name)
            << " @" << std::hex << val.as_function;
@@ -43,30 +46,51 @@ std::string JSValue::description() const {
   return stream.str();
 }
 
-std::string JSValue::to_string() const {
-  std::ostringstream stream;
-
-  if (tag == BOOLEAN) stream << to_utf8_string(val.as_bool);
-  else if (tag == NUM_FLOAT) stream << val.as_float64;
-  else if (tag == NUM_INT) stream << val.as_int64;
-  else if (tag == UNDEFINED) stream << "undefined";
-  else if (tag == JS_NULL) stream << "null";
-  else if (tag == STRING) stream << to_utf8_string(val.as_primitive_string->str);
-  else if (tag == STACK_FRAME_META1 || is_object()) {
-    stream << as_GCObject()->description();
+std::string JSValue::to_string(NjsVM& vm) const {
+  std::string output;
+  switch (tag) {
+    case UNDEFINED: output += "undefined"; break;
+    case JS_NULL: output += "null"; break;
+    case JS_ATOM:
+      output += "Atom(" + std::to_string(val.as_int64) + ')';
+      break;
+    case BOOLEAN:
+      output += val.as_bool ? "true" : "false";
+      break;
+    case NUM_INT: output += std::to_string(val.as_int64);
+      break;
+    case NUM_FLOAT: {
+      char num_buf[40];
+      int len = print_double_string(val.as_float64, num_buf);
+      output += std::string_view(num_buf, len);
+      break;
+    }
+    case VALUE_HANDLE:
+      output += deref().to_string(vm);
+      break;
+    case STRING:
+      output += to_utf8_string(val.as_primitive_string->str);
+      break;
+    case SYMBOL: break;
+    case STACK_FRAME_META1:
+      output += val.as_function->to_string(vm);
+      break;
+    default:
+      if (is_object()) {
+        output += val.as_object->to_string(vm);
+      }
   }
 
-  return stream.str();
+  return output;
 }
 
 void JSValue::to_json(u16string& output, NjsVM& vm) const {
-  char16_t num_buf[40];
 
   switch (tag) {
     case NUM_FLOAT: {
+      char16_t num_buf[40];
       int len = print_double_u16string(val.as_float64, num_buf);
-      u16string_view sv(num_buf, len);
-      output += sv;
+      output += u16string_view(num_buf, len);
       break;
     }
     case BOOLEAN:

@@ -112,7 +112,7 @@ void print_tokens(u16string& source_code) {
     printf("%s\n", token.to_string().c_str());
 
     if (token.type == TokenType::ILLEGAL) {
-      printf("illegal token encountered at line %u.\n", token.line + 1);
+      printf("illegal token encountered at line %u.\n", token.line);
       break;
     }
   }

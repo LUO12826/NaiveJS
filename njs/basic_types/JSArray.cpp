@@ -18,7 +18,7 @@ std::string JSArray::description() {
   std::string desc = "Array[ ";
 
   for (auto& val : dense_array) {
-    desc += val.to_string();
+    desc += val.description();
     desc += ", ";
   }
   desc += "]";

@@ -9,14 +9,28 @@ JSValue InternalFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> ar
   std::string output = "\033[32m[LOG] ";
 
   for (int i = 0; i < args.size(); i++) {
-    output += args[i].to_string();
+    output += args[i].to_string(vm);
+    output += " ";
+  }
+
+  output += "\n\033[0m";
+  printf("%s", output.c_str());
+  vm.log_buffer.push_back(std::move(output));
+
+  return JSValue::undefined;
+}
+
+JSValue InternalFunctions::debug_log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  std::string output = "\033[32m[LOG] ";
+
+  for (int i = 0; i < args.size(); i++) {
+    output += args[i].to_string(vm);
     output += " ";
   }
 
   output += "\n\033[0m";
   printf("%s", output.c_str());
 
-  vm.log_buffer.push_back(std::move(output));
   return JSValue::undefined;
 }
 
@@ -107,6 +121,29 @@ JSValue InternalFunctions::json_stringify(NjsVM& vm, JSFunction& func, ArrayRef<
   u16string json_string;
   args[0].to_json(json_string, vm);
   return JSValue(new PrimitiveString(std::move(json_string)));
+}
+
+JSValue InternalFunctions::error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  auto *err_obj = vm.heap.new_object<JSObject>();
+  if (args.size() > 0 && args[0].is_string_type()) {
+    // only supports primitive string now.
+    assert(args[0].tag_is(JSValue::STRING));
+    err_obj->add_prop(u"message", JSValue(args[0].val.as_primitive_string), vm);
+  }
+
+  std::vector<NjsVM::StackTraceItem> trace = vm.capture_stack_trace();
+
+  u16string trace_str = u"Error at\n";
+  for (auto& tr : trace) {
+    trace_str += u"    ";
+    trace_str += tr.func_name;
+    trace_str += u"  @ line ";
+    trace_str += to_utf16_string(std::to_string(tr.source_line));
+    trace_str += u"\n";
+  }
+  err_obj->add_prop(u"stack", JSValue(new PrimitiveString(std::move(trace_str))), vm);
+
+  return JSValue(err_obj);
 }
 
 

@@ -37,6 +37,8 @@ struct JSFunctionMeta {
   u16 local_var_count;
   u32 code_address;
 
+  u32 source_line;
+
   SmallVector<CatchTableEntry, 3> catch_table;
 
   NativeFuncType native_func {nullptr};

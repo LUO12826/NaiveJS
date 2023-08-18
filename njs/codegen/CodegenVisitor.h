@@ -331,6 +331,7 @@ friend class NjsVM;
         .param_count = (u16)scope().get_param_count(),
         .local_var_count = (u16)scope().get_var_count(),
         .code_address = func_start_pos,
+        .source_line = func.get_line_start(),
         .catch_table = std::move(scope().get_context().catch_table)
     });
     // The rest of the work is done in the scope of the outer function, so pop scope here.

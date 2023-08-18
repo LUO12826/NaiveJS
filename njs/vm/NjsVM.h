@@ -32,6 +32,12 @@ friend class JSObject;
 friend class InternalFunctions;
 
  public:
+
+  struct StackTraceItem {
+    u16string func_name;
+    u32 source_line;
+  };
+
   // These parameters are only for temporary convenience
   explicit NjsVM(CodegenVisitor& visitor);
 
@@ -39,6 +45,8 @@ friend class InternalFunctions;
   void add_builtin_object(const u16string& name, const std::function<JSObject*(GCHeap&, StringPool&)>& builder);
   void setup();
   void run();
+
+  std::vector<StackTraceItem> capture_stack_trace();
 
  private:
   void execute();

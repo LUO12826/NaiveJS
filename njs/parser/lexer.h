@@ -854,7 +854,7 @@ error:
   double number_val {0};
   u16string string_val {0};
 
-  u32 curr_line {0};
+  u32 curr_line {1};
   u32 curr_line_start_pos {0};
 
   LexerState saved_state;
