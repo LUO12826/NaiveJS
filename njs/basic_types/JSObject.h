@@ -127,6 +127,7 @@ class JSObject : public GCObject {
   ObjectClass obj_class;
   u16string class_name {u"Object"};
   unordered_flat_map<JSObjectKey, JSValue> storage;
+  JSValue _proto_;
 };
 
 } // namespace njs

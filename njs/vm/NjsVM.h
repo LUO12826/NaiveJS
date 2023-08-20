@@ -29,6 +29,8 @@ class NjsVM {
 friend class JSRunLoop;
 friend class GCHeap;
 friend class JSObject;
+friend class JSFunction;
+friend class JSArray;
 friend class InternalFunctions;
 
  public:

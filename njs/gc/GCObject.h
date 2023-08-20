@@ -22,6 +22,16 @@ class GCObject {
   virtual void gc_scan_children(GCHeap &heap) = 0;
   virtual std::string description() = 0;
 
+  void set_nocopy() {
+    forward_ptr = (GCObject *)NO_COPY;
+  }
+
+  bool need_copy() {
+    return forward_ptr != (GCObject *)NO_COPY;
+  }
+
+  static constexpr size_t NO_COPY {SIZE_T_MAX};
+
   u32 size;
   GCObject *forward_ptr{nullptr};
 };

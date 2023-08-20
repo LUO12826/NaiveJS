@@ -2,6 +2,7 @@
 
 #include <string>
 #include "njs/gc/GCHeap.h"
+#include "njs/vm/NjsVM.h"
 
 namespace njs {
 
@@ -26,6 +27,31 @@ std::string JSArray::description() {
   desc += JSObject::description();
 
   return desc;
+}
+
+std::string JSArray::to_string(NjsVM& vm) {
+  std::string output = "[ ";
+
+  for (auto& val : dense_array) {
+    output += val.to_string(vm);
+    output += ", ";
+  }
+
+//  if (!storage.empty()) {
+//    for (auto& [key, val] : storage) {
+//      if (key.key_type == JSObjectKey::KEY_ATOM) {
+//        output += to_utf8_string(vm.str_pool.get_string(key.key.atom));
+//      }
+//      else assert(false);
+//
+//      output += ": ";
+//      output += val.to_string(vm);
+//      output += ", ";
+//    }
+//  }
+
+  output += "]";
+  return output;
 }
 
 void JSArray::to_json(u16string& output, NjsVM& vm) const {
