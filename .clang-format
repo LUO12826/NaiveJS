@@ -1,4 +1,5 @@
 ColumnLimit: 100
+IndentWidth: 2
 AccessModifierOffset: -1
 AlignAfterOpenBracket: Align
 AlignConsecutiveMacros: 'None'
@@ -7,8 +8,8 @@ AlignConsecutiveDeclarations: 'None'
 AlignOperands: true
 AlignTrailingComments: false
 AllowAllConstructorInitializersOnNextLine: true
-AllowShortBlocksOnASingleLine: 'Empty'
-AllowShortCaseLabelsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: Always
 AllowShortLambdasOnASingleLine: Inline
@@ -25,3 +26,4 @@ BreakBeforeBraces: Custom
 BraceWrapping:
     BeforeCatch: true
     BeforeElse: true
+SpaceBeforeCpp11BracedList: true

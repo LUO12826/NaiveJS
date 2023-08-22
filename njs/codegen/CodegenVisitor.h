@@ -1,20 +1,20 @@
 #ifndef NJS_CODEGEN_VISITOR_H
 #define NJS_CODEGEN_VISITOR_H
 
-#include <string>
-#include <cstdint>
-#include <iostream>
-#include <iomanip>
 #include "Scope.h"
-#include "njs/common/enums.h"
-#include "njs/utils/helper.h"
-#include "njs/include/SmallVector.h"
-#include "njs/parser/ast.h"
-#include "njs/include/robin_hood.h"
-#include "njs/vm/Instructions.h"
 #include "njs/basic_types/JSFunction.h"
 #include "njs/common/StringPool.h"
+#include "njs/common/enums.h"
+#include "njs/include/SmallVector.h"
+#include "njs/include/robin_hood.h"
+#include "njs/parser/ast.h"
 #include "njs/utils/Timer.h"
+#include "njs/utils/helper.h"
+#include "njs/vm/Instructions.h"
+#include <cstdint>
+#include <iomanip>
+#include <iostream>
+#include <string>
 
 namespace njs {
 
@@ -26,13 +26,13 @@ using u32 = uint32_t;
 
 struct CodegenError {
   std::string message;
-  ASTNode* ast_node;
+  ASTNode *ast_node;
 };
 
 class CodegenVisitor {
-friend class NjsVM;
- public:
+  friend class NjsVM;
 
+ public:
   unordered_map<u16string, u32> global_props_map;
 
   void codegen(ProgramOrFunctionBody *prog) {
@@ -73,9 +73,9 @@ friend class NjsVM;
     std::cout << ">>> function metadata:\n";
     int counter = 0;
     for (auto& meta : func_meta) {
-      std::cout << "index: " << counter
-                << ", name: " << std::setw(40) << to_utf8_string(str_list[meta.name_index])
-                << " addr: " << meta.code_address << '\n';
+      std::cout << "index: " << counter << ", name: " << std::setw(40)
+                << to_utf8_string(str_list[meta.name_index]) << " addr: " << meta.code_address
+                << '\n';
       counter += 1;
     }
     std::cout << '\n';
@@ -96,14 +96,14 @@ friend class NjsVM;
       auto& prev_inst = bytecode[i - 1];
       pos_moved[i] = -removed_inst_cnt;
 
-//      if (inst.op_type == InstType:: push && prev_inst.op_type == InstType::pop) {
-//        if (inst.operand.two.opr1 == prev_inst.operand.two.opr1
-//            && inst.operand.two.opr2 == prev_inst.operand.two.opr2) {
-//          removed_inst_cnt += 1;
-//          inst.op_type = InstType::nop;
-//          prev_inst.op_type = InstType::store;
-//        }
-//      }
+      //      if (inst.op_type == InstType:: push && prev_inst.op_type == InstType::pop) {
+      //        if (inst.operand.two.opr1 == prev_inst.operand.two.opr1
+      //            && inst.operand.two.opr2 == prev_inst.operand.two.opr2) {
+      //          removed_inst_cnt += 1;
+      //          inst.op_type = InstType::nop;
+      //          prev_inst.op_type = InstType::store;
+      //        }
+      //      }
 
       if (inst.op_type == InstType::jmp_true || inst.op_type == InstType::jmp) {
         if (inst.operand.two.opr1 == i + 1) {
@@ -111,10 +111,9 @@ friend class NjsVM;
           inst.op_type = InstType::nop;
         }
 
-        if (inst.op_type == InstType::jmp
-            && prev_inst.op_type == InstType::jmp_true
-            && prev_inst.operand.two.opr1 == i + 1) {
-          
+        if (inst.op_type == InstType::jmp && prev_inst.op_type == InstType::jmp_true &&
+            prev_inst.operand.two.opr1 == i + 1) {
+
           prev_inst.op_type = InstType::jmp_false;
           prev_inst.operand.two.opr1 = inst.operand.two.opr1;
           inst.op_type = InstType::nop;
@@ -129,8 +128,8 @@ friend class NjsVM;
       if (bytecode[i].op_type != InstType::nop) {
         auto& inst = bytecode[i];
         // Fix the jump target of the jmp instructions
-        if (inst.op_type == InstType::jmp || inst.op_type == InstType::jmp_true
-            || inst.op_type == InstType::jmp_false) {
+        if (inst.op_type == InstType::jmp || inst.op_type == InstType::jmp_true ||
+            inst.op_type == InstType::jmp_false) {
           inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
         }
         bytecode[new_inst_ptr] = inst;
@@ -181,9 +180,11 @@ friend class NjsVM;
       case ASTNode::AST_EXPR_ARGS:
         visit_func_arguments(*static_cast<Arguments *>(node));
         break;
-      case ASTNode::AST_EXPR_NUMBER: visit_number_literal(*static_cast<NumberLiteral *>(node));
+      case ASTNode::AST_EXPR_NUMBER:
+        visit_number_literal(*static_cast<NumberLiteral *>(node));
         break;
-      case ASTNode::AST_EXPR_STRING: visit_string_literal(*static_cast<StringLiteral *>(node));
+      case ASTNode::AST_EXPR_STRING:
+        visit_string_literal(*static_cast<StringLiteral *>(node));
         break;
       case ASTNode::AST_EXPR_OBJ:
         visit_object_literal(*static_cast<ObjectLiteral *>(node));
@@ -248,7 +249,12 @@ friend class NjsVM;
       for (VarDecl *decl : var_stmt.declarations) {
         if (var_stmt.kind == VarKind::DECL_LET || var_stmt.kind == VarKind::DECL_CONST) {
           bool res = scope().define_symbol(var_stmt.kind, decl->id.text);
-          if (!res) std::cout << "!!!!define symbol " << decl->id.get_text_utf8() << " failed" << std::endl;
+          if (!res) {
+            report_error(CodegenError {
+                .message = "Duplicate variable: " + to_utf8_string(decl->id.text),
+                .ast_node = decl,
+            });
+          }
         }
       }
     }
@@ -278,12 +284,12 @@ friend class NjsVM;
 
     for (ASTNode *node : program.statements) {
       visit(node);
-      if (node->type > ASTNode::BEGIN_EXPR && node->type < ASTNode::END_EXPR
-          && node->type != ASTNode::AST_EXPR_ASSIGN) {
+      if (node->type > ASTNode::BEGIN_EXPR && node->type < ASTNode::END_EXPR &&
+          node->type != ASTNode::AST_EXPR_ASSIGN) {
         emit(InstType::pop_drop);
       }
       if (scope().has_context()) {
-        auto &throw_list = scope().get_context().throw_list;
+        auto& throw_list = scope().get_context().throw_list;
         top_level_throw.insert(top_level_throw.end(), throw_list.begin(), throw_list.end());
         throw_list.clear();
       }
@@ -291,7 +297,8 @@ friend class NjsVM;
 
     if (program.type == ASTNode::AST_PROGRAM) {
       emit(InstType::halt);
-    } else { // function body
+    }
+    else { // function body
       if (bytecode[bytecode_pos() - 1].op_type != InstType::ret) {
         emit(InstType::push_undef);
         emit(InstType::ret);
@@ -306,7 +313,8 @@ friend class NjsVM;
 
     if (program.type == ASTNode::AST_PROGRAM) {
       emit(InstType::halt_err);
-    } else {
+    }
+    else {
       emit(InstType::ret_err);
     }
   }
@@ -343,7 +351,7 @@ friend class NjsVM;
     // capture closure variables
     for (auto symbol : capture_list) {
       init_code.emplace_back(InstType::capture, scope_type_int(symbol.storage_scope),
-                                                symbol.get_index());
+                             symbol.get_index());
     }
   }
 
@@ -421,10 +429,10 @@ friend class NjsVM;
       case Token::GE: emit(InstType::ge); break;
       default: assert(false);
     }
-
   }
 
-  void visit_expr_in_logical_expr(ASTNode& expr, vector<u32>& true_list, vector<u32>& false_list, bool need_value) {
+  void visit_expr_in_logical_expr(ASTNode& expr, vector<u32>& true_list, vector<u32>& false_list,
+                                  bool need_value) {
     if (expr.is_binary_logical_expr()) {
       visit_logical_expr(*expr.as_binary_expr(), true_list, false_list, need_value);
       return;
@@ -446,12 +454,13 @@ friend class NjsVM;
     emit(InstType::jmp);
   }
 
-  void visit_logical_expr(BinaryExpr& expr, vector<u32>& true_list, vector<u32>& false_list, bool need_value) {
+  void visit_logical_expr(BinaryExpr& expr, vector<u32>& true_list, vector<u32>& false_list,
+                          bool need_value) {
 
     vector<u32> lhs_true_list;
     vector<u32> lhs_false_list;
     visit_expr_in_logical_expr(*(expr.lhs), lhs_true_list, lhs_false_list, need_value);
-    
+
     bool is_OR = expr.op.type == Token::LOGICAL_OR;
     if (is_OR) {
       // backpatch( B1.falselist, M.instr)
@@ -504,7 +513,8 @@ friend class NjsVM;
       else if (expr.assign_type == TokenType::ADD_ASSIGN) {
         if (expr.rhs->is(ASTNode::AST_EXPR_NUMBER) && expr.rhs->as_number_literal()->num_val == 1) {
           emit(InstType::inc, lhs_scope, lhs_sym_index);
-        } else {
+        }
+        else {
           visit(expr.rhs);
           emit(InstType::add_assign, lhs_scope, lhs_sym_index);
         }
@@ -513,7 +523,8 @@ friend class NjsVM;
       else if (expr.assign_type == TokenType::SUB_ASSIGN) {
         if (expr.rhs->is(ASTNode::AST_EXPR_NUMBER) && expr.rhs->as_number_literal()->num_val == 1) {
           emit(InstType::dec, lhs_scope, lhs_sym_index);
-        } else {
+        }
+        else {
           visit(expr.rhs);
           emit(InstType::sub_assign, lhs_scope, lhs_sym_index);
         }
@@ -529,13 +540,12 @@ friend class NjsVM;
             break;
         }
       }
-      
     }
     else {
       // check if left hand side is LeftHandSide Expression (or Parenthesized Expression with
       // LeftHandSide Expression in it.
       if (expr.lhs->type == ASTNode::AST_EXPR_LHS) {
-        visit_left_hand_side_expr(*static_cast<LeftHandSideExpr*>(expr.lhs), true);
+        visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(expr.lhs), true);
       }
       else assert(false);
 
@@ -621,9 +631,7 @@ friend class NjsVM;
     }
   }
 
-  void visit_number_literal(NumberLiteral& node) {
-    emit(Instruction::num_imm(node.num_val));
-  }
+  void visit_number_literal(NumberLiteral& node) { emit(Instruction::num_imm(node.num_val)); }
 
   void visit_string_literal(StringLiteral& node) {
     auto& str = node.str_val;
@@ -632,7 +640,7 @@ friend class NjsVM;
 
   void visit_variable_statement(VarStatement& var_stmt) {
     for (VarDecl *decl : var_stmt.declarations) {
-        visit_variable_declaration(*decl);
+      visit_variable_declaration(*decl);
     }
   }
 
@@ -643,9 +651,10 @@ friend class NjsVM;
 
   void visit_return_statement(ReturnStatement& return_stmt) {
     if (return_stmt.expr) {
-        visit(return_stmt.expr);
-    } else {
-        emit(InstType::push_undef);
+      visit(return_stmt.expr);
+    }
+    else {
+      emit(InstType::push_undef);
     }
     emit(InstType::ret);
   }
@@ -655,20 +664,39 @@ friend class NjsVM;
     vector<u32> false_list;
     visit_expr_in_logical_expr(*stmt.condition_expr, true_list, false_list, false);
     for (u32 idx : true_list) {
-        bytecode[idx].operand.two.opr1 = bytecode_pos();
+      bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
     emit(InstType::pop_drop);
-    visit(stmt.if_block);
+
+    if (is_stmt_valid_in_single_ctx(stmt.if_block)) {
+      visit(stmt.if_block);
+    }
+    else {
+      report_error(CodegenError {
+          .message = "SyntaxError: Lexical declaration cannot appear in a single-statement context",
+          .ast_node = stmt.if_block,
+      });
+    }
+
     u32 if_end_jmp;
     if_end_jmp = emit(InstType::jmp);
 
     for (u32 idx : false_list) {
-        bytecode[idx].operand.two.opr1 = bytecode_pos();
+      bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
     emit(InstType::pop_drop);
 
     if (stmt.else_block) {
-      visit(stmt.else_block);
+      if (is_stmt_valid_in_single_ctx(stmt.else_block)) {
+        visit(stmt.else_block);
+      }
+      else {
+        report_error(CodegenError {
+            .message =
+                "SyntaxError: Lexical declaration cannot appear in a single-statement context",
+            .ast_node = stmt.else_block,
+        });
+      }
     }
     bytecode[if_end_jmp].operand.two.opr1 = bytecode_pos();
   }
@@ -682,19 +710,28 @@ friend class NjsVM;
 
     visit_expr_in_logical_expr(*stmt.condition_expr, true_list, false_list, false);
     for (u32 idx : true_list) {
-        bytecode[idx].operand.two.opr1 = bytecode_pos();
+      bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
     emit(InstType::pop_drop);
-    visit(stmt.body_stmt);
+
+    if (is_stmt_valid_in_single_ctx(stmt.body_stmt)) {
+      visit(stmt.body_stmt);
+    }
+    else {
+      report_error(CodegenError {
+          .message = "SyntaxError: Lexical declaration cannot appear in a single-statement context",
+          .ast_node = stmt.body_stmt,
+      });
+    }
     emit(InstType::jmp, loop_start);
 
     for (u32 idx : false_list) {
-        bytecode[idx].operand.two.opr1 = bytecode_pos();
+      bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
     emit(InstType::pop_drop);
 
     for (u32 idx : scope().get_context().break_list) {
-        bytecode[idx].operand.two.opr1 = bytecode_pos();
+      bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
 
     scope().get_context().can_break = false;
@@ -702,13 +739,13 @@ friend class NjsVM;
 
   void visit_continue_break_statement(ContinueOrBreak& stmt) {
     if (stmt.type == ASTNode::AST_STMT_CONTINUE) {
-        int64_t continue_pos = scope().resolve_continue_pos();
-        assert(continue_pos != -1);
-        emit(InstType::jmp, u32(continue_pos));
+      int64_t continue_pos = scope().resolve_continue_pos();
+      assert(continue_pos != -1);
+      emit(InstType::jmp, u32(continue_pos));
     }
     else {
-        scope().resolve_break_list()->push_back(bytecode_pos());
-        emit(InstType::jmp);
+      scope().resolve_break_list()->push_back(bytecode_pos());
+      emit(InstType::jmp);
     }
   }
 
@@ -726,15 +763,15 @@ friend class NjsVM;
     }
 
     for (ASTNode *node : block.statements) {
-        if (node->type != ASTNode::AST_STMT_VAR) continue;
+      if (node->type != ASTNode::AST_STMT_VAR) continue;
 
-        auto& var_stmt = *static_cast<VarStatement *>(node);
-        for (VarDecl *decl : var_stmt.declarations) {
-          if (var_stmt.kind == VarKind::DECL_LET || var_stmt.kind == VarKind::DECL_CONST) {
-            bool res = scope().define_symbol(var_stmt.kind, decl->id.text);
-            if (!res) std::cout << "!!!!define symbol " << decl->id.get_text_utf8() << " failed\n";
-          }
+      auto& var_stmt = *static_cast<VarStatement *>(node);
+      for (VarDecl *decl : var_stmt.declarations) {
+        if (var_stmt.kind == VarKind::DECL_LET || var_stmt.kind == VarKind::DECL_CONST) {
+          bool res = scope().define_symbol(var_stmt.kind, decl->id.text);
+          if (!res) std::cout << "!!!!define symbol " << decl->id.get_text_utf8() << " failed\n";
         }
+      }
     }
 
     // begin codegen for inner functions
@@ -762,8 +799,8 @@ friend class NjsVM;
 
     for (auto *stmt : block.statements) {
       visit(stmt);
-      if (stmt->type > ASTNode::BEGIN_EXPR && stmt->type < ASTNode::END_EXPR
-          && stmt->type != ASTNode::AST_EXPR_ASSIGN) {
+      if (stmt->type > ASTNode::BEGIN_EXPR && stmt->type < ASTNode::END_EXPR &&
+          stmt->type != ASTNode::AST_EXPR_ASSIGN) {
         emit(InstType::pop_drop);
       }
     }
@@ -776,9 +813,8 @@ friend class NjsVM;
   void gen_scope_var_dispose_code(Scope& the_scope) {
     auto& sym_table = the_scope.get_symbol_table();
     for (auto& [name, sym_rec] : sym_table) {
-      if (sym_rec.var_kind == VarKind::DECL_VAR
-          || sym_rec.var_kind == VarKind::DECL_FUNC_PARAM
-          || sym_rec.var_kind == VarKind::DECL_FUNCTION) {
+      if (sym_rec.var_kind == VarKind::DECL_VAR || sym_rec.var_kind == VarKind::DECL_FUNC_PARAM ||
+          sym_rec.var_kind == VarKind::DECL_FUNCTION) {
         assert(false);
       }
       auto scope_type = the_scope.get_outer_func()->get_scope_type();
@@ -821,7 +857,8 @@ friend class NjsVM;
     if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
       // 2 for the stack frame metadata size. Should find a better way to write this.
       int catch_id_addr = scope().get_next_var_index() + frame_meta_size;
-      emit(InstType::pop, scope_type_int(scope().get_outer_func()->get_scope_type()), catch_id_addr);
+      emit(InstType::pop, scope_type_int(scope().get_outer_func()->get_scope_type()),
+           catch_id_addr);
     }
     else {
       emit(InstType::pop_drop);
@@ -844,9 +881,9 @@ friend class NjsVM;
 
     Scope *scope_to_clean = &scope();
     while (true) {
-      bool should_clean = scope_to_clean->get_scope_type() != ScopeType::GLOBAL
-                          && scope_to_clean->get_scope_type() != ScopeType::FUNC
-                          && !scope_to_clean->has_try();
+      bool should_clean = scope_to_clean->get_scope_type() != ScopeType::GLOBAL &&
+                          scope_to_clean->get_scope_type() != ScopeType::FUNC &&
+                          !scope_to_clean->has_try();
       if (!should_clean) break;
 
       gen_scope_var_dispose_code(*scope_to_clean);
@@ -876,7 +913,7 @@ friend class NjsVM;
   }
 
   template <typename... Args>
-  u32 emit(Args &&...args) {
+  u32 emit(Args&&...args) {
     bytecode.emplace_back(std::forward<Args>(args)...);
     return bytecode.size() - 1;
   }
@@ -886,9 +923,7 @@ friend class NjsVM;
     return bytecode.size() - 1;
   }
 
-  void report_error(CodegenError err) {
-    error.push_back(std::move(err));
-  }
+  void report_error(CodegenError err) { error.push_back(std::move(err)); }
 
   u32 add_const(u16string_view str_view) {
     auto idx = str_pool.add_string(str_view);
@@ -907,8 +942,14 @@ friend class NjsVM;
     return idx;
   }
 
-  u32 bytecode_pos() {
-    return bytecode.size();
+  u32 bytecode_pos() { return bytecode.size(); }
+
+  bool is_stmt_valid_in_single_ctx(ASTNode *stmt) {
+    if (stmt->is(ASTNode::AST_STMT_VAR)) {
+      auto *var_stmt = static_cast<VarStatement *>(stmt);
+      if (var_stmt->kind != VarKind::DECL_VAR) return false;
+    }
+    return true;
   }
 
   void add_builtin_functions() {
@@ -916,7 +957,7 @@ friend class NjsVM;
 
     for (auto& [name, record] : scope().get_symbol_table()) {
       if (record.is_builtin && record.var_kind == VarKind::DECL_FUNCTION) {
-        u32 meta_idx = add_function_meta(JSFunctionMeta{
+        u32 meta_idx = add_function_meta(JSFunctionMeta {
             .name_index = add_const(name),
             .is_native = true,
             .param_count = 0,
@@ -942,7 +983,6 @@ friend class NjsVM;
 
   // for atom
   SmallVector<u16string, 10> atom_pool;
-
 };
 
 } // namespace njs

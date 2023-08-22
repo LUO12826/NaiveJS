@@ -6,7 +6,7 @@
 namespace njs {
 
 JSValue InternalFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-  std::string output = "\033[32m";
+  std::string output = "\033[32m[LOG] ";
 
   for (int i = 0; i < args.size(); i++) {
     output += args[i].to_string(vm);
