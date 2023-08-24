@@ -56,27 +56,28 @@ class CodegenVisitor {
     }
     std::cout << '\n';
 
+    std::cout << ">>> string pool:\n";
     std::vector<u16string>& str_list = str_pool.get_string_list();
 
-    std::cout << ">>> string pool:\n";
-    for (auto& str : str_list) {
-      std::cout << to_utf8_string(str) << '\n';
+    for (int i = 0; i < str_list.size(); i++) {
+      std::cout << std::setw(3) << i << " " << to_utf8_string(str_list[i]) << '\n';
     }
     std::cout << '\n';
 
     std::cout << ">>> number pool:\n";
-    for (auto num : num_list) {
-      std::cout << num << '\n';
+    for (int i = 0; i < num_list.size(); i++) {
+      std::cout << std::setw(3) << i << " " << num_list[i] << '\n';
     }
     std::cout << '\n';
 
     std::cout << ">>> function metadata:\n";
-    int counter = 0;
-    for (auto& meta : func_meta) {
-      std::cout << "index: " << counter << ", name: " << std::setw(40)
-                << to_utf8_string(str_list[meta.name_index]) << " addr: " << meta.code_address
+    for (int i = 0; i < func_meta.size(); i++) {
+      auto& meta = func_meta[i];
+      std::string func_name = meta.is_anonymous ? "(anonymous)"
+                                                : to_utf8_string(str_list[meta.name_index]);
+      std::cout << "index: " << std::setw(3) << i << ", name: " << std::setw(30)
+                << func_name << " addr: " << meta.code_address
                 << '\n';
-      counter += 1;
     }
     std::cout << '\n';
     std::cout << "============== end codegen result ==============\n\n";

@@ -53,6 +53,7 @@ friend class InternalFunctions;
  private:
   void execute();
   void execute_task(JSTask& task);
+  void call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
   // push
   void exec_push(int scope, int index);
   void exec_push_str(int str_idx, bool atom);

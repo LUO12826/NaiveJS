@@ -24,16 +24,16 @@ set(SOURCES
     njs/utils/Timer.cpp
     njs/common/StringPool.cpp
     njs/parser/ast.cpp
-    njs/codegen/Scope.cpp
     njs/basic_types/JSArray.cpp
     njs/vm/NativeFunction.cpp
     njs/vm/JSRunLoop.cpp
 )
 
 # executable is named `njs`
-add_executable(njs ${SOURCES} njs/codegen/Scope.cpp)
+add_executable(njs ${SOURCES})
 
-target_compile_options(njs PRIVATE -Wno-deprecated-declarations)
+target_compile_options(njs PRIVATE -Wno-deprecated-declarations -fsanitize=address)
+target_link_options(njs PRIVATE -fsanitize=address)
 target_include_directories(njs PRIVATE .)
 
 # executable for debug print

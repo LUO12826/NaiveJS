@@ -340,6 +340,8 @@ class Scope {
   unordered_map<Function *, SmallVector<Instruction, 5>> inner_func_init_code;
 };
 
+inline Scope::SymbolResolveResult  Scope::SymbolResolveResult::none = SymbolResolveResult();
+
 } // namespace njs
 
 #endif // NJS_SCOPE_H

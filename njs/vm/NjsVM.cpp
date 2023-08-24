@@ -333,15 +333,21 @@ void NjsVM::execute() {
 }
 
 void NjsVM::execute_task(JSTask& task) {
-  sp[0] = task.task_func;
+  // let the pc point to `halt`
+  pc = bytecode.size() - 2;
+  call_function(task.task_func.val.as_function, task.args, nullptr);
+}
+
+void NjsVM::call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
+  sp[0].set_val(func);
   sp += 1;
-  for (const auto& arg : task.args) {
+  for (auto& arg : args) {
     sp[0] = arg;
     sp += 1;
   }
-  // let the pc point to `halt`
-  pc = bytecode.size() - 2;
-  exec_call((int)task.args.size(), false);
+  
+  if (this_obj) invoker_this.set_val(this_obj);
+  exec_call((int)args.size(), this_obj != nullptr);
   execute();
 }
 
