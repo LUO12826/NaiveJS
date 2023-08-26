@@ -33,7 +33,7 @@ class GCObject {
   static constexpr size_t NO_COPY {SIZE_T_MAX};
 
   u32 size;
-  GCObject *forward_ptr{nullptr};
+  GCObject *forward_ptr {nullptr};
 };
 
 } // namespace njs

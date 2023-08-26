@@ -5,6 +5,8 @@
 #include "njs/codegen/CodegenVisitor.h"
 #include "njs/global_var.h"
 #include "njs/utils/lexing_helper.h"
+#include "njs/basic_types/JSObjectPrototype.h"
+#include "njs/basic_types/JSArrayPrototype.h"
 
 namespace njs {
 
@@ -16,15 +18,20 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   , str_pool(std::move(visitor.str_pool))
   , num_list(std::move(visitor.num_list))
   , func_meta(std::move(visitor.func_meta))
-  , top_level_this(heap.new_object<JSObject>())
-  , global_object(heap.new_object<GlobalObject>())
   , global_catch_table(std::move(visitor.scope_chain[0]->get_context().catch_table))
 {
+  init_prototypes();
+  top_level_this.set_val(new_object());
+
+  auto global_obj = heap.new_object<GlobalObject>();
+  global_obj->set_prototype(object_prototype);
+  global_object.set_val(global_obj);
+
+
   auto& global_sym_table = visitor.scope_chain[0]->get_symbol_table();
 
-  GlobalObject& global_obj = *static_cast<GlobalObject *>(global_object.val.as_object);
   for (auto& [sym_name, sym_rec] : global_sym_table) {
-    global_obj.props_index_map.emplace(u16string(sym_name), sym_rec.index + frame_meta_size);
+    global_obj->props_index_map.emplace(u16string(sym_name), sym_rec.index + frame_meta_size);
   }
 
   rt_stack_begin = rt_stack.data();
@@ -46,6 +53,40 @@ void NjsVM::add_builtin_object(const u16string& name,
 
   u32 index = iter->second;
   rt_stack[index].set_val(builder(heap, str_pool));
+}
+
+void NjsVM::init_prototypes() {
+  object_prototype.set_val(heap.new_object<JSObjectPrototype>());
+
+  array_prototype.set_val(heap.new_object<JSArrayPrototype>(*this));
+  array_prototype.as_object()->set_prototype(object_prototype);
+
+  function_prototype = object_prototype;
+//  string_prototype = object_prototype;
+}
+
+JSObject* NjsVM::new_object() {
+  auto *obj = heap.new_object<JSObject>();
+  obj->set_prototype(object_prototype);
+  return obj;
+}
+
+JSArray* NjsVM::new_array(int length) {
+  auto *arr = heap.new_object<JSArray>(length);
+  arr->set_prototype(array_prototype);
+  return arr;
+}
+
+JSFunction* NjsVM::new_function(const JSFunctionMeta& meta) {
+  JSFunction *func;
+  if (meta.is_anonymous) {
+    func = heap.new_object<JSFunction>(meta);
+  }
+  else {
+    func = heap.new_object<JSFunction>(str_pool.get_string(meta.name_index), meta);
+  }
+  func->set_prototype(function_prototype);
+  return func;
 }
 
 void NjsVM::run() {
@@ -614,10 +655,11 @@ void NjsVM::exec_var_dispose(int scope, int index) {
 
 void NjsVM::exec_make_func(int meta_idx) {
   auto& meta = func_meta[meta_idx];
-  const u16string& name = meta.is_anonymous ? u"" : str_pool.get_string(meta.name_index);
+  auto *func = new_function(meta);
 
-  auto *func = heap.new_object<JSFunction>(name, meta);
   if (meta.is_native) {
+    assert(!meta.is_anonymous);
+    u16string& name = str_pool.get_string(meta.name_index);
     func->native_func = native_func_binding[name];
   }
   sp[0].set_val(func);
@@ -706,13 +748,13 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
 }
 
 void NjsVM::exec_make_object() {
-  auto *obj = heap.new_object<JSObject>();
+  auto *obj = new_object();
   sp[0].set_val(obj);
   sp += 1;
 }
 
 void NjsVM::exec_make_array(int length) {
-  auto *array = heap.new_object<JSArray>(length);
+  auto *array = new_array(length);
   sp[0].set_val(array);
   sp += 1;
 }
@@ -962,12 +1004,6 @@ void NjsVM::exec_strict_equality(bool flip) {
   if (flip) lhs.val.as_bool = !lhs.val.as_bool;
   rhs.set_undefined();
   sp -= 1;
-}
-
-double NjsVM::to_numeric_value(JSValue& val) {
-  if (val.is_float64()) return val.val.as_float64;
-  if (val.is_int64()) return val.val.as_int64;
-  assert(false);
 }
 
 void NjsVM::exec_comparison(InstType type) {

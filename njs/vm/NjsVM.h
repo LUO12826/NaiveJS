@@ -31,6 +31,10 @@ friend class GCHeap;
 friend class JSObject;
 friend class JSFunction;
 friend class JSArray;
+friend class JSObjectPrototype;
+friend class JSArrayPrototype;
+friend class JSFunctionPrototype;
+friend class JSStringPrototype;
 friend class InternalFunctions;
 
  public:
@@ -49,6 +53,10 @@ friend class InternalFunctions;
   void run();
 
   std::vector<StackTraceItem> capture_stack_trace();
+
+  JSObject* new_object();
+  JSArray* new_array(int length);
+  JSFunction* new_function(const JSFunctionMeta& meta);
 
  private:
   void execute();
@@ -95,7 +103,8 @@ friend class InternalFunctions;
   JSFunction *function_env();
   JSValue& get_value(ScopeType scope, int index);
   bool are_strings_equal(const JSValue& lhs, const JSValue& rhs);
-  double to_numeric_value(JSValue& val);
+
+  void init_prototypes();
 
   constexpr static u32 frame_meta_size {2};
   u32 max_stack_size {10240};
@@ -110,10 +119,10 @@ friend class InternalFunctions;
   JSValue *rt_stack_begin;
   u32 func_arg_count {0};
 
+  // true if the code in the global scope is executed
   bool global_end {false};
 
   GCHeap heap;
-  // Now still using vector because it's good for debug
   std::vector<JSValue> rt_stack;
   std::vector<Instruction> bytecode;
   JSRunLoop runloop;
@@ -123,15 +132,22 @@ friend class InternalFunctions;
   SmallVector<double, 10> num_list;
   SmallVector<JSFunctionMeta, 10> func_meta;
 
-  JSValue invoker_this {JSValue::UNDEFINED};
+  JSValue invoker_this;
   JSValue top_level_this;
   JSValue global_object;
 
+  // for error handling in the global scope
   SmallVector<CatchTableEntry, 3> global_catch_table;
-
+  // native functions and pointers to them
   unordered_flat_map<u16string, NativeFuncType> native_func_binding;
-
+  // for collecting all log strings.
   std::vector<std::string> log_buffer;
+
+  // object prototypes
+  JSValue object_prototype;
+  JSValue array_prototype;
+//  JSValue string_prototype;
+  JSValue function_prototype;
 };
 
 } // namespace njs

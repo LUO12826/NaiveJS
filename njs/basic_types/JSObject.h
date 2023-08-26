@@ -4,13 +4,15 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
+#include "JSObjectKey.h"
 #include "njs/include/robin_hood.h"
 #include "njs/utils/helper.h"
 #include "njs/basic_types/JSValue.h"
 #include "njs/gc/GCObject.h"
 #include "RCObject.h"
-
+#include "JSFunctionMeta.h"
 
 namespace njs {
 
@@ -20,65 +22,6 @@ using robin_hood::unordered_flat_map;
 
 class GCHeap;
 
-struct JSObjectKey {
-  enum KeyType {
-    KEY_STR,
-    KEY_STR_VIEW,
-    KEY_NUM,
-    KEY_SYMBOL,
-    KEY_ATOM,
-  };
-
-  union KeyData {
-    PrimitiveString *str;
-    u16string_view str_view;
-    JSSymbol *symbol;
-    double number;
-    int64_t atom;
-
-    KeyData(): number(0) {}
-    ~KeyData() {}
-  };
-
-  explicit JSObjectKey(JSSymbol *sym);
-  explicit JSObjectKey(PrimitiveString *str);
-  explicit JSObjectKey(u16string_view str_view);
-  explicit JSObjectKey(int64_t atom);
-
-  ~JSObjectKey();
-
-  bool operator == (const JSObjectKey& other) const;
-  std::string to_string() const;
-
-  KeyData key;
-  KeyType key_type;
-};
-
-} // namespace njs
-
-/// @brief std::hash for JSObjectKey. Injected into std namespace.
-template <>
-struct std::hash<njs::JSObjectKey>
-{
-  std::size_t operator () (const njs::JSObjectKey& obj_key) const {
-    switch (obj_key.key_type) {
-      case njs::JSObjectKey::KEY_STR:
-        return njs::hash_val(njs::JSObjectKey::KEY_STR, *(obj_key.key.str));
-      case njs::JSObjectKey::KEY_STR_VIEW:
-        return njs::hash_val(njs::JSObjectKey::KEY_STR, obj_key.key.str_view);
-      case njs::JSObjectKey::KEY_NUM:
-        return njs::hash_val(obj_key.key_type, obj_key.key.number);
-      case njs::JSObjectKey::KEY_SYMBOL:
-        return njs::hash_val(obj_key.key_type, *(obj_key.key.symbol));
-      case njs::JSObjectKey::KEY_ATOM:
-        return njs::hash_val(obj_key.key_type, obj_key.key.atom);
-      default: assert(false);
-    }
-  }
-};
-
-namespace njs {
-
 // has corresponding string representation, note to modify when adding
 enum class ObjectClass {
   CLS_OBJECT = 0,
@@ -87,45 +30,71 @@ enum class ObjectClass {
   CLS_DATE,
   CLS_FUNCTION,
   CLS_GLOBAL_OBJ,
-  CLS_CUSTOM
+  CLS_CUSTOM,
+
+  CLS_OBJECT_PROTO,
+  CLS_ARRAY_PROTO,
+  CLS_FUNCTION_PROTO,
 };
 
 class JSObject : public GCObject {
  public:
   JSObject(): obj_class(ObjectClass::CLS_OBJECT) {}
   explicit JSObject(ObjectClass cls): obj_class(cls) {}
+  explicit JSObject(ObjectClass cls, JSValue proto): obj_class(cls), _proto_(proto) {}
 
   ~JSObject() override;
 
   void gc_scan_children(GCHeap& heap) override;
 
   virtual u16string_view get_class_name() {
-    return class_name;
+    return u"Object";
   }
 
   std::string description() override;
   virtual std::string to_string(NjsVM& vm);
   virtual void to_json(u16string& output, NjsVM& vm) const;
 
+  void set_prototype(JSValue proto) {
+    _proto_ = proto;
+  }
+
   bool add_prop(const JSValue& key, const JSValue& value);
   bool add_prop(int64_t key_atom, const JSValue& value);
   bool add_prop(u16string_view key_str, const JSValue& value, NjsVM& vm);
+  bool add_method(NjsVM& vm, u16string_view name, NativeFuncType funcImpl);
 
   template <typename KEY>
   JSValue get_prop(KEY&& key, bool get_ref) {
-
-    if (!get_ref) {
-      auto res = storage.find(JSObjectKey(std::forward<KEY>(key)));
-      if (res != storage.end()) return res->second;
-      return JSValue::undefined;
+    JSValue res = get_exist_prop(std::forward<KEY>(key), get_ref);
+    if (res.tag != JSValue::UNDEFINED) {
+      return res;
+    }
+    else if (get_ref) {
+      return JSValue(&storage[JSObjectKey(std::forward<KEY>(key))]);
     }
     else {
-      return JSValue(&storage[JSObjectKey(key)]);
+      return JSValue::undefined;
+    }
+  }
+
+  template <typename KEY>
+  JSValue get_exist_prop(KEY&& key, bool get_ref) {
+
+    auto res = storage.find(JSObjectKey(std::forward<KEY>(key)));
+    if (res != storage.end()) {
+      if (get_ref) return JSValue(&res->second);
+      else return res->second;
+    }
+    else if (_proto_.is_object()) {
+      return _proto_.as_object()->get_exist_prop(std::forward<KEY>(key), get_ref);
+    }
+    else {
+      return JSValue::undefined;
     }
   }
 
   ObjectClass obj_class;
-  u16string class_name {u"Object"};
   unordered_flat_map<JSObjectKey, JSValue> storage;
   JSValue _proto_;
 };

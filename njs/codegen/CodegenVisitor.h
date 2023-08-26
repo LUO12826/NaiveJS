@@ -600,7 +600,7 @@ class CodegenVisitor {
       // obj.prop
       else if (postfix_type == LeftHandSideExpr::PROP) {
         size_t prop_start = i;
-        for (; postfix_ord[i].first == LeftHandSideExpr::PROP && i < postfix_size; i++) {
+        for (; i < postfix_size && postfix_ord[i].first == LeftHandSideExpr::PROP; i++) {
           idx = postfix_ord[i].second;
           int keypath_id = (int)add_const(expr.prop_list[idx].text);
           emit(InstType::push_atom, keypath_id);

@@ -196,14 +196,17 @@ const char *js_value_tag_names[25] = {
   "NEED_GC_END"
 };
 
-const char *object_class_names[7] = {
+const char *object_class_names[10] = {
   "CLS_OBJECT",
   "CLS_ARRAY",
   "CLS_ERROR",
   "CLS_DATE",
   "CLS_FUNCTION",
   "CLS_GLOBAL_OBJ",
-  "CLS_CUSTOM"
+  "CLS_CUSTOM",
+  "CLS_OBJECT_PROTO",
+  "CLS_ARRAY_PROTO",
+  "CLS_FUNCTION_PROTO",
 };
 
 const char *inst_type_names[6] {

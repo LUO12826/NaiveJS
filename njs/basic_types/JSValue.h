@@ -26,7 +26,7 @@ extern const char *js_value_tag_names[25];
 /// and avoid memory leaks.
 ///
 /// When a JSValue is transferred from the operand stack to somewhere on the stack frame,
-/// or to a non-temporary storage such as object attributes or array elements, `assign`
+/// or to a non-temporary storage such as object properties or array elements, `assign`
 /// must be called to handle reference counting correctly.
 struct JSValue {
   // has corresponding string representation, note to modify when adding
@@ -61,6 +61,10 @@ struct JSValue {
 
     NEED_RC_END,
 
+    // These tags exist because:
+    // 1. the runtime stack of the VM is a `JSValue[]` array
+    // 2. when doing function calls, we have to save some metadata on the stack ( so that when the
+    // function returns, we can restore the `pc`, the `frame_base_ptr` and other states.
     STACK_FRAME_META1,
     STACK_FRAME_META2,
     OTHER,
@@ -240,6 +244,9 @@ struct JSValue {
   }
 
   GCObject *as_GCObject() const;
+  JSObject *as_object() const {
+    return val.as_object;
+  }
 
   bool is_falsy() const {
     if (tag == BOOLEAN) return !val.as_bool;

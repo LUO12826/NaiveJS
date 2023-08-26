@@ -2,24 +2,11 @@
 
 #include <string>
 #include <utility>
-#include <sstream>
 #include "njs/gc/GCHeap.h"
 
 namespace njs {
 
 JSFunction::JSFunction() : JSObject(ObjectClass::CLS_FUNCTION) {}
-
-JSFunction::JSFunction(u16string name, u32 param_cnt, u32 local_var_cnt, u32 code_addr)
-    : JSObject(ObjectClass::CLS_FUNCTION), name(std::move(name)) {
-  meta.param_count = param_cnt;
-  meta.local_var_count = local_var_cnt;
-  meta.code_address = code_addr;
-}
-
-JSFunction::JSFunction(u16string name, u32 param_cnt)
-    : JSObject(ObjectClass::CLS_FUNCTION), name(std::move(name)) {
-  meta.param_count = param_cnt;
-}
 
 JSFunction::JSFunction(u16string name, const JSFunctionMeta& meta) : JSFunction(meta) {
   this->name = std::move(name);

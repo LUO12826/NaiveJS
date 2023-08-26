@@ -5,57 +5,27 @@
 #include <span>
 #include "JSValue.h"
 #include "JSObject.h"
-#include "njs/include/SmallVector.h"
 #include "njs/common/ArrayRef.h"
-#include "njs/codegen/CatchTableEntry.h"
+#include "JSFunctionMeta.h"
 
 namespace njs {
 
-using u16 = uint16_t;
-using u32 = uint32_t;
 using std::u16string;
-using llvm::SmallVector;
 
 class GCHeap;
-class NjsVM;
-class JSFunction;
-class JSFunctionMeta;
-
-// Native function type. A Native function should act like a JavaScript function,
-// accepting an array of arguments and returning a value.
-using NativeFuncType = JSValue(*)(NjsVM&, JSFunction&, ArrayRef<JSValue>);
-
-struct JSFunctionMeta {
-
-  u32 name_index;
-  bool is_anonymous {false};
-  bool is_arrow_func {false};
-  bool has_this_binding {false};
-  bool is_native {false};
-
-  u16 param_count;
-  u16 local_var_count;
-  u32 code_address;
-
-  u32 source_line;
-
-  SmallVector<CatchTableEntry, 3> catch_table;
-
-  NativeFuncType native_func {nullptr};
-
-  std::string description() const;
-};
 
 class JSFunction : public JSObject {
  public:
   JSFunction();
-  JSFunction(u16string name, u32 param_cnt, u32 local_var_cnt, u32 code_addr);
-  JSFunction(u16string name, u32 param_cnt);
   JSFunction(u16string name, const JSFunctionMeta& meta);
   explicit JSFunction(const JSFunctionMeta& meta);
   ~JSFunction() override;
 
   void gc_scan_children(GCHeap& heap) override;
+
+  u16string_view get_class_name() override {
+    return u"Function";
+  }
 
   std::string description() override;
 

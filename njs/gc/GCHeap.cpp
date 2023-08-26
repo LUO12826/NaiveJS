@@ -35,6 +35,7 @@ void GCHeap::gc() {
 }
 
 void GCHeap::gc_visit_object(JSValue &handle, GCObject *obj) {
+  assert(handle.needs_gc());
   GCObject *obj_new = copy_object(obj);
   handle.val.as_object = static_cast<JSObject*>(obj_new);
 }
@@ -54,6 +55,11 @@ std::vector<JSValue *> GCHeap::gather_roots() {
   if (vm.invoker_this.needs_gc()) roots.push_back(&vm.invoker_this);
   roots.push_back(&vm.global_object);
   roots.push_back(&vm.top_level_this);
+
+  roots.push_back(&vm.object_prototype);
+  roots.push_back(&vm.array_prototype);
+//  roots.push_back(&vm.string_prototype);
+//  roots.push_back(&vm.function_prototype);
 
   auto task_roots = vm.runloop.gc_gather_roots();
   roots.insert(roots.end(), task_roots.begin(), task_roots.end());
@@ -96,17 +102,19 @@ void GCHeap::dealloc_dead(byte *start, byte *end) {
 }
 
 GCObject *GCHeap::copy_object(GCObject *obj) {
-  if (obj->forward_ptr == nullptr) {
+  GCObject *obj_new = obj->forward_ptr;
+  if (obj_new == nullptr) {
     if (Global::show_gc_statistics) {
       std::cout << "Copy object: " << static_cast<JSObject *>(obj)->description() << '\n';
     }
-    memcpy(alloc_point, (void *)obj, obj->size);
-    obj->forward_ptr = (GCObject *)alloc_point;
+    obj_new = (GCObject *)alloc_point;
+    memcpy((void *)obj_new, (void *)obj, obj->size);
+    obj->forward_ptr = obj_new;
     alloc_point += obj->size;
 
-    obj->gc_scan_children(*this);
+    obj_new->gc_scan_children(*this);
   }
-  return obj->forward_ptr;
+  return obj_new;
 }
 
 // Allocate memory for a new object.

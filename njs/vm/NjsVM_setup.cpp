@@ -12,8 +12,8 @@ void NjsVM::setup() {
   add_native_func_impl(u"fetch", InternalFunctions::fetch);
   add_native_func_impl(u"Error", InternalFunctions::error_ctor);
 
-  add_builtin_object(u"console", [] (GCHeap& heap, StringPool& str_pool) {
-    JSObject *obj = heap.new_object<JSObject>();
+  add_builtin_object(u"console", [this] (GCHeap& heap, StringPool& str_pool) {
+    JSObject *obj = new_object();
 
     JSFunctionMeta log_meta {
         .is_anonymous = true,
@@ -22,7 +22,7 @@ void NjsVM::setup() {
         .local_var_count = 0,
         .native_func = InternalFunctions::log,
     };
-    JSFunction *log_func = heap.new_object<JSFunction>(log_meta);
+    JSFunction *log_func = new_function(log_meta);
 
     JSValue key(JSValue::JS_ATOM);
     key.val.as_int64 = str_pool.add_string(u"log");
@@ -31,17 +31,17 @@ void NjsVM::setup() {
     return obj;
   });
 
-  add_builtin_object(u"JSON", [] (GCHeap& heap, StringPool& str_pool) {
-    JSObject *obj = heap.new_object<JSObject>();
+  add_builtin_object(u"JSON", [this] (GCHeap& heap, StringPool& str_pool) {
+    JSObject *obj = new_object();
 
-    JSFunctionMeta func_meta {
+    JSFunctionMeta meta {
         .is_anonymous = true,
         .is_native = true,
         .param_count = 1,
         .local_var_count = 0,
         .native_func = InternalFunctions::json_stringify,
     };
-    JSFunction *func = heap.new_object<JSFunction>(func_meta);
+    JSFunction *func = new_function(meta);
 
     auto key_atom_value = str_pool.add_string(u"stringify");
     obj->add_prop(JSValue::Atom(key_atom_value), JSValue(func));

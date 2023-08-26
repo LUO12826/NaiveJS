@@ -94,11 +94,31 @@ bool JSObject::add_prop(u16string_view key_str, const JSValue& value, NjsVM& vm)
   return true;
 }
 
+bool JSObject::add_method(NjsVM& vm, u16string_view name, NativeFuncType funcImpl) {
+
+  u32 name_idx = vm.str_pool.add_string(name);
+  JSValue key(JSValue::JS_ATOM);
+  key.val.as_int64 = name_idx;
+
+  JSFunctionMeta meta {
+      .name_index = name_idx,
+      .is_native = true,
+      .param_count = 0,
+      .local_var_count = 0,
+      .native_func = funcImpl,
+  };
+
+  add_prop(key, JSValue(vm.new_function(meta)));
+}
+
 void JSObject::gc_scan_children(GCHeap& heap) {
   for (auto& [key, value]: storage) {
     if (value.needs_gc()) {
       heap.gc_visit_object(value, value.as_GCObject());
     }
+  }
+  if (_proto_.needs_gc()) {
+    heap.gc_visit_object(_proto_, _proto_.as_GCObject());
   }
 }
 

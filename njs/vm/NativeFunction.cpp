@@ -124,7 +124,7 @@ JSValue InternalFunctions::json_stringify(NjsVM& vm, JSFunction& func, ArrayRef<
 }
 
 JSValue InternalFunctions::error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-  auto *err_obj = vm.heap.new_object<JSObject>();
+  auto *err_obj = vm.new_object();
   if (args.size() > 0 && args[0].is_string_type()) {
     // only supports primitive string now.
     assert(args[0].tag_is(JSValue::STRING));

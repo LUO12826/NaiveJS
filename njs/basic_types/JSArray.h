@@ -16,19 +16,27 @@ class JSArray: public JSObject {
   JSArray(): JSArray(0) {}
   
   explicit JSArray(int length): JSObject(ObjectClass::CLS_ARRAY) {
-    JSValue length_atom(JSValue::JS_ATOM);
-    length_atom.val.as_int64 = StringPool::ATOM_length;
-    add_prop(length_atom, JSValue((double)length));
+    add_prop(JSValue::Atom(StringPool::ATOM_length), JSValue((double)length));
   }
 
   void gc_scan_children(GCHeap& heap) override;
 
+  u16string_view get_class_name() override {
+    return u"Array";
+  }
   std::string description() override;
   std::string to_string(NjsVM& vm) override;
   void to_json(u16string& output, NjsVM& vm) const override;
 
   inline JSValue access_element(u32 index, bool create_ref);
 
+  u32 get_length() {
+    return get_prop(StringPool::ATOM_length, false).val.as_float64;
+  }
+
+  void set_length(u32 length) {
+    get_prop(StringPool::ATOM_length, true).deref().val.as_float64 = double(length);
+  }
 
   std::vector<JSValue> dense_array;
 };
