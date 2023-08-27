@@ -7,6 +7,7 @@
 #include "njs/utils/lexing_helper.h"
 #include "njs/basic_types/JSObjectPrototype.h"
 #include "njs/basic_types/JSArrayPrototype.h"
+#include "njs/basic_types/JSFunctionPrototype.h"
 
 namespace njs {
 
@@ -61,12 +62,13 @@ void NjsVM::init_prototypes() {
   array_prototype.set_val(heap.new_object<JSArrayPrototype>(*this));
   array_prototype.as_object()->set_prototype(object_prototype);
 
-  function_prototype = object_prototype;
+  function_prototype.set_val(heap.new_object<JSFunctionPrototype>());
+  function_prototype.as_object()->set_prototype(object_prototype);
 //  string_prototype = object_prototype;
 }
 
-JSObject* NjsVM::new_object() {
-  auto *obj = heap.new_object<JSObject>();
+JSObject* NjsVM::new_object(ObjectClass cls) {
+  auto *obj = heap.new_object<JSObject>(cls);
   obj->set_prototype(object_prototype);
   return obj;
 }
@@ -257,49 +259,7 @@ void NjsVM::execute() {
         break;
       case InstType::ret_err: {
         exec_return_error();
-        // 1. error happens in a function (or a task)
-        // if the error does not happen in a task, the error position should be (pc - 1)
-        u32 err_throw_pc = pc - u32(!global_end);
-        auto& catch_table = frame_base_ptr != rt_stack_begin
-                                                            ? function_env()->meta.catch_table
-                                                            : this->global_catch_table;
-        assert(catch_table.size() >= 1);
-
-        CatchTableEntry *catch_entry = nullptr;
-        for (auto& entry : catch_table) {
-          // 1.1 an error happens, and is caught by a `catch` statement
-          if (entry.range_include(err_throw_pc)) {
-            pc = entry.goto_pos;
-            catch_entry = &entry;
-            // restore the sp
-            JSValue *sp_restore;
-            if (frame_base_ptr == rt_stack_begin) sp_restore = global_sp;
-            else sp_restore = frame_base_ptr + function_env()->meta.local_var_count + frame_meta_size;
-
-            // dispose the operand stack if needed
-            if (sp - 1 != sp_restore) {
-              for (JSValue *val = sp_restore; val < sp - 1; val++) {
-                val->set_undefined();
-              }
-              *sp_restore = std::move(sp[-1]);
-              sp = sp_restore + 1;
-            }
-
-            // dispose local variables
-            JSValue *local_start = frame_base_ptr + entry.var_dispose_start;
-            for (JSValue *val = local_start; val < frame_base_ptr + entry.var_dispose_end; val++) {
-              val->dispose();
-            }
-
-            break;
-          }
-        }
-        // 1.2 an error happens but there is no `catch`
-        if (!catch_entry) {
-          assert(catch_table[catch_table.size() - 1].start_pos == catch_table[catch_table.size() - 1].end_pos);
-          pc = catch_table[catch_table.size() - 1].goto_pos;
-        }
-
+        error_handle();
         break;
       }
       case InstType::fast_add:
@@ -344,19 +304,7 @@ void NjsVM::execute() {
         }
         return;
       case InstType::halt_err:
-        if (!global_end) {
-          global_end = true;
-        }
-        assert(sp > global_sp);
-        printf("Unhandled throw: %s\n", sp[-1].to_string(*this).c_str());
-        // dispose the operand stack
-        for (JSValue *val = global_sp; val < sp; val++) {
-          val->set_undefined();
-        }
-        sp = global_sp;
-        if (Global::show_vm_exec_steps) {
-          printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
-        }
+        exec_halt_err(inst);
         return;
       case InstType::nop:
         break;
@@ -831,7 +779,8 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
 
   // don't visit the last component of the keypath here
   for (JSValue *key = sp - key_cnt; key < sp - 1; key++) {
-    assert(val_obj.is_object());
+    if(!val_obj.is_object()) goto error;
+
     if (Global::show_vm_exec_steps) {
       std::cout << "...visit key " << to_utf8_string(str_pool.get_string(key->val.as_int64)) << '\n';
     }
@@ -857,9 +806,16 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
       val_obj.set_val(double(len));
     }
   }
+  else {
+    goto error;
+  }
   
   sp[-1].set_undefined();
   sp = sp - key_cnt;
+  return;
+error:
+  error_throw(u"cannot read property of " + to_utf16_string(val_obj.to_string(*this)));
+  error_handle();
 }
 
 void NjsVM::exec_index_access(bool get_ref) {
@@ -1034,6 +990,83 @@ void NjsVM::exec_comparison(InstType type) {
   lhs.set_val(res);
   rhs.set_undefined();
   sp -= 1;
+}
+
+void NjsVM::error_throw(const u16string& msg) {
+  JSValue err_obj = InternalFunctions::error_ctor(*this, msg);
+  sp[0] = err_obj;
+  sp += 1;
+}
+
+void NjsVM::error_handle() {
+  // 1. error happens in a function (or a task)
+  // if the error does not happen in a task, the error position should be (pc - 1)
+  u32 err_throw_pc = pc - u32(!global_end);
+  auto& catch_table = frame_base_ptr != rt_stack_begin
+                      ? function_env()->meta.catch_table
+                      : this->global_catch_table;
+  assert(catch_table.size() >= 1);
+
+  CatchTableEntry *catch_entry = nullptr;
+  for (auto& entry : catch_table) {
+    // 1.1 an error happens, and is caught by a `catch` statement
+    if (entry.range_include(err_throw_pc)) {
+      pc = entry.goto_pos;
+      catch_entry = &entry;
+      // restore the sp
+      JSValue *sp_restore;
+      if (frame_base_ptr == rt_stack_begin) sp_restore = global_sp;
+      else sp_restore = frame_base_ptr + function_env()->meta.local_var_count + frame_meta_size;
+
+      // dispose the operand stack if needed
+      if (sp - 1 != sp_restore) {
+        for (JSValue *val = sp_restore; val < sp - 1; val++) {
+          val->set_undefined();
+        }
+        *sp_restore = std::move(sp[-1]);
+        sp = sp_restore + 1;
+      }
+
+      // dispose local variables
+      JSValue *local_start = frame_base_ptr + entry.var_dispose_start;
+      for (JSValue *val = local_start; val < frame_base_ptr + entry.var_dispose_end; val++) {
+        val->dispose();
+      }
+
+      break;
+    }
+  }
+  // 1.2 an error happens but there is no `catch`
+  if (!catch_entry) {
+    assert(catch_table[catch_table.size() - 1].start_pos == catch_table[catch_table.size() - 1].end_pos);
+    pc = catch_table[catch_table.size() - 1].goto_pos;
+  }
+}
+
+void NjsVM::exec_halt_err(Instruction &inst) {
+  if (!global_end) global_end = true;
+  assert(sp > global_sp);
+
+  JSValue err_val = sp[-1];
+
+  if (err_val.is_object() && err_val.as_object()->obj_class == ObjectClass::CLS_ERROR) {
+    std::string err_msg = err_val.as_object()->get_prop(*this, u16string_view(u"message")).to_string(*this);
+    std::string stack = err_val.as_object()->get_prop(*this, u16string_view(u"stack")).to_string(*this);
+    printf("\033[31mUnhandled error: %s, at\n", err_msg.c_str());
+    printf("%s\033[0m\n", stack.c_str());
+  }
+  else {
+    printf("\033[31mUnhandled throw: %s\033[0m\n", err_val.to_string(*this).c_str());
+  }
+
+  // dispose the operand stack
+  for (JSValue *val = global_sp; val < sp; val++) {
+    val->set_undefined();
+  }
+  sp = global_sp;
+  if (Global::show_vm_exec_steps) {
+    printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
+  }
 }
 
 }

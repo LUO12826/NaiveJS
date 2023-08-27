@@ -61,8 +61,11 @@ class JSObject : public GCObject {
 
   bool add_prop(const JSValue& key, const JSValue& value);
   bool add_prop(int64_t key_atom, const JSValue& value);
-  bool add_prop(u16string_view key_str, const JSValue& value, NjsVM& vm);
-  bool add_method(NjsVM& vm, u16string_view name, NativeFuncType funcImpl);
+  bool add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value);
+  bool add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl);
+
+  JSValue get_prop(NjsVM& vm, u16string_view name);
+  JSValue get_prop(NjsVM& vm, u16string_view name, bool get_ref);
 
   template <typename KEY>
   JSValue get_prop(KEY&& key, bool get_ref) {

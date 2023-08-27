@@ -88,15 +88,24 @@ bool JSObject::add_prop(int64_t key_atom, const JSValue& value) {
   return true;
 }
 
-bool JSObject::add_prop(u16string_view key_str, const JSValue& value, NjsVM& vm) {
+bool JSObject::add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value) {
   u32 key_idx = vm.str_pool.add_string(key_str);
   storage[JSObjectKey(key_idx)].assign(value);
   return true;
 }
 
-bool JSObject::add_method(NjsVM& vm, u16string_view name, NativeFuncType funcImpl) {
+JSValue JSObject::get_prop(NjsVM& vm, u16string_view name) {
+  return get_prop(vm, name, false);
+}
 
-  u32 name_idx = vm.str_pool.add_string(name);
+JSValue JSObject::get_prop(NjsVM& vm, u16string_view key_str, bool get_ref) {
+  int64_t key_idx = vm.str_pool.add_string(key_str);
+  return get_prop(key_idx, get_ref);
+}
+
+bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl) {
+
+  u32 name_idx = vm.str_pool.add_string(key_str);
   JSValue key(JSValue::JS_ATOM);
   key.val.as_int64 = name_idx;
 

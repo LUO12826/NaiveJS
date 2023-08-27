@@ -29,6 +29,7 @@ set(SOURCES
     njs/vm/JSRunLoop.cpp
     njs/basic_types/JSObjectPrototype.cpp
     njs/basic_types/JSArrayPrototype.cpp
+    njs/basic_types/JSFunctionPrototype.cpp
 )
 
 # executable is named `njs`

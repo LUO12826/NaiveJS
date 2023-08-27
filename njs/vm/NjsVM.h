@@ -54,7 +54,7 @@ friend class InternalFunctions;
 
   std::vector<StackTraceItem> capture_stack_trace();
 
-  JSObject* new_object();
+  JSObject* new_object(ObjectClass cls = ObjectClass::CLS_OBJECT);
   JSArray* new_array(int length);
   JSFunction* new_function(const JSFunctionMeta& meta);
 
@@ -99,10 +99,14 @@ friend class InternalFunctions;
   void exec_inc_or_dec(int scope, int index, int inc);
 
   void exec_var_dispose(int scope, int index);
+  void exec_halt_err(Instruction &inst);
 
   JSFunction *function_env();
   JSValue& get_value(ScopeType scope, int index);
   bool are_strings_equal(const JSValue& lhs, const JSValue& rhs);
+
+  void error_throw(const u16string& msg);
+  void error_handle();
 
   void init_prototypes();
 
