@@ -43,11 +43,11 @@ std::string JSFunction::description() {
   if (meta.is_anonymous) desc += "(anonymous)";
   else {
     desc += "named: ";
-    desc += to_utf8_string(name);
+    desc += to_u8string(name);
   }
 
   desc += ", is native: ";
-  desc += to_utf8_string(meta.is_native);
+  desc += to_u8string(meta.is_native);
   desc += "  Props: ";
   desc += JSObject::description();
 

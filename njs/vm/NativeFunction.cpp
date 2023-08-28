@@ -92,7 +92,7 @@ JSValue InternalFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> 
   assert(args[0].tag_is(JSValue::STRING));
   assert(args[1].tag_is(JSValue::FUNCTION));
 
-  std::string url = to_utf8_string(args[0].val.as_primitive_string->str);
+  std::string url = to_u8string(args[0].val.as_primitive_string->str);
   JSTask *task = vm.runloop.add_task(args[1].val.as_function);
 
   vm.runloop.get_thread_pool().push_task([&vm, task] (const std::string& url) {
@@ -103,7 +103,7 @@ JSValue InternalFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> 
 
     if (auto res = cli.Get(path)) {
       task->args.emplace_back((double)res->status);
-      task->args.emplace_back(new PrimitiveString(to_utf16_string(res->body)));
+      task->args.emplace_back(new PrimitiveString(to_u16string(res->body)));
     } else {
       auto err = res.error();
       std::cout << "HTTP error: " << httplib::to_string(err) << '\n';
@@ -131,7 +131,7 @@ u16string build_trace_str(NjsVM& vm) {
     trace_str += u"  ";
     trace_str += tr.func_name;
     trace_str += u"  @ line ";
-    trace_str += to_utf16_string(std::to_string(tr.source_line));
+    trace_str += to_u16string(std::to_string(tr.source_line));
     trace_str += u"\n";
   }
   return trace_str;

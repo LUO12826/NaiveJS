@@ -147,7 +147,7 @@ class Token {
   std::string to_string() const {
     std::ostringstream oss;
     oss << "token type: " << token_type_names[(int)type] << ", text: "
-        << to_utf8_string(text) << ", start: " << start << ", end: " << end;
+        << to_u8string(text) << ", start: " << start << ", end: " << end;
     return oss.str();
   }
 
@@ -156,7 +156,7 @@ class Token {
   }
 
   std::string get_text_utf8() const {
-    return to_utf8_string(text);
+    return to_u8string(text);
   }
 
   inline bool is(TokenType type) {

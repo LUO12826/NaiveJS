@@ -60,7 +60,7 @@ class CodegenVisitor {
     std::vector<u16string>& str_list = str_pool.get_string_list();
 
     for (int i = 0; i < str_list.size(); i++) {
-      std::cout << std::setw(3) << i << " " << to_utf8_string(str_list[i]) << '\n';
+      std::cout << std::setw(3) << i << " " << to_u8string(str_list[i]) << '\n';
     }
     std::cout << '\n';
 
@@ -74,10 +74,10 @@ class CodegenVisitor {
     for (int i = 0; i < func_meta.size(); i++) {
       auto& meta = func_meta[i];
       std::string func_name = meta.is_anonymous ? "(anonymous)"
-                                                : to_utf8_string(str_list[meta.name_index]);
-      std::cout << "index: " << std::setw(3) << i << ", name: " << std::setw(30)
-                << func_name << " addr: " << meta.code_address
-                << '\n';
+                                                : to_u8string(str_list[meta.name_index]);
+      std::cout << "index: " << std::setw(3) << i
+                << " name: " << std::setw(30) << func_name
+                << " addr: " << meta.code_address << '\n';
     }
     std::cout << '\n';
     std::cout << "============== end codegen result ==============\n\n";
@@ -252,7 +252,7 @@ class CodegenVisitor {
           bool res = scope().define_symbol(var_stmt.kind, decl->id.text);
           if (!res) {
             report_error(CodegenError {
-                .message = "Duplicate variable: " + to_utf8_string(decl->id.text),
+                .message = "Duplicate variable: " + to_u8string(decl->id.text),
                 .ast_node = decl,
             });
           }
@@ -760,7 +760,7 @@ class CodegenVisitor {
       assert(kind == VarKind::DECL_LET || kind == VarKind::DECL_CONST);
       bool res = scope().define_symbol(kind, name);
       scope().mark_symbol_as_valid(name);
-      if (!res) std::cout << "!!!!define symbol " << to_utf8_string(name) << " failed\n";
+      if (!res) std::cout << "!!!!define symbol " << to_u8string(name) << " failed\n";
     }
 
     for (ASTNode *node : block.statements) {

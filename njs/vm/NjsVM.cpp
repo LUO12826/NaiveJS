@@ -782,7 +782,7 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
     if(!val_obj.is_object()) goto error;
 
     if (Global::show_vm_exec_steps) {
-      std::cout << "...visit key " << to_utf8_string(str_pool.get_string(key->val.as_int64)) << '\n';
+      std::cout << "...visit key " << to_u8string(str_pool.get_string(key->val.as_int64)) << '\n';
     }
     // val_obj is a reference, so we are directly modify the cell in the stack frame.
     val_obj = val_obj.val.as_object->get_prop(key->val.as_int64, false);
@@ -791,7 +791,7 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
 
   // visit the last component separately
   if (Global::show_vm_exec_steps) {
-    std::cout << "...visit key " << to_utf8_string(str_pool.get_string(sp[-1].val.as_int64)) << '\n';
+    std::cout << "...visit key " << to_u8string(str_pool.get_string(sp[-1].val.as_int64)) << '\n';
   }
   invoker_this = val_obj;
 
@@ -814,7 +814,7 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
   sp = sp - key_cnt;
   return;
 error:
-  error_throw(u"cannot read property of " + to_utf16_string(val_obj.to_string(*this)));
+  error_throw(u"cannot read property of " + to_u16string(val_obj.to_string(*this)));
   error_handle();
 }
 
@@ -838,7 +838,7 @@ void NjsVM::exec_index_access(bool get_ref) {
     }
     // in this case, the float value is interpreted as an ordinary property key
     else if (index.is_float64()) {
-      u16string num_str = to_utf16_string(std::to_string(index.val.as_float64));
+      u16string num_str = to_u16string(std::to_string(index.val.as_float64));
       int64_t atom = str_pool.add_string(num_str);
       obj = obj.val.as_object->get_prop(atom, get_ref);
     }
@@ -880,7 +880,7 @@ void NjsVM::exec_index_access(bool get_ref) {
   }
   else if (obj.tag_is(JSValue::OBJECT)) {
     if (index.is_float64()) {
-      u16string num_str = to_utf16_string(std::to_string(index.val.as_float64));
+      u16string num_str = to_u16string(std::to_string(index.val.as_float64));
       int64_t atom = str_pool.add_string(num_str);
       obj = obj.val.as_object->get_prop(atom, get_ref);
     }

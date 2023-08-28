@@ -49,8 +49,8 @@ bool JSObjectKey::operator == (const JSObjectKey& other) const {
 }
 
 std::string JSObjectKey::to_string() const {
-  if (key_type == KEY_STR) return to_utf8_string(key.str->str);
-  if (key_type == KEY_STR_VIEW) return to_utf8_string(key.str_view);
+  if (key_type == KEY_STR) return to_u8string(key.str->str);
+  if (key_type == KEY_STR_VIEW) return to_u8string(key.str_view);
   if (key_type == KEY_NUM) return std::to_string(key.number);
   if (key_type == KEY_SYMBOL) return key.symbol->to_string();
   if (key_type == KEY_ATOM) return "Atom(" + std::to_string(key.atom) + ")";
@@ -154,7 +154,7 @@ std::string JSObject::to_string(NjsVM& vm) {
 
   for (auto& [key, value] : storage) {
     if (key.key_type == JSObjectKey::KEY_ATOM) {
-      output += to_utf8_string(vm.str_pool.get_string(key.key.atom));
+      output += to_u8string(vm.str_pool.get_string(key.key.atom));
     }
     else assert(false);
 

@@ -24,22 +24,22 @@ void debug_printf(const char* format, ...) {
   va_end(args);
 }
 
-std::u16string to_utf16_string(const std::string& str) {
+std::u16string to_u16string(const std::string& str) {
   std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> converter;
   return converter.from_bytes(str);
 }
 
-std::string to_utf8_string(const std::u16string& str) {
+std::string to_u8string(const std::u16string &str) {
   static std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
   return convert.to_bytes(str);
 }
 
-std::string to_utf8_string(const std::u16string_view& u16view) {
+std::string to_u8string(const u16string_view &u16view) {
   std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> converter;
   return converter.to_bytes(u16view.data(), u16view.data() + u16view.length());
 }
 
-std::string to_utf8_string(bool b) {
+std::string to_u8string(bool b) {
   return b ? "true" : "false";
 }
 

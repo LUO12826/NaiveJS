@@ -72,7 +72,7 @@ bool JSSymbol::operator == (const JSSymbol& other) const {
 }
 
 std::string JSSymbol::to_string() {
-  return "JSSymbol(" + to_utf8_string(name) + ")";
+  return "JSSymbol(" + to_u8string(name) + ")";
 }
 
 }

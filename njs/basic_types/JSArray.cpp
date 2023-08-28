@@ -40,7 +40,7 @@ std::string JSArray::to_string(NjsVM& vm) {
 //  if (!storage.empty()) {
 //    for (auto& [key, val] : storage) {
 //      if (key.key_type == JSObjectKey::KEY_ATOM) {
-//        output += to_utf8_string(vm.str_pool.get_string(key.key.atom));
+//        output += to_u8string(vm.str_pool.get_string(key.key.atom));
 //      }
 //      else assert(false);
 //

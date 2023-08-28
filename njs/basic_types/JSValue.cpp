@@ -35,11 +35,11 @@ std::string JSValue::description() const {
     stream << ", obj: " << as_GCObject()->description();
   }
   else if (tag == STACK_FRAME_META1) {
-    stream << ", function named: " << to_utf8_string(val.as_function->name)
+    stream << ", function named: " << to_u8string(val.as_function->name)
            << " @" << std::hex << val.as_function;
   }
   else if (tag == STRING) {
-    stream << ", val: " << to_utf8_string(val.as_primitive_string->str);
+    stream << ", val: " << to_u8string(val.as_primitive_string->str);
   }
   stream << ")";
 
@@ -69,7 +69,7 @@ std::string JSValue::to_string(NjsVM& vm) const {
       output += deref().to_string(vm);
       break;
     case STRING:
-      output += to_utf8_string(val.as_primitive_string->str);
+      output += to_u8string(val.as_primitive_string->str);
       break;
     case SYMBOL: break;
     case STACK_FRAME_META1:

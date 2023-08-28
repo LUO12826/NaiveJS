@@ -165,7 +165,7 @@ class StringLiteral : public ASTNode {
       : ASTNode(AST_EXPR_STRING, source, start, end, line_start), str_val(std::move(str)) {}
 
   std::string description() override {
-    return ASTNode::description() + " " + to_utf8_string(str_val);
+    return ASTNode::description() + " " + to_u8string(str_val);
   }
 
   u16string str_val;
@@ -301,7 +301,7 @@ class Arguments : public ASTNode {
   }
 
   std::string description() override {
-    return ASTNode::description() +  "  " + to_utf8_string(get_source());
+    return ASTNode::description() + "  " + to_u8string(get_source());
   }
 
   u32 arg_count() {
@@ -322,7 +322,7 @@ class NewExpr : public ASTNode {
   ~NewExpr() override { delete callee; }
 
   std::string description() override {
-    return ASTNode::description() + "  \"" + to_utf8_string(get_source()) + "\"";
+    return ASTNode::description() + "  \"" + to_u8string(get_source()) + "\"";
   }
 
   ASTNode *callee;
@@ -470,7 +470,7 @@ class Function : public ASTNode {
   std::string description() override {
     std::string desc = ASTNode::description() + " name: " + name.get_text_utf8();
     desc += ", params: ";
-    for (auto& param : params) desc += to_utf8_string(param) + ", ";
+    for (auto& param : params) desc += to_u8string(param) + ", ";
     return desc;
   }
 

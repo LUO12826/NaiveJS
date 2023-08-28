@@ -37,7 +37,7 @@ std::string ASTNode::description() {
 
   if (type == AST_EXPR_ID || type == AST_TOKEN) {
     desc += "  \"";
-    desc += to_utf8_string(text);
+    desc += to_u8string(text);
     desc += "\"";
   }
 

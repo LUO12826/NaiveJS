@@ -1364,7 +1364,7 @@ error:
     }
     for (auto rec : sym_records) {
       printf("   index:%3d  %18s  %s\n", rec->index, get_var_kind_str(rec->var_kind).c_str(),
-                                                      to_utf8_string(rec->name).c_str());
+             to_u8string(rec->name).c_str());
     }
     std::cout << '\n';
 #endif

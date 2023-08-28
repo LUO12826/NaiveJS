@@ -14,13 +14,13 @@ using std::u16string_view;
 
 void debug_printf(const char* format, ...);
 
-std::u16string to_utf16_string(const std::string& str);
+std::u16string to_u16string(const std::string& str);
 
-std::string to_utf8_string(const u16string& str);
+std::string to_u8string(const std::u16string &str);
 
-std::string to_utf8_string(const u16string_view& u16view);
+std::string to_u8string(const u16string_view& u16view);
 
-std::string to_utf8_string(bool b);
+std::string to_u8string(bool b);
 
 std::u16string str_cat(const std::vector<u16string>& vals);
 
