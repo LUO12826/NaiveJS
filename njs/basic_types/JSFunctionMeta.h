@@ -25,7 +25,6 @@ struct JSFunctionMeta {
   u32 name_index;
   bool is_anonymous {false};
   bool is_arrow_func {false};
-  bool has_this_binding {false};
   bool is_native {false};
 
   u16 param_count;

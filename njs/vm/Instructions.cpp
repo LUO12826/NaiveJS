@@ -109,7 +109,7 @@ std::string Instruction::description() {
       sprintf(buffer, "push_atom  %d", operand.two.opr1);
       break;
     case InstType::push_this:
-      sprintf(buffer, "push_this");
+      sprintf(buffer, "push_this  %d", operand.two.opr1);
       break;
     case InstType::push_null:
       sprintf(buffer, "push_null");

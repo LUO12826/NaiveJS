@@ -47,7 +47,7 @@ class GCHeap {
     // initialize
     T *object = new (ptr) T(std::forward<Args>(args)...);
     // set the metadata
-    GCObject *metadata = reinterpret_cast<GCObject *>(ptr);
+    auto *metadata = reinterpret_cast<GCObject *>(ptr);
     metadata->size = sizeof(T);
 
     return object;

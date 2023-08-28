@@ -184,7 +184,7 @@ void NjsVM::execute() {
         sp += 1;
         break;
       case InstType::push_this:
-        exec_push_this();
+        exec_push_this(bool(inst.operand.two.opr1));
         break;
       case InstType::push_null:
         sp[0].tag = JSValue::JS_NULL;
@@ -605,6 +605,17 @@ void NjsVM::exec_make_func(int meta_idx) {
   auto& meta = func_meta[meta_idx];
   auto *func = new_function(meta);
 
+  // if a function is an arrow function, it captures the `this` value in the environment
+  // where the function is created.
+  if (meta.is_arrow_func) {
+    if (frame_base_ptr != rt_stack_begin) {
+      func->This = function_env()->This;
+    }
+    else {
+      func->This = top_level_this;
+    }
+  }
+
   if (meta.is_native) {
     assert(!meta.is_anonymous);
     u16string& name = str_pool.get_string(meta.name_index);
@@ -667,8 +678,10 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
     }
   }
 
-  // set up the `this` for the function.
-  func->This = has_this_object ? invoker_this : JSValue(&global_object);
+  if (!(func->meta.is_arrow_func || func->has_this_binding)) {
+    // set up the `this` for the function.
+    func->This = has_this_object ? invoker_this : global_object;
+  }
 
   if (func->meta.is_native) {
     func_val = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
@@ -762,13 +775,13 @@ void NjsVM::exec_push_str(int str_idx, bool atom) {
   sp += 1;
 }
 
-void NjsVM::exec_push_this() {
-  auto *func_env = function_env();
-  if (func_env != nullptr) {
-    sp[0].set_val(&func_env->This);
+void NjsVM::exec_push_this(bool in_global) {
+  if (!in_global) {
+    assert(function_env());
+    sp[0] = function_env()->This;
   }
   else {
-    sp[0].set_val(&top_level_this);
+    sp[0] = top_level_this;
   }
   sp += 1;
 }
@@ -1002,9 +1015,8 @@ void NjsVM::error_handle() {
   // 1. error happens in a function (or a task)
   // if the error does not happen in a task, the error position should be (pc - 1)
   u32 err_throw_pc = pc - u32(!global_end);
-  auto& catch_table = frame_base_ptr != rt_stack_begin
-                      ? function_env()->meta.catch_table
-                      : this->global_catch_table;
+  auto& catch_table = frame_base_ptr != rt_stack_begin ? function_env()->meta.catch_table
+                                                       : this->global_catch_table;
   assert(catch_table.size() >= 1);
 
   CatchTableEntry *catch_entry = nullptr;
