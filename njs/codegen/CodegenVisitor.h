@@ -78,6 +78,10 @@ class CodegenVisitor {
       std::cout << "index: " << std::setw(3) << i
                 << " name: " << std::setw(30) << func_name
                 << " addr: " << meta.code_address << '\n';
+
+      for (auto& catch_item : meta.catch_table) {
+        std::cout << "  " << catch_item.description() << '\n';
+      }
     }
     std::cout << '\n';
     std::cout << "============== end codegen result ==============\n\n";
@@ -852,8 +856,8 @@ class CodegenVisitor {
     // also, any error in the try block will jump here. So we should add a catch table entry.
     auto& catch_table = scope().get_outer_func()->get_context().catch_table;
     catch_table.emplace_back(try_start, try_end, catch_pos);
-    catch_table.back().var_dispose_start = var_dispose_start;
-    catch_table.back().var_dispose_end = var_dispose_end;
+    catch_table.back().local_var_begin = var_dispose_start;
+    catch_table.back().local_var_end = var_dispose_end;
 
     // in the case of `catch (a) ...`, we are going to store the top-of-stack value to a local
     // variable. The variable is defined as `let`.

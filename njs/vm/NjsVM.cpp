@@ -1040,8 +1040,8 @@ void NjsVM::error_handle() {
       }
 
       // dispose local variables
-      JSValue *local_start = frame_base_ptr + entry.var_dispose_start;
-      for (JSValue *val = local_start; val < frame_base_ptr + entry.var_dispose_end; val++) {
+      JSValue *local_start = frame_base_ptr + entry.local_var_begin;
+      for (JSValue *val = local_start; val < frame_base_ptr + entry.local_var_end; val++) {
         val->dispose();
       }
 
