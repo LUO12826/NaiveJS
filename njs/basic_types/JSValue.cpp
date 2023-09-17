@@ -65,6 +65,9 @@ std::string JSValue::to_string(NjsVM& vm) const {
       output += std::string_view(num_buf, len);
       break;
     }
+    case HEAP_VAL:
+      output += deref_heap().to_string(vm);
+      break;
     case VALUE_HANDLE:
       output += deref().to_string(vm);
       break;

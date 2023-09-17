@@ -32,6 +32,8 @@ struct JSValue {
   // has corresponding string representation, note to modify when adding
   enum JSValueTag {
     // The following types of values are stored inline in JSValue
+
+    // Before a `let` defined variable get initialized, its tag is UNINIT.
     UNINIT,
     UNDEFINED,
     JS_NULL,
@@ -208,7 +210,7 @@ struct JSValue {
   }
 
   JSValue& deref() const;
-  JSValue& deref_if_needed();
+  JSValue& deref_heap() const;
 
   void move_to_heap();
 
@@ -328,15 +330,13 @@ struct JSHeapValue: public RCObject {
 };
 
 inline JSValue& JSValue::deref() const {
-  assert(tag == VALUE_HANDLE || tag == HEAP_VAL);
-  if (tag == VALUE_HANDLE) return *val.as_JSValue;
-  else return val.as_heap_val->wrapped_val;
+  assert(tag == VALUE_HANDLE);
+  return *val.as_JSValue;
 }
 
-inline JSValue& JSValue::deref_if_needed() {
-  if (tag == VALUE_HANDLE) return *val.as_JSValue;
-  else if (tag == HEAP_VAL) return val.as_heap_val->wrapped_val;
-  else return *this;
+inline JSValue& JSValue::deref_heap() const {
+  assert(tag == HEAP_VAL);
+  return val.as_heap_val->wrapped_val;
 }
 
 } // namespace njs

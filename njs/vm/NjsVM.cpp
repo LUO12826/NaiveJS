@@ -385,19 +385,19 @@ std::vector<StackTraceItem> NjsVM::capture_stack_trace() {
 JSValue& NjsVM::get_value(ScopeType scope, int index) {
   if (scope == ScopeType::FUNC) {
     JSValue &val = frame_base_ptr[index];
-    return val.tag != JSValue::HEAP_VAL ? val : val.deref();
+    return val.tag != JSValue::HEAP_VAL ? val : val.deref_heap();
   }
   if (scope == ScopeType::FUNC_PARAM) {
     assert(frame_base_ptr[1].tag == JSValue::STACK_FRAME_META2);
     JSValue &val = frame_base_ptr[index - (int)func_arg_count];
-    return val.tag != JSValue::HEAP_VAL ? val : val.deref();
+    return val.tag != JSValue::HEAP_VAL ? val : val.deref_heap();
   }
   if (scope == ScopeType::GLOBAL) {
     JSValue &val = rt_stack_begin[index];
-    return val.tag != JSValue::HEAP_VAL ? val : val.deref();
+    return val.tag != JSValue::HEAP_VAL ? val : val.deref_heap();
   }
   if (scope == ScopeType::CLOSURE) {
-    return function_env()->captured_var[index].deref();
+    return function_env()->captured_var[index].deref_heap();
   }
   __builtin_unreachable();
 }
