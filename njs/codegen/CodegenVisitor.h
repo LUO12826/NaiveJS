@@ -817,15 +817,20 @@ class CodegenVisitor {
     pop_scope();
   }
 
-  void gen_scope_var_dispose_code(Scope& the_scope) {
-    auto& sym_table = the_scope.get_symbol_table();
-    for (auto& [name, sym_rec] : sym_table) {
-      if (sym_rec.var_kind == VarKind::DECL_VAR || sym_rec.var_kind == VarKind::DECL_FUNC_PARAM ||
-          sym_rec.var_kind == VarKind::DECL_FUNCTION) {
-        assert(false);
-      }
-      auto scope_type = the_scope.get_outer_func()->get_scope_type();
-      emit(InstType::var_dispose, scope_type_int(scope_type), sym_rec.offset_idx());
+  void gen_scope_var_dispose_code(Scope& scope) {
+//    auto& sym_table = scope.get_symbol_table();
+//    for (auto& [name, sym_rec] : sym_table) {
+//      if (sym_rec.var_kind == VarKind::DECL_VAR || sym_rec.var_kind == VarKind::DECL_FUNC_PARAM ||
+//          sym_rec.var_kind == VarKind::DECL_FUNCTION) {
+//        assert(false);
+//      }
+//      auto scope_type = scope.get_outer_func()->get_scope_type();
+//      emit(InstType::var_dispose, scope_type_int(scope_type), sym_rec.offset_idx());
+//    }
+    int disp_begin = int(scope.get_var_start_index() + frame_meta_size);
+    int disp_end = int(scope.get_var_next_index() + frame_meta_size);
+    if (disp_end - disp_begin != 0) {
+      emit(InstType::var_dispose_range, disp_begin, disp_end);
     }
   }
 
@@ -840,7 +845,7 @@ class CodegenVisitor {
 
     // We are going to record the address of the variables in the try block.
     // When an exception happens, we should dispose the variables in this block.
-    u32 var_dispose_start = scope().get_next_var_index() + frame_meta_size;
+    u32 var_dispose_start = scope().get_var_next_index() + frame_meta_size;
     u32 var_dispose_end = stmt.try_block->as_block()->scope->get_var_count() + frame_meta_size;
 
     scope().get_context().has_try = false;
@@ -862,8 +867,7 @@ class CodegenVisitor {
     // in the case of `catch (a) ...`, we are going to store the top-of-stack value to a local
     // variable. The variable is defined as `let`.
     if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
-      // 2 for the stack frame metadata size. Should find a better way to write this.
-      int catch_id_addr = scope().get_next_var_index() + frame_meta_size;
+      int catch_id_addr = scope().get_var_next_index() + frame_meta_size;
       emit(InstType::pop, scope_type_int(scope().get_outer_func()->get_scope_type()),
            catch_id_addr);
     }
@@ -915,7 +919,7 @@ class CodegenVisitor {
     Scope *scope = scope_chain.back();
     scope_chain.pop_back();
     if (scope->get_outer_func()) {
-      scope->get_outer_func()->update_var_count(scope->get_next_var_index());
+      scope->get_outer_func()->update_var_count(scope->get_var_next_index());
     }
   }
 

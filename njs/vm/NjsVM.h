@@ -99,6 +99,7 @@ friend class InternalFunctions;
   void exec_inc_or_dec(int scope, int index, int inc);
 
   void exec_var_dispose(int scope, int index);
+  void exec_var_dispose_range(int start, int end);
   void exec_halt_err(Instruction &inst);
 
   JSFunction *function_env();

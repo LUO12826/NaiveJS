@@ -42,6 +42,7 @@ enum class InstType {
   store,
   prop_assign,
   var_dispose,
+  var_dispose_range,
   dup_stack_top,
 
   jmp,

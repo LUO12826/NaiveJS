@@ -210,6 +210,9 @@ void NjsVM::execute() {
       case InstType::var_dispose:
         exec_var_dispose(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
+      case InstType::var_dispose_range:
+        exec_var_dispose_range(inst.operand.two.opr1, inst.operand.two.opr2);
+        break;
       case InstType::dup_stack_top:
         if (sp[-1].is_RCObject() && sp[-1].val.as_RCObject->get_ref_count() != 0) {
           sp[-1].val.as_RCObject = sp[-1].val.as_RCObject->copy();
@@ -314,6 +317,8 @@ void NjsVM::execute() {
       case InstType::index_access:
         exec_index_access((bool)inst.operand.two.opr1);
         break;
+      default:
+        assert(false);
     }
     if (Global::show_vm_exec_steps) {
       printf("%-50s sp: %-3ld   pc: %-3u\n", inst.description().c_str(), sp - rt_stack.data(), pc);
@@ -599,6 +604,12 @@ void NjsVM::exec_var_dispose(int scope, int index) {
   assert(var_scope == ScopeType::FUNC || var_scope == ScopeType::GLOBAL);
   JSValue& val = var_scope == ScopeType::FUNC ? frame_base_ptr[index] : rt_stack_begin[index];
   val.dispose();
+}
+
+void NjsVM::exec_var_dispose_range(int start, int end) {
+  for (int i = start; i < end; i++) {
+    frame_base_ptr[i].dispose();
+  }
 }
 
 void NjsVM::exec_make_func(int meta_idx) {

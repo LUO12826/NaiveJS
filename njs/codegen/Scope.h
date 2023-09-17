@@ -61,30 +61,16 @@ class Scope {
   };
 
   Scope(): scope_type(ScopeType::GLOBAL) {}
-  Scope(ScopeType type, Scope *outer): scope_type(type), outer_scope(outer) {
-    // Blocks does not have a separate storage space, so it must inherit the
-    // local variable storage index from the outer scope
-    if (type == ScopeType::BLOCK) {
-      assert(outer);
-      next_var_index = outer->next_var_index;
-      update_var_count(next_var_index);
-    }
-
-    if (type == ScopeType::FUNC || type == ScopeType::GLOBAL) {
-      outer_func = this;
-    }
-    else {
-      assert(outer);
-      outer_func = outer->outer_func;
-    }
+  Scope(ScopeType type, Scope *outer): scope_type(type) {
+    set_outer(outer);
   }
 
   ScopeType get_scope_type() { return scope_type; }
 
   BlockType get_block_type() { return block_type; }
 
-  void set_block_type(BlockType block_type) {
-    this->block_type = block_type;
+  void set_block_type(BlockType type) {
+    this->block_type = type;
   }
 
   std::string get_scope_type_name() {
@@ -124,9 +110,9 @@ class Scope {
       return can_redeclare;
     }
 
-    symbol_table.emplace(name, SymbolRecord(var_kind, name, next_var_index, is_builtin));
-    next_var_index += 1;
-    update_var_count(next_var_index);
+    symbol_table.emplace(name, SymbolRecord(var_kind, name, var_idx_next, is_builtin));
+    var_idx_next += 1;
+    update_var_count(var_idx_next);
 
     return true;
   }
@@ -151,8 +137,11 @@ class Scope {
     this->outer_scope = outer;
     if (scope_type == ScopeType::BLOCK) {
       assert(outer);
-      next_var_index = outer->next_var_index;
-      update_var_count(next_var_index);
+      // Blocks does not have a separate storage space, so it must inherit the
+      // local variable storage index from the outer scope
+      var_idx_start = outer->var_idx_next;
+      var_idx_next = outer->var_idx_next;
+      update_var_count(var_idx_next);
     }
     if (scope_type == ScopeType::FUNC || scope_type == ScopeType::GLOBAL) {
       outer_func = this;
@@ -234,8 +223,12 @@ class Scope {
     }
   }
 
-  u32 get_next_var_index() const {
-    return next_var_index;
+  u32 get_var_next_index() const {
+    return var_idx_next;
+  }
+
+  u32 get_var_start_index() const {
+    return var_idx_start;
   }
 
   u32 get_var_count() const {
@@ -286,13 +279,13 @@ class Scope {
       bool escape_local = nonlocal || scope_type == ScopeType::FUNC;
 
       // If no capture occurs or if this scope is a block scope, then the result is returned
-      // directly, as this is not of concern in both cases.
+      // directly. no additional processing is needed.
       if (!escape_local || scope_type != ScopeType::FUNC) {
         return outer_scope->resolve_symbol_impl(name, depth + 1, escape_local);
       }
       // This variable is captured from the outer function scope
       auto res = outer_scope->resolve_symbol_impl(name, depth + 1, escape_local);
-      if (!res.original_symbol) return SymbolResolveResult::none;
+      if (res.not_found()) return SymbolResolveResult::none;
 
       // global variables are always available. We don't need to capture them.
       if (res.storage_scope == ScopeType::GLOBAL && res.def_scope == ScopeType::GLOBAL) {
@@ -332,7 +325,8 @@ class Scope {
   unique_ptr<ScopeContext> context;
 
   u32 param_count {0};
-  u32 next_var_index {0};
+  u32 var_idx_start {0};
+  u32 var_idx_next {0};
   u32 var_count {0};
 
   // for function scope

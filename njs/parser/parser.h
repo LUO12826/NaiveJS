@@ -1369,7 +1369,7 @@ error:
     std::cout << '\n';
 #endif
     if (scope->get_outer_func()) {
-      scope->get_outer_func()->update_var_count(scope->get_next_var_index());
+      scope->get_outer_func()->update_var_count(scope->get_var_next_index());
     }
     return scope;
   }

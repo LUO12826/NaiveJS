@@ -132,6 +132,9 @@ std::string Instruction::description() {
     case InstType::var_dispose:
       sprintf(buffer, "var_dispose  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
+    case InstType::var_dispose_range:
+      sprintf(buffer, "var_dispose_range  %d %d", operand.two.opr1, operand.two.opr2);
+      break;
     case InstType::dup_stack_top:
       sprintf(buffer, "dup_stack_top");
       break;
