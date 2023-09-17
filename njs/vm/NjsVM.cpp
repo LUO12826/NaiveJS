@@ -207,6 +207,13 @@ void NjsVM::execute() {
       case InstType::prop_assign:
         exec_prop_assign();
         break;
+      case InstType::var_deinit_range:
+        exec_var_deinit_range(inst.operand.two.opr1, inst.operand.two.opr2);
+        break;
+      case InstType::var_undef:
+        assert(frame_base_ptr[inst.operand.two.opr2].tag == JSValue::UNINIT);
+        frame_base_ptr[inst.operand.two.opr2].tag = JSValue::UNDEFINED;
+        break;
       case InstType::var_dispose:
         exec_var_dispose(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
@@ -604,6 +611,12 @@ void NjsVM::exec_var_dispose(int scope, int index) {
   assert(var_scope == ScopeType::FUNC || var_scope == ScopeType::GLOBAL);
   JSValue& val = var_scope == ScopeType::FUNC ? frame_base_ptr[index] : rt_stack_begin[index];
   val.dispose();
+}
+
+void NjsVM::exec_var_deinit_range(int start, int end) {
+  for (int i = start; i < end; i++) {
+    frame_base_ptr[i].tag = JSValue::UNINIT;
+  }
 }
 
 void NjsVM::exec_var_dispose_range(int start, int end) {

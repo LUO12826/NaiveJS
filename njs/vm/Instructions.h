@@ -41,6 +41,8 @@ enum class InstType {
   pop_drop,
   store,
   prop_assign,
+  var_deinit_range,
+  var_undef,
   var_dispose,
   var_dispose_range,
   dup_stack_top,

@@ -32,6 +32,7 @@ struct JSValue {
   // has corresponding string representation, note to modify when adding
   enum JSValueTag {
     // The following types of values are stored inline in JSValue
+    UNINIT,
     UNDEFINED,
     JS_NULL,
 

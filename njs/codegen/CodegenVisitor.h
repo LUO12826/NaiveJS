@@ -248,7 +248,9 @@ class CodegenVisitor {
 
   void visit_program_or_function_body(ProgramOrFunctionBody& program) {
 
-    // First, allocate space for the variables in this scope
+    // First, allocate space for the variables (defined by `let` and `const`) in this scope
+    int deinit_begin = int(scope().get_var_next_index() + frame_meta_size);
+
     for (ASTNode *node : program.statements) {
       if (node->type != ASTNode::AST_STMT_VAR) continue;
 
@@ -264,6 +266,11 @@ class CodegenVisitor {
           }
         }
       }
+    }
+    int deinit_end = int(scope().get_var_next_index() + frame_meta_size);
+    // set local `let` and `const` variables to UNINIT.
+    if (deinit_end - deinit_begin != 0) {
+      emit(InstType::var_deinit_range, deinit_begin, deinit_end);
     }
 
     // begin codegen for inner functions
@@ -647,13 +654,19 @@ class CodegenVisitor {
 
   void visit_variable_statement(VarStatement& var_stmt) {
     for (VarDecl *decl : var_stmt.declarations) {
-      visit_variable_declaration(*decl);
+      visit_variable_declaration(var_stmt.kind, *decl);
     }
   }
 
-  void visit_variable_declaration(VarDecl& var_decl) {
+  void visit_variable_declaration(VarKind var_kind, VarDecl& var_decl) {
     scope().mark_symbol_as_valid(var_decl.id.text);
-    if (var_decl.var_init) visit(var_decl.var_init);
+    if (var_decl.var_init) {
+      visit(var_decl.var_init);
+    }
+    else if (var_kind == VarKind::DECL_LET) {
+      auto sym = scope().resolve_symbol(var_decl.id.text);
+      emit(InstType::var_undef, int(sym.get_index()));
+    }
   }
 
   void visit_return_statement(ReturnStatement& return_stmt) {
@@ -779,6 +792,12 @@ class CodegenVisitor {
           if (!res) std::cout << "!!!!define symbol " << decl->id.get_text_utf8() << " failed\n";
         }
       }
+    }
+
+    int deinit_begin = int(scope().get_var_start_index() + frame_meta_size);
+    int deinit_end = int(scope().get_var_next_index() + frame_meta_size);
+    if (deinit_end - deinit_begin != 0) {
+      emit(InstType::var_deinit_range, deinit_begin, deinit_end);
     }
 
     // begin codegen for inner functions

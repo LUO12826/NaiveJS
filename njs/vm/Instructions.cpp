@@ -129,6 +129,12 @@ std::string Instruction::description() {
     case InstType::prop_assign:
       sprintf(buffer, "prop_assign");
       break;
+    case InstType::var_deinit_range:
+      sprintf(buffer, "var_deinit_range  %d %d", operand.two.opr1, operand.two.opr2);
+      break;
+    case InstType::var_undef:
+      sprintf(buffer, "var_undef %d", operand.two.opr1);
+      break;
     case InstType::var_dispose:
       sprintf(buffer, "var_dispose  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
