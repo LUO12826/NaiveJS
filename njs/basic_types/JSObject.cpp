@@ -117,7 +117,7 @@ bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType func
       .native_func = funcImpl,
   };
 
-  add_prop(key, JSValue(vm.new_function(meta)));
+  return add_prop(key, JSValue(vm.new_function(meta)));
 }
 
 void JSObject::gc_scan_children(GCHeap& heap) {

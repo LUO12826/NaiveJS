@@ -3,9 +3,7 @@
 
 #include <string>
 #include <string_view>
-
-
-#include "njs/utils/macros.h"
+#include "macros.h"
 
 namespace njs {
 

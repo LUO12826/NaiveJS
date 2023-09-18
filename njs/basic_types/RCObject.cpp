@@ -1,7 +1,6 @@
 #include <iostream>
 #include "RCObject.h"
 #include "njs/global_var.h"
-#include "njs/utils/lexing_helper.h"
 
 namespace njs {
 
@@ -27,52 +26,8 @@ void RCObject::delete_temp_object() {
   delete this;
 }
 
-u32 RCObject::get_ref_count() {
+u32 RCObject::get_ref_count() const {
   return ref_count;
-}
-
-PrimitiveString::PrimitiveString(const std::u16string& str): str(str) {}
-PrimitiveString::PrimitiveString(std::u16string&& str): str(std::move(str)) {}
-
-bool PrimitiveString::operator == (const PrimitiveString& other) const {
-  return str == other.str;
-}
-
-bool PrimitiveString::operator != (const PrimitiveString& other) const {
-  return str != other.str;
-}
-
-bool PrimitiveString::operator < (const PrimitiveString& other) const {
-  return str < other.str;
-}
-
-bool PrimitiveString::operator > (const PrimitiveString& other) const {
-  return str > other.str;
-}
-
-bool PrimitiveString::operator >= (const PrimitiveString& other) const {
-  return str >= other.str;
-}
-
-bool PrimitiveString::operator <= (const PrimitiveString& other) const {
-  return str <= other.str;
-}
-
-int64_t PrimitiveString::convert_to_index() const {
-  return scan_index_literal(this->str);
-}
-
-JSSymbol::JSSymbol(std::u16string name): name(std::move(name)) {
-  seq = JSSymbol::global_count;
-  JSSymbol::global_count += 1;
-}
-
-bool JSSymbol::operator == (const JSSymbol& other) const {
-  return name == other.name && seq == other.seq;
-}
-
-std::string JSSymbol::to_string() {
-  return "JSSymbol(" + to_u8string(name) + ")";
 }
 
 }

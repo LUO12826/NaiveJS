@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 
+#include "JSSymbol.h"
 #include "njs/utils/helper.h"
 
 namespace njs {

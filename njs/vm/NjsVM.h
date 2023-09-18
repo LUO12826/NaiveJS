@@ -107,6 +107,8 @@ friend class InternalFunctions;
   JSValue& get_value(ScopeType scope, int index);
   bool are_strings_equal(const JSValue& lhs, const JSValue& rhs);
 
+  bool key_access_on_primitive(JSValue& obj, int64_t atom);
+
   void error_throw(const u16string& msg);
   void error_handle();
 

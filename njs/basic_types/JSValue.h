@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <string>
 #include "RCObject.h"
+#include "PrimitiveString.h"
+#
 
 namespace njs {
 
@@ -13,6 +15,7 @@ class GCObject;
 class JSFunction;
 class JSArray;
 struct JSHeapValue;
+struct JSSymbol;
 
 extern const char *js_value_tag_names[25];
 
@@ -214,6 +217,8 @@ struct JSValue {
 
   void move_to_heap();
 
+  bool is_undefined() const { return tag == UNDEFINED; };
+  bool is_null() const { return tag == JS_NULL; };
   bool is_int64() const { return tag == NUM_INT; }
   bool is_float64() const { return tag == NUM_FLOAT; }
   bool is_bool() const { return tag == BOOLEAN; }
@@ -316,27 +321,9 @@ struct JSValue {
   u32 flag_bits {0};
 };
 
-struct JSHeapValue: public RCObject {
-  explicit JSHeapValue(JSValue val): wrapped_val(val) {}
-  ~JSHeapValue() override {
-    wrapped_val.dispose();
-  }
-
-  RCObject *copy() override {
-    return new JSHeapValue(wrapped_val);
-  }
-
-  JSValue wrapped_val;
-};
-
 inline JSValue& JSValue::deref() const {
   assert(tag == VALUE_HANDLE);
   return *val.as_JSValue;
-}
-
-inline JSValue& JSValue::deref_heap() const {
-  assert(tag == HEAP_VAL);
-  return val.as_heap_val->wrapped_val;
 }
 
 } // namespace njs

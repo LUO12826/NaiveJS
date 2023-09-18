@@ -5,6 +5,7 @@
 #include "njs/basic_types/JSObject.h"
 #include "njs/basic_types/JSArray.h"
 #include "njs/basic_types/JSFunction.h"
+#include "JSHeapValue.h"
 #include "njs/common/enum_strings.h"
 #include "njs/utils/helper.h"
 
@@ -15,12 +16,16 @@ GCObject *JSValue::as_GCObject() const {
   return static_cast<GCObject *>(val.as_object);
 }
 
-
 void JSValue::move_to_heap() {
   auto *heap_val = new JSHeapValue(*this);
   heap_val->retain();
   this->val.as_heap_val = heap_val;
   this->tag = HEAP_VAL;
+}
+
+inline JSValue& JSValue::deref_heap() const {
+  assert(tag == HEAP_VAL);
+  return val.as_heap_val->wrapped_val;
 }
 
 std::string JSValue::description() const {

@@ -2,8 +2,6 @@
 #define NJS_RCOBJECT_H
 
 #include <cstdint>
-#include <string>
-#include "njs/utils/helper.h"
 
 namespace njs {
 
@@ -26,80 +24,12 @@ class RCObject {
   void release();
   void mark_as_temp();
   void delete_temp_object();
-  u32 get_ref_count();
+  u32 get_ref_count() const;
 
  private:
   u32 ref_count {0};
 };
 
-/// @brief PrimitiveString: string that is not wrapped as objects in JavaScript
-struct PrimitiveString: public RCObject {
-
-  PrimitiveString() = default;
-
-  explicit PrimitiveString(const std::u16string& str);
-  explicit PrimitiveString(std::u16string&& str);
-
-  RCObject *copy() override {
-    return new PrimitiveString(this->str);
-  }
-
-  bool operator == (const PrimitiveString& other) const;
-  bool operator != (const PrimitiveString& other) const;
-  bool operator < (const PrimitiveString& other) const;
-  bool operator > (const PrimitiveString& other) const;
-  bool operator >= (const PrimitiveString& other) const;
-  bool operator <= (const PrimitiveString& other) const;
-
-  int64_t convert_to_index() const;
-  size_t length() const {
-    return str.length();
-  }
-
-  std::u16string str;
-};
-
-/// @brief https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol
-struct JSSymbol: public RCObject {
-
-  inline static size_t global_count {0};
-
-  JSSymbol() {}
-  explicit JSSymbol(std::u16string name);
-
-  RCObject *copy() override {
-    auto *sym = new JSSymbol();
-    sym->seq = this->seq;
-    sym->name = this->name;
-    return sym;
-  }
-
-  bool operator == (const JSSymbol& other) const;
-
-  std::string to_string();
-
-  std::u16string name;
-  size_t seq;
-};
-
 } // namespace njs
-
-/// @brief std::hash for PrimitiveString. Injected into std namespace.
-template <>
-struct std::hash<njs::PrimitiveString>
-{
-  std::size_t operator () (const njs::PrimitiveString& str) const {
-    return std::hash<decltype(str.str)>()(str.str);
-  }
-};
-
-/// @brief std::hash for JSSymbol. Injected into std namespace.
-template <>
-struct std::hash<njs::JSSymbol>
-{
-  std::size_t operator () (const njs::JSSymbol& symbol) const {
-    return njs::hash_val(symbol.name, symbol.seq);
-  }
-};
 
 #endif // NJS_RCOBJECT_H

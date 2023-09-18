@@ -1,6 +1,7 @@
 #include "NjsVM.h"
 
 #include <iostream>
+#include "njs/basic_types/JSHeapValue.h"
 #include "njs/basic_types/JSArray.h"
 #include "njs/codegen/CodegenVisitor.h"
 #include "njs/global_var.h"
@@ -816,13 +817,20 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
 
   // don't visit the last component of the keypath here
   for (JSValue *key = sp - key_cnt; key < sp - 1; key++) {
-    if(!val_obj.is_object()) goto error;
-
     if (Global::show_vm_exec_steps) {
       std::cout << "...visit key " << to_u8string(str_pool.get_string(key->val.as_int64)) << '\n';
     }
-    // val_obj is a reference, so we are directly modify the cell in the stack frame.
-    val_obj = val_obj.val.as_object->get_prop(key->val.as_int64, false);
+    if(val_obj.is_object()) {
+      // val_obj is a reference, so we are directly modify the cell in the stack frame.
+      val_obj = val_obj.val.as_object->get_prop(key->val.as_int64, false);
+    }
+    else if (val_obj.is_undefined() || val_obj.is_null()) {
+      goto error;
+    }
+    else if (!key_access_on_primitive(val_obj, key->val.as_int64)) {
+      goto error;
+    }
+
     key->set_undefined();
   }
 
@@ -830,20 +838,15 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
   if (Global::show_vm_exec_steps) {
     std::cout << "...visit key " << to_u8string(str_pool.get_string(sp[-1].val.as_int64)) << '\n';
   }
-  invoker_this = val_obj;
+  invoker_this.assign(val_obj);
 
   if (val_obj.is_object()) {
     val_obj = val_obj.val.as_object->get_prop(sp[-1].val.as_int64, get_ref);
   }
-  else if (val_obj.is_primitive_string()) {
-    val_obj.set_undefined();
-
-    if (sp[-1].val.as_int64 == StringPool::ATOM_length) {
-      auto len = val_obj.val.as_primitive_string->length();
-      val_obj.set_val(double(len));
-    }
+  else if (val_obj.is_undefined() || val_obj.is_null()) {
+    goto error;
   }
-  else {
+  else if (!key_access_on_primitive(val_obj, sp[-1].val.as_int64)) {
     goto error;
   }
   
@@ -853,6 +856,21 @@ void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
 error:
   error_throw(u"cannot read property of " + to_u16string(val_obj.to_string(*this)));
   error_handle();
+}
+
+bool NjsVM::key_access_on_primitive(JSValue& obj, int64_t atom) {
+  if (obj.is_primitive_string()) {
+
+    obj.set_undefined();
+    if (atom == StringPool::ATOM_length) {
+      auto len = obj.val.as_primitive_string->length();
+      obj.set_val(double(len));
+    }
+  }
+  else {
+    assert(false);
+  }
+  return true;
 }
 
 void NjsVM::exec_index_access(bool get_ref) {
