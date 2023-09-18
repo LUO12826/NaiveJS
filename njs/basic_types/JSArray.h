@@ -31,7 +31,7 @@ class JSArray: public JSObject {
   inline JSValue access_element(u32 index, bool create_ref);
 
   u32 get_length() {
-    return get_prop(StringPool::ATOM_length, false).val.as_float64;
+    return (u32)get_prop(StringPool::ATOM_length, false).val.as_float64;
   }
 
   void set_length(u32 length) {

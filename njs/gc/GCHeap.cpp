@@ -58,7 +58,7 @@ std::vector<JSValue *> GCHeap::gather_roots() {
 
   roots.push_back(&vm.object_prototype);
   roots.push_back(&vm.array_prototype);
-//  roots.push_back(&vm.string_prototype);
+  roots.push_back(&vm.string_prototype);
 //  roots.push_back(&vm.function_prototype);
 
   auto task_roots = vm.runloop.gc_gather_roots();

@@ -5,7 +5,6 @@
 #include <string>
 #include "RCObject.h"
 #include "PrimitiveString.h"
-#
 
 namespace njs {
 
@@ -14,8 +13,11 @@ class JSObject;
 class GCObject;
 class JSFunction;
 class JSArray;
+class JSString;
 struct JSHeapValue;
 struct JSSymbol;
+
+using std::u16string;
 
 extern const char *js_value_tag_names[25];
 
@@ -314,6 +316,7 @@ struct JSValue {
 
     JSObject *as_object;
     JSArray *as_array;
+    JSString *as_string;
     JSFunction *as_function;
   } val;
 

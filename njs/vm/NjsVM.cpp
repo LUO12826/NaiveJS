@@ -2,12 +2,14 @@
 
 #include <iostream>
 #include "njs/basic_types/JSHeapValue.h"
+#include "njs/basic_types/PrimitiveString.h"
 #include "njs/basic_types/JSArray.h"
 #include "njs/codegen/CodegenVisitor.h"
 #include "njs/global_var.h"
 #include "njs/utils/lexing_helper.h"
 #include "njs/basic_types/JSObjectPrototype.h"
 #include "njs/basic_types/JSArrayPrototype.h"
+#include "njs/basic_types/JSStringPrototype.h"
 #include "njs/basic_types/JSFunctionPrototype.h"
 
 namespace njs {
@@ -63,9 +65,11 @@ void NjsVM::init_prototypes() {
   array_prototype.set_val(heap.new_object<JSArrayPrototype>(*this));
   array_prototype.as_object()->set_prototype(object_prototype);
 
-  function_prototype.set_val(heap.new_object<JSFunctionPrototype>());
+  string_prototype.set_val(heap.new_object<JSStringPrototype>(*this));
+  string_prototype.as_object()->set_prototype(object_prototype);
+
+  function_prototype.set_val(heap.new_object<JSFunctionPrototype>(*this));
   function_prototype.as_object()->set_prototype(object_prototype);
-//  string_prototype = object_prototype;
 }
 
 JSObject* NjsVM::new_object(ObjectClass cls) {
@@ -522,7 +526,7 @@ void NjsVM::exec_fast_add(Instruction& inst) {
 }
 
 void NjsVM::exec_return() {
-  invoker_this.tag = JSValue::UNDEFINED;
+  invoker_this.set_undefined();
   JSValue *old_sp = frame_base_ptr - func_arg_count - 1;
 
   // retain the return value, in case it's deallocated due to the dispose stage bellow.
@@ -546,7 +550,7 @@ void NjsVM::exec_return() {
 }
 
 void NjsVM::exec_return_error() {
-  invoker_this.tag = JSValue::UNDEFINED;
+  invoker_this.set_undefined();
   JSValue *old_sp = frame_base_ptr - func_arg_count - 1;
   JSValue *local_var_end = frame_base_ptr + function_env()->meta.local_var_count + frame_meta_size;
 
@@ -710,6 +714,7 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
 
   if (func->meta.is_native) {
     func_val = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
+    invoker_this.set_undefined();
     for (JSValue *addr = sp - actual_arg_cnt; addr < sp; addr++) {
       addr->dispose();
     }
@@ -865,6 +870,11 @@ bool NjsVM::key_access_on_primitive(JSValue& obj, int64_t atom) {
     if (atom == StringPool::ATOM_length) {
       auto len = obj.val.as_primitive_string->length();
       obj.set_val(double(len));
+    }
+    else if (atom == StringPool::ATOM_charAt) {
+      auto func_val = string_prototype.as_object()->get_prop(atom, false);
+      assert(func_val.tag_is(JSValue::FUNCTION));
+      obj.set_val(func_val.val.as_function);
     }
   }
   else {

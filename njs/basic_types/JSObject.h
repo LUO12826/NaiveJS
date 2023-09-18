@@ -26,6 +26,7 @@ class GCHeap;
 enum class ObjectClass {
   CLS_OBJECT = 0,
   CLS_ARRAY,
+  CLS_STRING,
   CLS_ERROR,
   CLS_DATE,
   CLS_FUNCTION,
@@ -34,6 +35,7 @@ enum class ObjectClass {
 
   CLS_OBJECT_PROTO,
   CLS_ARRAY_PROTO,
+  CLS_STRING_PROTO,
   CLS_FUNCTION_PROTO,
 };
 

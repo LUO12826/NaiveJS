@@ -65,6 +65,8 @@ inline int64_t PrimitiveString::convert_to_index() const {
   return scan_index_literal(this->str);
 }
 
+
+
 } // namespace njs
 
 /// @brief std::hash for PrimitiveString. Injected into std namespace.

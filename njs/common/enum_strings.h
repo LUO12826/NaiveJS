@@ -11,7 +11,7 @@ extern const char *scope_type_names[5];
 
 extern const char *js_value_tag_names[25];
 
-extern const char *object_class_names[10];
+extern const char *object_class_names[12];
 
 extern const char *inst_type_names[6];
 

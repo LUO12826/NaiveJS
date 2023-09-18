@@ -22,12 +22,18 @@ class JSArrayPrototype : public JSObject {
   }
 
   static JSValue at(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-    return JSValue::undefined;
+    assert(args.size() > 0 && args[0].tag_is(JSValue::NUM_FLOAT));
+    assert(func.This.tag_is(JSValue::ARRAY));
+
+    JSArray *array = func.This.val.as_array;
+    double index = args[0].val.as_float64;
+    if (index < 0 || index > array->get_length()) return JSValue::undefined;
+    return array->access_element((u32)index, false);
   }
 
   static JSValue push(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-    assert(vm.invoker_this.tag_is(JSValue::ARRAY));
-    JSArray *array = vm.invoker_this.val.as_array;
+    assert(func.This.tag_is(JSValue::ARRAY));
+    JSArray *array = func.This.val.as_array;
 
     size_t old_size = array->dense_array.size();
     size_t new_size = old_size + args.size();
