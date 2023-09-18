@@ -23,7 +23,7 @@ void JSValue::move_to_heap() {
   this->tag = HEAP_VAL;
 }
 
-inline JSValue& JSValue::deref_heap() const {
+JSValue& JSValue::deref_heap() const {
   assert(tag == HEAP_VAL);
   return val.as_heap_val->wrapped_val;
 }
