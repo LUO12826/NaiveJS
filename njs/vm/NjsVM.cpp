@@ -871,7 +871,7 @@ bool NjsVM::key_access_on_primitive(JSValue& obj, int64_t atom) {
       auto len = obj.val.as_primitive_string->length();
       obj.set_val(double(len));
     }
-    else if (atom == StringPool::ATOM_charAt) {
+    else if (string_prototype.as_object()->has_own_property(atom)) {
       auto func_val = string_prototype.as_object()->get_prop(atom, false);
       assert(func_val.tag_is(JSValue::FUNCTION));
       obj.set_val(func_val.val.as_function);
@@ -1114,8 +1114,9 @@ void NjsVM::exec_halt_err(Instruction &inst) {
   JSValue err_val = sp[-1];
 
   if (err_val.is_object() && err_val.as_object()->obj_class == ObjectClass::CLS_ERROR) {
-    std::string err_msg = err_val.as_object()->get_prop(*this, u16string_view(u"message")).to_string(*this);
-    std::string stack = err_val.as_object()->get_prop(*this, u16string_view(u"stack")).to_string(*this);
+    auto err_obj = err_val.as_object();
+    std::string err_msg = err_obj->get_prop(*this, u16string_view(u"message")).to_string(*this);
+    std::string stack = err_obj->get_prop(*this, u16string_view(u"stack")).to_string(*this);
     printf("\033[31mUnhandled error: %s, at\n", err_msg.c_str());
     printf("%s\033[0m\n", stack.c_str());
   }

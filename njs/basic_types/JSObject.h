@@ -99,6 +99,12 @@ class JSObject : public GCObject {
     }
   }
 
+  template <typename KEY>
+  bool has_own_property(KEY&& key) {
+    auto res = storage.find(JSObjectKey(std::forward<KEY>(key)));
+    return res != storage.end();
+  }
+
   ObjectClass obj_class;
   unordered_flat_map<JSObjectKey, JSValue> storage;
   JSValue _proto_;
