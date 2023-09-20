@@ -305,6 +305,8 @@ class Token {
 //  SourceLocation end_loc;
 };
 
+inline const Token Token::none = Token(TokenType::NONE, u"", 0, 0, 0);
+
 const unordered_set<std::u16string> keyword_set = {
   u"break",     u"do",       u"in",          u"typeof",
   u"case",      u"else",     u"instanceof",  u"var",

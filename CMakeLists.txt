@@ -12,17 +12,12 @@ set(SOURCES
     njs/vm/NjsVM_setup.cpp
     njs/vm/Instructions.cpp
     njs/basic_types/GlobalObject.cpp
-    njs/basic_types/RCObject.cpp
     njs/basic_types/JSFunction.cpp
     njs/basic_types/JSObject.cpp
     njs/basic_types/JSValue.cpp
     njs/main.cpp
     njs/utils/helper.cpp
-    njs/common/enum_strings.cpp
-    njs/parser/token.cpp
     njs/gc/GCHeap.cpp
-    njs/utils/Timer.cpp
-    njs/common/StringPool.cpp
     njs/parser/ast.cpp
     njs/basic_types/JSArray.cpp
     njs/vm/NativeFunction.cpp
