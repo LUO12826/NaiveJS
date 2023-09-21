@@ -177,7 +177,7 @@ class CodegenVisitor {
         visit_assignment_expr(*static_cast<AssignmentExpr *>(node));
         break;
       case ASTNode::AST_EXPR_LHS:
-        visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(node), false);
+        visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(node), false, false);
         break;
       case ASTNode::AST_EXPR_ID:
         visit_identifier(*node);
@@ -239,6 +239,9 @@ class CodegenVisitor {
         break;
       case ASTNode::AST_STMT_TRY:
         visit_try_statement(*static_cast<TryStatement *>(node));
+        break;
+      case ASTNode::AST_EXPR_NEW:
+        visit_new_expr(*static_cast<NewExpr *>(node));
         break;
       default:
         std::cout << node->description() << " not supported yet" << std::endl;
@@ -559,7 +562,7 @@ class CodegenVisitor {
       // check if left hand side is LeftHandSide Expression (or Parenthesized Expression with
       // LeftHandSide Expression in it.
       if (expr.lhs->type == ASTNode::AST_EXPR_LHS) {
-        visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(expr.lhs), true);
+        visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(expr.lhs), true, false);
       }
       else assert(false);
 
@@ -596,7 +599,7 @@ class CodegenVisitor {
     }
   }
 
-  void visit_left_hand_side_expr(LeftHandSideExpr& expr, bool create_ref) {
+  void visit_left_hand_side_expr(LeftHandSideExpr& expr, bool create_ref, bool in_new_ctx) {
     visit(expr.base);
     auto& postfix_ord = expr.postfix_order;
     size_t postfix_size = expr.postfix_order.size();
@@ -608,7 +611,8 @@ class CodegenVisitor {
       if (postfix_type == LeftHandSideExpr::CALL) {
         visit_func_arguments(*(expr.args_list[idx]));
         bool has_this_object = i > 0 && postfix_ord[i - 1].first != LeftHandSideExpr::CALL;
-        emit(InstType::call, expr.args_list[idx]->args.size(), int(has_this_object));
+        if (!in_new_ctx) emit(InstType::call, expr.args_list[idx]->args.size(), int(has_this_object));
+        else emit(InstType::js_new, expr.args_list[idx]->args.size());
       }
       // obj.prop
       else if (postfix_type == LeftHandSideExpr::PROP) {
@@ -922,6 +926,22 @@ class CodegenVisitor {
 
     scope().resolve_throw_list()->push_back(bytecode_pos());
     emit(InstType::jmp);
+  }
+
+  void visit_new_expr(NewExpr& expr) {
+    if (expr.callee->is_identifier()) {
+      visit(expr.callee);
+      emit(InstType::js_new, 0);
+    }
+    else if (expr.callee->is_lhs_expr()) {
+      visit_left_hand_side_expr(*(expr.callee->as_lhs_expr()), false, true);
+      if (bytecode[bytecode_pos() - 1].op_type != InstType::js_new) {
+        emit(InstType::js_new, 0);
+      }
+    }
+    else {
+      assert(false);
+    }
   }
 
  private:

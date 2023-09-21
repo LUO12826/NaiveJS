@@ -54,12 +54,13 @@ friend class InternalFunctions;
 
   std::vector<StackTraceItem> capture_stack_trace();
 
+  JSObject* new_object(ObjectClass cls, JSValue prototype);
   JSObject* new_object(ObjectClass cls = ObjectClass::CLS_OBJECT);
   JSArray* new_array(int length);
   JSFunction* new_function(const JSFunctionMeta& meta);
 
  private:
-  void execute();
+  int execute(bool stop_at_return = false);
   void execute_task(JSTask& task);
   void call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
   // push
@@ -73,6 +74,7 @@ friend class InternalFunctions;
   void exec_make_func(int meta_idx);
   void exec_capture(int scope, int index);
   void exec_call(int arg_count, bool has_this_object);
+  void exec_js_new(int arg_count);
   void exec_return();
   void exec_return_error();
   // object operation

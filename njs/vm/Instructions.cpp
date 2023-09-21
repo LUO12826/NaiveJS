@@ -192,6 +192,9 @@ std::string Instruction::description() {
     case InstType::call:
       sprintf(buffer, "call  %d %d", operand.two.opr1, operand.two.opr2);
       break;
+    case InstType::js_new:
+      sprintf(buffer, "js_new  %d", operand.two.opr1);
+      break;
     case InstType::ret:
       sprintf(buffer, "ret");
       break;

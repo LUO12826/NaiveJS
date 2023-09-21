@@ -72,6 +72,12 @@ void NjsVM::init_prototypes() {
   function_prototype.as_object()->set_prototype(object_prototype);
 }
 
+JSObject* NjsVM::new_object(ObjectClass cls, JSValue prototype) {
+  auto *obj = heap.new_object<JSObject>(cls);
+  obj->set_prototype(prototype);
+  return obj;
+}
+
 JSObject* NjsVM::new_object(ObjectClass cls) {
   auto *obj = heap.new_object<JSObject>(cls);
   obj->set_prototype(object_prototype);
@@ -130,7 +136,9 @@ void NjsVM::run() {
 
 }
 
-void NjsVM::execute() {
+int NjsVM::execute(bool stop_at_return) {
+  auto saved_frame_base = frame_base_ptr;
+
   while (true) {
     Instruction& inst = bytecode[pc++];
 
@@ -269,11 +277,17 @@ void NjsVM::execute() {
       case InstType::call:
         exec_call(inst.operand.two.opr1, bool(inst.operand.two.opr2));
         break;
+      case InstType::js_new:
+        exec_js_new(inst.operand.two.opr1);
+        break;
       case InstType::ret:
         exec_return();
+        if (stop_at_return && frame_base_ptr < saved_frame_base) return 0;
+        invoker_this.set_undefined();
         break;
       case InstType::ret_err: {
         exec_return_error();
+        if (stop_at_return && frame_base_ptr < saved_frame_base) return 1;
         error_handle();
         break;
       }
@@ -317,10 +331,10 @@ void NjsVM::execute() {
         if (Global::show_vm_exec_steps) {
           printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
         }
-        return;
+        return 0;
       case InstType::halt_err:
         exec_halt_err(inst);
-        return;
+        return 0;
       case InstType::nop:
         break;
       case InstType::keypath_access:
@@ -526,7 +540,6 @@ void NjsVM::exec_fast_add(Instruction& inst) {
 }
 
 void NjsVM::exec_return() {
-  invoker_this.set_undefined();
   JSValue *old_sp = frame_base_ptr - func_arg_count - 1;
 
   // retain the return value, in case it's deallocated due to the dispose stage bellow.
@@ -736,6 +749,33 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
   frame_base_ptr = sp;
   sp = sp + frame_meta_size + func->meta.local_var_count;
   pc = func->meta.code_address;
+}
+
+void NjsVM::exec_js_new(int arg_count) {
+  JSValue& ctor = sp[-arg_count - 1];
+  assert(ctor.tag_is(JSValue::FUNCTION));
+
+  // prepare `this` object
+  JSValue proto = ctor.val.as_function->get_prop(StringPool::ATOM_prototype, false);
+  proto = proto.is_object() ? proto : object_prototype;
+  invoker_this.set_val(new_object(ObjectClass::CLS_OBJECT, proto));
+
+  // run the constructor
+  exec_call(arg_count, true);
+  int status = execute(true);
+  // error happens in the constructor
+  if (status == 1) {
+    invoker_this.set_undefined();
+    error_handle();
+    return;
+  }
+
+  JSValue& ret_val = sp[-1];
+  if (!ret_val.is_object()) {
+    ret_val.set_undefined();
+    ret_val = invoker_this;
+  }
+  invoker_this.set_undefined();
 }
 
 void NjsVM::exec_make_object() {

@@ -242,7 +242,7 @@ struct JSValue {
   }
 
   bool is_object() const {
-    return tag == OBJECT || tag == FUNCTION || tag == ARRAY;
+    return tag >= NEED_GC_BEGIN && tag <= NEED_GC_END;
   }
 
   bool is_RCObject() const {

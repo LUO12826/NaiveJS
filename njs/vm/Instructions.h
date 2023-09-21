@@ -67,6 +67,7 @@ enum class InstType {
   eq3,
 
   call,
+  js_new,
   ret,
   ret_err,
 
