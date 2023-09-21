@@ -355,20 +355,27 @@ int NjsVM::execute(bool stop_at_return) {
 void NjsVM::execute_task(JSTask& task) {
   // let the pc point to `halt`
   pc = bytecode.size() - 2;
-  call_function(task.task_func.val.as_function, task.args, nullptr);
+
+  prepare_for_call(task.task_func.val.as_function, task.args, nullptr);
+  exec_call((int)task.args.size(), false);
+  execute(false);
 }
 
 void NjsVM::call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
+  prepare_for_call(func, args, this_obj);
+  exec_call((int)args.size(), this_obj != nullptr);
+  execute(true);
+}
+
+void NjsVM::prepare_for_call(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
   sp[0].set_val(func);
   sp += 1;
   for (auto& arg : args) {
     sp[0] = arg;
     sp += 1;
   }
-  
+
   if (this_obj) invoker_this.set_val(this_obj);
-  exec_call((int)args.size(), this_obj != nullptr);
-  execute();
 }
 
 using StackTraceItem = NjsVM::StackTraceItem;
