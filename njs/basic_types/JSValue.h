@@ -245,6 +245,10 @@ struct JSValue {
     return tag >= NEED_GC_BEGIN && tag <= NEED_GC_END;
   }
 
+  bool is_function() const {
+    return tag == FUNCTION;
+  }
+
   bool is_RCObject() const {
     return tag > NEED_RC_BEGIN && tag < NEED_RC_END;
   }

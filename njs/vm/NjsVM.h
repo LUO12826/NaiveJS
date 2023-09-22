@@ -52,6 +52,9 @@ friend class InternalFunctions;
   void setup();
   void run();
 
+  void pop_drop();
+  JSValue get_stack_top();
+
   std::vector<StackTraceItem> capture_stack_trace();
 
   JSObject* new_object(ObjectClass cls, JSValue prototype);
@@ -62,7 +65,7 @@ friend class InternalFunctions;
  private:
   int execute(bool stop_at_return = false);
   void execute_task(JSTask& task);
-  void call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
+  int call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
   void prepare_for_call(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
   // push
   void exec_push(int scope, int index);

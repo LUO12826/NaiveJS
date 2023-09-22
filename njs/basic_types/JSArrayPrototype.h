@@ -15,6 +15,7 @@ class JSArrayPrototype : public JSObject {
   JSArrayPrototype(NjsVM& vm) : JSObject(ObjectClass::CLS_ARRAY_PROTO) {
     add_method(vm, u"at", JSArrayPrototype::at);
     add_method(vm, u"push", JSArrayPrototype::push);
+    add_method(vm, u"sort", JSArrayPrototype::sort);
   }
 
   u16string_view get_class_name() override {
@@ -29,6 +30,37 @@ class JSArrayPrototype : public JSObject {
     double index = args[0].val.as_float64;
     if (index < 0 || index > array->get_length()) return JSValue::undefined;
     return array->access_element((u32)index, false);
+  }
+
+  static JSValue sort(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+    assert(func.This.tag_is(JSValue::ARRAY));
+    JSArray *array = func.This.val.as_array;
+
+    // no compare function provided. Convert values to strings and do string sorting.
+    if (args.size() == 0) {
+      std::sort(array->dense_array.begin(), array->dense_array.end(), [&vm] (JSValue& a, JSValue& b) {
+        if (a.is_undefined()) return false;
+        if (b.is_undefined()) return true;
+        return a.to_string(vm) < b.to_string(vm);
+      });
+    }
+    // else, use the compare function
+    else if (args.size() >= 1) {
+      assert(args[0].is_function());
+      std::sort(array->dense_array.begin(), array->dense_array.end(), [&vm, &args] (JSValue& a, JSValue& b) {
+        if (a.is_undefined()) return false;
+        if (b.is_undefined()) return true;
+
+        vm.call_function(args[0].val.as_function, {a, b}, nullptr);
+        JSValue ret = vm.get_stack_top();
+        vm.pop_drop();
+        assert(ret.is_float64());
+
+        return ret.val.as_float64 < 0;
+      });
+    }
+
+    return JSValue::undefined;
   }
 
   static JSValue push(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {

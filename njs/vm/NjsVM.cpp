@@ -361,10 +361,10 @@ void NjsVM::execute_task(JSTask& task) {
   execute(false);
 }
 
-void NjsVM::call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
+int NjsVM::call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
   prepare_for_call(func, args, this_obj);
   exec_call((int)args.size(), this_obj != nullptr);
-  execute(true);
+  return execute(true);
 }
 
 void NjsVM::prepare_for_call(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
@@ -376,6 +376,15 @@ void NjsVM::prepare_for_call(JSFunction *func, const std::vector<JSValue>& args,
   }
 
   if (this_obj) invoker_this.set_val(this_obj);
+}
+
+void NjsVM::pop_drop() {
+  sp -= 1;
+  sp[0].set_undefined();
+}
+
+JSValue NjsVM::get_stack_top() {
+  return sp[-1];
 }
 
 using StackTraceItem = NjsVM::StackTraceItem;
