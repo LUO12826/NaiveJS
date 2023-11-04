@@ -4,11 +4,9 @@
 #include <vector>
 #include "JSObject.h"
 #include "njs/common/StringPool.h"
-#include "njs/include/SmallVector.h"
 
 namespace njs {
 
-using llvm::SmallVector;
 using u32 = uint32_t;
 
 class JSArray: public JSObject {

@@ -246,7 +246,7 @@ class Token {
         } else if (!no_in && text == u"in") {
           return 8;
         }
-        [[fallthrough]];
+        return -1;
       default:
         return -1;
     }
@@ -269,7 +269,7 @@ class Token {
         if (text == u"delete" || text == u"void" || text == u"typeof") {
           return 100;
         }
-        [[fallthrough]];
+        return -1;
       default:
         return -1;
     }
@@ -307,7 +307,7 @@ class Token {
 
 inline const Token Token::none = Token(TokenType::NONE, u"", 0, 0, 0);
 
-const unordered_set<std::u16string> keyword_set = {
+const unordered_set<std::u16string> keywords = {
   u"break",     u"do",       u"in",          u"typeof",
   u"case",      u"else",     u"instanceof",  u"var",
   u"catch",     u"export",   u"new",         u"void",
@@ -319,11 +319,11 @@ const unordered_set<std::u16string> keyword_set = {
   u"delete",    u"import",   u"try"
 };
 
-const unordered_set<std::u16string> future_reserved_word_set = {
+const unordered_set<std::u16string> future_reserved_words = {
   u"enum", u"await"
 };
 
-const unordered_set<std::u16string> strictmode_future_reserved_word_set = {
+const unordered_set<std::u16string> strict_future_reserved_words = {
   u"implements",   u"package",   u"protected",
   u"interface",    u"private",   u"public"
 };
