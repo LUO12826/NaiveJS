@@ -8,7 +8,7 @@ let arr  = [
         d: 939
     },
     [1, 2, 3, 4, 5],
-    13367816628,
+    12345678,
     "string in an array",
     undefined,
     null

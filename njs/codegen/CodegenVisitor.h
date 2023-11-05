@@ -799,7 +799,9 @@ class CodegenVisitor {
     }
 
     int deinit_begin = int(scope().get_var_start_index() + frame_meta_size);
-    int deinit_end = int(scope().get_var_next_index() + frame_meta_size);
+    // as for now, the only usage of extra vars is for the catch variables. and they don't need
+    // to be deinit.
+    int deinit_end = int(scope().get_var_next_index() + frame_meta_size - extra_var.size());
     if (deinit_end - deinit_begin != 0) {
       emit(InstType::var_deinit_range, deinit_begin, deinit_end);
     }
