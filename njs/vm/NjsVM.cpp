@@ -6,7 +6,6 @@
 #include "njs/basic_types/JSArray.h"
 #include "njs/codegen/CodegenVisitor.h"
 #include "njs/global_var.h"
-#include "njs/utils/lexing_helper.h"
 #include "njs/basic_types/JSObjectPrototype.h"
 #include "njs/basic_types/JSArrayPrototype.h"
 #include "njs/basic_types/JSStringPrototype.h"
@@ -283,7 +282,6 @@ int NjsVM::execute(bool stop_at_return) {
       case InstType::ret:
         exec_return();
         if (stop_at_return && frame_base_ptr < saved_frame_base) return 0;
-        invoker_this.set_undefined();
         break;
       case InstType::ret_err: {
         exec_return_error();
@@ -357,14 +355,22 @@ void NjsVM::execute_task(JSTask& task) {
   pc = bytecode.size() - 2;
 
   prepare_for_call(task.task_func.val.as_function, task.args, nullptr);
-  exec_call((int)task.args.size(), false);
-  execute(false);
+  CallResult res = exec_call((int)task.args.size(), false);
+  if (res == CallResult::UNFINISHED) {
+    execute(false);
+  } else if (res == CallResult::DONE_ERROR) {
+    error_handle();
+  }
 }
 
 int NjsVM::call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
   prepare_for_call(func, args, this_obj);
-  exec_call((int)args.size(), this_obj != nullptr);
-  return execute(true);
+  CallResult res = exec_call((int)args.size(), this_obj != nullptr);
+  if (res == CallResult::UNFINISHED) {
+    return execute(true);
+  } else {
+    return res == CallResult::DONE_NORMAL ? 0 : 1;
+  }
 }
 
 void NjsVM::prepare_for_call(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
@@ -579,7 +585,6 @@ void NjsVM::exec_return() {
 }
 
 void NjsVM::exec_return_error() {
-  invoker_this.set_undefined();
   JSValue *old_sp = frame_base_ptr - func_arg_count - 1;
   JSValue *local_var_end = frame_base_ptr + function_env()->meta.local_var_count + frame_meta_size;
 
@@ -717,7 +722,7 @@ void NjsVM::exec_capture(int scope, int index) {
   }
 }
 
-void NjsVM::exec_call(int arg_count, bool has_this_object) {
+CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
   JSValue& func_val = sp[-arg_count - 1];
   assert(func_val.tag == JSValue::FUNCTION);
   assert(func_val.val.as_object->obj_class == ObjectClass::CLS_FUNCTION);
@@ -738,17 +743,17 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
 
   if (!(func->meta.is_arrow_func || func->has_this_binding)) {
     // set up the `this` for the function.
-    func->This = has_this_object ? invoker_this : global_object;
+    func->This.assign(has_this_object ? invoker_this : global_object);
+    invoker_this.set_undefined();
   }
 
   if (func->meta.is_native) {
     func_val = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
-    invoker_this.set_undefined();
     for (JSValue *addr = sp - actual_arg_cnt; addr < sp; addr++) {
       addr->dispose();
     }
     sp -= actual_arg_cnt;
-    return;
+    return func_val.tag_is(JSValue::COMP_ERR) ? CallResult::DONE_ERROR : CallResult::DONE_NORMAL;
   }
 
   // first cell of a function stack frame: return address and pointer to the function object.
@@ -765,6 +770,8 @@ void NjsVM::exec_call(int arg_count, bool has_this_object) {
   frame_base_ptr = sp;
   sp = sp + frame_meta_size + func->meta.local_var_count;
   pc = func->meta.code_address;
+
+  return CallResult::UNFINISHED;
 }
 
 void NjsVM::exec_js_new(int arg_count) {
@@ -774,14 +781,19 @@ void NjsVM::exec_js_new(int arg_count) {
   // prepare `this` object
   JSValue proto = ctor.val.as_function->get_prop(StringPool::ATOM_prototype, false);
   proto = proto.is_object() ? proto : object_prototype;
-  invoker_this.set_val(new_object(ObjectClass::CLS_OBJECT, proto));
+  JSObject *this_obj = new_object(ObjectClass::CLS_OBJECT, proto);
+  invoker_this.set_val(this_obj);
 
   // run the constructor
-  exec_call(arg_count, true);
-  int status = execute(true);
+  CallResult res = exec_call(arg_count, true);
+  int status;
+  if (res == CallResult::UNFINISHED) {
+    status = execute(true);
+  } else {
+    status = (res == CallResult::DONE_ERROR);
+  }
   // error happens in the constructor
   if (status == 1) {
-    invoker_this.set_undefined();
     error_handle();
     return;
   }
@@ -789,9 +801,8 @@ void NjsVM::exec_js_new(int arg_count) {
   JSValue& ret_val = sp[-1];
   if (!ret_val.is_object()) {
     ret_val.set_undefined();
-    ret_val = invoker_this;
+    ret_val.set_val(this_obj);
   }
-  invoker_this.set_undefined();
 }
 
 void NjsVM::exec_make_object() {
@@ -1114,7 +1125,7 @@ void NjsVM::exec_comparison(InstType type) {
 }
 
 void NjsVM::error_throw(const u16string& msg) {
-  JSValue err_obj = InternalFunctions::error_ctor(*this, msg);
+  JSValue err_obj = InternalFunctions::error_build_internal(*this, msg);
   sp[0] = err_obj;
   sp += 1;
 }

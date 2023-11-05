@@ -151,7 +151,7 @@ JSValue InternalFunctions::error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSVa
   return JSValue(err_obj);
 }
 
-JSValue InternalFunctions::error_ctor(NjsVM& vm, const u16string& msg) {
+JSValue InternalFunctions::error_build_internal(NjsVM& vm, const u16string& msg) {
   auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR);
   err_obj->add_prop(vm, u"message", JSValue(new PrimitiveString(msg)));
 

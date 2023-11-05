@@ -38,6 +38,9 @@ struct JSValue {
   enum JSValueTag {
     // The following types of values are stored inline in JSValue
 
+    // return by a function when it completes with an error
+    COMP_ERR,
+
     // Before a `let` defined variable get initialized, its tag is UNINIT.
     UNINIT,
     UNDEFINED,

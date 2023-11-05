@@ -15,6 +15,7 @@
 #include "njs/include/SmallVector.h"
 #include "njs/common/StringPool.h"
 #include "JSRunLoop.h"
+#include "Runtime.h"
 
 namespace njs {
 
@@ -77,7 +78,7 @@ friend class InternalFunctions;
   // function operation
   void exec_make_func(int meta_idx);
   void exec_capture(int scope, int index);
-  void exec_call(int arg_count, bool has_this_object);
+  CallResult exec_call(int arg_count, bool has_this_object);
   void exec_js_new(int arg_count);
   void exec_return();
   void exec_return_error();
