@@ -130,15 +130,20 @@ u16string build_trace_str(NjsVM& vm) {
   for (auto& tr : trace) {
     trace_str += u"  ";
     trace_str += tr.func_name;
-    trace_str += u"  @ line ";
-    trace_str += to_u16string(std::to_string(tr.source_line));
+    if (not tr.is_native) {
+      trace_str += u"  @ line ";
+      trace_str += to_u16string(std::to_string(tr.source_line));
+    }
+    else {
+      trace_str += u"  (native)";
+    }
     trace_str += u"\n";
   }
   return trace_str;
 }
 
 JSValue InternalFunctions::error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-  auto *err_obj = vm.new_object();
+  auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR);
   if (args.size() > 0 && args[0].is_string_type()) {
     // only supports primitive string now.
     assert(args[0].tag_is(JSValue::STRING));
@@ -161,5 +166,9 @@ JSValue InternalFunctions::error_build_internal(NjsVM& vm, const u16string& msg)
   return JSValue(err_obj);
 }
 
+JSValue InternalFunctions::test_throw_err(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  vm.push_stack(error_build_internal(vm, u"msg"));
+  return JSValue(JSValue::COMP_ERR);
+}
 
 }

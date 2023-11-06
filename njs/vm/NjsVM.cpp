@@ -273,9 +273,13 @@ int NjsVM::execute(bool stop_at_return) {
       case InstType::eq3:
         exec_strict_equality(false);
         break;
-      case InstType::call:
-        exec_call(inst.operand.two.opr1, bool(inst.operand.two.opr2));
+      case InstType::call: {
+        CallResult res = exec_call(inst.operand.two.opr1, bool(inst.operand.two.opr2));
+        if (res == CallResult::DONE_ERROR) {
+          error_handle();
+        }
         break;
+      }
       case InstType::js_new:
         exec_js_new(inst.operand.two.opr1);
         break;
@@ -389,8 +393,13 @@ void NjsVM::pop_drop() {
   sp[0].set_undefined();
 }
 
-JSValue NjsVM::get_stack_top() {
+JSValue NjsVM::peek_stack_top() {
   return sp[-1];
+}
+
+void NjsVM::push_stack(JSValue val) {
+  sp[0] = val;
+  sp += 1;
 }
 
 using StackTraceItem = NjsVM::StackTraceItem;
@@ -407,6 +416,7 @@ std::vector<StackTraceItem> NjsVM::capture_stack_trace() {
     trace.emplace_back(StackTraceItem {
         .func_name = func->meta.is_anonymous ? u"(anonymous)" : func->name,
         .source_line = func->meta.source_line,
+        .is_native = func->meta.is_native,
     });
 
     // visit the deeper stack frame
@@ -417,6 +427,7 @@ std::vector<StackTraceItem> NjsVM::capture_stack_trace() {
     trace.emplace_back(StackTraceItem {
         .func_name = u"(global)",
         .source_line = 0,
+        .is_native = false,
     });
   }
 
@@ -747,14 +758,8 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
     invoker_this.set_undefined();
   }
 
-  if (func->meta.is_native) {
-    func_val = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
-    for (JSValue *addr = sp - actual_arg_cnt; addr < sp; addr++) {
-      addr->dispose();
-    }
-    sp -= actual_arg_cnt;
-    return func_val.tag_is(JSValue::COMP_ERR) ? CallResult::DONE_ERROR : CallResult::DONE_NORMAL;
-  }
+  // note that, even if the function is a native function, we set up the frame metadata
+  // because we need it when capture the call stack trace.
 
   // first cell of a function stack frame: return address and pointer to the function object.
   sp[0].tag = JSValue::STACK_FRAME_META1;
@@ -766,12 +771,43 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
   sp[1].flag_bits = actual_arg_cnt;
   sp[1].val.as_JSValue = frame_base_ptr;
 
-  func_arg_count = actual_arg_cnt;
-  frame_base_ptr = sp;
-  sp = sp + frame_meta_size + func->meta.local_var_count;
-  pc = func->meta.code_address;
 
-  return CallResult::UNFINISHED;
+  if (not func->meta.is_native) {
+    func_arg_count = actual_arg_cnt;
+    frame_base_ptr = sp;
+    sp = sp + frame_meta_size + func->meta.local_var_count;
+    pc = func->meta.code_address;
+
+    return CallResult::UNFINISHED;
+  }
+  else {
+    JSValue *saved_frame_base = frame_base_ptr;
+    frame_base_ptr = sp;
+    sp += 2;
+    JSValue ret = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
+    // if the native function throws an error, move this error object to the place where the return value should reside.
+    if (ret.tag_is(JSValue::COMP_ERR)) {
+      func_val = sp[-1];
+      // clean the error object
+      sp -= 1;
+      sp[0].tag = JSValue::UNDEFINED;
+    }
+    else {
+      func_val = ret;
+    }
+    // clean the STACK_FRAME_META1 and STACK_FRAME_META2
+    sp -= 2;
+    sp[0].tag = JSValue::UNDEFINED;
+    sp[1].tag = JSValue::UNDEFINED;
+
+    // clean the arguments
+    for (JSValue *arg = sp - actual_arg_cnt; arg < sp; arg++) {
+      arg->dispose();
+    }
+    sp -= actual_arg_cnt;
+    frame_base_ptr = saved_frame_base;
+    return ret.tag_is(JSValue::COMP_ERR) ? CallResult::DONE_ERROR : CallResult::DONE_NORMAL;
+  }
 }
 
 void NjsVM::exec_js_new(int arg_count) {

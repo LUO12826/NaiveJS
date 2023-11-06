@@ -43,6 +43,7 @@ friend class InternalFunctions;
   struct StackTraceItem {
     u16string func_name;
     u32 source_line;
+    bool is_native;
   };
 
   // These parameters are only for temporary convenience
@@ -54,7 +55,8 @@ friend class InternalFunctions;
   void run();
 
   void pop_drop();
-  JSValue get_stack_top();
+  JSValue peek_stack_top();
+  void push_stack(JSValue val);
 
   std::vector<StackTraceItem> capture_stack_trace();
 

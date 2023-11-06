@@ -52,7 +52,7 @@ class JSArrayPrototype : public JSObject {
         if (b.is_undefined()) return true;
 
         vm.call_function(args[0].val.as_function, {a, b}, nullptr);
-        JSValue ret = vm.get_stack_top();
+        JSValue ret = vm.peek_stack_top();
         vm.pop_drop();
         assert(ret.is_float64());
 

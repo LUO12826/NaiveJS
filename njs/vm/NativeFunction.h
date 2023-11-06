@@ -20,6 +20,9 @@ class InternalFunctions {
   static JSValue json_stringify(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static JSValue error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static JSValue error_build_internal(NjsVM& vm, const u16string& msg);
+
+  static JSValue test_throw_err(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
+
 };
 
 }
