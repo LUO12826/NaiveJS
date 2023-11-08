@@ -37,6 +37,8 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
     global_obj->props_index_map.emplace(u16string(sym_name), sym_rec.index + frame_meta_size);
   }
 
+  str_pool.record_static_atom_count();
+
   rt_stack_begin = rt_stack.data();
   rt_stack_begin[0].val.as_function = nullptr;
   frame_base_ptr = rt_stack_begin;
@@ -339,8 +341,8 @@ int NjsVM::execute(bool stop_at_return) {
         return 0;
       case InstType::nop:
         break;
-      case InstType::keypath_access:
-        exec_keypath_access(inst.operand.two.opr1, (bool)inst.operand.two.opr2);
+      case InstType::key_access:
+        exec_key_access(inst.operand.two.opr1, (bool)inst.operand.two.opr2);
         break;
       case InstType::index_access:
         exec_index_access((bool)inst.operand.two.opr1);
@@ -690,6 +692,12 @@ void NjsVM::exec_make_func(int meta_idx) {
     }
   }
 
+  if (not meta.is_arrow_func) {
+    JSObject *new_prototype = new_object(ObjectClass::CLS_OBJECT);
+    new_prototype->add_prop(StringPool::ATOM_constructor, JSValue(func));
+    func->add_prop(StringPool::ATOM_prototype, JSValue(new_prototype));
+  }
+
   if (meta.is_native) {
     assert(!meta.is_anonymous);
     u16string& name = str_pool.get_string(meta.name_index);
@@ -919,47 +927,26 @@ void NjsVM::exec_push_this(bool in_global) {
   sp += 1;
 }
 
-void NjsVM::exec_keypath_access(int key_cnt, bool get_ref) {
+void NjsVM::exec_key_access(int key_atom, bool get_ref) {
+  JSValue& val_obj = sp[-1];
 
-  JSValue& val_obj = sp[-key_cnt - 1];
-
-  // don't visit the last component of the keypath here
-  for (JSValue *key = sp - key_cnt; key < sp - 1; key++) {
-    if (Global::show_vm_exec_steps) {
-      std::cout << "...visit key " << to_u8string(str_pool.get_string(key->val.as_int64)) << '\n';
-    }
-    if(val_obj.is_object()) {
-      // val_obj is a reference, so we are directly modify the cell in the stack frame.
-      val_obj = val_obj.val.as_object->get_prop(key->val.as_int64, false);
-    }
-    else if (val_obj.is_undefined() || val_obj.is_null()) {
-      goto error;
-    }
-    else if (!key_access_on_primitive(val_obj, key->val.as_int64)) {
-      goto error;
-    }
-
-    key->set_undefined();
-  }
-
-  // visit the last component separately
   if (Global::show_vm_exec_steps) {
-    std::cout << "...visit key " << to_u8string(str_pool.get_string(sp[-1].val.as_int64)) << '\n';
+    std::cout << "...visit key " << to_u8string(str_pool.get_string(key_atom)) << '\n';
   }
-  invoker_this.assign(val_obj);
-
-  if (val_obj.is_object()) {
-    val_obj = val_obj.val.as_object->get_prop(sp[-1].val.as_int64, get_ref);
+  if(val_obj.is_object()) {
+    if (int64_t(key_atom) == StringPool::ATOM___proto__) {
+      val_obj = val_obj.val.as_object->get_prototype();
+    } else {
+      val_obj = val_obj.val.as_object->get_prop(key_atom, get_ref);
+    }
   }
   else if (val_obj.is_undefined() || val_obj.is_null()) {
     goto error;
   }
-  else if (!key_access_on_primitive(val_obj, sp[-1].val.as_int64)) {
+  else if (!key_access_on_primitive(val_obj, key_atom)) {
     goto error;
   }
-  
-  sp[-1].set_undefined();
-  sp = sp - key_cnt;
+
   return;
 error:
   error_throw(u"cannot read property of " + to_u16string(val_obj.to_string(*this)));

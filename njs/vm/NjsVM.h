@@ -87,7 +87,7 @@ friend class InternalFunctions;
   // object operation
   void exec_make_object();
   void exec_add_props(int props_cnt);
-  void exec_keypath_access(int key_cnt, bool get_ref);
+  void exec_key_access(int key_atom, bool get_ref);
   void exec_index_access(bool get_ref);
   void exec_prop_assign();
   void exec_compound_assign(InstType type, int opr1, int opr2);

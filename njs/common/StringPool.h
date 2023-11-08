@@ -21,18 +21,24 @@ class StringPool {
     ATOM_length = add_string(u"length");              // 0
     ATOM_prototype = add_string(u"prototype");        // 1
     ATOM_charAt = add_string(u"charAt");              // 2
+    ATOM_constructor = add_string(u"constructor");    // 3
+    ATOM___proto__ = add_string(u"__proto__");        // 4
   }
 
   u32 add_string(u16string_view str_view);
   u16string& get_string(size_t index);
   std::vector<u16string>& get_string_list();
+  void record_static_atom_count();
 
   inline static int64_t ATOM_length;
   inline static int64_t ATOM_prototype;
   inline static int64_t ATOM_charAt;
+  inline static int64_t ATOM_constructor;
+  inline static int64_t ATOM___proto__;
 
  private:
   u32 next_id {0};
+  u32 static_atom_count {0};
   unordered_map<u16string, u32> pool;
   std::vector<u16string> string_list;
 };
@@ -58,6 +64,10 @@ inline std::vector<u16string>& StringPool::get_string_list() {
 
 inline u16string& StringPool::get_string(size_t index) {
   return string_list[index];
+}
+
+inline void StringPool::record_static_atom_count() {
+  static_atom_count = pool.size();
 }
 
 } // namespace njs

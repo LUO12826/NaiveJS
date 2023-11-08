@@ -183,8 +183,8 @@ std::string Instruction::description() {
     case InstType::add_elements:
       sprintf(buffer, "add_elements  %d", operand.two.opr1);
       break;
-    case InstType::keypath_access:
-      sprintf(buffer, "keypath_access  %d %s", operand.two.opr1, operand.two.opr2 ? "REF" : "");
+    case InstType::key_access:
+      sprintf(buffer, "key_access  %d %s", operand.two.opr1, operand.two.opr2 ? "REF" : "");
       break;
     case InstType::index_access:
       sprintf(buffer, "index_access  %s", operand.two.opr1 ? "REF" : "");

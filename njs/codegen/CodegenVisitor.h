@@ -619,11 +619,10 @@ class CodegenVisitor {
         size_t prop_start = i;
         for (; i < postfix_size && postfix_ord[i].first == LeftHandSideExpr::PROP; i++) {
           idx = postfix_ord[i].second;
-          int keypath_id = (int)add_const(expr.prop_list[idx].text);
-          emit(InstType::push_atom, keypath_id);
+          int key_id = (int)add_const(expr.prop_list[idx].text);
+          emit(InstType::key_access, key_id, 0);
         }
-
-        emit(InstType::keypath_access, int(i - prop_start), int(create_ref));
+        bytecode.back().operand.two.opr2 = int(create_ref);
         // Both the for loop above and the outer for loop have `+1` at the end. so minus one here.
         i -= 1;
       }

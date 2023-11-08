@@ -61,6 +61,10 @@ class JSObject : public GCObject {
     _proto_ = proto;
   }
 
+  JSValue get_prototype() {
+    return _proto_;
+  }
+
   bool add_prop(const JSValue& key, const JSValue& value);
   bool add_prop(int64_t key_atom, const JSValue& value);
   bool add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value);
