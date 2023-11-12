@@ -137,7 +137,7 @@ void NjsVM::run() {
 
 }
 
-int NjsVM::execute(bool stop_at_return) {
+CallResult NjsVM::execute(bool stop_at_return) {
   auto saved_frame_base = frame_base_ptr;
 
   while (true) {
@@ -287,11 +287,11 @@ int NjsVM::execute(bool stop_at_return) {
         break;
       case InstType::ret:
         exec_return();
-        if (stop_at_return && frame_base_ptr < saved_frame_base) return 0;
+        if (stop_at_return && frame_base_ptr < saved_frame_base) return CallResult::DONE_NORMAL;
         break;
       case InstType::ret_err: {
         exec_return_error();
-        if (stop_at_return && frame_base_ptr < saved_frame_base) return 1;
+        if (stop_at_return && frame_base_ptr < saved_frame_base) return CallResult::DONE_ERROR;
         error_handle();
         break;
       }
@@ -335,10 +335,10 @@ int NjsVM::execute(bool stop_at_return) {
         if (Global::show_vm_exec_steps) {
           printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
         }
-        return 0;
+        return CallResult::DONE_NORMAL;
       case InstType::halt_err:
         exec_halt_err(inst);
-        return 0;
+        return CallResult::DONE_NORMAL;
       case InstType::nop:
         break;
       case InstType::key_access:
@@ -369,14 +369,13 @@ void NjsVM::execute_task(JSTask& task) {
   }
 }
 
-int NjsVM::call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
+CallResult NjsVM::call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
   prepare_for_call(func, args, this_obj);
   CallResult res = exec_call((int)args.size(), this_obj != nullptr);
   if (res == CallResult::UNFINISHED) {
-    return execute(true);
-  } else {
-    return res == CallResult::DONE_NORMAL ? 0 : 1;
+    res = execute(true);
   }
+  return res;
 }
 
 void NjsVM::prepare_for_call(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
@@ -829,15 +828,12 @@ void NjsVM::exec_js_new(int arg_count) {
   invoker_this.set_val(this_obj);
 
   // run the constructor
-  CallResult res = exec_call(arg_count, true);
-  int status;
-  if (res == CallResult::UNFINISHED) {
-    status = execute(true);
-  } else {
-    status = (res == CallResult::DONE_ERROR);
+  CallResult call_res = exec_call(arg_count, true);
+  if (call_res == CallResult::UNFINISHED) {
+    call_res = execute(true);
   }
   // error happens in the constructor
-  if (status == 1) {
+  if (call_res == CallResult::DONE_ERROR) {
     error_handle();
     return;
   }

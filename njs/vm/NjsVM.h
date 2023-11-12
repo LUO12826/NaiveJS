@@ -66,9 +66,9 @@ friend class InternalFunctions;
   JSFunction* new_function(const JSFunctionMeta& meta);
 
  private:
-  int execute(bool stop_at_return = false);
+  CallResult execute(bool stop_at_return = false);
   void execute_task(JSTask& task);
-  int call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
+  CallResult call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
   void prepare_for_call(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
   // push
   void exec_push(int scope, int index);
