@@ -27,6 +27,7 @@ class StringPool {
 
   u32 add_string(u16string_view str_view);
   u16string& get_string(size_t index);
+  bool has_string(u16string_view str_view);
   std::vector<u16string>& get_string_list();
   void record_static_atom_count();
 
@@ -58,12 +59,16 @@ inline u32 StringPool::add_string(u16string_view str_view) {
   }
 }
 
-inline std::vector<u16string>& StringPool::get_string_list() {
-  return string_list;
-}
-
 inline u16string& StringPool::get_string(size_t index) {
   return string_list[index];
+}
+
+inline bool StringPool::has_string(u16string_view str_view) {
+  return pool.contains(u16string(str_view));
+}
+
+inline std::vector<u16string>& StringPool::get_string_list() {
+  return string_list;
 }
 
 inline void StringPool::record_static_atom_count() {

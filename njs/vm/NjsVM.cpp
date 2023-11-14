@@ -61,7 +61,7 @@ void NjsVM::add_builtin_object(const u16string& name,
 }
 
 void NjsVM::init_prototypes() {
-  object_prototype.set_val(heap.new_object<JSObjectPrototype>());
+  object_prototype.set_val(heap.new_object<JSObjectPrototype>(*this));
 
   array_prototype.set_val(heap.new_object<JSArrayPrototype>(*this));
   array_prototype.as_object()->set_prototype(object_prototype);

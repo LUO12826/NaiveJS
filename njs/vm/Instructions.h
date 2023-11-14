@@ -115,7 +115,7 @@ struct Instruction {
 
   Instruction();
 
-  std::string description();
+  std::string description() const;
 
   void swap_two_operands();
 

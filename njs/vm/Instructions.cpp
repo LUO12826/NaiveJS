@@ -37,7 +37,7 @@ void Instruction::swap_two_operands() {
   operand.two.opr2 = temp;
 }
 
-std::string Instruction::description() {
+std::string Instruction::description() const {
 
   char buffer[80];
 
