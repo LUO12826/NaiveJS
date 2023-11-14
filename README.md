@@ -21,12 +21,12 @@ NaiveJS is a personal experimental JavaScript engine. My primary goal is to lear
 - [x] Event loop and `setInterval`, `setTimeout` (using kqueue)
 - [x] Third-party libraries for HTTP requests
 - [x] Runtime exception and error handling (try-catch)
+- [x] `new` operator
+- [x] Prototype chain
 - [ ] `finally` block
 - [ ] Global scope (that works correctly)
 - [ ] For loop
 - [ ] Regular expression
-- [ ] `new` operator
-- [ ] Prototype chain
 - [ ] Object property attributes
 
 ### Other To Do
