@@ -34,11 +34,11 @@ class JSArrayPrototype : public JSObject {
 
   static JSValue sort(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
     assert(func.This.tag_is(JSValue::ARRAY));
-    JSArray *array = func.This.val.as_array;
+    auto& data_array = func.This.val.as_array->dense_array;
 
     // no compare function provided. Convert values to strings and do string sorting.
     if (args.size() == 0) {
-      std::sort(array->dense_array.begin(), array->dense_array.end(), [&vm] (JSValue& a, JSValue& b) {
+      std::sort(data_array.begin(), data_array.end(), [&vm] (JSValue& a, JSValue& b) {
         if (a.is_undefined()) return false;
         if (b.is_undefined()) return true;
         return a.to_string(vm) < b.to_string(vm);
@@ -47,17 +47,26 @@ class JSArrayPrototype : public JSObject {
     // else, use the compare function
     else if (args.size() >= 1) {
       assert(args[0].is_function());
-      std::sort(array->dense_array.begin(), array->dense_array.end(), [&vm, &args] (JSValue& a, JSValue& b) {
-        if (a.is_undefined()) return false;
-        if (b.is_undefined()) return true;
+      try {
+        std::sort(data_array.begin(), data_array.end(), [&vm, &args] (JSValue& a, JSValue& b) {
+          if (a.is_undefined()) return false;
+          if (b.is_undefined()) return true;
 
-        vm.call_function(args[0].val.as_function, {a, b}, nullptr);
-        JSValue ret = vm.peek_stack_top();
-        vm.pop_drop();
-        assert(ret.is_float64());
+          CallResult res = vm.call_function(args[0].val.as_function, {a, b}, nullptr);
+          if (res != CallResult::DONE_NORMAL) {
+            throw std::runtime_error("");
+          }
+          JSValue ret = vm.peek_stack_top();
+          vm.pop_drop();
+          assert(ret.is_float64());
 
-        return ret.val.as_float64 < 0;
-      });
+          return ret.val.as_float64 < 0;
+        });
+      }
+      catch (std::runtime_error& err) {
+        return JSValue(JSValue::COMP_ERR);
+      }
+
     }
 
     return JSValue::undefined;

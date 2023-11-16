@@ -925,6 +925,7 @@ void NjsVM::exec_push_this(bool in_global) {
 
 void NjsVM::exec_key_access(int key_atom, bool get_ref) {
   JSValue& val_obj = sp[-1];
+  invoker_this.assign(val_obj);
 
   if (Global::show_vm_exec_steps) {
     std::cout << "...visit key " << to_u8string(str_pool.get_string(key_atom)) << '\n';

@@ -17,10 +17,6 @@ JSObjectKey::JSObjectKey(PrimitiveString *str): key_type(KEY_STR) {
   str->retain();
 }
 
-JSObjectKey::JSObjectKey(u16string_view str_view): key_type(KEY_STR_VIEW) {
-  key.str_view = str_view;
-}
-
 JSObjectKey::JSObjectKey(int64_t atom): key_type(KEY_ATOM) {
   key.atom = atom;
 }
@@ -32,12 +28,6 @@ JSObjectKey::~JSObjectKey() {
 
 bool JSObjectKey::operator == (const JSObjectKey& other) const {
   if (key_type != other.key_type) {
-    if (key_type == KEY_STR && other.key_type == KEY_STR_VIEW) {
-      return (key.str)->str == other.key.str_view;
-    }
-    else if (key_type == KEY_STR_VIEW && other.key_type == KEY_STR) {
-      return key.str_view == other.key.str->str;
-    }
     return false;
   }
   if (key_type == KEY_STR) return *(key.str) == *(other.key.str);
@@ -50,7 +40,6 @@ bool JSObjectKey::operator == (const JSObjectKey& other) const {
 
 std::string JSObjectKey::to_string() const {
   if (key_type == KEY_STR) return to_u8string(key.str->str);
-  if (key_type == KEY_STR_VIEW) return to_u8string(key.str_view);
   if (key_type == KEY_NUM) return std::to_string(key.number);
   if (key_type == KEY_SYMBOL) return key.symbol->to_string();
   if (key_type == KEY_ATOM) return "Atom(" + std::to_string(key.atom) + ")";

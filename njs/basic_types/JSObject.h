@@ -27,6 +27,8 @@ enum class ObjectClass {
   CLS_OBJECT = 0,
   CLS_ARRAY,
   CLS_STRING,
+  CLS_NUMBER,
+  CLS_BOOLEAN,
   CLS_ERROR,
   CLS_DATE,
   CLS_FUNCTION,

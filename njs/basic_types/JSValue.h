@@ -40,7 +40,7 @@ struct JSValue {
     UNDEFINED = 0,
     // Before a `let` defined variable get initialized, its tag is UNINIT.
     UNINIT,
-    // return by a function when it completes with an error
+    // return by a native function when it completes with an error
     COMP_ERR,
 
     JS_NULL,
@@ -101,10 +101,8 @@ struct JSValue {
   }
 
   JSValue(): JSValue(JSValueTag::UNDEFINED) {}
+  explicit JSValue(JSValueTag tag): tag(tag) {}
 
-  explicit JSValue(JSValueTag tag): tag(tag) {
-    val.as_int64 = 0;
-  }
   ~JSValue() = default;
 
   // Not trying to move anything here, since moving and copying cost are the same for JSValue.

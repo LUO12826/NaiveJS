@@ -11,8 +11,12 @@ namespace njs {
 
 class JSStringPrototype : public JSObject {
  public:
-  JSStringPrototype(NjsVM &vm) : JSObject(ObjectClass::CLS_STRING_PROTO) {
+  explicit JSStringPrototype(NjsVM &vm) : JSObject(ObjectClass::CLS_STRING_PROTO) {
     add_method(vm, u"charAt", JSStringPrototype::char_at);
+  }
+
+  u16string_view get_class_name() override {
+    return u"StringPrototype";
   }
 
   static JSValue char_at(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
@@ -25,10 +29,6 @@ class JSStringPrototype : public JSObject {
     double index = args[0].val.as_float64;
     if (index < 0 || index > str.size()) return JSValue(new PrimitiveString(u""));
     return JSValue(new PrimitiveString(u16string{str[(size_t)index]}));
-  }
-
-  u16string_view get_class_name() override {
-    return u"StringPrototype";
   }
 
 };
