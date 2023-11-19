@@ -1,7 +1,6 @@
 #ifndef NJS_JSOBJECT_KEY_H
 #define NJS_JSOBJECT_KEY_H
 
-#include <cstdint>
 #include <string>
 
 #include "JSSymbol.h"
@@ -45,14 +44,47 @@ struct JSObjectKey {
 
   KeyData key;
   KeyType key_type;
-
-  bool enumerable {true};
-  bool configurable {false};
-  bool writable {true};
-
-  JSValue getter;
-  JSValue setter;
 };
+
+inline JSObjectKey::JSObjectKey(JSSymbol *sym): key_type(KEY_SYMBOL) {
+  key.symbol = sym;
+  sym->retain();
+}
+
+inline JSObjectKey::JSObjectKey(PrimitiveString *str): key_type(KEY_STR) {
+  key.str = str;
+  str->retain();
+}
+
+inline JSObjectKey::JSObjectKey(int64_t atom): key_type(KEY_ATOM) {
+  key.atom = atom;
+}
+
+inline JSObjectKey::~JSObjectKey() {
+  if (key_type == KEY_STR) key.str->release();
+  if (key_type == KEY_SYMBOL) key.symbol->release();
+}
+
+inline bool JSObjectKey::operator == (const JSObjectKey& other) const {
+  if (key_type != other.key_type) {
+    return false;
+  }
+  if (key_type == KEY_STR) return *(key.str) == *(other.key.str);
+  if (key_type == KEY_NUM) return key.number == other.key.number;
+  if (key_type == KEY_SYMBOL) return *(key.symbol) == *(other.key.symbol);
+  if (key_type == KEY_ATOM) return key.atom == other.key.atom;
+
+  __builtin_unreachable();
+}
+
+inline std::string JSObjectKey::to_string() const {
+  if (key_type == KEY_STR) return to_u8string(key.str->str);
+  if (key_type == KEY_NUM) return std::to_string(key.number);
+  if (key_type == KEY_SYMBOL) return key.symbol->to_string();
+  if (key_type == KEY_ATOM) return "Atom(" + std::to_string(key.atom) + ")";
+
+  __builtin_unreachable();
+}
 
 }
 

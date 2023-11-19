@@ -7,77 +7,43 @@
 
 namespace njs {
 
-JSObjectKey::JSObjectKey(JSSymbol *sym): key_type(KEY_SYMBOL) {
-  key.symbol = sym;
-  sym->retain();
-}
-
-JSObjectKey::JSObjectKey(PrimitiveString *str): key_type(KEY_STR) {
-  key.str = str;
-  str->retain();
-}
-
-JSObjectKey::JSObjectKey(int64_t atom): key_type(KEY_ATOM) {
-  key.atom = atom;
-}
-
-JSObjectKey::~JSObjectKey() {
-  if (key_type == KEY_STR) key.str->release();
-  if (key_type == KEY_SYMBOL) key.symbol->release();
-}
-
-bool JSObjectKey::operator == (const JSObjectKey& other) const {
-  if (key_type != other.key_type) {
-    return false;
-  }
-  if (key_type == KEY_STR) return *(key.str) == *(other.key.str);
-  if (key_type == KEY_NUM) return key.number == other.key.number;
-  if (key_type == KEY_SYMBOL) return *(key.symbol) == *(other.key.symbol);
-  if (key_type == KEY_ATOM) return key.atom == other.key.atom;
-
-  __builtin_unreachable();
-}
-
-std::string JSObjectKey::to_string() const {
-  if (key_type == KEY_STR) return to_u8string(key.str->str);
-  if (key_type == KEY_NUM) return std::to_string(key.number);
-  if (key_type == KEY_SYMBOL) return key.symbol->to_string();
-  if (key_type == KEY_ATOM) return "Atom(" + std::to_string(key.atom) + ")";
-
-  __builtin_unreachable();
-}
-
-bool JSObject::add_prop(const JSValue& key, const JSValue& value) {
-  JSValue *val_placeholder;
+bool JSObject::add_prop(const JSValue& key, const JSValue& value, bool enumerable, bool configurable, bool writable) {
+  PropDesc *new_prop;
   if (key.tag == JSValue::JS_ATOM) {
-    val_placeholder = &storage[JSObjectKey(key.val.as_int64)];
+    new_prop = &storage[JSObjectKey(key.val.as_int64)];
   }
   else if (key.tag == JSValue::STRING) {
-    val_placeholder = &storage[JSObjectKey(key.val.as_primitive_string)];
+    new_prop = &storage[JSObjectKey(key.val.as_primitive_string)];
   }
   else if (key.tag == JSValue::SYMBOL) {
-    val_placeholder = &storage[JSObjectKey(key.val.as_symbol)];
+    new_prop = &storage[JSObjectKey(key.val.as_symbol)];
   }
   else if (key.tag == JSValue::NUM_FLOAT) {
-    val_placeholder = &storage[JSObjectKey(key.val.as_float64)];
+    new_prop = &storage[JSObjectKey(key.val.as_float64)];
   }
   else {
     return false;
   }
 
-  val_placeholder->assign(value);
+  new_prop->value.assign(value);
+  new_prop->enumerable = enumerable;
+  new_prop->configurable = configurable;
+  new_prop->writable = writable;
   return true;
 }
 
-bool JSObject::add_prop(int64_t key_atom, const JSValue& value) {
-  storage[JSObjectKey(key_atom)].assign(value);
+bool JSObject::add_prop(int64_t key_atom, const JSValue& value, bool enumerable, bool configurable, bool writable) {
+  PropDesc& prop = storage[JSObjectKey(key_atom)];
+  prop.value.assign(value);
+  prop.enumerable = enumerable;
+  prop.configurable = configurable;
+  prop.writable = writable;
   return true;
 }
 
-bool JSObject::add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value) {
-  u32 key_idx = vm.str_pool.add_string(key_str);
-  storage[JSObjectKey(key_idx)].assign(value);
-  return true;
+bool JSObject::add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value, bool enumerable, bool configurable, bool writable) {
+  u32 key_atom = vm.str_pool.add_string(key_str);
+  return add_prop((int64_t)key_atom, value, enumerable, configurable, writable);
 }
 
 JSValue JSObject::get_prop(NjsVM& vm, u16string_view name) {
@@ -85,8 +51,8 @@ JSValue JSObject::get_prop(NjsVM& vm, u16string_view name) {
 }
 
 JSValue JSObject::get_prop(NjsVM& vm, u16string_view key_str, bool get_ref) {
-  int64_t key_idx = vm.str_pool.add_string(key_str);
-  return get_prop(key_idx, get_ref);
+  int64_t key_atom = vm.str_pool.add_string(key_str);
+  return get_prop(key_atom, get_ref);
 }
 
 bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl) {
@@ -105,9 +71,15 @@ bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType func
 }
 
 void JSObject::gc_scan_children(GCHeap& heap) {
-  for (auto& [key, value]: storage) {
-    if (value.needs_gc()) {
-      heap.gc_visit_object(value, value.as_GCObject());
+  for (auto& [key, prop]: storage) {
+    if (prop.value.needs_gc()) {
+      heap.gc_visit_object(prop.value, prop.value.as_GCObject());
+    }
+    if (prop.getter.needs_gc()) {
+      heap.gc_visit_object(prop.value, prop.value.as_GCObject());
+    }
+    if (prop.setter.needs_gc()) {
+      heap.gc_visit_object(prop.value, prop.value.as_GCObject());
     }
   }
   if (_proto_.needs_gc()) {
@@ -121,9 +93,11 @@ std::string JSObject::description() {
 
   u32 print_prop_num = std::min((u32)4, (u32)storage.size());
   u32 i = 0;
-  for (auto& [key, value] : storage) {
+  for (auto& [key, prop] : storage) {
+    if (not prop.enumerable) continue;
+
     stream << key.to_string() << ": ";
-    stream << value.description() << ", ";
+    stream << prop.value.description() << ", ";
 
     i += 1;
     if (i == print_prop_num) break;
@@ -136,16 +110,18 @@ std::string JSObject::description() {
 std::string JSObject::to_string(NjsVM& vm) {
   std::string output = "{ ";
 
-  for (auto& [key, value] : storage) {
+  for (auto& [key, prop] : storage) {
+    if (not prop.enumerable) continue;
+
     if (key.key_type == JSObjectKey::KEY_ATOM) {
       output += to_u8string(vm.str_pool.get_string(key.key.atom));
     }
     else assert(false);
 
     output += ": ";
-    if (value.tag_is(JSValue::STRING)) output += '\'';
-    output += value.to_string(vm);
-    if (value.tag_is(JSValue::STRING)) output += '\'';
+    if (prop.value.tag_is(JSValue::STRING)) output += '\'';
+    output += prop.value.to_string(vm);
+    if (prop.value.tag_is(JSValue::STRING)) output += '\'';
     output += ", ";
   }
 
@@ -157,8 +133,10 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
   output += u"{";
 
   bool first = true;
-  for (auto& [key, value] : storage) {
-    if (value.tag_is(JSValue::UNDEFINED)) continue;
+  for (auto& [key, prop] : storage) {
+    if (not prop.enumerable) continue;
+    if (prop.value.is_undefined()) continue;
+
     if (first) first = false;
     else output += u',';
     
@@ -170,15 +148,15 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
     else assert(false);
 
     output += u':';
-    value.to_json(output, vm);
+    prop.value.to_json(output, vm);
   }
 
   output += u"}";
 }
 
 JSObject::~JSObject() {
-  for (auto& [key, value] : storage) {
-    if (value.is_RCObject()) value.val.as_RCObject->release();
+  for (auto& [key, prop] : storage) {
+    if (prop.value.is_RCObject()) prop.value.val.as_RCObject->release();
   }
 }
 

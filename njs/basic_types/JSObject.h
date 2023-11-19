@@ -43,6 +43,17 @@ enum class ObjectClass {
 
 class JSObject : public GCObject {
  public:
+
+  struct PropDesc {
+    bool enumerable {true};
+    bool configurable {false};
+    bool writable {true};
+
+    JSValue value;
+    JSValue getter;
+    JSValue setter;
+  };
+
   JSObject(): obj_class(ObjectClass::CLS_OBJECT) {}
   explicit JSObject(ObjectClass cls): obj_class(cls) {}
   explicit JSObject(ObjectClass cls, JSValue proto): obj_class(cls), _proto_(proto) {}
@@ -67,9 +78,9 @@ class JSObject : public GCObject {
     return _proto_;
   }
 
-  bool add_prop(const JSValue& key, const JSValue& value);
-  bool add_prop(int64_t key_atom, const JSValue& value);
-  bool add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value);
+  bool add_prop(const JSValue& key, const JSValue& value, bool enumerable = true, bool configurable = true, bool writable = true);
+  bool add_prop(int64_t key_atom, const JSValue& value, bool enumerable = true, bool configurable = true, bool writable = true);
+  bool add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value, bool enumerable = true, bool configurable = true, bool writable = true);
   bool add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl);
 
   JSValue get_prop(NjsVM& vm, u16string_view name);
@@ -82,7 +93,8 @@ class JSObject : public GCObject {
       return res;
     }
     else if (get_ref) {
-      return JSValue(&storage[JSObjectKey(std::forward<KEY>(key))]);
+      JSValue& new_val = storage[JSObjectKey(std::forward<KEY>(key))].value;
+      return JSValue(&new_val);
     }
     else {
       return JSValue::undefined;
@@ -94,8 +106,7 @@ class JSObject : public GCObject {
 
     auto res = storage.find(JSObjectKey(std::forward<KEY>(key)));
     if (res != storage.end()) {
-      if (get_ref) return JSValue(&res->second);
-      else return res->second;
+      return get_ref ? JSValue(&(res->second.value)) : res->second.value;
     }
     else if (_proto_.is_object()) {
       return _proto_.as_object()->get_exist_prop(std::forward<KEY>(key), get_ref);
@@ -112,7 +123,7 @@ class JSObject : public GCObject {
   }
 
   ObjectClass obj_class;
-  unordered_flat_map<JSObjectKey, JSValue> storage;
+  unordered_flat_map<JSObjectKey, PropDesc> storage;
   JSValue _proto_;
 };
 
