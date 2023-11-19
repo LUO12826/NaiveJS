@@ -25,10 +25,7 @@ void NjsVM::setup() {
     };
     JSFunction *log_func = new_function(log_meta);
 
-    JSValue key(JSValue::JS_ATOM);
-    key.val.as_int64 = str_pool.add_string(u"log");
-
-    obj->add_prop(key, JSValue(log_func));
+    obj->add_prop((int64_t)str_pool.add_string(u"log"), JSValue(log_func));
     return obj;
   });
 
@@ -44,9 +41,7 @@ void NjsVM::setup() {
     };
     JSFunction *func = new_function(meta);
 
-    auto key_atom_value = str_pool.add_string(u"stringify");
-    obj->add_prop(JSValue::Atom(key_atom_value), JSValue(func));
-
+    obj->add_prop((int64_t)str_pool.add_string(u"stringify"), JSValue(func));
     return obj;
   });
 }

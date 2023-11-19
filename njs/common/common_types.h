@@ -6,6 +6,7 @@
 namespace njs {
     
 using u32 = uint32_t;
+using atom_t = int64_t;
 
 struct SourceLocation {
   u32 line;

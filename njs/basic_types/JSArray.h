@@ -14,7 +14,7 @@ class JSArray: public JSObject {
   JSArray(): JSArray(0) {}
   
   explicit JSArray(int length): JSObject(ObjectClass::CLS_ARRAY) {
-    add_prop(JSValue::Atom(StringPool::ATOM_length), JSValue((double)length));
+    add_prop(StringPool::ATOM_length, JSValue((double)length));
   }
 
   void gc_scan_children(GCHeap& heap) override;

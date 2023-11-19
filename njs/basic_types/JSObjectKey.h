@@ -5,6 +5,7 @@
 #include <string>
 
 #include "JSSymbol.h"
+#include "JSValue.h"
 #include "njs/utils/helper.h"
 
 namespace njs {
@@ -25,7 +26,6 @@ struct JSObjectKey {
 
   union KeyData {
     PrimitiveString *str;
-    u16string_view str_view;
     JSSymbol *symbol;
     double number;
     int64_t atom;
@@ -45,6 +45,13 @@ struct JSObjectKey {
 
   KeyData key;
   KeyType key_type;
+
+  bool enumerable {true};
+  bool configurable {false};
+  bool writable {true};
+
+  JSValue getter;
+  JSValue setter;
 };
 
 }

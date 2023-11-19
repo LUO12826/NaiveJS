@@ -694,7 +694,7 @@ void NjsVM::exec_make_func(int meta_idx) {
   if (not meta.is_arrow_func) {
     JSObject *new_prototype = new_object(ObjectClass::CLS_OBJECT);
     new_prototype->add_prop(StringPool::ATOM_constructor, JSValue(func));
-    func->add_prop(StringPool::ATOM_prototype, JSValue(new_prototype));
+//    func->add_prop(StringPool::ATOM_prototype, JSValue(new_prototype));
   }
 
   if (meta.is_native) {

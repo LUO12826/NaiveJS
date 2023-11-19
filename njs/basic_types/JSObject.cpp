@@ -48,7 +48,7 @@ std::string JSObjectKey::to_string() const {
 }
 
 bool JSObject::add_prop(const JSValue& key, const JSValue& value) {
-  JSValue *val_placeholder = nullptr;
+  JSValue *val_placeholder;
   if (key.tag == JSValue::JS_ATOM) {
     val_placeholder = &storage[JSObjectKey(key.val.as_int64)];
   }
@@ -60,9 +60,6 @@ bool JSObject::add_prop(const JSValue& key, const JSValue& value) {
   }
   else if (key.tag == JSValue::NUM_FLOAT) {
     val_placeholder = &storage[JSObjectKey(key.val.as_float64)];
-  }
-  else if (key.tag == JSValue::NUM_INT) {
-    val_placeholder = &storage[JSObjectKey(key.val.as_int64)];
   }
   else {
     return false;
@@ -95,8 +92,6 @@ JSValue JSObject::get_prop(NjsVM& vm, u16string_view key_str, bool get_ref) {
 bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl) {
 
   u32 name_idx = vm.str_pool.add_string(key_str);
-  JSValue key(JSValue::JS_ATOM);
-  key.val.as_int64 = name_idx;
 
   JSFunctionMeta meta {
       .name_index = name_idx,
@@ -106,7 +101,7 @@ bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType func
       .native_func = funcImpl,
   };
 
-  return add_prop(key, JSValue(vm.new_function(meta)));
+  return add_prop((int64_t)name_idx, JSValue(vm.new_function(meta)));
 }
 
 void JSObject::gc_scan_children(GCHeap& heap) {
