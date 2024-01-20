@@ -128,19 +128,24 @@ friend class InternalFunctions;
 
   // stack pointer
   JSValue *sp;
+  // start of current stack frame
+  JSValue *bp;
+
   JSValue *global_sp;
   // program counter
   u32 pc {0};
-  // start of a stack frame
-  JSValue *frame_base_ptr;
-  JSValue *rt_stack_begin;
+
+  // argument count of current function
   u32 func_arg_count {0};
 
   // true if the code in the global scope is executed
   bool global_end {false};
 
   GCHeap heap;
+
   std::vector<JSValue> rt_stack;
+  JSValue *stack_begin;
+
   std::vector<Instruction> bytecode;
   JSRunLoop runloop;
 

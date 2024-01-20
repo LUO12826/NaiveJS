@@ -39,10 +39,10 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
 
   str_pool.record_static_atom_count();
 
-  rt_stack_begin = rt_stack.data();
-  rt_stack_begin[0].val.as_function = nullptr;
-  frame_base_ptr = rt_stack_begin;
-  global_sp = frame_base_ptr + visitor.scope_chain[0]->get_var_count() + frame_meta_size;
+  stack_begin = rt_stack.data();
+  stack_begin[0].val.as_function = nullptr;
+  bp = stack_begin;
+  global_sp = bp + visitor.scope_chain[0]->get_var_count() + frame_meta_size;
   sp = global_sp;
 }
 
@@ -138,7 +138,7 @@ void NjsVM::run() {
 }
 
 CallResult NjsVM::execute(bool stop_at_return) {
-  auto saved_frame_base = frame_base_ptr;
+  auto saved_bp = bp;
 
   while (true) {
     Instruction& inst = bytecode[pc++];
@@ -225,8 +225,8 @@ CallResult NjsVM::execute(bool stop_at_return) {
         exec_var_deinit_range(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
       case InstType::var_undef:
-        assert(frame_base_ptr[inst.operand.two.opr2].tag == JSValue::UNINIT);
-        frame_base_ptr[inst.operand.two.opr2].tag = JSValue::UNDEFINED;
+        assert(bp[inst.operand.two.opr2].tag == JSValue::UNINIT);
+        bp[inst.operand.two.opr2].tag = JSValue::UNDEFINED;
         break;
       case InstType::var_dispose:
         exec_var_dispose(inst.operand.two.opr1, inst.operand.two.opr2);
@@ -287,11 +287,11 @@ CallResult NjsVM::execute(bool stop_at_return) {
         break;
       case InstType::ret:
         exec_return();
-        if (stop_at_return && frame_base_ptr < saved_frame_base) return CallResult::DONE_NORMAL;
+        if (stop_at_return && bp < saved_bp) return CallResult::DONE_NORMAL;
         break;
       case InstType::ret_err: {
         exec_return_error();
-        if (stop_at_return && frame_base_ptr < saved_frame_base) return CallResult::DONE_ERROR;
+        if (stop_at_return && bp < saved_bp) return CallResult::DONE_ERROR;
         error_handle();
         break;
       }
@@ -408,9 +408,9 @@ using StackTraceItem = NjsVM::StackTraceItem;
 std::vector<StackTraceItem> NjsVM::capture_stack_trace() {
   std::vector<StackTraceItem> trace;
 
-  JSValue *frame_ptr = frame_base_ptr;
+  JSValue *frame_ptr = bp;
 
-  while (frame_ptr != rt_stack_begin) {
+  while (frame_ptr != stack_begin) {
     assert(frame_ptr->tag_is(JSValue::STACK_FRAME_META1));
     auto *func = frame_ptr->val.as_function;
 
@@ -437,16 +437,16 @@ std::vector<StackTraceItem> NjsVM::capture_stack_trace() {
 
 JSValue& NjsVM::get_value(ScopeType scope, int index) {
   if (scope == ScopeType::FUNC) {
-    JSValue &val = frame_base_ptr[index];
+    JSValue &val = bp[index];
     return val.tag != JSValue::HEAP_VAL ? val : val.deref_heap();
   }
   if (scope == ScopeType::FUNC_PARAM) {
-    assert(frame_base_ptr[1].tag == JSValue::STACK_FRAME_META2);
-    JSValue &val = frame_base_ptr[index - (int)func_arg_count];
+    assert(bp[1].tag == JSValue::STACK_FRAME_META2);
+    JSValue &val = bp[index - (int)func_arg_count];
     return val.tag != JSValue::HEAP_VAL ? val : val.deref_heap();
   }
   if (scope == ScopeType::GLOBAL) {
-    JSValue &val = rt_stack_begin[index];
+    JSValue &val = stack_begin[index];
     return val.tag != JSValue::HEAP_VAL ? val : val.deref_heap();
   }
   if (scope == ScopeType::CLOSURE) {
@@ -456,8 +456,8 @@ JSValue& NjsVM::get_value(ScopeType scope, int index) {
 }
 
 JSFunction *NjsVM::function_env() {
-  assert(frame_base_ptr[0].tag == JSValue::STACK_FRAME_META1);
-  return frame_base_ptr[0].val.as_function;
+  assert(bp[0].tag == JSValue::STACK_FRAME_META1);
+  return bp[0].val.as_function;
 }
 
 void NjsVM::exec_add() {
@@ -574,7 +574,7 @@ void NjsVM::exec_fast_add(Instruction& inst) {
 }
 
 void NjsVM::exec_return() {
-  JSValue *old_sp = frame_base_ptr - func_arg_count - 1;
+  JSValue *old_sp = bp - func_arg_count - 1;
 
   // retain the return value, in case it's deallocated due to the dispose stage bellow.
   JSValue& ret_val = sp[-1];
@@ -591,14 +591,14 @@ void NjsVM::exec_return() {
 
   // restore old state
   sp = old_sp + 1;
-  pc = frame_base_ptr[0].flag_bits;
-  frame_base_ptr = frame_base_ptr[1].val.as_JSValue;
-  func_arg_count = frame_base_ptr[1].flag_bits;
+  pc = bp[0].flag_bits;
+  bp = bp[1].val.as_JSValue;
+  func_arg_count = bp[1].flag_bits;
 }
 
 void NjsVM::exec_return_error() {
-  JSValue *old_sp = frame_base_ptr - func_arg_count - 1;
-  JSValue *local_var_end = frame_base_ptr + function_env()->meta.local_var_count + frame_meta_size;
+  JSValue *old_sp = bp - func_arg_count - 1;
+  JSValue *local_var_end = bp + function_env()->meta.local_var_count + frame_meta_size;
 
   // retain the return value, in case it's deallocated due to the dispose stage bellow.
   JSValue& ret_val = sp[-1];
@@ -620,9 +620,9 @@ void NjsVM::exec_return_error() {
 
   // restore old state
   sp = old_sp + 1;
-  pc = frame_base_ptr[0].flag_bits;
-  frame_base_ptr = frame_base_ptr[1].val.as_JSValue;
-  func_arg_count = frame_base_ptr[1].flag_bits;
+  pc = bp[0].flag_bits;
+  bp = bp[1].val.as_JSValue;
+  func_arg_count = bp[1].flag_bits;
 }
 
 void NjsVM::exec_push(int scope, int index) {
@@ -660,19 +660,19 @@ void NjsVM::exec_prop_assign() {
 void NjsVM::exec_var_dispose(int scope, int index) {
   auto var_scope = scope_type_from_int(scope);
   assert(var_scope == ScopeType::FUNC || var_scope == ScopeType::GLOBAL);
-  JSValue& val = var_scope == ScopeType::FUNC ? frame_base_ptr[index] : rt_stack_begin[index];
+  JSValue& val = var_scope == ScopeType::FUNC ? bp[index] : stack_begin[index];
   val.dispose();
 }
 
 void NjsVM::exec_var_deinit_range(int start, int end) {
   for (int i = start; i < end; i++) {
-    frame_base_ptr[i].tag = JSValue::UNINIT;
+    bp[i].tag = JSValue::UNINIT;
   }
 }
 
 void NjsVM::exec_var_dispose_range(int start, int end) {
   for (int i = start; i < end; i++) {
-    frame_base_ptr[i].dispose();
+    bp[i].dispose();
   }
 }
 
@@ -683,7 +683,7 @@ void NjsVM::exec_make_func(int meta_idx) {
   // if a function is an arrow function, it captures the `this` value in the environment
   // where the function is created.
   if (meta.is_arrow_func) {
-    if (frame_base_ptr != rt_stack_begin) {
+    if (bp != stack_begin) {
       func->This = function_env()->This;
     }
     else {
@@ -723,11 +723,11 @@ void NjsVM::exec_capture(int scope, int index) {
   else {
     JSValue* stack_val;
     if (var_scope == ScopeType::FUNC) {
-      stack_val = frame_base_ptr + index;
+      stack_val = bp + index;
     } else if (var_scope == ScopeType::FUNC_PARAM) {
-      stack_val = frame_base_ptr + index - (int)func_arg_count;
+      stack_val = bp + index - (int)func_arg_count;
     } else if (var_scope == ScopeType::GLOBAL) {
-      stack_val = rt_stack_begin + index;
+      stack_val = stack_begin + index;
     } else {
       assert(false);
     }
@@ -773,23 +773,23 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
   sp[0].flag_bits = pc;
   sp[0].val.as_function = func;
 
-  // second cell of a function stack frame: saved `frame_base_ptr` and arguments count
+  // second cell of a function stack frame: saved `bp` and arguments count
   sp[1].tag = JSValue::STACK_FRAME_META2;
   sp[1].flag_bits = actual_arg_cnt;
-  sp[1].val.as_JSValue = frame_base_ptr;
+  sp[1].val.as_JSValue = bp;
 
 
   if (not func->meta.is_native) {
     func_arg_count = actual_arg_cnt;
-    frame_base_ptr = sp;
+    bp = sp;
     sp = sp + frame_meta_size + func->meta.local_var_count;
     pc = func->meta.code_address;
 
     return CallResult::UNFINISHED;
   }
   else {
-    JSValue *saved_frame_base = frame_base_ptr;
-    frame_base_ptr = sp;
+    JSValue *saved_bp = bp;
+    bp = sp;
     sp += 2;
     JSValue ret = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
     // if the native function throws an error, move this error object to the place where the return value should reside.
@@ -812,7 +812,7 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
       arg->dispose();
     }
     sp -= actual_arg_cnt;
-    frame_base_ptr = saved_frame_base;
+    bp = saved_bp;
     return ret.tag_is(JSValue::COMP_ERR) ? CallResult::DONE_ERROR : CallResult::DONE_NORMAL;
   }
 }
@@ -981,7 +981,7 @@ void NjsVM::exec_index_access(bool get_ref) {
 
   invoker_this = obj;
   u32 index_int = u32(index.val.as_float64);
-  
+
   // Index an array
   if (obj.tag_is(JSValue::ARRAY)) {
     // The float value can be interpreted as array index
@@ -1069,7 +1069,7 @@ bool NjsVM::are_strings_equal(const JSValue& lhs, const JSValue& rhs) {
 
   u16string *lhs_str = get_string_from_value(lhs);
   u16string *rhs_str = get_string_from_value(rhs);
-  
+
   return *lhs_str == *rhs_str;
 }
 
@@ -1154,8 +1154,8 @@ void NjsVM::error_handle() {
   // 1. error happens in a function (or a task)
   // if the error does not happen in a task, the error position should be (pc - 1)
   u32 err_throw_pc = pc - u32(!global_end);
-  auto& catch_table = frame_base_ptr != rt_stack_begin ? function_env()->meta.catch_table
-                                                       : this->global_catch_table;
+  auto& catch_table = bp != stack_begin ? function_env()->meta.catch_table
+                                        : this->global_catch_table;
   assert(catch_table.size() >= 1);
 
   CatchTableEntry *catch_entry = nullptr;
@@ -1166,8 +1166,8 @@ void NjsVM::error_handle() {
       catch_entry = &entry;
       // restore the sp
       JSValue *sp_restore;
-      if (frame_base_ptr == rt_stack_begin) sp_restore = global_sp;
-      else sp_restore = frame_base_ptr + function_env()->meta.local_var_count + frame_meta_size;
+      if (bp == stack_begin) sp_restore = global_sp;
+      else sp_restore = bp + function_env()->meta.local_var_count + frame_meta_size;
 
       // dispose the operand stack if needed
       if (sp - 1 != sp_restore) {
@@ -1179,8 +1179,8 @@ void NjsVM::error_handle() {
       }
 
       // dispose local variables
-      JSValue *local_start = frame_base_ptr + entry.local_var_begin;
-      for (JSValue *val = local_start; val < frame_base_ptr + entry.local_var_end; val++) {
+      JSValue *local_start = bp + entry.local_var_begin;
+      for (JSValue *val = local_start; val < bp + entry.local_var_end; val++) {
         val->dispose();
       }
 
