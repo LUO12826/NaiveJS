@@ -40,3 +40,15 @@ function test_obj(obj) {
 
 let func = test_obj(arr[0])
 console.log(func())
+
+// expected
+// [LOG] { a: 233, b: 466, }
+// [LOG] { c: 855, d: 939, }
+// [LOG] [ 1, 2, 3, 4, 5, ]
+// [LOG] 12345678
+// [LOG] string in an array
+// [LOG] undefined
+// [LOG] null
+// [LOG] 233
+// [LOG] 1
+// [LOG] { b: 'this is a string', c: 5, d: 6, }
