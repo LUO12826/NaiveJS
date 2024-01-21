@@ -40,8 +40,6 @@ struct JSValue {
     UNDEFINED = 0,
     // Before a `let` defined variable get initialized, its tag is UNINIT.
     UNINIT,
-    // return by a native function when it completes with an error
-    COMP_ERR,
 
     JS_NULL,
 
@@ -274,7 +272,7 @@ struct JSValue {
     return !is_falsy();
   }
 
-  bool tag_is(JSValueTag val_tag) const {
+  bool is(JSValueTag val_tag) const {
     return tag == val_tag;
   }
 

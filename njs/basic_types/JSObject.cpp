@@ -119,9 +119,9 @@ std::string JSObject::to_string(NjsVM& vm) {
     else assert(false);
 
     output += ": ";
-    if (prop.value.tag_is(JSValue::STRING)) output += '\'';
+    if (prop.value.is(JSValue::STRING)) output += '\'';
     output += prop.value.to_string(vm);
-    if (prop.value.tag_is(JSValue::STRING)) output += '\'';
+    if (prop.value.is(JSValue::STRING)) output += '\'';
     output += ", ";
   }
 

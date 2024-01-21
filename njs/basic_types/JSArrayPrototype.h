@@ -5,6 +5,7 @@
 #include "njs/vm/NjsVM.h"
 #include "njs/common/ArrayRef.h"
 #include "JSFunction.h"
+#include "njs/vm/Completion.h"
 
 namespace njs {
 
@@ -22,9 +23,9 @@ class JSArrayPrototype : public JSObject {
     return u"ArrayPrototype";
   }
 
-  static JSValue at(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-    assert(args.size() > 0 && args[0].tag_is(JSValue::NUM_FLOAT));
-    assert(func.This.tag_is(JSValue::ARRAY));
+  static Completion at(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+    assert(args.size() > 0 && args[0].is(JSValue::NUM_FLOAT));
+    assert(func.This.is(JSValue::ARRAY));
 
     JSArray *array = func.This.val.as_array;
     double index = args[0].val.as_float64;
@@ -32,8 +33,8 @@ class JSArrayPrototype : public JSObject {
     return array->access_element((u32)index, false);
   }
 
-  static JSValue sort(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-    assert(func.This.tag_is(JSValue::ARRAY));
+  static Completion sort(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+    assert(func.This.is(JSValue::ARRAY));
     auto& data_array = func.This.val.as_array->dense_array;
 
     // no compare function provided. Convert values to strings and do string sorting.
@@ -64,7 +65,7 @@ class JSArrayPrototype : public JSObject {
         });
       }
       catch (std::runtime_error& err) {
-        return JSValue(JSValue::COMP_ERR);
+        return Completion::with_throw(vm.pop_stack());
       }
 
     }
@@ -72,8 +73,8 @@ class JSArrayPrototype : public JSObject {
     return JSValue::undefined;
   }
 
-  static JSValue push(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-    assert(func.This.tag_is(JSValue::ARRAY));
+  static Completion push(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+    assert(func.This.is(JSValue::ARRAY));
     JSArray *array = func.This.val.as_array;
 
     size_t old_size = array->dense_array.size();

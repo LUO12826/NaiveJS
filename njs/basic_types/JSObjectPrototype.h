@@ -5,6 +5,7 @@
 
 #include "JSFunction.h"
 #include "JSObject.h"
+#include "njs/vm/Completion.h"
 
 namespace njs {
 
@@ -21,20 +22,20 @@ class JSObjectPrototype : public JSObject {
     return u"ObjectPrototype";
   }
 
-  static JSValue valueOf(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  static Completion valueOf(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
     return func.This;
   }
 
-  static JSValue toString(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  static Completion toString(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
     return JSValue(new PrimitiveString(u"[object Object]"));
   }
 
-  static JSValue toLocaleString(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  static Completion toLocaleString(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
     // TODO
     return JSValue(new PrimitiveString(u"[object Object]"));
   }
 
-  static JSValue hasOwnProperty(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  static Completion hasOwnProperty(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
     JSObject *obj = func.This.as_object();
     JSValue prop_name = args[0];
     assert(prop_name.is_primitive_string());

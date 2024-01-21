@@ -5,7 +5,7 @@
 
 namespace njs {
 
-JSValue InternalFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion InternalFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   std::string output = "\033[32m[LOG] ";
 
   for (int i = 0; i < args.size(); i++) {
@@ -20,7 +20,7 @@ JSValue InternalFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> ar
   return JSValue::undefined;
 }
 
-JSValue InternalFunctions::debug_log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion InternalFunctions::debug_log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   std::string output = "\033[32m[LOG] ";
 
   for (int i = 0; i < args.size(); i++) {
@@ -34,37 +34,37 @@ JSValue InternalFunctions::debug_log(NjsVM& vm, JSFunction& func, ArrayRef<JSVal
   return JSValue::undefined;
 }
 
-JSValue InternalFunctions::js_gc(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion InternalFunctions::js_gc(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   vm.heap.gc();
   return JSValue::undefined;
 }
 
-JSValue InternalFunctions::set_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion InternalFunctions::set_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 2);
-  assert(args[0].tag_is(JSValue::FUNCTION));
-  assert(args[1].tag_is(JSValue::NUM_FLOAT));
+  assert(args[0].is(JSValue::FUNCTION));
+  assert(args[1].is(JSValue::NUM_FLOAT));
   size_t id = vm.runloop.add_timer(args[0].val.as_function, (size_t)args[1].val.as_float64, false);
   return JSValue(double(id));
 }
 
-JSValue InternalFunctions::set_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion InternalFunctions::set_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 2);
-  assert(args[0].tag_is(JSValue::FUNCTION));
-  assert(args[1].tag_is(JSValue::NUM_FLOAT));
+  assert(args[0].is(JSValue::FUNCTION));
+  assert(args[1].is(JSValue::NUM_FLOAT));
   size_t id = vm.runloop.add_timer(args[0].val.as_function, (size_t)args[1].val.as_float64, true);
   return JSValue(double(id));
 }
 
-JSValue InternalFunctions::clear_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion InternalFunctions::clear_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 1);
-  assert(args[0].tag_is(JSValue::NUM_FLOAT));
+  assert(args[0].is(JSValue::NUM_FLOAT));
   vm.runloop.remove_timer(size_t(args[0].val.as_float64));
   return JSValue::undefined;
 }
 
-JSValue InternalFunctions::clear_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion InternalFunctions::clear_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 1);
-  assert(args[0].tag_is(JSValue::NUM_FLOAT));
+  assert(args[0].is(JSValue::NUM_FLOAT));
   vm.runloop.remove_timer(size_t(args[0].val.as_float64));
   return JSValue::undefined;
 }
@@ -87,10 +87,10 @@ void separate_host_and_path(const std::string& url, std::string& host, std::stri
   }
 }
 
-JSValue InternalFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion InternalFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 2);
-  assert(args[0].tag_is(JSValue::STRING));
-  assert(args[1].tag_is(JSValue::FUNCTION));
+  assert(args[0].is(JSValue::STRING));
+  assert(args[1].is(JSValue::FUNCTION));
 
   std::string url = to_u8string(args[0].val.as_primitive_string->str);
   JSTask *task = vm.runloop.add_task(args[1].val.as_function);
@@ -116,7 +116,7 @@ JSValue InternalFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> 
   return JSValue::undefined;
 }
 
-JSValue InternalFunctions::json_stringify(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion InternalFunctions::json_stringify(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 1);
   u16string json_string;
   args[0].to_json(json_string, vm);
@@ -142,11 +142,11 @@ u16string build_trace_str(NjsVM& vm) {
   return trace_str;
 }
 
-JSValue InternalFunctions::error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion InternalFunctions::error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR);
   if (args.size() > 0 && args[0].is_string_type()) {
     // only supports primitive string now.
-    assert(args[0].tag_is(JSValue::STRING));
+    assert(args[0].is(JSValue::STRING));
     err_obj->add_prop(vm, u"message", JSValue(args[0].val.as_primitive_string));
   }
 
@@ -166,9 +166,8 @@ JSValue InternalFunctions::error_build_internal(NjsVM& vm, const u16string& msg)
   return JSValue(err_obj);
 }
 
-JSValue InternalFunctions::test_throw_err(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-  vm.push_stack(error_build_internal(vm, u"msg"));
-  return JSValue(JSValue::COMP_ERR);
+Completion InternalFunctions::test_throw_err(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  return Completion::with_throw(error_build_internal(vm, u"msg"));
 }
 
 }

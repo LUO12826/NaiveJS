@@ -57,6 +57,7 @@ friend class InternalFunctions;
   void pop_drop();
   JSValue peek_stack_top();
   void push_stack(JSValue val);
+  JSValue pop_stack();
 
   std::vector<StackTraceItem> capture_stack_trace();
 

@@ -27,7 +27,7 @@ JSFunction::~JSFunction() {
 void JSFunction::gc_scan_children(GCHeap& heap) {
   JSObject::gc_scan_children(heap);
   for (auto& var : captured_var) {
-    assert(var.tag_is(JSValue::HEAP_VAL));
+    assert(var.is(JSValue::HEAP_VAL));
     JSValue& the_value = var.deref_heap();
 
     if (the_value.needs_gc()) {

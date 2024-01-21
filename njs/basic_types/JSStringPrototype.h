@@ -6,6 +6,7 @@
 #include "njs/common/ArrayRef.h"
 #include "JSFunction.h"
 #include "JSString.h"
+#include "njs/vm/Completion.h"
 
 namespace njs {
 
@@ -19,12 +20,12 @@ class JSStringPrototype : public JSObject {
     return u"StringPrototype";
   }
 
-  static JSValue char_at(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-    assert(args.size() > 0 && args[0].tag_is(JSValue::NUM_FLOAT));
-    assert(func.This.tag_is(JSValue::STRING) || func.This.tag_is(JSValue::STRING_OBJ));
+  static Completion char_at(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+    assert(args.size() > 0 && args[0].is(JSValue::NUM_FLOAT));
+    assert(func.This.is(JSValue::STRING) || func.This.is(JSValue::STRING_OBJ));
 
-    u16string& str = func.This.tag_is(JSValue::STRING) ? func.This.val.as_primitive_string->str
-                                                       : func.This.val.as_string->value.str;
+    u16string& str = func.This.is(JSValue::STRING) ? func.This.val.as_primitive_string->str
+                                                   : func.This.val.as_string->value.str;
 
     double index = args[0].val.as_float64;
     if (index < 0 || index > str.size()) return JSValue(new PrimitiveString(u""));

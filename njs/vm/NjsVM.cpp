@@ -10,6 +10,7 @@
 #include "njs/basic_types/JSArrayPrototype.h"
 #include "njs/basic_types/JSStringPrototype.h"
 #include "njs/basic_types/JSFunctionPrototype.h"
+#include "Completion.h"
 
 namespace njs {
 
@@ -403,6 +404,11 @@ void NjsVM::push_stack(JSValue val) {
   sp += 1;
 }
 
+JSValue NjsVM::pop_stack() {
+  sp -= 1;
+  return std::move(sp[0]);
+}
+
 using StackTraceItem = NjsVM::StackTraceItem;
 
 std::vector<StackTraceItem> NjsVM::capture_stack_trace() {
@@ -411,7 +417,7 @@ std::vector<StackTraceItem> NjsVM::capture_stack_trace() {
   JSValue *frame_ptr = bp;
 
   while (frame_ptr != stack_begin) {
-    assert(frame_ptr->tag_is(JSValue::STACK_FRAME_META1));
+    assert(frame_ptr->is(JSValue::STACK_FRAME_META1));
     auto *func = frame_ptr->val.as_function;
 
     trace.emplace_back(StackTraceItem {
@@ -467,7 +473,7 @@ void NjsVM::exec_add() {
     sp[0].set_undefined();
     return;
   }
-  else if (sp[-2].tag_is(JSValue::STRING) && sp[-1].tag_is(JSValue::STRING)) {
+  else if (sp[-2].is(JSValue::STRING) && sp[-1].is(JSValue::STRING)) {
     auto *new_str = new PrimitiveString(sp[-2].val.as_primitive_string->str
                                         + sp[-1].val.as_primitive_string->str);
     sp[-2].set_undefined();
@@ -485,7 +491,7 @@ void NjsVM::exec_add_assign(int scope, int index) {
     sp[0].set_undefined();
     return;
   }
-  else if (value.tag_is(JSValue::STRING) && sp[0].tag_is(JSValue::STRING)) {
+  else if (value.is(JSValue::STRING) && sp[0].is(JSValue::STRING)) {
     value.val.as_primitive_string->str += sp[0].val.as_primitive_string->str;
     sp[0].set_undefined();
     return;
@@ -531,8 +537,8 @@ void NjsVM::exec_binary(InstType op_type) {
       sp[-2].val.as_float64 /= sp[-1].val.as_float64;
       break;
   }
-  sp[-1].set_undefined();
   sp -= 1;
+  sp[0].set_undefined();
 }
 
 void NjsVM::exec_logi(InstType op_type) {
@@ -709,7 +715,7 @@ void NjsVM::exec_make_func(int meta_idx) {
 void NjsVM::exec_capture(int scope, int index) {
   auto var_scope = scope_type_from_int(scope);
 
-  assert(sp[-1].tag_is(JSValue::FUNCTION));
+  assert(sp[-1].is(JSValue::FUNCTION));
 
   JSFunction& func = *sp[-1].val.as_function;
 
@@ -791,16 +797,16 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
     JSValue *saved_bp = bp;
     bp = sp;
     sp += 2;
-    JSValue ret = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
+    Completion comp = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
     // if the native function throws an error, move this error object to the place where the return value should reside.
-    if (ret.tag_is(JSValue::COMP_ERR)) {
-      func_val = sp[-1];
+    if (comp.is_throw()) {
+      func_val = comp.get_error();
       // clean the error object
-      sp -= 1;
-      sp[0].tag = JSValue::UNDEFINED;
+//      sp -= 1;
+//      sp[0].tag = JSValue::UNDEFINED;
     }
     else {
-      func_val = ret;
+      func_val = comp.get_value_or_undefined();
     }
     // clean the STACK_FRAME_META1 and STACK_FRAME_META2
     sp -= 2;
@@ -813,13 +819,13 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
     }
     sp -= actual_arg_cnt;
     bp = saved_bp;
-    return ret.tag_is(JSValue::COMP_ERR) ? CallResult::DONE_ERROR : CallResult::DONE_NORMAL;
+    return comp.is_throw() ? CallResult::DONE_ERROR : CallResult::DONE_NORMAL;
   }
 }
 
 void NjsVM::exec_js_new(int arg_count) {
   JSValue& ctor = sp[-arg_count - 1];
-  assert(ctor.tag_is(JSValue::FUNCTION));
+  assert(ctor.is(JSValue::FUNCTION));
 
   // prepare `this` object
   JSValue proto = ctor.val.as_function->get_prop(StringPool::ATOM_prototype, false);
@@ -960,7 +966,7 @@ bool NjsVM::key_access_on_primitive(JSValue& obj, int64_t atom) {
     }
     else if (string_prototype.as_object()->has_own_property(atom)) {
       auto func_val = string_prototype.as_object()->get_prop(atom, false);
-      assert(func_val.tag_is(JSValue::FUNCTION));
+      assert(func_val.is(JSValue::FUNCTION));
       obj.set_val(func_val.val.as_function);
     }
   }
@@ -983,7 +989,7 @@ void NjsVM::exec_index_access(bool get_ref) {
   u32 index_int = u32(index.val.as_float64);
 
   // Index an array
-  if (obj.tag_is(JSValue::ARRAY)) {
+  if (obj.is(JSValue::ARRAY)) {
     // The float value can be interpreted as array index
     if (index.is_float64() && index.is_integer() && index.is_non_negative()) {
       obj = obj.val.as_array->access_element(index_int, get_ref);
@@ -994,8 +1000,8 @@ void NjsVM::exec_index_access(bool get_ref) {
       int64_t atom = str_pool.add_string(num_str);
       obj = obj.val.as_object->get_prop(atom, get_ref);
     }
-    else if (index.tag_is(JSValue::STRING) || index.tag_is(JSValue::JS_ATOM)) {
-      auto& index_str = index.tag_is(JSValue::STRING)
+    else if (index.is(JSValue::STRING) || index.is(JSValue::JS_ATOM)) {
+      auto& index_str = index.is(JSValue::STRING)
                                     ? index.val.as_primitive_string->str
                                     : str_pool.get_string(index.val.as_int64);
 
@@ -1005,14 +1011,14 @@ void NjsVM::exec_index_access(bool get_ref) {
         obj = obj.val.as_array->access_element(u32(idx_int), get_ref);
       } else {
         // object property
-        int64_t atom = index.tag_is(JSValue::STRING) ? str_pool.add_string(index_str)
-                                                     : (u32)index.val.as_int64;
+        int64_t atom = index.is(JSValue::STRING) ? str_pool.add_string(index_str)
+                                                 : (u32)index.val.as_int64;
         obj = obj.val.as_object->get_prop(atom, get_ref);
       }
     }
   }
   // Index a string
-  else if (obj.tag_is(JSValue::STRING)) {
+  else if (obj.is(JSValue::STRING)) {
     obj.set_undefined();
 
     // The float value can be interpreted as string index
@@ -1024,23 +1030,23 @@ void NjsVM::exec_index_access(bool get_ref) {
         obj.set_val(new_str);
       }
     }
-    else if (index.tag_is(JSValue::JS_ATOM)) {
+    else if (index.is(JSValue::JS_ATOM)) {
       if (index.val.as_int64 == StringPool::ATOM_length) {
         obj.set_val(double(obj.val.as_primitive_string->length()));
       }
     }
   }
-  else if (obj.tag_is(JSValue::OBJECT)) {
+  else if (obj.is(JSValue::OBJECT)) {
     if (index.is_float64()) {
       u16string num_str = to_u16string(std::to_string(index.val.as_float64));
       int64_t atom = str_pool.add_string(num_str);
       obj = obj.val.as_object->get_prop(atom, get_ref);
     }
-    else if (index.tag_is(JSValue::STRING)) {
+    else if (index.is(JSValue::STRING)) {
       int64_t atom = str_pool.add_string(index.val.as_primitive_string->str);
       obj = obj.val.as_object->get_prop(atom, get_ref);
     }
-    else if (index.tag_is(JSValue::JS_ATOM)) {
+    else if (index.is(JSValue::JS_ATOM)) {
       obj = obj.val.as_object->get_prop(index.val.as_int64, get_ref);
     }
   }
@@ -1050,18 +1056,18 @@ void NjsVM::exec_index_access(bool get_ref) {
 }
 
 bool NjsVM::are_strings_equal(const JSValue& lhs, const JSValue& rhs) {
-  if (lhs.tag == rhs.tag && lhs.tag_is(JSValue::JS_ATOM)) return true;
+  if (lhs.tag == rhs.tag && lhs.is(JSValue::JS_ATOM)) return true;
 
   auto get_string_from_value = [this](const JSValue& val) {
     u16string *str_data = nullptr;
 
-    if (val.tag_is(JSValue::JS_ATOM)) {
+    if (val.is(JSValue::JS_ATOM)) {
       str_data = &str_pool.get_string(val.val.as_int64);
     }
-    else if (val.tag_is(JSValue::STRING) || val.tag_is(JSValue::STRING_REF)) {
+    else if (val.is(JSValue::STRING) || val.is(JSValue::STRING_REF)) {
       str_data = &(val.val.as_primitive_string->str);
     }
-    else if (val.tag_is(JSValue::STRING_OBJ)) {
+    else if (val.is(JSValue::STRING_OBJ)) {
       assert(false);
     }
     return str_data;
@@ -1092,7 +1098,7 @@ void NjsVM::exec_strict_equality(bool flip) {
       lhs.set_undefined();
       lhs.val.as_bool = equal;
     }
-    else if (lhs.tag_is(JSValue::UNDEFINED) || lhs.tag_is(JSValue::JS_NULL)) {
+    else if (lhs.is(JSValue::UNDEFINED) || lhs.is(JSValue::JS_NULL)) {
       lhs.val.as_bool = true;
     }
     else if (lhs.is_object()) {
@@ -1127,7 +1133,7 @@ void NjsVM::exec_comparison(InstType type) {
       case InstType::ge: res = lhs.val.as_float64 >= rhs.val.as_float64; break;
     }
   }
-  else if (lhs.tag_is(JSValue::STRING) && rhs.tag_is(JSValue::STRING)) {
+  else if (lhs.is(JSValue::STRING) && rhs.is(JSValue::STRING)) {
     switch (type) {
       case InstType::lt: res = *lhs.val.as_primitive_string < *rhs.val.as_primitive_string; break;
       case InstType::gt: res = *lhs.val.as_primitive_string > *rhs.val.as_primitive_string; break;
