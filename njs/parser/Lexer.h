@@ -8,7 +8,7 @@
 #include <optional>
 
 #include "njs/parser/character.h"
-#include "njs/parser/token.h"
+#include "njs/parser/Token.h"
 #include "njs/utils/helper.h"
 #include "njs/include/SmallVector.h"
 #include "njs/utils/lexing_helper.h"

@@ -5,11 +5,11 @@
 #include <iostream>
 
 #include "njs/codegen/SymbolRecord.h"
-#include "njs/common/common_types.h"
+#include "njs/common/CommonTypes.h"
 #include "njs/common/enums.h"
 #include "njs/include/SmallVector.h"
 #include "njs/parser/ast.h"
-#include "njs/parser/lexer.h"
+#include "njs/parser/Lexer.h"
 #include "njs/utils/helper.h"
 
 #define START_POS u32 start = lexer.current().start, line_start = lexer.current().line

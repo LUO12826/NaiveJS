@@ -8,8 +8,8 @@
 
 #include "njs/utils/Timer.h"
 #include "njs/global_var.h"
-#include "njs/parser/lexer.h"
-#include "njs/parser/parser.h"
+#include "njs/parser/Lexer.h"
+#include "njs/parser/Parser.h"
 #include "njs/codegen/CodegenVisitor.h"
 #include "njs/vm/NjsVM.h"
 

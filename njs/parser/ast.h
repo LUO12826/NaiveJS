@@ -16,7 +16,7 @@
 #include "njs/common/enums.h"
 #include "njs/include/SmallVector.h"
 #include "njs/utils/macros.h"
-#include "token.h"
+#include "Token.h"
 
 namespace njs {
 

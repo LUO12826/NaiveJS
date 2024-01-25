@@ -8,7 +8,7 @@
 #include <string_view>
 #include <unordered_set>
 
-#include "njs/common/common_types.h"
+#include "njs/common/CommonTypes.h"
 #include "njs/common/enum_strings.h"
 #include "njs/include/robin_hood.h"
 #include "njs/utils/helper.h"

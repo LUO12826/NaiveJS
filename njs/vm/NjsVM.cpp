@@ -406,6 +406,7 @@ void NjsVM::push_stack(JSValue val) {
 
 JSValue NjsVM::pop_stack() {
   sp -= 1;
+  // want to make sure that move constructor is called.
   return std::move(sp[0]);
 }
 
@@ -799,15 +800,8 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
     sp += 2;
     Completion comp = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
     // if the native function throws an error, move this error object to the place where the return value should reside.
-    if (comp.is_throw()) {
-      func_val = comp.get_error();
-      // clean the error object
-//      sp -= 1;
-//      sp[0].tag = JSValue::UNDEFINED;
-    }
-    else {
-      func_val = comp.get_value_or_undefined();
-    }
+    func_val = comp.is_throw() ? comp.get_error() : comp.get_value_or_undefined();
+
     // clean the STACK_FRAME_META1 and STACK_FRAME_META2
     sp -= 2;
     sp[0].tag = JSValue::UNDEFINED;
