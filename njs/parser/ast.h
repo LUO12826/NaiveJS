@@ -183,7 +183,7 @@ class RegExpLiteral : public ASTNode {
 
 class ArrayLiteral : public ASTNode {
  public:
-  ArrayLiteral() : ASTNode(AST_EXPR_ARRAY), len(0) {}
+  ArrayLiteral() : ASTNode(AST_EXPR_ARRAY) {}
 
   ~ArrayLiteral() override {
     for (auto [idx, element] : elements) { delete element; }
@@ -196,16 +196,11 @@ class ArrayLiteral : public ASTNode {
   }
 
   vector<pair<u32, ASTNode *>> elements;
-  u32 len;
+  u32 len {0};
 };
 
 class ObjectLiteral : public ASTNode {
  public:
-  ObjectLiteral() : ASTNode(AST_EXPR_OBJ) {}
-
-  ~ObjectLiteral() override {
-    for (auto property : properties) { delete property.value; }
-  }
 
   struct Property {
     enum Type {
@@ -220,6 +215,12 @@ class ObjectLiteral : public ASTNode {
     ASTNode *value;
     Type type;
   };
+
+  ObjectLiteral() : ASTNode(AST_EXPR_OBJ) {}
+
+  ~ObjectLiteral() override {
+    for (auto property : properties) { delete property.value; }
+  }
 
   void set_property(const Property &p) { properties.emplace_back(std::move(p)); }
 

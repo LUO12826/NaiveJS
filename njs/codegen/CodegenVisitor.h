@@ -588,14 +588,18 @@ class CodegenVisitor {
   }
 
   void visit_array_literal(ArrayLiteral& array_lit) {
-    emit(InstType::make_array, (int)array_lit.elements.size());
+    emit(InstType::make_array, (int)array_lit.len);
 
     for (auto& [idx, element] : array_lit.elements) {
-      visit(element);
+      if (element != nullptr) {
+        visit(element);
+      } else {
+        emit(InstType::push_uninit);
+      }
     }
 
     if (!array_lit.elements.empty()) {
-      emit(InstType::add_elements, (int)array_lit.elements.size());
+      emit(InstType::add_elements, (int)array_lit.len);
     }
   }
 

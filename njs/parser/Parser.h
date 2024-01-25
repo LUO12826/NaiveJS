@@ -192,6 +192,9 @@ error:
         }
         array->add_element(element);
       }
+      else {
+        array->add_element(nullptr);
+      }
       token = lexer.next();
     }
 

@@ -117,6 +117,9 @@ std::string Instruction::description() const {
     case InstType::push_undef:
       sprintf(buffer, "push_undef");
       break;
+    case InstType::push_uninit:
+      sprintf(buffer, "push_uninit");
+      break;
     case InstType::pop:
       sprintf(buffer, "pop  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;

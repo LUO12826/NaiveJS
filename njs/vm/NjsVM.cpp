@@ -209,6 +209,10 @@ CallResult NjsVM::execute(bool stop_at_return) {
         sp[0].tag = JSValue::UNDEFINED;
         sp += 1;
         break;
+      case InstType::push_uninit:
+        sp[0].tag = JSValue::UNINIT;
+        sp += 1;
+        break;
       case InstType::pop:
         exec_pop(inst.operand.two.opr1, inst.operand.two.opr2);
         break;

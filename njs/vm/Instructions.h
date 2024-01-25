@@ -37,6 +37,7 @@ enum class InstType {
   push_this,
   push_null,
   push_undef,
+  push_uninit,
   pop,
   pop_drop,
   store,
