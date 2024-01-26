@@ -183,6 +183,9 @@ error:
 
     // get the token after `[`
     Token token = lexer.next();
+
+    bool expecting_element = true;
+
     while (token.type != TokenType::RIGHT_BRACK) {
       if (token.type != TokenType::COMMA) {
         ASTNode *element = parse_assign_or_arrow_function(false);
@@ -191,9 +194,15 @@ error:
           return element;
         }
         array->add_element(element);
+        expecting_element = false;
       }
-      else {
+      // expect an element, but get a comma
+      else if (expecting_element) {
         array->add_element(nullptr);
+      }
+      //expect a comma and get a comma, so expect an element in the next iteration.
+      else {
+        expecting_element = true;
       }
       token = lexer.next();
     }
