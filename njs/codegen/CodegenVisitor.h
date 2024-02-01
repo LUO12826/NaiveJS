@@ -666,7 +666,6 @@ class CodegenVisitor {
   }
 
   void visit_variable_declaration(VarKind var_kind, VarDecl& var_decl) {
-    scope().mark_symbol_as_valid(var_decl.id.text);
     if (var_decl.var_init) {
       visit(var_decl.var_init);
     }
@@ -785,7 +784,6 @@ class CodegenVisitor {
     for (auto& [name, kind] : extra_var) {
       assert(kind == VarKind::DECL_LET || kind == VarKind::DECL_CONST);
       bool res = scope().define_symbol(kind, name);
-      scope().mark_symbol_as_valid(name);
       if (!res) std::cout << "!!!!define symbol " << to_u8string(name) << " failed\n";
     }
 

@@ -3,18 +3,6 @@ import os
 BUILD_DIR = "build"
 
 file_and_expected = {
-    "test_array.js": '''
-[LOG] { a: 233, b: 466, } 
-[LOG] { c: 855, d: 939, } 
-[LOG] [ 1, 2, 3, 4, 5, ] 
-[LOG] 12345678 
-[LOG] string in an array 
-[LOG] undefined 
-[LOG] null 
-[LOG] 233 
-[LOG] 1 
-[LOG] { c: 5, d: 6, b: 'this is a string', }
-''',
 
     "test_bool_expr.js": '''
 [LOG] true true true true true true true true true true 

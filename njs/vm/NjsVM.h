@@ -169,6 +169,8 @@ friend class InternalFunctions;
   // object prototypes
   JSValue object_prototype;
   JSValue array_prototype;
+  JSValue number_prototype;
+  JSValue boolean_prototype;
   JSValue string_prototype;
   JSValue function_prototype;
 };

@@ -6,9 +6,11 @@
 #include "njs/basic_types/JSArray.h"
 #include "njs/codegen/CodegenVisitor.h"
 #include "njs/global_var.h"
+#include "njs/basic_types/JSNumberPrototype.h"
+#include "njs/basic_types/JSBooleanPrototype.h"
+#include "njs/basic_types/JSStringPrototype.h"
 #include "njs/basic_types/JSObjectPrototype.h"
 #include "njs/basic_types/JSArrayPrototype.h"
-#include "njs/basic_types/JSStringPrototype.h"
 #include "njs/basic_types/JSFunctionPrototype.h"
 #include "Completion.h"
 
@@ -64,11 +66,17 @@ void NjsVM::add_builtin_object(const u16string& name,
 void NjsVM::init_prototypes() {
   object_prototype.set_val(heap.new_object<JSObjectPrototype>(*this));
 
-  array_prototype.set_val(heap.new_object<JSArrayPrototype>(*this));
-  array_prototype.as_object()->set_prototype(object_prototype);
+  number_prototype.set_val(heap.new_object<JSNumberPrototype>(*this));
+  number_prototype.as_object()->set_prototype(object_prototype);
+
+  boolean_prototype.set_val(heap.new_object<JSBooleanPrototype>(*this));
+  boolean_prototype.as_object()->set_prototype(object_prototype);
 
   string_prototype.set_val(heap.new_object<JSStringPrototype>(*this));
   string_prototype.as_object()->set_prototype(object_prototype);
+
+  array_prototype.set_val(heap.new_object<JSArrayPrototype>(*this));
+  array_prototype.as_object()->set_prototype(object_prototype);
 
   function_prototype.set_val(heap.new_object<JSFunctionPrototype>(*this));
   function_prototype.as_object()->set_prototype(object_prototype);
@@ -230,8 +238,8 @@ CallResult NjsVM::execute(bool stop_at_return) {
         exec_var_deinit_range(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
       case InstType::var_undef:
-        assert(bp[inst.operand.two.opr2].tag == JSValue::UNINIT);
-        bp[inst.operand.two.opr2].tag = JSValue::UNDEFINED;
+        assert(bp[inst.operand.two.opr1].tag == JSValue::UNINIT);
+        bp[inst.operand.two.opr1].tag = JSValue::UNDEFINED;
         break;
       case InstType::var_dispose:
         exec_var_dispose(inst.operand.two.opr1, inst.operand.two.opr2);
@@ -638,6 +646,7 @@ void NjsVM::exec_return_error() {
 
 void NjsVM::exec_push(int scope, int index) {
   sp[0] = get_value(scope_type_from_int(scope), index);
+  // TODO: check if the value is UNINIT here.
   sp += 1;
 }
 
@@ -955,22 +964,33 @@ error:
 }
 
 bool NjsVM::key_access_on_primitive(JSValue& obj, int64_t atom) {
-  if (obj.is_primitive_string()) {
 
-    obj.set_undefined();
-    if (atom == StringPool::ATOM_length) {
-      auto len = obj.val.as_primitive_string->length();
-      obj.set_val(double(len));
-    }
-    else if (string_prototype.as_object()->has_own_property(atom)) {
-      auto func_val = string_prototype.as_object()->get_prop(atom, false);
-      assert(func_val.is(JSValue::FUNCTION));
-      obj.set_val(func_val.val.as_function);
-    }
+  switch (obj.tag) {
+    case JSValue::BOOLEAN:
+      break;
+    case JSValue::NUM_INT:
+      break;
+    case JSValue::NUM_FLOAT:
+      break;
+    case JSValue::STRING:
+      obj.set_undefined();
+      if (atom == StringPool::ATOM_length) {
+        auto len = obj.val.as_primitive_string->length();
+        obj.set_val(double(len));
+      }
+      else if (string_prototype.as_object()->has_own_property(atom)) {
+        auto func_val = string_prototype.as_object()->get_prop(atom, false);
+        assert(func_val.is(JSValue::FUNCTION));
+        obj.set_val(func_val.val.as_function);
+      }
+      // else the result is `undefined`
+      break;
+    case JSValue::SYMBOL:
+      break;
+    default:
+      assert(false);
   }
-  else {
-    assert(false);
-  }
+
   return true;
 }
 

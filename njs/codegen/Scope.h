@@ -117,14 +117,6 @@ class Scope {
     return true;
   }
 
-  /// @brief Variables defined by `let` or `const` are legal to access only after they are
-  /// initialized. Once they are initialized, call this method to mark them as valid.
-  /// TODO: The implementation logic here is still different from what it is in JavaScript
-  void mark_symbol_as_valid(u16string_view name) {
-    auto find_res = symbol_table.find(name);
-    if (find_res != symbol_table.end()) find_res->second.valid = true;
-  }
-
   SymbolResolveResult resolve_symbol(u16string_view name) {
     return resolve_symbol_impl(name, 0, false);
   }
@@ -249,8 +241,6 @@ class Scope {
       SymbolRecord& rec = symbol_table[name];
 
       if (nonlocal && scope_type != ScopeType::GLOBAL) rec.is_captured = true;
-      // TODO: check this
-      if (!rec.valid && !nonlocal) return SymbolResolveResult::none;
 
       return SymbolResolveResult{
           .original_symbol = &rec,

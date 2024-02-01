@@ -197,7 +197,7 @@ inline const char *js_value_tag_names[25] = {
     "NEED_GC_END"
 };
 
-inline const char *object_class_names[12] = {
+inline const char *object_class_names[14] = {
     "CLS_OBJECT",
     "CLS_ARRAY",
     "CLS_STRING",
@@ -208,6 +208,8 @@ inline const char *object_class_names[12] = {
     "CLS_CUSTOM",
     "CLS_OBJECT_PROTO",
     "CLS_ARRAY_PROTO",
+    "CLS_NUMBER_PROTO",
+    "CLS_BOOLEAN_PROTO",
     "CLS_STRING_PROTO",
     "CLS_FUNCTION_PROTO",
 };
