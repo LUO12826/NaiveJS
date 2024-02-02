@@ -586,8 +586,8 @@ void NjsVM::exec_return() {
   if (ret_val.is_RCObject()) ret_val.val.as_RCObject->retain();
 
   // dispose function local storage
-  for (JSValue *addr = old_sp + 1; addr < &ret_val; addr++) {
-    addr->dispose();
+  for (JSValue *val = old_sp + 1; val < &ret_val; val++) {
+    val->dispose();
   }
   // but the return value is actually a temporary value, so mark it as temp
   if (ret_val.is_RCObject()) ret_val.val.as_RCObject->mark_as_temp();
@@ -610,8 +610,8 @@ void NjsVM::exec_return_error() {
   if (ret_val.is_RCObject()) ret_val.val.as_RCObject->retain();
 
   // dispose function local storage
-  for (JSValue *addr = old_sp + 1; addr < local_var_end; addr++) {
-    addr->dispose();
+  for (JSValue *val = old_sp + 1; val < local_var_end; val++) {
+    val->dispose();
   }
   // dispose the operand stack
   // TODO: check correctness

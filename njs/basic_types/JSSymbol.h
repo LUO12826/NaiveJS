@@ -12,7 +12,7 @@ struct JSSymbol: public RCObject {
 
   inline static size_t global_count {0};
 
-  JSSymbol() {}
+  JSSymbol() = default;
   explicit JSSymbol(std::u16string name);
 
   RCObject *copy() override {
