@@ -1,7 +1,6 @@
 #ifndef NJS_ARRAY_REF_H
 #define NJS_ARRAY_REF_H
 
-#include <cstdlib>
 #include <cassert>
 
 namespace njs {

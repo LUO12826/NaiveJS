@@ -19,10 +19,12 @@ class InternalFunctions {
   static Completion clear_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static Completion fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static Completion json_stringify(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
-  static Completion error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
-  static JSValue error_build_internal(NjsVM& vm, const u16string& msg);
 
-  static Completion test_throw_err(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
+  static Completion Object_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
+  static Completion Error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
+
+  static u16string build_trace_str(NjsVM& vm);
+  static JSValue build_error_internal(NjsVM& vm, const u16string& msg);
 
 };
 

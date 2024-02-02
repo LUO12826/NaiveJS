@@ -82,22 +82,8 @@ void NjsVM::init_prototypes() {
   function_prototype.as_object()->set_prototype(object_prototype);
 }
 
-JSObject* NjsVM::new_object(ObjectClass cls, JSValue prototype) {
-  auto *obj = heap.new_object<JSObject>(cls);
-  obj->set_prototype(prototype);
-  return obj;
-}
-
 JSObject* NjsVM::new_object(ObjectClass cls) {
-  auto *obj = heap.new_object<JSObject>(cls);
-  obj->set_prototype(object_prototype);
-  return obj;
-}
-
-JSArray* NjsVM::new_array(int length) {
-  auto *arr = heap.new_object<JSArray>(length);
-  arr->set_prototype(array_prototype);
-  return arr;
+  return heap.new_object<JSObject>(cls, object_prototype);
 }
 
 JSFunction* NjsVM::new_function(const JSFunctionMeta& meta) {
@@ -837,7 +823,7 @@ void NjsVM::exec_js_new(int arg_count) {
   // prepare `this` object
   JSValue proto = ctor.val.as_function->get_prop(StringPool::ATOM_prototype, false);
   proto = proto.is_object() ? proto : object_prototype;
-  JSObject *this_obj = new_object(ObjectClass::CLS_OBJECT, proto);
+  auto *this_obj = heap.new_object<JSObject>(ObjectClass::CLS_OBJECT, proto);
   invoker_this.set_val(this_obj);
 
   // run the constructor
@@ -852,10 +838,14 @@ void NjsVM::exec_js_new(int arg_count) {
   }
 
   JSValue& ret_val = sp[-1];
+  // if the constructor doesn't return an Object (which should be the common case),
+  // set the stack top (where the return locates) to the `invoker_this` object.
   if (!ret_val.is_object()) {
     ret_val.set_undefined();
     ret_val.set_val(this_obj);
   }
+  // Now the newly constructed object is on the stack top. thus set the invoker this to `undefined`.
+  invoker_this.set_undefined();
 }
 
 void NjsVM::exec_make_object() {
@@ -865,7 +855,7 @@ void NjsVM::exec_make_object() {
 }
 
 void NjsVM::exec_make_array(int length) {
-  auto *array = new_array(length);
+  auto *array = heap.new_object<JSArray>(*this, length);
   sp[0].set_val(array);
   sp += 1;
 }
@@ -1169,7 +1159,7 @@ void NjsVM::exec_comparison(InstType type) {
 }
 
 void NjsVM::error_throw(const u16string& msg) {
-  JSValue err_obj = InternalFunctions::error_build_internal(*this, msg);
+  JSValue err_obj = InternalFunctions::build_error_internal(*this, msg);
   sp[0] = err_obj;
   sp += 1;
 }

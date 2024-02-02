@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "JSObject.h"
+#include "njs/vm/NjsVM.h"
 #include "njs/common/StringPool.h"
 
 namespace njs {
@@ -12,8 +13,12 @@ using u32 = uint32_t;
 class JSArray: public JSObject {
  public:
   JSArray(): JSArray(0) {}
-  
+
   explicit JSArray(int length): JSObject(ObjectClass::CLS_ARRAY) {
+    add_prop(StringPool::ATOM_length, JSValue((double)length));
+  }
+
+  JSArray(NjsVM& vm, int length): JSObject(ObjectClass::CLS_ARRAY, vm.array_prototype) {
     add_prop(StringPool::ATOM_length, JSValue((double)length));
   }
 

@@ -123,7 +123,7 @@ Completion InternalFunctions::json_stringify(NjsVM& vm, JSFunction& func, ArrayR
   return JSValue(new PrimitiveString(std::move(json_string)));
 }
 
-u16string build_trace_str(NjsVM& vm) {
+u16string InternalFunctions::build_trace_str(NjsVM& vm) {
   std::vector<NjsVM::StackTraceItem> trace = vm.capture_stack_trace();
 
   u16string trace_str;
@@ -142,21 +142,7 @@ u16string build_trace_str(NjsVM& vm) {
   return trace_str;
 }
 
-Completion InternalFunctions::error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-  auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR);
-  if (args.size() > 0 && args[0].is_string_type()) {
-    // only supports primitive string now.
-    assert(args[0].is(JSValue::STRING));
-    err_obj->add_prop(vm, u"message", JSValue(args[0].val.as_primitive_string));
-  }
-
-  u16string trace_str = build_trace_str(vm);
-  err_obj->add_prop(vm, u"stack", JSValue(new PrimitiveString(std::move(trace_str))));
-
-  return JSValue(err_obj);
-}
-
-JSValue InternalFunctions::error_build_internal(NjsVM& vm, const u16string& msg) {
+JSValue InternalFunctions::build_error_internal(NjsVM& vm, const u16string& msg) {
   auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR);
   err_obj->add_prop(vm, u"message", JSValue(new PrimitiveString(msg)));
 
@@ -164,10 +150,6 @@ JSValue InternalFunctions::error_build_internal(NjsVM& vm, const u16string& msg)
   err_obj->add_prop(vm, u"stack", JSValue(new PrimitiveString(std::move(trace_str))));
 
   return JSValue(err_obj);
-}
-
-Completion InternalFunctions::test_throw_err(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-  return Completion::with_throw(error_build_internal(vm, u"msg"));
 }
 
 }

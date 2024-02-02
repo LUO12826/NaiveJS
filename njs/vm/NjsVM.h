@@ -29,6 +29,9 @@ struct JSTask;
 class NjsVM {
 friend class JSRunLoop;
 friend class GCHeap;
+friend class JSBoolean;
+friend class JSNumber;
+friend class JSString;
 friend class JSObject;
 friend class JSFunction;
 friend class JSArray;
@@ -61,9 +64,7 @@ friend class InternalFunctions;
 
   std::vector<StackTraceItem> capture_stack_trace();
 
-  JSObject* new_object(ObjectClass cls, JSValue prototype);
   JSObject* new_object(ObjectClass cls = ObjectClass::CLS_OBJECT);
-  JSArray* new_array(int length);
   JSFunction* new_function(const JSFunctionMeta& meta);
 
  private:

@@ -6,6 +6,7 @@
 #include "njs/common/ArrayRef.h"
 #include "JSFunction.h"
 #include "njs/vm/Completion.h"
+#include "njs/basic_types/JSArray.h"
 
 namespace njs {
 

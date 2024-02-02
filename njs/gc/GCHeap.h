@@ -1,10 +1,6 @@
 #ifndef NJS_GCHEAP_H
 #define NJS_GCHEAP_H
 
-#include <cstddef>
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
 #include <utility>
 #include <vector>
 #include <iostream>
@@ -12,9 +8,6 @@
 #include "GCObject.h"
 #include "njs/global_var.h"
 #include "njs/basic_types/JSValue.h"
-#include "njs/basic_types/JSObject.h"
-#include "njs/basic_types/JSArray.h"
-#include "njs/basic_types/JSFunction.h"
 
 namespace njs {
 
@@ -33,9 +26,9 @@ class GCHeap {
 
     if (Global::show_gc_statistics) {
       std::cout << "GCHeap init, from_start == " << (size_t)from_start << '\n';
-      std::cout << "sizeof JSFunction: " << sizeof(JSFunction) << '\n';
-      std::cout << "sizeof JSObject:  " << sizeof(JSObject) << '\n';
-      std::cout << "sizeof JSArray:  " << sizeof(JSArray) << '\n';
+//      std::cout << "sizeof JSFunction: " << sizeof(JSFunction) << '\n';
+//      std::cout << "sizeof JSObject:  " << sizeof(JSObject) << '\n';
+//      std::cout << "sizeof JSArray:  " << sizeof(JSArray) << '\n';
     }
   }
 
