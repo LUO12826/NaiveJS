@@ -1394,8 +1394,8 @@ error:
     scope().define_symbol(VarKind::DECL_FUNCTION, u"clearInterval", true);
     scope().define_symbol(VarKind::DECL_FUNCTION, u"clearTimeout", true);
     scope().define_symbol(VarKind::DECL_FUNCTION, u"fetch", true);
+    scope().define_symbol(VarKind::DECL_FUNCTION, u"Object", true);
     scope().define_symbol(VarKind::DECL_FUNCTION, u"Error", true);
-    scope().define_symbol(VarKind::DECL_FUNCTION, u"TestErr", true);
   }
 
   void add_builtin_variables() {

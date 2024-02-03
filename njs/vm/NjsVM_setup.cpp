@@ -10,6 +10,7 @@ void NjsVM::setup() {
   add_native_func_impl(u"clearTimeout", InternalFunctions::clear_timeout);
   add_native_func_impl(u"clearInterval", InternalFunctions::clear_interval);
   add_native_func_impl(u"fetch", InternalFunctions::fetch);
+  add_native_func_impl(u"Object", InternalFunctions::Object_ctor);
   add_native_func_impl(u"Error", InternalFunctions::Error_ctor);
 
   add_builtin_object(u"console", [this] (GCHeap& heap, StringPool& str_pool) {
