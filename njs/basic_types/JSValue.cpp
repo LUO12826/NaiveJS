@@ -33,9 +33,9 @@ std::string JSValue::description() const {
   std::ostringstream stream;
 
   stream << "JSValue(tag: " << js_value_tag_names[tag];
-  if (tag == BOOLEAN) stream << ", val: " << val.as_bool;
-  else if (tag == NUM_FLOAT) stream << ", val: " << val.as_float64;
-  else if (tag == NUM_INT) stream << ", val: " << val.as_int64;
+  if (tag == BOOLEAN) stream << ", value: " << val.as_bool;
+  else if (tag == NUM_FLOAT) stream << ", value: " << val.as_float64;
+  else if (tag == NUM_INT) stream << ", value: " << val.as_int64;
   else if (is_object()) {
     stream << ", obj: " << as_GCObject()->description();
   }
@@ -44,7 +44,7 @@ std::string JSValue::description() const {
            << " @" << std::hex << val.as_function;
   }
   else if (tag == STRING) {
-    stream << ", val: " << to_u8string(val.as_primitive_string->str);
+    stream << ", value: " << to_u8string(val.as_primitive_string->str);
   }
   stream << ")";
 

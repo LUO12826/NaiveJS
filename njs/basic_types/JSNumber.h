@@ -9,17 +9,17 @@ class JSNumber : public JSObject {
   public:
   JSNumber(): JSObject(ObjectClass::CLS_NUMBER) {}
 
-  explicit JSNumber(double num): JSObject(ObjectClass::CLS_NUMBER), number(num) {}
+  explicit JSNumber(double num): JSObject(ObjectClass::CLS_NUMBER), value(num) {}
 
   JSNumber(NjsVM& vm, double num) :
       JSObject(ObjectClass::CLS_NUMBER, vm.number_prototype),
-      number(num) {}
+      value(num) {}
 
   u16string_view get_class_name() override {
     return u"Number";
   }
 
-  double number;
+  double value;
 };
 
 } // namespace njs

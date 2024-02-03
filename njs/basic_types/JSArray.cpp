@@ -38,14 +38,14 @@ std::string JSArray::to_string(NjsVM& vm) {
   }
 
 //  if (!storage.empty()) {
-//    for (auto& [key, val] : storage) {
+//    for (auto& [key, value] : storage) {
 //      if (key.key_type == JSObjectKey::KEY_ATOM) {
 //        output += to_u8string(vm.str_pool.get_string(key.key.atom));
 //      }
 //      else assert(false);
 //
 //      output += ": ";
-//      output += val.to_string(vm);
+//      output += value.to_string(vm);
 //      output += ", ";
 //    }
 //  }

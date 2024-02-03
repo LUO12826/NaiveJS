@@ -14,6 +14,7 @@ class JSStringPrototype : public JSObject {
  public:
   explicit JSStringPrototype(NjsVM &vm) : JSObject(ObjectClass::CLS_STRING_PROTO) {
     add_method(vm, u"charAt", JSStringPrototype::char_at);
+    add_method(vm, u"valueOf", JSStringPrototype::valueOf);
   }
 
   u16string_view get_class_name() override {
@@ -30,6 +31,22 @@ class JSStringPrototype : public JSObject {
     double index = args[0].val.as_float64;
     if (index < 0 || index > str.size()) return JSValue(new PrimitiveString(u""));
     return JSValue(new PrimitiveString(u16string{str[(size_t)index]}));
+  }
+
+  static Completion valueOf(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+    if (func.This.is(JSValue::STRING)) {
+      return func.This;
+    }
+    else if (func.This.is_object() && func.This.as_object()->obj_class == ObjectClass::CLS_STRING) {
+      assert(dynamic_cast<JSString*>(func.This.as_object()) != nullptr);
+      auto *str_obj = static_cast<JSString*>(func.This.as_object());
+      return JSValue(str_obj->value.copy());
+    }
+    else {
+      JSValue err = InternalFunctions::build_error_internal(vm,u"String.prototype.valueOf can only accept argument "
+                                                               "of type string or string object.");
+      return Completion::with_throw(err);
+    }
   }
 
 };

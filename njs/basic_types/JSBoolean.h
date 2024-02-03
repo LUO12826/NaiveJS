@@ -10,17 +10,17 @@ class JSBoolean : public JSObject {
  public:
   JSBoolean(): JSObject(ObjectClass::CLS_BOOLEAN) {}
 
-  explicit JSBoolean(bool b): JSObject(ObjectClass::CLS_BOOLEAN), val(b) {}
+  explicit JSBoolean(bool b): JSObject(ObjectClass::CLS_BOOLEAN), value(b) {}
 
   JSBoolean(NjsVM& vm, bool b) :
       JSObject(ObjectClass::CLS_BOOLEAN, vm.boolean_prototype),
-      val(b) {}
+      value(b) {}
 
   u16string_view get_class_name() override {
     return u"Boolean";
   }
 
-  bool val;
+  bool value;
 };
 
 } // namespace njs
