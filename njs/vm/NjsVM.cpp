@@ -258,8 +258,6 @@ CallResult NjsVM::execute(bool stop_at_return) {
           pc = inst.operand.two.opr2;
         }
         break;
-      case InstType::je: break;
-      case InstType::jne: break;
       case InstType::gt:
       case InstType::lt:
       case InstType::ge:

@@ -55,8 +55,6 @@ enum class InstType {
   pop_jmp_true,
   pop_jmp_false,
   jmp_cond,
-  je,
-  jne,
 
   gt,
   lt,
