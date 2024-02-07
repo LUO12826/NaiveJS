@@ -1070,7 +1070,7 @@ bool NjsVM::are_strings_equal(const JSValue& lhs, const JSValue& rhs) {
     if (val.is(JSValue::JS_ATOM)) {
       str_data = &str_pool.get_string(val.val.as_int64);
     }
-    else if (val.is(JSValue::STRING) || val.is(JSValue::STRING_REF)) {
+    else if (val.is(JSValue::STRING)) {
       str_data = &(val.val.as_primitive_string->str);
     }
     else if (val.is(JSValue::STRING_OBJ)) {

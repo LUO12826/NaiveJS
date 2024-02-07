@@ -176,8 +176,6 @@ inline const char *js_value_tag_names[25] = {
     "SYMBOL",
 
     "HEAP_VAL",
-    "STRING_REF",
-    "SYMBOL_REF",
 
     "NEED_RC_END",
 

@@ -61,11 +61,6 @@ struct JSValue {
     // Used when we wrap those inline values into JSHeapValue and hold a pointer to it.
     // Currently, turning a variable into a closure variable will turn it into a JSHeapValue
     HEAP_VAL,
-    // Used when a STRING is considered shared. That is, when being assigned, instead of making
-    // the pointer(PrimitiveString *) point to a new String, we just change the data in pointee.
-    STRING_REF,
-    // Used when a SYMBOL is considered shared.
-    SYMBOL_REF,
 
     NEED_RC_END,
 
@@ -236,7 +231,7 @@ struct JSValue {
   }
 
   bool is_string_type() const {
-    return tag == JS_ATOM || tag == STRING || tag == STRING_REF || tag == STRING_OBJ;
+    return tag == JS_ATOM || tag == STRING || tag == STRING_OBJ;
   }
 
   bool is_object() const {
