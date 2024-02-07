@@ -52,8 +52,11 @@ friend class InternalFunctions;
   // These parameters are only for temporary convenience
   explicit NjsVM(CodegenVisitor& visitor);
 
-  void add_native_func_impl(u16string name, NativeFuncType func);
-  void add_builtin_object(const u16string& name, const std::function<JSObject*(GCHeap&, StringPool&)>& builder);
+  void add_native_func_impl(const u16string& name,
+                            NativeFuncType func,
+                            const std::function<void(JSFunction&)>& builder);
+  void add_builtin_object(const u16string& name,
+                          const std::function<JSObject*()>& builder);
   void setup();
   void run();
 
@@ -162,8 +165,7 @@ friend class InternalFunctions;
 
   // for error handling in the global scope
   SmallVector<CatchTableEntry, 3> global_catch_table;
-  // native functions and pointers to them
-  unordered_flat_map<u16string, NativeFuncType> native_func_binding;
+
   // for collecting all log strings.
   std::vector<std::string> log_buffer;
 

@@ -49,20 +49,6 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   sp = global_sp;
 }
 
-void NjsVM::add_native_func_impl(u16string name, NativeFuncType func) {
-  native_func_binding.emplace(std::move(name), func);
-}
-
-void NjsVM::add_builtin_object(const u16string& name,
-                               const std::function<JSObject*(GCHeap&, StringPool&)>& builder) {
-  GlobalObject& global_obj = *static_cast<GlobalObject *>(global_object.val.as_object);
-  auto iter = global_obj.props_index_map.find(name);
-  if (iter == global_obj.props_index_map.end()) return;
-
-  u32 index = iter->second;
-  rt_stack[index].set_val(builder(heap, str_pool));
-}
-
 void NjsVM::init_prototypes() {
   object_prototype.set_val(heap.new_object<JSObjectPrototype>(*this));
 
@@ -689,8 +675,7 @@ void NjsVM::exec_make_func(int meta_idx) {
   if (meta.is_arrow_func) {
     if (bp != stack_begin) {
       func->This = function_env()->This;
-    }
-    else {
+    } else {
       func->This = top_level_this;
     }
   }
@@ -701,11 +686,8 @@ void NjsVM::exec_make_func(int meta_idx) {
     func->add_prop(StringPool::ATOM_prototype, JSValue(new_prototype), false);
   }
 
-  if (meta.is_native) {
-    assert(!meta.is_anonymous);
-    u16string& name = str_pool.get_string(meta.name_index);
-    func->native_func = native_func_binding[name];
-  }
+  assert(!meta.is_native);
+
   sp[0].set_val(func);
   sp += 1;
 }

@@ -3,17 +3,22 @@
 namespace njs {
 
 void NjsVM::setup() {
-  add_native_func_impl(u"log", InternalFunctions::debug_log);
-  add_native_func_impl(u"$gc", InternalFunctions::js_gc);
-  add_native_func_impl(u"setTimeout", InternalFunctions::set_timeout);
-  add_native_func_impl(u"setInterval", InternalFunctions::set_interval);
-  add_native_func_impl(u"clearTimeout", InternalFunctions::clear_timeout);
-  add_native_func_impl(u"clearInterval", InternalFunctions::clear_interval);
-  add_native_func_impl(u"fetch", InternalFunctions::fetch);
-  add_native_func_impl(u"Object", InternalFunctions::Object_ctor);
-  add_native_func_impl(u"Error", InternalFunctions::Error_ctor);
+  add_native_func_impl(u"log", InternalFunctions::debug_log, [] (auto& f) {});
+  add_native_func_impl(u"$gc", InternalFunctions::js_gc, [] (auto& f) {});
+  add_native_func_impl(u"setTimeout", InternalFunctions::set_timeout, [] (auto& f) {});
+  add_native_func_impl(u"setInterval", InternalFunctions::set_interval, [] (auto& f) {});
+  add_native_func_impl(u"clearTimeout", InternalFunctions::clear_timeout, [] (auto& f) {});
+  add_native_func_impl(u"clearInterval", InternalFunctions::clear_interval, [] (auto& f) {});
+  add_native_func_impl(u"fetch", InternalFunctions::fetch, [] (auto& f) {});
 
-  add_builtin_object(u"console", [this] (GCHeap& heap, StringPool& str_pool) {
+  add_native_func_impl(u"Object", InternalFunctions::Object_ctor, [this] (JSFunction& func) {
+    object_prototype.as_object()->add_prop(StringPool::ATOM_constructor, JSValue(&func));
+    func.add_prop(StringPool::ATOM_prototype, object_prototype);
+  });
+
+  add_native_func_impl(u"Error", InternalFunctions::Error_ctor, [] (auto& f) {});
+
+  add_builtin_object(u"console", [this] () {
     JSObject *obj = new_object();
 
     JSFunctionMeta log_meta {
@@ -29,7 +34,7 @@ void NjsVM::setup() {
     return obj;
   });
 
-  add_builtin_object(u"JSON", [this] (GCHeap& heap, StringPool& str_pool) {
+  add_builtin_object(u"JSON", [this] () {
     JSObject *obj = new_object();
 
     JSFunctionMeta meta {
@@ -44,6 +49,38 @@ void NjsVM::setup() {
     obj->add_prop((int64_t)str_pool.add_string(u"stringify"), JSValue(func));
     return obj;
   });
+}
+
+void NjsVM::add_native_func_impl(const u16string& name,
+                                 NativeFuncType native_func,
+                                 const std::function<void(JSFunction&)>& builder) {
+  JSFunctionMeta meta {
+      .name_index = str_pool.add_string(name),
+      .is_native = true,
+      .param_count = 0,
+      .local_var_count = 0,
+      .native_func = native_func,
+  };
+
+  auto *func = heap.new_object<JSFunction>(name, meta);
+  func->set_prototype(function_prototype);
+
+  builder(*func);
+
+  auto& global_obj = *static_cast<GlobalObject *>(global_object.val.as_object);
+  auto index = global_obj.find_prop_index(name);
+  if (index.has_value()) {
+    rt_stack[index.value()].set_val(func);
+  }
+}
+
+void NjsVM::add_builtin_object(const u16string& name,
+                               const std::function<JSObject*()>& builder) {
+  GlobalObject& global_obj = *static_cast<GlobalObject *>(global_object.val.as_object);
+  auto index = global_obj.find_prop_index(name);
+  if (index.has_value()) {
+    rt_stack[index.value()].set_val(builder());
+  }
 }
 
 

@@ -4,12 +4,14 @@
 #include "JSObject.h"
 #include "njs/include/robin_hood.h"
 #include <cstdint>
+#include <optional>
 
 namespace njs {
 
 using u32 = uint32_t;
 using robin_hood::unordered_map;
 using std::u16string;
+using std::optional;
 
 // In JavaScript, variables defined in the global space will actually become properties of the
 // global object. However, when NaiveJS retrieves global variables, it will actually retrieve them
@@ -20,6 +22,15 @@ using std::u16string;
 class GlobalObject: public JSObject {
  public:
   GlobalObject(): JSObject(ObjectClass::CLS_GLOBAL_OBJ) {}
+
+  optional<u32> find_prop_index(const u16string& name) {
+    auto iter = props_index_map.find(name);
+    if (iter != props_index_map.end()) {
+      return iter->second;
+    } else {
+      return std::nullopt;
+    }
+  }
 
   unordered_map<u16string, u32> props_index_map;
 };

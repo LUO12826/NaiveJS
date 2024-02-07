@@ -38,9 +38,6 @@ class CodegenVisitor {
   void codegen(ProgramOrFunctionBody *prog) {
 
     push_scope(prog->scope.get());
-
-    // add functions to the global scope
-    add_builtin_functions();
     visit_program_or_function_body(*prog);
 
     Timer timer("optimized");
@@ -694,7 +691,7 @@ class CodegenVisitor {
     }
     emit(InstType::pop_drop);
 
-    if (is_stmt_valid_in_single_ctx(stmt.if_block)) {
+    if (is_stmt_valid_in_single_stmt_ctx(stmt.if_block)) {
       visit(stmt.if_block);
     }
     else {
@@ -713,7 +710,7 @@ class CodegenVisitor {
     emit(InstType::pop_drop);
 
     if (stmt.else_block) {
-      if (is_stmt_valid_in_single_ctx(stmt.else_block)) {
+      if (is_stmt_valid_in_single_stmt_ctx(stmt.else_block)) {
         visit(stmt.else_block);
       }
       else {
@@ -740,7 +737,7 @@ class CodegenVisitor {
     }
     emit(InstType::pop_drop);
 
-    if (is_stmt_valid_in_single_ctx(stmt.body_stmt)) {
+    if (is_stmt_valid_in_single_stmt_ctx(stmt.body_stmt)) {
       visit(stmt.body_stmt);
     }
     else {
@@ -997,30 +994,14 @@ class CodegenVisitor {
 
   u32 bytecode_pos() { return bytecode.size(); }
 
-  bool is_stmt_valid_in_single_ctx(ASTNode *stmt) {
-    if (stmt->is(ASTNode::AST_STMT_VAR)) {
-      auto *var_stmt = static_cast<VarStatement *>(stmt);
-      if (var_stmt->kind != VarKind::DECL_VAR) return false;
+  // single statement context is, for example, if (cond) followed by a statement without `{}`.
+  // in single statement context, `let` and `const` are not allowed.
+  bool is_stmt_valid_in_single_stmt_ctx(ASTNode *stmt) {
+    if (stmt->is(ASTNode::AST_STMT_VAR)
+        && static_cast<VarStatement *>(stmt)->kind != VarKind::DECL_VAR) {
+      return false;
     }
     return true;
-  }
-
-  void add_builtin_functions() {
-    assert(scope().get_scope_type() == ScopeType::GLOBAL);
-
-    for (auto& [name, record] : scope().get_symbol_table()) {
-      if (record.is_builtin && record.var_kind == VarKind::DECL_FUNCTION) {
-        u32 meta_idx = add_function_meta(JSFunctionMeta {
-            .name_index = add_const(name),
-            .is_native = true,
-            .param_count = 0,
-            .local_var_count = 0,
-            .native_func = nullptr,
-        });
-        emit(InstType::make_func, int(meta_idx));
-        emit(InstType::pop, scope_type_int(ScopeType::GLOBAL), (int)record.offset_idx());
-      }
-    }
   }
 
   static constexpr u32 frame_meta_size {2};
