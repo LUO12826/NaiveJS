@@ -43,7 +43,7 @@ class JSObjectPrototype : public JSObject {
     bool has = vm.str_pool.has_string(prop_name.val.as_primitive_string->str);
     if (!has) return JSValue(false);
 
-    u32 str_atom = vm.str_pool.add_string(prop_name.val.as_primitive_string->str);
+    u32 str_atom = vm.str_to_atom(prop_name.val.as_primitive_string->str);
     has = obj->has_own_property(str_atom);
 
     return JSValue(has);

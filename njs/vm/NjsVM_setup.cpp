@@ -30,7 +30,7 @@ void NjsVM::setup() {
     };
     JSFunction *log_func = new_function(log_meta);
 
-    obj->add_prop((int64_t)str_pool.add_string(u"log"), JSValue(log_func));
+    obj->add_prop((int64_t)str_to_atom(u"log"), JSValue(log_func));
     return obj;
   });
 
@@ -46,7 +46,7 @@ void NjsVM::setup() {
     };
     JSFunction *func = new_function(meta);
 
-    obj->add_prop((int64_t)str_pool.add_string(u"stringify"), JSValue(func));
+    obj->add_prop((int64_t)str_to_atom(u"stringify"), JSValue(func));
     return obj;
   });
 }
@@ -55,7 +55,7 @@ void NjsVM::add_native_func_impl(const u16string& name,
                                  NativeFuncType native_func,
                                  const std::function<void(JSFunction&)>& builder) {
   JSFunctionMeta meta {
-      .name_index = str_pool.add_string(name),
+      .name_index = str_to_atom(name),
       .is_native = true,
       .param_count = 0,
       .local_var_count = 0,

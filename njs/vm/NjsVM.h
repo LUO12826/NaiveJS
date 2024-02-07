@@ -70,6 +70,14 @@ friend class InternalFunctions;
   JSObject* new_object(ObjectClass cls = ObjectClass::CLS_OBJECT);
   JSFunction* new_function(const JSFunctionMeta& meta);
 
+  u32 str_to_atom(u16string_view str_view) {
+    return str_pool.add_string(str_view);
+  }
+
+  u16string& atom_to_str(int64_t atom) {
+    return str_pool.get_string(atom);
+  }
+
  private:
   CallResult execute(bool stop_at_return = false);
   void execute_task(JSTask& task);

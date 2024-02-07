@@ -42,8 +42,7 @@ bool JSObject::add_prop(int64_t key_atom, const JSValue& value, bool enumerable,
 }
 
 bool JSObject::add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value, bool enumerable, bool configurable, bool writable) {
-  u32 key_atom = vm.str_pool.add_string(key_str);
-  return add_prop((int64_t)key_atom, value, enumerable, configurable, writable);
+  return add_prop(vm.str_to_atom(key_str), value, enumerable, configurable, writable);
 }
 
 JSValue JSObject::get_prop(NjsVM& vm, u16string_view name) {
@@ -51,13 +50,12 @@ JSValue JSObject::get_prop(NjsVM& vm, u16string_view name) {
 }
 
 JSValue JSObject::get_prop(NjsVM& vm, u16string_view key_str, bool get_ref) {
-  int64_t key_atom = vm.str_pool.add_string(key_str);
-  return get_prop(key_atom, get_ref);
+  return get_prop(vm.str_to_atom(key_str), get_ref);
 }
 
 bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl) {
 
-  u32 name_idx = vm.str_pool.add_string(key_str);
+  u32 name_idx = vm.str_to_atom(key_str);
 
   JSFunctionMeta meta {
       .name_index = name_idx,
@@ -114,7 +112,7 @@ std::string JSObject::to_string(NjsVM& vm) {
     if (not prop.enumerable) continue;
 
     if (key.key_type == JSObjectKey::KEY_ATOM) {
-      output += to_u8string(vm.str_pool.get_string(key.key.atom));
+      output += to_u8string(vm.atom_to_str(key.key.atom));
     }
     else assert(false);
 
@@ -142,7 +140,7 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
     
     if (key.key_type == JSObjectKey::KEY_ATOM) {
       output += u'"';
-      output += vm.str_pool.get_string(key.key.atom);
+      output += vm.atom_to_str(key.key.atom);
       output += u'"';
     }
     else assert(false);
