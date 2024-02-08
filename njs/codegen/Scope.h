@@ -22,17 +22,6 @@ using std::unique_ptr;
 using u32 = uint32_t;
 
 class Function;
-/*
- * Additional, on-demand scope-related information.
- */
-struct ScopeContext {
-  int64_t continue_pos {-1};
-  bool can_break {false};
-  bool has_try {false};
-  SmallVector<u32, 3> break_list;
-  SmallVector<u32, 3> throw_list;
-  SmallVector<CatchTableEntry, 3> catch_table;
-};
 
 class Scope {
  public:
@@ -164,52 +153,30 @@ class Scope {
     return outer_scope;
   }
 
-  bool has_try() {
-    if (!context) return false;
-    return context->has_try;
-  }
-
-  ScopeContext& get_context() {
-    if (!context) context = std::make_unique<ScopeContext>();
-    return *context;
-  }
-
-  bool has_context() {
-    return context != nullptr;
-  }
-
   int64_t resolve_continue_pos() {
-    if (context && context->continue_pos != -1) {
-      return context->continue_pos;
-    }
-    else if (scope_type != ScopeType::FUNC && scope_type != ScopeType::GLOBAL && outer_scope) {
+    if (continue_pos != -1) {
+      return continue_pos;
+    } else if (scope_type != ScopeType::FUNC && scope_type != ScopeType::GLOBAL && outer_scope) {
       return outer_scope->resolve_continue_pos();
-    }
-    else {
+    } else {
       return -1;
     }
   }
 
   SmallVector<u32, 3> *resolve_break_list() {
-    if (context && context->can_break) {
-      return &context->break_list;
-    }
-    else if (scope_type != ScopeType::FUNC && scope_type != ScopeType::GLOBAL && outer_scope) {
+    if (can_break) {
+      return &break_list;
+    } else if (scope_type != ScopeType::FUNC && scope_type != ScopeType::GLOBAL && outer_scope) {
       return outer_scope->resolve_break_list();
-    }
-    else {
+    } else {
       return nullptr;
     }
   }
 
   SmallVector<u32, 3> *resolve_throw_list() {
-    if (context && context->has_try) {
-      return &context->throw_list;
-    }
-    else if (scope_type == ScopeType::FUNC || scope_type == ScopeType::GLOBAL) {
-      return &get_context().throw_list;
-    }
-    else {
+    if (has_try || scope_type == ScopeType::FUNC || scope_type == ScopeType::GLOBAL) {
+      return &throw_list;
+    } else {
       assert(outer_scope);
       return outer_scope->resolve_throw_list();
     }
@@ -312,8 +279,6 @@ class Scope {
   Scope *outer_scope {nullptr};
   Scope *outer_func {nullptr}; // this can be global scope
 
-  unique_ptr<ScopeContext> context;
-
   u32 param_count {0};
   u32 var_idx_start {0};
   u32 var_idx_next {0};
@@ -322,6 +287,14 @@ class Scope {
   // for function scope
   SmallVector<SymbolResolveResult, 5> capture_list;
   unordered_map<Function *, SmallVector<Instruction, 5>> inner_func_init_code;
+
+ public:
+  int64_t continue_pos {-1};
+  bool can_break {false};
+  bool has_try {false};
+  SmallVector<u32, 3> break_list;
+  SmallVector<u32, 3> throw_list;
+  SmallVector<CatchTableEntry, 3> catch_table;
 };
 
 inline Scope::SymbolResolveResult  Scope::SymbolResolveResult::none = SymbolResolveResult();

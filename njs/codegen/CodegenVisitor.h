@@ -148,7 +148,7 @@ class CodegenVisitor {
       }
     }
 
-    for (auto& entry : scope_chain[0]->get_context().catch_table) {
+    for (auto& entry : scope_chain[0]->catch_table) {
       entry.goto_pos += pos_moved[entry.goto_pos];
     }
 
@@ -302,8 +302,8 @@ class CodegenVisitor {
           node->type != ASTNode::AST_EXPR_ASSIGN) {
         emit(InstType::pop_drop);
       }
-      if (scope().has_context()) {
-        auto& throw_list = scope().get_context().throw_list;
+      if (not scope().throw_list.empty()) {
+        auto& throw_list = scope().throw_list;
         top_level_throw.insert(top_level_throw.end(), throw_list.begin(), throw_list.end());
         throw_list.clear();
       }
@@ -319,7 +319,7 @@ class CodegenVisitor {
       }
     }
 
-    scope().get_outer_func()->get_context().catch_table.emplace_back(0, 0, bytecode_pos());
+    scope().get_outer_func()->catch_table.emplace_back(0, 0, bytecode_pos());
 
     for (u32 idx : top_level_throw) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
@@ -354,7 +354,7 @@ class CodegenVisitor {
         .local_var_count = (u16)scope().get_var_count(),
         .code_address = func_start_pos,
         .source_line = func.get_line_start(),
-        .catch_table = std::move(scope().get_context().catch_table)
+        .catch_table = std::move(scope().catch_table)
     });
     // The rest of the work is done in the scope of the outer function, so pop scope here.
     pop_scope();
@@ -728,8 +728,8 @@ class CodegenVisitor {
     vector<u32> true_list;
     vector<u32> false_list;
     u32 loop_start = bytecode_pos();
-    scope().get_context().continue_pos = loop_start;
-    scope().get_context().can_break = true;
+    scope().continue_pos = loop_start;
+    scope().can_break = true;
 
     visit_expr_in_logical_expr(*stmt.condition_expr, true_list, false_list, false);
     for (u32 idx : true_list) {
@@ -753,11 +753,11 @@ class CodegenVisitor {
     }
     emit(InstType::pop_drop);
 
-    for (u32 idx : scope().get_context().break_list) {
+    for (u32 idx : scope().break_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
 
-    scope().get_context().can_break = false;
+    scope().can_break = false;
   }
 
   void visit_continue_break_statement(ContinueOrBreak& stmt) {
@@ -859,7 +859,7 @@ class CodegenVisitor {
 
   void visit_try_statement(TryStatement& stmt) {
     assert(stmt.try_block->type == ASTNode::AST_STMT_BLOCK);
-    scope().get_context().has_try = true;
+    scope().has_try = true;
 
     // visit the try block to emit bytecode
     u32 try_start = bytecode_pos();
@@ -871,18 +871,18 @@ class CodegenVisitor {
     u32 var_dispose_start = scope().get_var_next_index() + frame_meta_size;
     u32 var_dispose_end = stmt.try_block->as_block()->scope->get_var_count() + frame_meta_size;
 
-    scope().get_context().has_try = false;
+    scope().has_try = false;
 
     u32 try_end_jmp = emit(InstType::jmp);
     u32 catch_pos = try_end_jmp + 1;
 
     // `throw` statements will jump here
-    for (u32 idx : scope().get_context().throw_list) {
+    for (u32 idx : scope().throw_list) {
       bytecode[idx].operand.two.opr1 = int(catch_pos);
     }
-    scope().get_context().throw_list.clear();
+    scope().throw_list.clear();
     // also, any error in the try block will jump here. So we should add a catch table entry.
-    auto& catch_table = scope().get_outer_func()->get_context().catch_table;
+    auto& catch_table = scope().get_outer_func()->catch_table;
     catch_table.emplace_back(try_start, try_end, catch_pos);
     catch_table.back().local_var_begin = var_dispose_start;
     catch_table.back().local_var_end = var_dispose_end;
@@ -917,7 +917,7 @@ class CodegenVisitor {
     while (true) {
       bool should_clean = scope_to_clean->get_scope_type() != ScopeType::GLOBAL &&
                           scope_to_clean->get_scope_type() != ScopeType::FUNC &&
-                          !scope_to_clean->has_try();
+                          !scope_to_clean->has_try;
       if (!should_clean) break;
 
       gen_scope_var_dispose_code(*scope_to_clean);
@@ -996,7 +996,7 @@ class CodegenVisitor {
 
   // single statement context is, for example, if (cond) followed by a statement without `{}`.
   // in single statement context, `let` and `const` are not allowed.
-  bool is_stmt_valid_in_single_stmt_ctx(ASTNode *stmt) {
+  static bool is_stmt_valid_in_single_stmt_ctx(ASTNode *stmt) {
     if (stmt->is(ASTNode::AST_STMT_VAR)
         && static_cast<VarStatement *>(stmt)->kind != VarKind::DECL_VAR) {
       return false;

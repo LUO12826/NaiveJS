@@ -24,7 +24,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   , str_pool(std::move(visitor.str_pool))
   , num_list(std::move(visitor.num_list))
   , func_meta(std::move(visitor.func_meta))
-  , global_catch_table(std::move(visitor.scope_chain[0]->get_context().catch_table))
+  , global_catch_table(std::move(visitor.scope_chain[0]->catch_table))
 {
   init_prototypes();
   top_level_this.set_val(new_object());
@@ -76,8 +76,7 @@ JSFunction* NjsVM::new_function(const JSFunctionMeta& meta) {
   JSFunction *func;
   if (meta.is_anonymous) {
     func = heap.new_object<JSFunction>(meta);
-  }
-  else {
+  } else {
     func = heap.new_object<JSFunction>(atom_to_str(meta.name_index), meta);
   }
   func->set_prototype(function_prototype);

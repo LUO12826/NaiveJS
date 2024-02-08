@@ -19,18 +19,13 @@ struct SymbolRecord {
   SymbolRecord(VarKind kind, u16str_view name) : SymbolRecord(kind, name, 0, false) {}
 
   SymbolRecord(VarKind kind, u16str_view name, u32 index, bool is_builtin)
-      : var_kind(kind), name(name), index(index), is_builtin(is_builtin) {
-    if (kind == VarKind::DECL_VAR || kind == VarKind::DECL_FUNC_PARAM || kind == VarKind::DECL_FUNCTION) {
-      valid = true;
-    }
-  }
+      : var_kind(kind), name(name), index(index), is_builtin(is_builtin) {}
 
   u32 offset_idx(int offset = 2) { return index + offset; }
 
   VarKind var_kind;
   u16str_view name;
   u32 index;
-  bool valid{false};
   bool is_captured {false};
   bool is_builtin {false};
 };
