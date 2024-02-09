@@ -43,14 +43,17 @@ enum class ObjectClass {
   CLS_FUNCTION_PROTO,
 };
 
+struct PropDesc {
+  bool enumerable {true};
+  bool configurable {true};
+  bool writable {true};
+};
+
 class JSObject : public GCObject {
  public:
 
-  struct PropDesc {
-    bool enumerable {true};
-    bool configurable {false};
-    bool writable {true};
-
+  struct JSObjectProp {
+    PropDesc desc;
     JSValue value;
     JSValue getter;
     JSValue setter;
@@ -80,9 +83,9 @@ class JSObject : public GCObject {
     return _proto_;
   }
 
-  bool add_prop(const JSValue& key, const JSValue& value, bool enumerable = true, bool configurable = true, bool writable = true);
-  bool add_prop(int64_t key_atom, const JSValue& value, bool enumerable = true, bool configurable = true, bool writable = true);
-  bool add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value, bool enumerable = true, bool configurable = true, bool writable = true);
+  bool add_prop(const JSValue& key, const JSValue& value, PropDesc desc = PropDesc());
+  bool add_prop(int64_t key_atom, const JSValue& value, PropDesc desc = PropDesc());
+  bool add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value, PropDesc desc = PropDesc());
   bool add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl);
 
   JSValue get_prop(NjsVM& vm, u16string_view name);
@@ -125,7 +128,7 @@ class JSObject : public GCObject {
   }
 
   ObjectClass obj_class;
-  unordered_flat_map<JSObjectKey, PropDesc> storage;
+  unordered_flat_map<JSObjectKey, JSObjectProp> storage;
   JSValue _proto_;
 };
 

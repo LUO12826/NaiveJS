@@ -7,8 +7,8 @@
 
 namespace njs {
 
-bool JSObject::add_prop(const JSValue& key, const JSValue& value, bool enumerable, bool configurable, bool writable) {
-  PropDesc *new_prop;
+bool JSObject::add_prop(const JSValue& key, const JSValue& value, PropDesc desc) {
+  JSObjectProp *new_prop;
   if (key.tag == JSValue::JS_ATOM) {
     new_prop = &storage[JSObjectKey(key.val.as_int64)];
   }
@@ -26,23 +26,19 @@ bool JSObject::add_prop(const JSValue& key, const JSValue& value, bool enumerabl
   }
 
   new_prop->value.assign(value);
-  new_prop->enumerable = enumerable;
-  new_prop->configurable = configurable;
-  new_prop->writable = writable;
+  new_prop->desc = desc;
   return true;
 }
 
-bool JSObject::add_prop(int64_t key_atom, const JSValue& value, bool enumerable, bool configurable, bool writable) {
-  PropDesc& prop = storage[JSObjectKey(key_atom)];
+bool JSObject::add_prop(int64_t key_atom, const JSValue& value, PropDesc desc) {
+  JSObjectProp& prop = storage[JSObjectKey(key_atom)];
   prop.value.assign(value);
-  prop.enumerable = enumerable;
-  prop.configurable = configurable;
-  prop.writable = writable;
+  prop.desc = desc;
   return true;
 }
 
-bool JSObject::add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value, bool enumerable, bool configurable, bool writable) {
-  return add_prop(vm.str_to_atom(key_str), value, enumerable, configurable, writable);
+bool JSObject::add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value, PropDesc desc) {
+  return add_prop(vm.str_to_atom(key_str), value, desc);
 }
 
 JSValue JSObject::get_prop(NjsVM& vm, u16string_view name) {
@@ -92,7 +88,7 @@ std::string JSObject::description() {
   u32 print_prop_num = std::min((u32)4, (u32)storage.size());
   u32 i = 0;
   for (auto& [key, prop] : storage) {
-    if (not prop.enumerable) continue;
+    if (not prop.desc.enumerable) continue;
 
     stream << key.to_string() << ": ";
     stream << prop.value.description() << ", ";
@@ -109,7 +105,7 @@ std::string JSObject::to_string(NjsVM& vm) {
   std::string output = "{ ";
 
   for (auto& [key, prop] : storage) {
-    if (not prop.enumerable) continue;
+    if (not prop.desc.enumerable) continue;
 
     if (key.key_type == JSObjectKey::KEY_ATOM) {
       output += to_u8string(vm.atom_to_str(key.key.atom));
@@ -132,7 +128,7 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
 
   bool first = true;
   for (auto& [key, prop] : storage) {
-    if (not prop.enumerable) continue;
+    if (not prop.desc.enumerable) continue;
     if (prop.value.is_undefined()) continue;
 
     if (first) first = false;
