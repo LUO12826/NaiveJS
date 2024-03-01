@@ -165,7 +165,11 @@ class StringLiteral : public ASTNode {
       : ASTNode(AST_EXPR_STRING, source, start, end, line_start), str_val(std::move(str)) {}
 
   std::string description() override {
-    return ASTNode::description() + " " + to_u8string(str_val);
+    auto desc = ASTNode::description();
+    if (str_val.size() < 80) {
+      desc += to_u8string(str_val);
+    }
+    return desc;
   }
 
   u16string str_val;

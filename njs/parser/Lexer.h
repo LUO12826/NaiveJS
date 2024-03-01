@@ -711,6 +711,7 @@ error:
             if (character::is_line_terminator(ch)) {
               skip_line_terminators();
             } else if (character::is_char_escape_sequence(ch)) {
+              tmp += escape_to_real_char(ch);
               next_char();
             } else {
               goto error;

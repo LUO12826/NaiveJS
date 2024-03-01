@@ -84,7 +84,7 @@ inline bool is_radix_digit(char16_t c, int radix) {
 
 inline bool is_single_escape_char(char16_t c) {
   return c == u'\'' || c == u'"' || c == u'\\' || c == u'b' ||
-         c == u'f'  || c == u'f' || c == u'n'  || c == u'r' ||
+         c == u'f'  || c == u'n'  || c == u'r' ||
          c == u't'  || c == u'v';
 }
 

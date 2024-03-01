@@ -425,24 +425,27 @@ class CodegenVisitor {
       for (u32 idx : false_list) {
         bytecode[idx].operand.two.opr1 = int(bytecode_pos());
       }
-      return;
+    }
+    else {
+      visit(expr.lhs);
+      visit(expr.rhs);
+      switch (expr.op.type) {
+        case Token::ADD: emit(InstType::add); break;
+        case Token::SUB: emit(InstType::sub); break;
+        case Token::MUL: emit(InstType::mul); break;
+        case Token::DIV: emit(InstType::div); break;
+        case Token::NE: emit(InstType::ne); break;
+        case Token::EQ: emit(InstType::eq); break;
+        case Token::EQ3: emit(InstType::eq3); break;
+        case Token::NE3: emit(InstType::ne3); break;
+        case Token::LE: emit(InstType::le); break;
+        case Token::LT: emit(InstType::lt); break;
+        case Token::GT: emit(InstType::gt); break;
+        case Token::GE: emit(InstType::ge); break;
+        default: assert(false);
+      }
     }
 
-    visit(expr.lhs);
-    visit(expr.rhs);
-    switch (expr.op.type) {
-      case Token::ADD: emit(InstType::add); break;
-      case Token::SUB: emit(InstType::sub); break;
-      case Token::MUL: emit(InstType::mul); break;
-      case Token::DIV: emit(InstType::div); break;
-      case Token::EQ3: emit(InstType::eq3); break;
-      case Token::NE3: emit(InstType::ne3); break;
-      case Token::LE: emit(InstType::le); break;
-      case Token::LT: emit(InstType::lt); break;
-      case Token::GT: emit(InstType::gt); break;
-      case Token::GE: emit(InstType::ge); break;
-      default: assert(false);
-    }
   }
 
   void visit_expr_in_logical_expr(ASTNode& expr, vector<u32>& true_list, vector<u32>& false_list,

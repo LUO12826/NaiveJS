@@ -76,9 +76,11 @@ std::string JSValue::to_string(NjsVM& vm) const {
     case VALUE_HANDLE:
       output += deref().to_string(vm);
       break;
-    case STRING:
-      output += to_u8string(val.as_primitive_string->str);
+    case STRING: {
+      u16string escaped = to_escaped_u16string(val.as_primitive_string->str);
+      output += to_u8string(escaped);
       break;
+    }
     case SYMBOL: break;
     case STACK_FRAME_META1:
       output += val.as_function->to_string(vm);
@@ -109,7 +111,7 @@ void JSValue::to_json(u16string& output, NjsVM& vm) const {
       break;
     case STRING:
       output += u'"';
-      output += val.as_primitive_string->str;
+      output += to_escaped_u16string(val.as_primitive_string->str);
       output += u'"';
       break;
     case ARRAY:

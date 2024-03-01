@@ -108,14 +108,15 @@ std::string JSObject::to_string(NjsVM& vm) {
     if (not prop.desc.enumerable) continue;
 
     if (key.key_type == JSObjectKey::KEY_ATOM) {
-      output += to_u8string(vm.atom_to_str(key.key.atom));
+      u16string escaped = to_escaped_u16string(vm.atom_to_str(key.key.atom));
+      output += to_u8string(escaped);
     }
     else assert(false);
 
     output += ": ";
-    if (prop.value.is(JSValue::STRING)) output += '\'';
+    if (prop.value.is(JSValue::STRING)) output += '"';
     output += prop.value.to_string(vm);
-    if (prop.value.is(JSValue::STRING)) output += '\'';
+    if (prop.value.is(JSValue::STRING)) output += '"';
     output += ", ";
   }
 
@@ -136,7 +137,7 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
     
     if (key.key_type == JSObjectKey::KEY_ATOM) {
       output += u'"';
-      output += vm.atom_to_str(key.key.atom);
+      output += to_escaped_u16string(vm.atom_to_str(key.key.atom));
       output += u'"';
     }
     else assert(false);

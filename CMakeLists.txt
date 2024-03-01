@@ -16,7 +16,6 @@ set(SOURCES
     njs/basic_types/JSObject.cpp
     njs/basic_types/JSValue.cpp
     njs/main.cpp
-    njs/utils/helper.cpp
     njs/gc/GCHeap.cpp
     njs/parser/ast.cpp
     njs/basic_types/JSArray.cpp

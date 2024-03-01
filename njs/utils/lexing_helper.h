@@ -12,6 +12,22 @@ using std::u16string;
 using std::optional;
 using u32 = uint32_t;
 
+inline char16_t escape_to_real_char(char16_t c) {
+  switch (c) {
+    case '\'': return '\'';
+    case '"': return '"';
+    case '\\': return '\\';
+    case 'b': return '\b';
+    case 'f': return '\f';
+    case 'n': return '\n';
+    case 'r': return '\r';
+    case 't': return '\t';
+    case 'v': return '\v';
+    default:
+      return c;
+  }
+}
+
 // Scan index literal. Can only be decimal natural numbers
 inline int64_t scan_index_literal(const u16string& str) {
   u32 idx = 0;

@@ -249,8 +249,12 @@ CallResult NjsVM::execute(bool stop_at_return) {
       case InstType::le:
         exec_comparison(inst.op_type);
         break;
-      case InstType::ne: break;
-      case InstType::eq: break;
+      case InstType::ne:
+        exec_strict_equality(true);
+        break;
+      case InstType::eq:
+        exec_strict_equality(false);
+        break;
       case InstType::ne3:
         exec_strict_equality(true);
         break;
