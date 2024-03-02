@@ -8,6 +8,8 @@
 #include <iostream>
 #include <cstdarg>
 #include <cstdlib>
+#include <cctype>
+#include <algorithm>
 
 namespace njs {
 
@@ -192,6 +194,21 @@ inline void print_red_line(const string& text) {
   const string RESET_COLOR_CODE = "\033[0m";
 
   std::cout << RED_COLOR_CODE << text << RESET_COLOR_CODE << '\n';
+}
+
+inline u16string trim(const u16string& str) {
+  auto start = std::find_if_not(str.begin(), str.end(), [](char16_t ch) {
+    return std::isspace(ch);
+  });
+  auto end = std::find_if_not(str.rbegin(), str.rend(), [](char16_t ch) {
+    return std::isspace(ch);
+  }).base();
+
+  if (start >= end) {
+    return u"";
+  }
+
+  return u16string(start, end);
 }
 
 

@@ -206,8 +206,7 @@ class CodegenVisitor {
         visit(static_cast<ParenthesisExpr *>(node)->expr);
         break;
       case ASTNode::AST_EXPR_BOOL:
-        if (node->get_source() == u"true") emit(InstType::push_bool, u32(1));
-        else emit(InstType::push_bool, u32(0));
+        emit(InstType::push_bool, u32(node->get_source() == u"true"));
         break;
       case ASTNode::AST_STMT_VAR:
         visit_variable_statement(*static_cast<VarStatement *>(node));
@@ -285,9 +284,9 @@ class CodegenVisitor {
       bytecode[jmp_inst_idx].operand.two.opr1 = bytecode_pos();
 
       for (ASTNode *node : program.func_decls) {
-        auto *func = static_cast<Function *>(node);
-        visit_function(*func);
-        auto symbol = scope().resolve_symbol(func->name.text);
+        auto& func = *static_cast<Function *>(node);
+        visit_function(func);
+        auto symbol = scope().resolve_symbol(func.name.text);
         assert(!symbol.not_found());
         emit(InstType::pop, scope_type_int(symbol.storage_scope), symbol.get_index());
       }
@@ -381,8 +380,12 @@ class CodegenVisitor {
     switch (expr.op.type) {
       case Token::LOGICAL_NOT:
         if (expr.is_prefix_op) {
-          visit(expr.operand);
-          emit(InstType::logi_not);
+          if (expr.operand->is(ASTNode::AST_EXPR_BOOL)) {
+            emit(InstType::push_bool, u32(not (expr.get_source() == u"true")));
+          } else {
+            visit(expr.operand);
+            emit(InstType::logi_not);
+          }
         }
         else {
           assert(false);
@@ -390,8 +393,12 @@ class CodegenVisitor {
         break;
       case Token::SUB:
         if (expr.is_prefix_op) {
-          visit(expr.operand);
-          emit(InstType::neg);
+          if (expr.operand->is(ASTNode::AST_EXPR_NUMBER)) {
+            emit(Instruction::num_imm(-expr.as_number_literal()->num_val));
+          } else {
+            visit(expr.operand);
+            emit(InstType::neg);
+          }
         }
         else {
           assert(false);
@@ -455,8 +462,8 @@ class CodegenVisitor {
       return;
     }
     else if (expr.is_not_expr() && !need_value) {
-      auto *not_expr = static_cast<UnaryExpr *>(&expr);
-      visit_expr_in_logical_expr(*not_expr->operand, true_list, false_list, need_value);
+      auto& not_expr = static_cast<UnaryExpr&>(expr);
+      visit_expr_in_logical_expr(*not_expr.operand, true_list, false_list, need_value);
 
       vector<u32> temp = std::move(false_list);
       false_list = std::move(true_list);
@@ -821,9 +828,9 @@ class CodegenVisitor {
       for (ASTNode *node : block.statements) {
         if (node->type != ASTNode::AST_FUNC) continue;
 
-        auto *func = static_cast<Function *>(node);
-        visit_function(*func);
-        auto symbol = scope().resolve_symbol(func->name.text);
+        auto& func = *static_cast<Function *>(node);
+        visit_function(func);
+        auto symbol = scope().resolve_symbol(func.name.text);
         assert(!symbol.not_found());
         emit(InstType::pop, scope_type_int(symbol.storage_scope), symbol.get_index());
       }
@@ -901,13 +908,12 @@ class CodegenVisitor {
       emit(InstType::pop_drop);
     }
 
-    auto *catch_block = static_cast<Block *>(stmt.catch_block);
-
     vector<pair<u16string_view, VarKind>> catch_id;
     if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
       catch_id.emplace_back(stmt.catch_ident.text, VarKind::DECL_LET);
     }
-    visit_block_statement(*catch_block, catch_id);
+    visit_block_statement(*static_cast<Block *>(stmt.catch_block), catch_id);
+
     bytecode[try_end_jmp].operand.two.opr1 = bytecode_pos();
   }
 

@@ -250,10 +250,10 @@ CallResult NjsVM::execute(bool stop_at_return) {
         exec_comparison(inst.op_type);
         break;
       case InstType::ne:
-        exec_strict_equality(true);
+        exec_abstract_equality(true);
         break;
       case InstType::eq:
-        exec_strict_equality(false);
+        exec_abstract_equality(false);
         break;
       case InstType::ne3:
         exec_strict_equality(true);
@@ -1076,33 +1076,40 @@ void NjsVM::exec_strict_equality(bool flip) {
 
   if (lhs.tag == rhs.tag) {
     assert(lhs.tag != JSValue::HEAP_VAL && lhs.tag != JSValue::VALUE_HANDLE);
-    auto tag = lhs.tag;
+    assert(lhs.tag != JSValue::JS_ATOM);
 
-    if (tag == JSValue::NUM_FLOAT) {
-      lhs.val.as_bool = lhs.val.as_float64 == rhs.val.as_float64;
-    }
-    else if (tag == JSValue::JS_ATOM || tag == JSValue::NUM_INT) {
-      lhs.val.as_bool = lhs.val.as_int64 == rhs.val.as_int64;
-    }
-    else if (lhs.is_string_type()) {
-      bool equal = are_strings_equal(lhs, rhs);
-      lhs.set_undefined();
-      lhs.val.as_bool = equal;
-    }
-    else if (lhs.is(JSValue::UNDEFINED) || lhs.is(JSValue::JS_NULL)) {
-      lhs.val.as_bool = true;
-    }
-    else if (lhs.is_object()) {
-      lhs.val.as_bool = lhs.val.as_object == rhs.val.as_object;
+    switch (lhs.tag) {
+      case JSValue::BOOLEAN:
+        lhs.val.as_bool = lhs.val.as_bool == rhs.val.as_bool;
+        break;
+      case JSValue::NUM_FLOAT:
+        lhs.val.as_bool = lhs.val.as_float64 == rhs.val.as_float64;
+        break;
+      case JSValue::NUM_INT:
+        lhs.val.as_bool = lhs.val.as_int64 == rhs.val.as_int64;
+        break;
+      case JSValue::UNDEFINED:
+      case JSValue::JS_NULL:
+        lhs.val.as_bool = true;
+        break;
+      case JSValue::STRING: {
+        bool equal = lhs.val.as_primitive_string->str
+                          == rhs.val.as_primitive_string->str;
+        lhs.set_undefined();
+        lhs.val.as_bool = equal;
+        break;
+      }
+      default:
+        if (lhs.is_object()) {
+          lhs.val.as_bool = lhs.val.as_object == rhs.val.as_object;
+        } else {
+          assert(false);
+        }
     }
   }
   else {
-    bool equal = false;
-    if (lhs.is_string_type() && rhs.is_string_type()) {
-      equal = are_strings_equal(lhs, rhs);
-    }
     lhs.set_undefined();
-    lhs.val.as_bool = equal;
+    lhs.val.as_bool = false;
   }
 
   lhs.tag = JSValue::BOOLEAN;
@@ -1110,6 +1117,19 @@ void NjsVM::exec_strict_equality(bool flip) {
   rhs.set_undefined();
   sp -= 1;
 }
+
+void NjsVM::exec_abstract_equality(bool flip) {
+  JSValue& lhs = sp[-2];
+  JSValue& rhs = sp[-1];
+
+  if (lhs.tag == rhs.tag) {
+    exec_strict_equality(flip);
+  }
+  else {
+    // TODO: do real abstract equality
+  }
+}
+
 
 void NjsVM::exec_comparison(InstType type) {
   JSValue& lhs = sp[-2];

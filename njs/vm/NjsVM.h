@@ -116,6 +116,7 @@ friend class InternalFunctions;
   void exec_binary(InstType op_type);
   void exec_logi(InstType op_type);
   void exec_strict_equality(bool flip);
+  void exec_abstract_equality(bool flip);
 
   void exec_add_assign(int scope, int index);
   void exec_inc_or_dec(int scope, int index, int inc);
