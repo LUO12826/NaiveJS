@@ -77,8 +77,9 @@ std::string JSValue::to_string(NjsVM& vm) const {
       output += deref().to_string(vm);
       break;
     case STRING: {
-      u16string escaped = to_escaped_u16string(val.as_primitive_string->str);
-      output += to_u8string(escaped);
+//      u16string escaped = to_escaped_u16string(val.as_primitive_string->str);
+//      output += to_u8string(escaped);
+      output += to_u8string(val.as_primitive_string->str);
       break;
     }
     case SYMBOL: break;

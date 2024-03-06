@@ -24,6 +24,7 @@ class Completion {
     return Completion(Type::THROW, err);
   }
 
+  Completion(): type(Type::NORMAL) {}
   Completion(JSValue val): type(Type::NORMAL), val_or_err(val) {}
   Completion(Type ty, JSValue val): type(ty), val_or_err(val) {}
 
@@ -39,22 +40,18 @@ class Completion {
     return type == Type::THROW;
   }
 
-  optional<JSValue> get_value() {
+  JSValue& get_value() {
     return val_or_err;
   }
 
-  JSValue get_value_or_undefined() {
-    return val_or_err.value_or(JSValue::undefined);
-  }
-
-  JSValue get_error() {
-    assert(type == Type::THROW && val_or_err.has_value());
-    return val_or_err.value();
+  JSValue& get_error() {
+    assert(type == Type::THROW && val_or_err.is_object());
+    return val_or_err;
   }
 
  private:
   Type type;
-  optional<JSValue> val_or_err;
+  JSValue val_or_err;
 };
 
 }

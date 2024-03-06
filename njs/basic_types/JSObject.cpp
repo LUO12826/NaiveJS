@@ -4,8 +4,55 @@
 #include "JSValue.h"
 #include "njs/vm/NjsVM.h"
 #include <sstream>
+#include <array>
 
 namespace njs {
+
+Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
+  JSValue exotic_to_prim = get_prop(StringPool::ATOM_toPrimitive, false);
+  if (exotic_to_prim.is_function()) {
+    JSValue hint_arg(new PrimitiveString(u16string(preferred_type)));
+    Completion to_prim_res = vm.call_function(exotic_to_prim.val.as_function, {hint_arg}, this);
+    if (to_prim_res.is_throw()) {
+      return to_prim_res;
+    }
+    else if (to_prim_res.get_value().is_object()) {
+      JSValue err = InternalFunctions::build_error_internal(vm, u"TypeError");
+      return Completion::with_throw(err);
+    }
+    else {
+      return to_prim_res;
+    }
+  }
+  else {
+    return ordinary_to_primitive(vm, preferred_type);
+  }
+
+}
+
+Completion JSObject::ordinary_to_primitive(NjsVM& vm, u16string_view hint) {
+  std::array<int64_t, 2> method_names_atom;
+  if (hint == u"string") {
+    method_names_atom = {StringPool::ATOM_toString, StringPool::ATOM_valueOf};
+  } else if (hint == u"number") {
+    method_names_atom = {StringPool::ATOM_valueOf, StringPool::ATOM_toString};
+  }
+
+  for (int64_t method_atom : method_names_atom) {
+    JSValue method = get_prop(method_atom, false);
+    if (not method.is_function()) continue;
+
+    Completion comp = vm.call_function(method.val.as_function, {}, this);
+    if (comp.is_throw()) return comp;
+
+    if (not comp.get_value().is_object()) {
+      return comp;
+    }
+  }
+
+  JSValue err = InternalFunctions::build_error_internal(vm, u"TypeError");
+  return Completion::with_throw(err);
+}
 
 bool JSObject::add_prop(const JSValue& key, const JSValue& value, PropDesc desc) {
   JSObjectProp *new_prop;

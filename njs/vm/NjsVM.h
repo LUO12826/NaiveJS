@@ -16,6 +16,7 @@
 #include "njs/common/StringPool.h"
 #include "JSRunLoop.h"
 #include "Runtime.h"
+#include "ErrorOr.h"
 
 namespace njs {
 
@@ -71,7 +72,7 @@ friend class InternalFunctions;
   JSFunction* new_function(const JSFunctionMeta& meta);
 
   u32 str_to_atom(u16string_view str_view) {
-    return str_pool.add_string(str_view);
+    return str_pool.atomize(str_view);
   }
 
   u16string& atom_to_str(int64_t atom) {
@@ -81,7 +82,7 @@ friend class InternalFunctions;
  private:
   CallResult execute(bool stop_at_return = false);
   void execute_task(JSTask& task);
-  CallResult call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
+  Completion call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
   void prepare_for_call(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
   // push
   void exec_push(int scope, int index);
@@ -128,7 +129,10 @@ friend class InternalFunctions;
 
   JSFunction *function_env();
   JSValue& get_value(ScopeType scope, int index);
-  bool are_strings_equal(const JSValue& lhs, const JSValue& rhs);
+
+  bool are_strings_equal(JSValue lhs, JSValue rhs);
+  ErrorOr<bool> strict_equals(JSValue lhs, JSValue rhs);
+  ErrorOr<bool> abstract_equals(JSValue lhs, JSValue rhs);
 
   bool key_access_on_primitive(JSValue& obj, int64_t atom);
 

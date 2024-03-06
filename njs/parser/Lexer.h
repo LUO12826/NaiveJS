@@ -678,12 +678,12 @@ error:
     while(cursor != source.size() && ch != quote && !character::is_line_terminator(ch)) {
       if (ch == u'\\') {
         next_char();
-        // TODO(zhuzilin) Find out if "\1" will trigger error.
         switch (ch) {
           case u'0': {
             tmp += u'\0';
             next_char();
             if (character::is_decimal_digit(ch)) {
+              // TODO: this may be valid in some higher versions of JS
               goto error;
             }
             break;
@@ -702,6 +702,7 @@ error:
             break;
           }
           case u'u': {  // UnicodeEscapeSequence
+            // TODO: convert to unicode
             if (!skip_unicode_escape_sequence(tmp)) {
               goto error;
             }

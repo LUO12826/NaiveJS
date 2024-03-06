@@ -49,24 +49,23 @@ class JSArrayPrototype : public JSObject {
     // else, use the compare function
     else if (args.size() >= 1) {
       assert(args[0].is_function());
+      Completion comp;
       try {
-        std::sort(data_array.begin(), data_array.end(), [&vm, &args] (JSValue& a, JSValue& b) {
+        std::sort(data_array.begin(), data_array.end(), [&vm, &args, &comp] (JSValue& a, JSValue& b) {
           if (a.is_undefined()) return false;
           if (b.is_undefined()) return true;
 
-          CallResult res = vm.call_function(args[0].val.as_function, {a, b}, nullptr);
-          if (res != CallResult::DONE_NORMAL) {
+          comp = vm.call_function(args[0].val.as_function, {a, b}, nullptr);
+          if (comp.is_throw()) {
             throw std::runtime_error("");
           }
-          JSValue ret = vm.peek_stack_top();
-          vm.pop_drop();
-          assert(ret.is_float64());
+          assert(comp.get_value().is_float64());
 
-          return ret.val.as_float64 < 0;
+          return comp.get_value().val.as_float64 < 0;
         });
       }
       catch (std::runtime_error& err) {
-        return Completion::with_throw(vm.pop_stack());
+        return Completion::with_throw(comp.get_error());
       }
 
     }

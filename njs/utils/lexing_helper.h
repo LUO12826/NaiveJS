@@ -12,17 +12,18 @@ using std::u16string;
 using std::optional;
 using u32 = uint32_t;
 
+// TODO: check this
 inline char16_t escape_to_real_char(char16_t c) {
   switch (c) {
-    case '\'': return '\'';
-    case '"': return '"';
-    case '\\': return '\\';
-    case 'b': return '\b';
-    case 'f': return '\f';
-    case 'n': return '\n';
-    case 'r': return '\r';
-    case 't': return '\t';
-    case 'v': return '\v';
+    case u'\'': return u'\'';
+    case u'\\': return u'\\';
+    case u'"': return u'"';
+    case u'b': return u'\b';
+    case u'f': return u'\f';
+    case u'n': return u'\n';
+    case u'r': return u'\r';
+    case u't': return u'\t';
+    case u'v': return u'\v';
     default:
       return c;
   }
@@ -244,14 +245,17 @@ inline optional<u16string> scan_json_string_literal(const char16_t *str, u32 str
           break;
         }
         default:
-          // TODO: fix this
           if (character::is_char_escape_sequence(ch)) {
+            tmp += escape_to_real_char(ch);
+            NEXT_CHAR
           } else {
+            assert(false);
           }
       }
     }
     else {
       tmp += ch;
+      NEXT_CHAR
     }
 
   }

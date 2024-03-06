@@ -5,7 +5,7 @@
 #include <iostream>
 
 #include "njs/codegen/SymbolRecord.h"
-#include "njs/common/CommonTypes.h"
+#include "njs/common/common_types.h"
 #include "njs/common/enums.h"
 #include "njs/include/SmallVector.h"
 #include "njs/parser/ast.h"

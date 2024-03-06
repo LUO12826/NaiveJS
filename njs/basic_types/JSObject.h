@@ -13,6 +13,7 @@
 #include "njs/gc/GCObject.h"
 #include "RCObject.h"
 #include "JSFunctionMeta.h"
+#include "njs/vm/Completion.h"
 
 namespace njs {
 
@@ -82,6 +83,10 @@ class JSObject : public GCObject {
   JSValue get_prototype() {
     return _proto_;
   }
+
+  // 7.1.1
+  Completion to_primitive(NjsVM& vm, u16string_view preferred_type = u"default");
+  Completion ordinary_to_primitive(NjsVM& vm, u16string_view hint);
 
   bool add_prop(const JSValue& key, const JSValue& value, PropDesc desc = PropDesc());
   bool add_prop(int64_t key_atom, const JSValue& value, PropDesc desc = PropDesc());

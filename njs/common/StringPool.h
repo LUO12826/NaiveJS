@@ -18,14 +18,17 @@ using std::optional;
 class StringPool {
  public:
   StringPool() {
-    ATOM_length = add_string(u"length");              // 0
-    ATOM_prototype = add_string(u"prototype");        // 1
-    ATOM_charAt = add_string(u"charAt");              // 2
-    ATOM_constructor = add_string(u"constructor");    // 3
-    ATOM___proto__ = add_string(u"__proto__");        // 4
+    ATOM_length = atomize(u"length");              // 0
+    ATOM_prototype = atomize(u"prototype");        // 1
+    ATOM_charAt = atomize(u"charAt");              // 2
+    ATOM_constructor = atomize(u"constructor");    // 3
+    ATOM___proto__ = atomize(u"__proto__");        // 4
+    ATOM_toString = atomize(u"toString");          // 5
+    ATOM_valueOf = atomize(u"valueOf");            // 6
+    ATOM_toPrimitive = atomize(u"toPrimitive");    // 7
   }
 
-  u32 add_string(u16string_view str_view);
+  u32 atomize(u16string_view str_view);
   u16string& get_string(size_t index);
   bool has_string(u16string_view str_view);
   std::vector<u16string>& get_string_list();
@@ -36,6 +39,9 @@ class StringPool {
   inline static int64_t ATOM_charAt;
   inline static int64_t ATOM_constructor;
   inline static int64_t ATOM___proto__;
+  inline static int64_t ATOM_toString;
+  inline static int64_t ATOM_valueOf;
+  inline static int64_t ATOM_toPrimitive;
 
  private:
   u32 next_id {0};
@@ -44,7 +50,7 @@ class StringPool {
   std::vector<u16string> string_list;
 };
 
-inline u32 StringPool::add_string(u16string_view str_view) {
+inline u32 StringPool::atomize(u16string_view str_view) {
   u16string str(str_view);
   if (pool.contains(str)) {
     return pool[str];

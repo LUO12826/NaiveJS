@@ -127,7 +127,14 @@ u16string InternalFunctions::build_trace_str(NjsVM& vm) {
   std::vector<NjsVM::StackTraceItem> trace = vm.capture_stack_trace();
 
   u16string trace_str;
+  // the first item of the stack trace will be the constructor of `Error` object.
+  // So skip the first one.
+  bool first = true;
   for (auto& tr : trace) {
+    if (first) {
+      first = false;
+      continue;
+    }
     trace_str += u"  ";
     trace_str += tr.func_name;
     if (not tr.is_native) {

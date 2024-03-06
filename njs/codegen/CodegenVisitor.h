@@ -985,7 +985,7 @@ class CodegenVisitor {
   void report_error(CodegenError err) { error.push_back(std::move(err)); }
 
   u32 add_const(u16string_view str_view) {
-    auto idx = str_pool.add_string(str_view);
+    auto idx = str_pool.atomize(str_view);
     return idx;
   }
 

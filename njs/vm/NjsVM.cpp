@@ -3,6 +3,7 @@
 #include <iostream>
 #include "njs/basic_types/JSHeapValue.h"
 #include "njs/basic_types/PrimitiveString.h"
+#include "njs/basic_types/convert.h"
 #include "njs/basic_types/JSArray.h"
 #include "njs/codegen/CodegenVisitor.h"
 #include "njs/global_var.h"
@@ -355,13 +356,19 @@ void NjsVM::execute_task(JSTask& task) {
   }
 }
 
-CallResult NjsVM::call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
+Completion NjsVM::call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
   prepare_for_call(func, args, this_obj);
   CallResult res = exec_call((int)args.size(), this_obj != nullptr);
   if (res == CallResult::UNFINISHED) {
     res = execute(true);
   }
-  return res;
+  assert(res != CallResult::UNFINISHED);
+
+  if (res == CallResult::DONE_NORMAL) {
+    return pop_stack();
+  } else {
+    return Completion::with_throw(pop_stack());
+  }
 }
 
 void NjsVM::prepare_for_call(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
@@ -782,7 +789,7 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
     sp += 2;
     Completion comp = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
     // if the native function throws an error, move this error object to the place where the return value should reside.
-    func_val = comp.is_throw() ? comp.get_error() : comp.get_value_or_undefined();
+    func_val = comp.is_throw() ? comp.get_error() : comp.get_value();
 
     // clean the STACK_FRAME_META1 and STACK_FRAME_META2
     sp -= 2;
@@ -1046,7 +1053,7 @@ void NjsVM::exec_index_access(bool get_ref) {
   sp -= 1;
 }
 
-bool NjsVM::are_strings_equal(const JSValue& lhs, const JSValue& rhs) {
+bool NjsVM::are_strings_equal(JSValue lhs, JSValue rhs) {
   if (lhs.tag == rhs.tag && lhs.is(JSValue::JS_ATOM)) return true;
 
   auto get_string_from_value = [this](const JSValue& val) {
@@ -1070,63 +1077,115 @@ bool NjsVM::are_strings_equal(const JSValue& lhs, const JSValue& rhs) {
   return *lhs_str == *rhs_str;
 }
 
-void NjsVM::exec_strict_equality(bool flip) {
-  JSValue& lhs = sp[-2];
-  JSValue& rhs = sp[-1];
+ErrorOr<bool> NjsVM::abstract_equals(JSValue lhs, JSValue rhs) {
+  if (lhs.is_float64() && rhs.is_primitive_string()) {
+    return lhs.val.as_float64 == u16string_to_double(rhs.val.as_primitive_string->str);
+  }
+  else if (lhs.is_primitive_string() && rhs.is_float64()) {
+    return rhs.val.as_float64 == u16string_to_double(lhs.val.as_primitive_string->str);
+  }
+  else if (lhs.is_undefined() && rhs.is_null()) {
+    return true;
+  }
+  else if (lhs.is_null() && rhs.is_undefined()) {
+    return true;
+  }
+  else if (lhs.is_bool()) {
+    double num_val = lhs.val.as_bool ? 1 : 0;
+    return abstract_equals(JSValue(num_val), rhs);
+  }
+  else if (rhs.is_bool()) {
+    double num_val = rhs.val.as_bool ? 1 : 0;
+    return abstract_equals(lhs, JSValue(num_val));
+  } else if ((lhs.is_float64() || lhs.is_primitive_string()) && rhs.is_object()) {
+    Completion to_prim_res = rhs.as_object()->to_primitive(*this);
 
+    if (to_prim_res.is_throw()) {
+      return to_prim_res.get_error();
+    } else {
+      return abstract_equals(lhs, to_prim_res.get_value());
+    }
+  } else if (lhs.is_object() && (rhs.is_float64() || rhs.is_primitive_string())) {
+    Completion to_prim_res = lhs.as_object()->to_primitive(*this);
+    if (to_prim_res.is_throw()) {
+      return to_prim_res.get_error();
+    } else {
+      return abstract_equals(to_prim_res.get_value(), rhs);
+    }
+  }
+
+  return false;
+}
+
+ErrorOr<bool> NjsVM::strict_equals(JSValue lhs, JSValue rhs) {
+  bool res;
   if (lhs.tag == rhs.tag) {
     assert(lhs.tag != JSValue::HEAP_VAL && lhs.tag != JSValue::VALUE_HANDLE);
     assert(lhs.tag != JSValue::JS_ATOM);
 
     switch (lhs.tag) {
       case JSValue::BOOLEAN:
-        lhs.val.as_bool = lhs.val.as_bool == rhs.val.as_bool;
+        res = lhs.val.as_bool == rhs.val.as_bool;
         break;
       case JSValue::NUM_FLOAT:
-        lhs.val.as_bool = lhs.val.as_float64 == rhs.val.as_float64;
+        res = lhs.val.as_float64 == rhs.val.as_float64;
         break;
       case JSValue::NUM_INT:
-        lhs.val.as_bool = lhs.val.as_int64 == rhs.val.as_int64;
+        res = lhs.val.as_int64 == rhs.val.as_int64;
         break;
       case JSValue::UNDEFINED:
       case JSValue::JS_NULL:
-        lhs.val.as_bool = true;
+        res = true;
         break;
       case JSValue::STRING: {
-        bool equal = lhs.val.as_primitive_string->str
-                          == rhs.val.as_primitive_string->str;
-        lhs.set_undefined();
-        lhs.val.as_bool = equal;
+        res = lhs.val.as_primitive_string->str
+              == rhs.val.as_primitive_string->str;
         break;
       }
       default:
         if (lhs.is_object()) {
-          lhs.val.as_bool = lhs.val.as_object == rhs.val.as_object;
+          res = lhs.val.as_object == rhs.val.as_object;
         } else {
           assert(false);
         }
     }
   }
   else {
-    lhs.set_undefined();
-    lhs.val.as_bool = false;
+    res = false;
   }
 
-  lhs.tag = JSValue::BOOLEAN;
-  if (flip) lhs.val.as_bool = !lhs.val.as_bool;
-  rhs.set_undefined();
+  return res;
+}
+
+void NjsVM::exec_strict_equality(bool flip) {
+  ErrorOr<bool> res = strict_equals(sp[-2], sp[-1]);
+  sp[-2].set_undefined();
+  sp[-1].set_undefined();
   sp -= 1;
+
+  if (not res.is_error()) {
+    sp[-1].set_val(bool(flip ^ res.get_value()));
+  } else {
+    sp[-1] = res.get_error();
+    error_handle();
+  }
 }
 
 void NjsVM::exec_abstract_equality(bool flip) {
   JSValue& lhs = sp[-2];
   JSValue& rhs = sp[-1];
 
-  if (lhs.tag == rhs.tag) {
-    exec_strict_equality(flip);
-  }
-  else {
-    // TODO: do real abstract equality
+  ErrorOr<bool> res = lhs.tag == rhs.tag ? strict_equals(lhs, rhs)
+                                         : abstract_equals(lhs, rhs);
+  lhs.set_undefined();
+  rhs.set_undefined();
+  sp -= 1;
+
+  if (not res.is_error()) {
+    sp[-1].set_val(bool(flip ^ res.get_value()));
+  } else {
+    sp[-1] = res.get_error();
+    error_handle();
   }
 }
 
