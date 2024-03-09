@@ -116,6 +116,7 @@ friend class InternalFunctions;
   void exec_add();
   void exec_binary(InstType op_type);
   void exec_logi(InstType op_type);
+  void exec_bits(InstType op_type);
   void exec_strict_equality(bool flip);
   void exec_abstract_equality(bool flip);
 
@@ -129,10 +130,6 @@ friend class InternalFunctions;
 
   JSFunction *function_env();
   JSValue& get_value(ScopeType scope, int index);
-
-  bool are_strings_equal(JSValue lhs, JSValue rhs);
-  ErrorOr<bool> strict_equals(JSValue lhs, JSValue rhs);
-  ErrorOr<bool> abstract_equals(JSValue lhs, JSValue rhs);
 
   bool key_access_on_primitive(JSValue& obj, int64_t atom);
 

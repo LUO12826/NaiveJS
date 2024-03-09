@@ -29,6 +29,11 @@ enum class InstType {
   logi_or,
   logi_not,
 
+  bits_and,
+  bits_or,
+  bits_xor,
+  bits_not,
+
   push,
   pushi,
   push_str,
@@ -65,11 +70,6 @@ enum class InstType {
   eq,
   eq3,
 
-  call,
-  js_new,
-  ret,
-  ret_err,
-
   fast_add,
   fast_bin,
   fast_assign,
@@ -82,6 +82,13 @@ enum class InstType {
   add_elements,
   key_access,
   index_access,
+
+  dyn_get_var,
+
+  call,
+  js_new,
+  ret,
+  ret_err,
 
   halt,
   halt_err,

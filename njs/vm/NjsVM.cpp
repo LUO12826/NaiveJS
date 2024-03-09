@@ -3,7 +3,8 @@
 #include <iostream>
 #include "njs/basic_types/JSHeapValue.h"
 #include "njs/basic_types/PrimitiveString.h"
-#include "njs/basic_types/convert.h"
+#include "njs/basic_types/conversion.h"
+#include "njs/basic_types/testing_and_comparison.h"
 #include "njs/basic_types/JSArray.h"
 #include "njs/codegen/CodegenVisitor.h"
 #include "njs/global_var.h"
@@ -161,6 +162,23 @@ CallResult NjsVM::execute(bool stop_at_return) {
         sp[-1].set_val(!bool_val);
         break;
       }
+      case InstType::bits_and:
+      case InstType::bits_or:
+      case InstType::bits_xor:
+        exec_bits(inst.op_type);
+        break;
+      case InstType::bits_not: {
+        auto res = to_int32(*this, sp[-1]);
+        sp[-1].set_undefined();
+        if (res.is_value()) {
+          int v = ~res.get_value();
+          sp[-1].set_val(double(v));
+        } else {
+          sp[-1] = res.get_error();
+          error_handle();
+        }
+        break;
+      }
       case InstType::push:
         exec_push(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
@@ -272,16 +290,6 @@ CallResult NjsVM::execute(bool stop_at_return) {
       case InstType::js_new:
         exec_js_new(inst.operand.two.opr1);
         break;
-      case InstType::ret:
-        exec_return();
-        if (stop_at_return && bp < saved_bp) return CallResult::DONE_NORMAL;
-        break;
-      case InstType::ret_err: {
-        exec_return_error();
-        if (stop_at_return && bp < saved_bp) return CallResult::DONE_ERROR;
-        error_handle();
-        break;
-      }
       case InstType::fast_add:
         exec_fast_add(inst);
         break;
@@ -308,6 +316,16 @@ CallResult NjsVM::execute(bool stop_at_return) {
       case InstType::add_elements:
         exec_add_elements(inst.operand.two.opr1);
         break;
+      case InstType::ret:
+        exec_return();
+        if (stop_at_return && bp < saved_bp) return CallResult::DONE_NORMAL;
+        break;
+      case InstType::ret_err: {
+        exec_return_error();
+        if (stop_at_return && bp < saved_bp) return CallResult::DONE_ERROR;
+        error_handle();
+        break;
+      }
       case InstType::halt:
         if (!global_end) {
           global_end = true;
@@ -550,6 +568,42 @@ void NjsVM::exec_logi(InstType op_type) {
       break;
   }
   sp -= 1;
+}
+
+void NjsVM::exec_bits(njs::InstType op_type) {
+
+  ErrorOr<uint32_t> lhs, rhs;
+
+  lhs = to_uint32(*this, sp[-2]);
+  if (lhs.is_error()) goto error;
+
+  rhs = to_uint32(*this, sp[-1]);
+  if (rhs.is_error()) goto error;
+
+  sp[-2].set_undefined();
+  sp[-1].set_undefined();
+
+  switch (op_type) {
+    case InstType::bits_and:
+      sp[-2].set_val(double(lhs.get_value() & rhs.get_value()));
+      break;
+    case InstType::bits_or:
+      sp[-2].set_val(double(lhs.get_value() | rhs.get_value()));
+      break;
+    case InstType::bits_xor:
+      sp[-2].set_val(double(lhs.get_value() ^ rhs.get_value()));
+      break;
+  }
+  sp -= 1;
+  return;
+
+  error:
+  sp[-2].set_undefined();
+  sp[-1].set_undefined();
+  if (lhs.is_error()) sp[-2] = lhs.get_error();
+  else sp[-2] = rhs.get_error();
+  sp -= 1;
+  error_handle();
 }
 
 void NjsVM::exec_fast_add(Instruction& inst) {
@@ -1053,117 +1107,14 @@ void NjsVM::exec_index_access(bool get_ref) {
   sp -= 1;
 }
 
-bool NjsVM::are_strings_equal(JSValue lhs, JSValue rhs) {
-  if (lhs.tag == rhs.tag && lhs.is(JSValue::JS_ATOM)) return true;
-
-  auto get_string_from_value = [this](const JSValue& val) {
-    u16string *str_data = nullptr;
-
-    if (val.is(JSValue::JS_ATOM)) {
-      str_data = &atom_to_str(val.val.as_int64);
-    }
-    else if (val.is(JSValue::STRING)) {
-      str_data = &(val.val.as_primitive_string->str);
-    }
-    else if (val.is(JSValue::STRING_OBJ)) {
-      assert(false);
-    }
-    return str_data;
-  };
-
-  u16string *lhs_str = get_string_from_value(lhs);
-  u16string *rhs_str = get_string_from_value(rhs);
-
-  return *lhs_str == *rhs_str;
-}
-
-ErrorOr<bool> NjsVM::abstract_equals(JSValue lhs, JSValue rhs) {
-  if (lhs.is_float64() && rhs.is_primitive_string()) {
-    return lhs.val.as_float64 == u16string_to_double(rhs.val.as_primitive_string->str);
-  }
-  else if (lhs.is_primitive_string() && rhs.is_float64()) {
-    return rhs.val.as_float64 == u16string_to_double(lhs.val.as_primitive_string->str);
-  }
-  else if (lhs.is_undefined() && rhs.is_null()) {
-    return true;
-  }
-  else if (lhs.is_null() && rhs.is_undefined()) {
-    return true;
-  }
-  else if (lhs.is_bool()) {
-    double num_val = lhs.val.as_bool ? 1 : 0;
-    return abstract_equals(JSValue(num_val), rhs);
-  }
-  else if (rhs.is_bool()) {
-    double num_val = rhs.val.as_bool ? 1 : 0;
-    return abstract_equals(lhs, JSValue(num_val));
-  } else if ((lhs.is_float64() || lhs.is_primitive_string()) && rhs.is_object()) {
-    Completion to_prim_res = rhs.as_object()->to_primitive(*this);
-
-    if (to_prim_res.is_throw()) {
-      return to_prim_res.get_error();
-    } else {
-      return abstract_equals(lhs, to_prim_res.get_value());
-    }
-  } else if (lhs.is_object() && (rhs.is_float64() || rhs.is_primitive_string())) {
-    Completion to_prim_res = lhs.as_object()->to_primitive(*this);
-    if (to_prim_res.is_throw()) {
-      return to_prim_res.get_error();
-    } else {
-      return abstract_equals(to_prim_res.get_value(), rhs);
-    }
-  }
-
-  return false;
-}
-
-ErrorOr<bool> NjsVM::strict_equals(JSValue lhs, JSValue rhs) {
-  bool res;
-  if (lhs.tag == rhs.tag) {
-    assert(lhs.tag != JSValue::HEAP_VAL && lhs.tag != JSValue::VALUE_HANDLE);
-    assert(lhs.tag != JSValue::JS_ATOM);
-
-    switch (lhs.tag) {
-      case JSValue::BOOLEAN:
-        res = lhs.val.as_bool == rhs.val.as_bool;
-        break;
-      case JSValue::NUM_FLOAT:
-        res = lhs.val.as_float64 == rhs.val.as_float64;
-        break;
-      case JSValue::NUM_INT:
-        res = lhs.val.as_int64 == rhs.val.as_int64;
-        break;
-      case JSValue::UNDEFINED:
-      case JSValue::JS_NULL:
-        res = true;
-        break;
-      case JSValue::STRING: {
-        res = lhs.val.as_primitive_string->str
-              == rhs.val.as_primitive_string->str;
-        break;
-      }
-      default:
-        if (lhs.is_object()) {
-          res = lhs.val.as_object == rhs.val.as_object;
-        } else {
-          assert(false);
-        }
-    }
-  }
-  else {
-    res = false;
-  }
-
-  return res;
-}
 
 void NjsVM::exec_strict_equality(bool flip) {
-  ErrorOr<bool> res = strict_equals(sp[-2], sp[-1]);
+  ErrorOr<bool> res = strict_equals(*this, sp[-2], sp[-1]);
   sp[-2].set_undefined();
   sp[-1].set_undefined();
   sp -= 1;
 
-  if (not res.is_error()) {
+  if (res.is_value()) {
     sp[-1].set_val(bool(flip ^ res.get_value()));
   } else {
     sp[-1] = res.get_error();
@@ -1175,13 +1126,13 @@ void NjsVM::exec_abstract_equality(bool flip) {
   JSValue& lhs = sp[-2];
   JSValue& rhs = sp[-1];
 
-  ErrorOr<bool> res = lhs.tag == rhs.tag ? strict_equals(lhs, rhs)
-                                         : abstract_equals(lhs, rhs);
+  ErrorOr<bool> res = lhs.tag == rhs.tag ? strict_equals(*this, lhs, rhs)
+                                         : abstract_equals(*this, lhs, rhs);
   lhs.set_undefined();
   rhs.set_undefined();
   sp -= 1;
 
-  if (not res.is_error()) {
+  if (res.is_value()) {
     sp[-1].set_val(bool(flip ^ res.get_value()));
   } else {
     sp[-1] = res.get_error();

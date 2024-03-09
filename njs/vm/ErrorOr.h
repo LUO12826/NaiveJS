@@ -12,30 +12,32 @@ template<typename T>
 class ErrorOr {
 
  public:
-  ErrorOr(const T& value) : valueOrError(value) {}
+  ErrorOr() : value_or_err(T{}) {}
 
-  ErrorOr(const JSValue& error) : valueOrError(error) {}
+  ErrorOr(const T& value) : value_or_err(value) {}
+
+  ErrorOr(const JSValue& error) : value_or_err(error) {}
 
   bool is_error() const {
-    return std::holds_alternative<JSValue>(valueOrError);
+    return std::holds_alternative<JSValue>(value_or_err);
   }
 
   bool is_value() const {
-    return std::holds_alternative<T>(valueOrError);
+    return std::holds_alternative<T>(value_or_err);
   }
 
   T get_value() const {
     assert(not is_error());
-    return std::get<T>(valueOrError);
+    return std::get<T>(value_or_err);
   }
 
   JSValue get_error() const {
     assert(is_error());
-    return std::get<JSValue>(valueOrError);
+    return std::get<JSValue>(value_or_err);
   }
 
  private:
-  std::variant<T, JSValue> valueOrError;
+  std::variant<T, JSValue> value_or_err;
 };
 
 }

@@ -83,6 +83,11 @@ std::string Instruction::description() const {
     case InstType::logi_or: sprintf(buffer, "logi_or"); break;
     case InstType::logi_not: sprintf(buffer, "logi_not"); break;
 
+    case InstType::bits_and: sprintf(buffer, "bits_and"); break;
+    case InstType::bits_or: sprintf(buffer, "bits_or"); break;
+    case InstType::bits_xor: sprintf(buffer, "bits_xor"); break;
+    case InstType::bits_not: sprintf(buffer, "bits_not"); break;
+
     case InstType::fast_add:
       sprintf(buffer, "fast_add  %s %hu %s %hu",
                       scope_type_names[operand.four.opr1], operand.four.opr2,
@@ -191,6 +196,9 @@ std::string Instruction::description() const {
       break;
     case InstType::index_access:
       sprintf(buffer, "index_access  %s", operand.two.opr1 ? "REF" : "");
+      break;
+    case InstType::dyn_get_var:
+      sprintf(buffer, "dyn_get_var  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
     case InstType::call:
       sprintf(buffer, "call  %d %d", operand.two.opr1, operand.two.opr2);

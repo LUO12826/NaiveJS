@@ -381,7 +381,7 @@ class CodegenVisitor {
       case Token::LOGICAL_NOT:
         if (expr.is_prefix_op) {
           if (expr.operand->is(ASTNode::AST_EXPR_BOOL)) {
-            emit(InstType::push_bool, u32(not (expr.get_source() == u"true")));
+            emit(InstType::push_bool, u32(not (expr.operand->get_source() == u"true")));
           } else {
             visit(expr.operand);
             emit(InstType::logi_not);
@@ -391,10 +391,19 @@ class CodegenVisitor {
           assert(false);
         }
         break;
+      case Token::BIT_NOT:
+        if (expr.is_prefix_op) {
+          visit(expr.operand);
+          emit(InstType::bits_not);
+        }
+        else {
+          assert(false);
+        }
+        break;
       case Token::SUB:
         if (expr.is_prefix_op) {
           if (expr.operand->is(ASTNode::AST_EXPR_NUMBER)) {
-            emit(Instruction::num_imm(-expr.as_number_literal()->num_val));
+            emit(Instruction::num_imm(-expr.operand->as_number_literal()->num_val));
           } else {
             visit(expr.operand);
             emit(InstType::neg);
@@ -441,10 +450,16 @@ class CodegenVisitor {
         case Token::SUB: emit(InstType::sub); break;
         case Token::MUL: emit(InstType::mul); break;
         case Token::DIV: emit(InstType::div); break;
+
+        case Token::BIT_AND: emit(InstType::bits_and); break;
+        case Token::BIT_OR: emit(InstType::bits_or); break;
+        case Token::BIT_XOR: emit(InstType::bits_xor); break;
+
         case Token::NE: emit(InstType::ne); break;
         case Token::EQ: emit(InstType::eq); break;
         case Token::EQ3: emit(InstType::eq3); break;
         case Token::NE3: emit(InstType::ne3); break;
+
         case Token::LE: emit(InstType::le); break;
         case Token::LT: emit(InstType::lt); break;
         case Token::GT: emit(InstType::gt); break;
@@ -649,8 +664,12 @@ class CodegenVisitor {
 
   void visit_identifier(ASTNode& id) {
     auto symbol = scope().resolve_symbol(id.get_source());
-    assert(!symbol.not_found());
-    emit(InstType::push, scope_type_int(symbol.storage_scope), symbol.get_index());
+    if (not symbol.not_found()) {
+      emit(InstType::push, scope_type_int(symbol.storage_scope), symbol.get_index());
+    } else {
+      u32 atom = str_pool.atomize(id.get_source());
+      emit(InstType::dyn_get_var, scope_type_int(ScopeType::GLOBAL), atom);
+    }
   }
 
   void visit_func_arguments(Arguments& args) {
