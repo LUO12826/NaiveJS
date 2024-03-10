@@ -69,7 +69,7 @@ class ASTNode {
     AST_EXPR_LHS,
     AST_EXPR_NEW,
 
-    AST_EXPR,
+    AST_EXPR_COMMA, // expr, expr, expr
 
     END_EXPR,
 
@@ -128,7 +128,7 @@ class ASTNode {
   NumberLiteral *as_number_literal();
   Block *as_block();
 
-  bool is(Type t) { return this->type == t; }
+  bool is(Type t) const { return this->type == t; }
   bool is_illegal();
   bool is_expression();
   bool is_binary_expr();
@@ -284,7 +284,7 @@ class TernaryExpr : public ASTNode {
 
 class Expression : public ASTNode {
  public:
-  Expression() : ASTNode(AST_EXPR) {}
+  Expression() : ASTNode(AST_EXPR_COMMA) {}
   ~Expression() override {
     for (auto element : elements) { delete element; }
   }

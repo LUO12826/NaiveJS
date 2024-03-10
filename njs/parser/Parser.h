@@ -348,7 +348,7 @@ error:
         params.push_back(lhs->get_source());
       }
       // a list of parameters. Parentheses have been removed before.
-      else if (lhs->type == ASTNode::AST_EXPR) {
+      else if (lhs->type == ASTNode::AST_EXPR_COMMA) {
         auto& expr_list = static_cast<Expression *>(lhs)->elements;
         for (auto expr : expr_list) {
           assert(expr->is_identifier());
@@ -392,7 +392,7 @@ error:
 
   bool check_expr_is_formal_parameter(ASTNode* param) {
 
-    if (param->type == ASTNode::AST_EXPR) {
+    if (param->type == ASTNode::AST_EXPR_COMMA) {
       auto& expr_list = static_cast<Expression *>(param)->elements;
 
       for (auto expr : expr_list) {

@@ -88,6 +88,13 @@ std::string Instruction::description() const {
     case InstType::bits_xor: sprintf(buffer, "bits_xor"); break;
     case InstType::bits_not: sprintf(buffer, "bits_not"); break;
 
+    case InstType::lsh: sprintf(buffer, "lsh"); break;
+    case InstType::lshi: sprintf(buffer, "lshi %u", (u32)operand.two.opr1); break;
+    case InstType::rsh: sprintf(buffer, "rsh"); break;
+    case InstType::rshi: sprintf(buffer, "rshi %u", (u32)operand.two.opr1); break;
+    case InstType::ursh: sprintf(buffer, "ursh"); break;
+    case InstType::urshi: sprintf(buffer, "urshi %u", (u32)operand.two.opr1); break;
+
     case InstType::fast_add:
       sprintf(buffer, "fast_add  %s %hu %s %hu",
                       scope_type_names[operand.four.opr1], operand.four.opr2,

@@ -32,7 +32,7 @@ inline const char *ast_type_names[44] = {
     "AST_EXPR_LHS",
     "AST_EXPR_NEW",
 
-    "AST_EXPR",
+    "AST_EXPR_COMMA",
 
     "END_EXPR",
 

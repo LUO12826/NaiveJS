@@ -213,7 +213,6 @@ class CodegenVisitor {
         break;
       case ASTNode::AST_STMT_VAR_DECL:
         assert(false);
-        break;
       case ASTNode::AST_STMT_RETURN:
         visit_return_statement(*static_cast<ReturnStatement *>(node));
         break;
@@ -239,8 +238,26 @@ class CodegenVisitor {
       case ASTNode::AST_EXPR_NEW:
         visit_new_expr(*static_cast<NewExpr *>(node));
         break;
+//      case ASTNode::AST_STMT_FOR:
+//        break;
+//      case ASTNode::AST_STMT_FOR_IN:
+//        break;
+//      case ASTNode::AST_STMT_SWITCH:
+//        break;
+//      case ASTNode::AST_EXPR_TRIPLE:
+//        break;
+//      case ASTNode::AST_EXPR_REGEXP:
+//        break;
+//      case ASTNode::AST_EXPR_COMMA:
+//        break;
+//      case ASTNode::AST_STMT_DO_WHILE:
+//        break;
+//      case ASTNode::AST_STMT_LABEL:
+//        break;
+//      case ASTNode::AST_STMT_EMPTY:
+//        break;
       default:
-        std::cout << node->description() << " not supported yet" << std::endl;
+        std::cout << node->description() << " not supported yet" << '\n';
         assert(false);
     }
   }
@@ -455,6 +472,10 @@ class CodegenVisitor {
         case Token::BIT_OR: emit(InstType::bits_or); break;
         case Token::BIT_XOR: emit(InstType::bits_xor); break;
 
+        case Token::LSH: emit(InstType::lsh); break;
+        case Token::RSH: emit(InstType::rsh); break;
+        case Token::UNSIGNED_RSH: emit(InstType::ursh); break;
+
         case Token::NE: emit(InstType::ne); break;
         case Token::EQ: emit(InstType::eq); break;
         case Token::EQ3: emit(InstType::eq3); break;
@@ -577,6 +598,8 @@ class CodegenVisitor {
           case TokenType::DIV_ASSIGN:
             emit(InstType::div_assign, lhs_scope, lhs_sym_index);
             break;
+          default:
+            assert(false);
         }
       }
     }

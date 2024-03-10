@@ -34,6 +34,13 @@ enum class InstType {
   bits_xor,
   bits_not,
 
+  lsh,
+  lshi,
+  rsh,
+  rshi,
+  ursh,
+  urshi,
+
   push,
   pushi,
   push_str,

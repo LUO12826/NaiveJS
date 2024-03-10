@@ -117,6 +117,7 @@ friend class InternalFunctions;
   void exec_binary(InstType op_type);
   void exec_logi(InstType op_type);
   void exec_bits(InstType op_type);
+  void exec_shift(InstType op_type);
   void exec_strict_equality(bool flip);
   void exec_abstract_equality(bool flip);
 

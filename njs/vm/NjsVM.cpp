@@ -179,6 +179,11 @@ CallResult NjsVM::execute(bool stop_at_return) {
         }
         break;
       }
+      case InstType::lsh:
+      case InstType::rsh:
+      case InstType::ursh:
+        exec_shift(inst.op_type);
+        break;
       case InstType::push:
         exec_push(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
@@ -519,6 +524,7 @@ void NjsVM::exec_compound_assign(InstType type, int scope, int index) {
       case InstType::sub_assign: value.val.as_f64 -= sp[0].val.as_f64; break;
       case InstType::mul_assign: value.val.as_f64 *= sp[0].val.as_f64; break;
       case InstType::div_assign: value.val.as_f64 /= sp[0].val.as_f64; break;
+      default: assert(false);
     }
     sp[0].set_undefined();
     return;
@@ -547,6 +553,8 @@ void NjsVM::exec_binary(InstType op_type) {
     case InstType::div:
       sp[-2].val.as_f64 /= sp[-1].val.as_f64;
       break;
+    default:
+      assert(false);
   }
   sp -= 1;
   sp[0].set_undefined();
@@ -566,6 +574,8 @@ void NjsVM::exec_logi(InstType op_type) {
         sp[-2] = std::move(sp[-1]);
       }
       break;
+    default:
+      assert(false);
   }
   sp -= 1;
 }
@@ -593,6 +603,49 @@ void NjsVM::exec_bits(njs::InstType op_type) {
     case InstType::bits_xor:
       sp[-2].set_val(double(lhs.get_value() ^ rhs.get_value()));
       break;
+    default:
+      assert(false);
+  }
+  sp -= 1;
+  return;
+
+  error:
+  sp[-2].set_undefined();
+  sp[-1].set_undefined();
+  if (lhs.is_error()) sp[-2] = lhs.get_error();
+  else sp[-2] = rhs.get_error();
+  sp -= 1;
+  error_handle();
+}
+
+void NjsVM::exec_shift(InstType op_type) {
+  ErrorOr<int32_t> lhs;
+  ErrorOr<uint32_t> rhs;
+  uint32_t shift_len;
+
+  lhs = to_int32(*this, sp[-2]);
+  if (lhs.is_error()) goto error;
+
+  rhs = to_uint32(*this, sp[-1]);
+  if (rhs.is_error()) goto error;
+
+  sp[-2].set_undefined();
+  sp[-1].set_undefined();
+
+  shift_len = rhs.get_value() & 0x1f;
+
+  switch (op_type) {
+    case InstType::lsh:
+      sp[-2].set_val(double(lhs.get_value() << shift_len));
+      break;
+    case InstType::rsh:
+      sp[-2].set_val(double(lhs.get_value() >> shift_len));
+      break;
+    case InstType::ursh:
+      sp[-2].set_val(double(u32(lhs.get_value()) >> shift_len));
+      break;
+    default:
+      assert(false);
   }
   sp -= 1;
   return;
@@ -1152,6 +1205,7 @@ void NjsVM::exec_comparison(InstType type) {
       case InstType::gt: res = lhs.val.as_f64 > rhs.val.as_f64; break;
       case InstType::le: res = lhs.val.as_f64 <= rhs.val.as_f64; break;
       case InstType::ge: res = lhs.val.as_f64 >= rhs.val.as_f64; break;
+      default: assert(false);
     }
   }
   else if (lhs.is(JSValue::STRING) && rhs.is(JSValue::STRING)) {
@@ -1160,6 +1214,7 @@ void NjsVM::exec_comparison(InstType type) {
       case InstType::gt: res = *lhs.val.as_primitive_string > *rhs.val.as_primitive_string; break;
       case InstType::le: res = *lhs.val.as_primitive_string <= *rhs.val.as_primitive_string; break;
       case InstType::ge: res = *lhs.val.as_primitive_string >= *rhs.val.as_primitive_string; break;
+      default: assert(false);
     }
     lhs.set_undefined();
   }
