@@ -165,7 +165,10 @@ inline const char *js_value_tag_names[25] = {
 
     "JS_ATOM",
     "BOOLEAN",
-    "NUM_INT",
+
+    "NUM_UINT32",
+    "NUM_INT32",
+    "NUM_INT64",
     "NUM_FLOAT",
 
     "VALUE_HANDLE",

@@ -45,7 +45,10 @@ struct JSValue {
 
     JS_ATOM,
     BOOLEAN,
-    NUM_INT,
+
+    NUM_UINT32,
+    NUM_INT32,
+    NUM_INT64,
     NUM_FLOAT,
 
     // A reference to another JSValue, no lifecycle considerations
@@ -89,7 +92,7 @@ struct JSValue {
 
   static JSValue Atom(int64_t val) {
     JSValue atom(JS_ATOM);
-    atom.val.as_int64 = val;
+    atom.val.as_i64 = val;
     return atom;
   }
 
@@ -120,11 +123,11 @@ struct JSValue {
   }
 
   explicit JSValue(double number): tag(NUM_FLOAT) {
-    val.as_float64 = number;
+    val.as_f64 = number;
   }
 
-  explicit JSValue(int64_t number): tag(NUM_INT) {
-    val.as_int64 = number;
+  explicit JSValue(int64_t number): tag(NUM_INT64) {
+    val.as_i64 = number;
   }
 
   explicit JSValue(bool boolean): tag(BOOLEAN) {
@@ -153,12 +156,12 @@ struct JSValue {
 
   void set_val(double number) {
     tag = NUM_FLOAT;
-    val.as_float64 = number;
+    val.as_f64 = number;
   }
 
   void set_val(int64_t number) {
-    tag = NUM_INT;
-    val.as_int64 = number;
+    tag = NUM_INT64;
+    val.as_i64 = number;
   }
 
   void set_val(bool boolean) {
@@ -214,7 +217,7 @@ struct JSValue {
 
   bool is_undefined() const { return tag == UNDEFINED; };
   bool is_null() const { return tag == JS_NULL; };
-  bool is_int64() const { return tag == NUM_INT; }
+  bool is_int64() const { return tag == NUM_INT64; }
   bool is_float64() const { return tag == NUM_FLOAT; }
   bool is_bool() const { return tag == BOOLEAN; }
   bool is_primitive_string() const { return tag == STRING; }
@@ -222,16 +225,20 @@ struct JSValue {
 
   /// @brief NOTE: this method does not check the tag.
   bool is_integer() const {
-    return double(int64_t(val.as_float64)) == val.as_float64;
+    return double(int64_t(val.as_f64)) == val.as_f64;
   }
 
   /// @brief NOTE: this method does not check the tag.
   bool is_non_negative() const {
-    return val.as_float64 >= 0;
+    return val.as_f64 >= 0;
   }
 
   bool is_string_type() const {
     return tag == JS_ATOM || tag == STRING || tag == STRING_OBJ;
+  }
+
+  bool is_number_type() const {
+    return tag >= NUM_UINT32 && tag <= NUM_FLOAT;
   }
 
   bool is_object() const {
@@ -255,10 +262,25 @@ struct JSValue {
     return val.as_object;
   }
 
+  double as_f64() const {
+    switch (tag) {
+      case NUM_FLOAT:
+        return val.as_f64;
+      case NUM_INT64:
+        return double(val.as_i64);
+      case NUM_INT32:
+        return double(val.as_i32);
+      case NUM_UINT32:
+        return double(val.as_u32);
+      default:
+        assert(false);
+    }
+  }
+
   bool is_falsy() const {
     if (tag == BOOLEAN) return !val.as_bool;
     if (tag == JS_NULL || tag == UNDEFINED) return true;
-    if (tag == NUM_FLOAT) return val.as_float64 == 0 || std::isnan(val.as_float64);
+    if (tag == NUM_FLOAT) return val.as_f64 == 0 || std::isnan(val.as_f64);
     if (tag == STRING) return val.as_primitive_string->str.empty();
     return false;
   }
@@ -275,7 +297,7 @@ struct JSValue {
     assert(tag != STACK_FRAME_META1 && tag != STACK_FRAME_META2);
     assert(rhs.tag != STACK_FRAME_META1 && rhs.tag != STACK_FRAME_META2);
 
-    if (rhs.tag == tag && rhs.flag_bits == flag_bits && rhs.val.as_int64 == val.as_int64) return;
+    if (rhs.tag == tag && rhs.flag_bits == flag_bits && rhs.val.as_i64 == val.as_i64) return;
 
     // if rhs is an RC object, we are going to retain the new object
     if (rhs.is_RCObject()) {
@@ -287,7 +309,7 @@ struct JSValue {
       val.as_RCObject->release();
     }
     // copy
-    val.as_int64 = rhs.val.as_int64;
+    val.as_i64 = rhs.val.as_i64;
     flag_bits = rhs.flag_bits;
     tag = rhs.tag;
   }
@@ -300,8 +322,10 @@ struct JSValue {
   void to_json(u16string& output, NjsVM& vm) const;
 
   union {
-    double as_float64;
-    int64_t as_int64;
+    double as_f64;
+    int64_t as_i64;
+    uint32_t as_u32;
+    int32_t as_i32;
     bool as_bool;
 
     JSValue *as_JSValue;

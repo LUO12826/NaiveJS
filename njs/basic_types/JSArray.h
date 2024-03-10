@@ -34,11 +34,11 @@ class JSArray: public JSObject {
   inline JSValue access_element(u32 index, bool create_ref);
 
   u32 get_length() {
-    return (u32)get_prop(StringPool::ATOM_length, false).val.as_float64;
+    return (u32)get_prop(StringPool::ATOM_length, false).val.as_f64;
   }
 
   void set_length(u32 length) {
-    get_prop(StringPool::ATOM_length, true).deref().val.as_float64 = double(length);
+    get_prop(StringPool::ATOM_length, true).deref().val.as_f64 = double(length);
   }
 
   std::vector<JSValue> dense_array;

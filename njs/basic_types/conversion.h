@@ -60,10 +60,10 @@ inline ErrorOr<double> to_number(NjsVM &vm, JSValue val) {
       return 0.0;
     case JSValue::BOOLEAN:
       return val.val.as_bool ? 1.0 : 0.0;
-    case JSValue::NUM_INT:
-      return double(val.val.as_int64);
+    case JSValue::NUM_INT64:
+      return double(val.val.as_i64);
     case JSValue::NUM_FLOAT:
-      return val.val.as_float64;
+      return val.val.as_f64;
     case JSValue::SYMBOL:
       return InternalFunctions::build_error_internal(vm, u"TypeError");
     case JSValue::STRING:

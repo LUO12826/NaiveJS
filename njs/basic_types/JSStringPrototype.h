@@ -28,7 +28,7 @@ class JSStringPrototype : public JSObject {
     u16string& str = func.This.is(JSValue::STRING) ? func.This.val.as_primitive_string->str
                                                    : func.This.val.as_string->value.str;
 
-    double index = args[0].val.as_float64;
+    double index = args[0].val.as_f64;
     if (index < 0 || index > str.size()) return JSValue(new PrimitiveString(u""));
     return JSValue(new PrimitiveString(u16string{str[(size_t)index]}));
   }

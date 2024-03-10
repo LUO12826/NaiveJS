@@ -29,7 +29,7 @@ class JSArrayPrototype : public JSObject {
     assert(func.This.is(JSValue::ARRAY));
 
     JSArray *array = func.This.val.as_array;
-    double index = args[0].val.as_float64;
+    double index = args[0].val.as_f64;
     if (index < 0 || index > array->get_length()) return JSValue::undefined;
     return array->access_element((u32)index, false);
   }
@@ -61,7 +61,7 @@ class JSArrayPrototype : public JSObject {
           }
           assert(comp.get_value().is_float64());
 
-          return comp.get_value().val.as_float64 < 0;
+          return comp.get_value().val.as_f64 < 0;
         });
       }
       catch (std::runtime_error& err) {

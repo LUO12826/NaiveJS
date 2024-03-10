@@ -18,7 +18,7 @@ class JSNumberPrototype : public JSObject {
   }
 
   static Completion valueOf(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-    if (func.This.is(JSValue::NUM_FLOAT) || func.This.is(JSValue::NUM_INT)) {
+    if (func.This.is(JSValue::NUM_FLOAT) || func.This.is(JSValue::NUM_INT64)) {
       return func.This;
     }
     else if (func.This.is_object() && func.This.as_object()->obj_class == ObjectClass::CLS_NUMBER) {

@@ -20,11 +20,11 @@ Completion InternalFunctions::Object_ctor(NjsVM& vm, JSFunction& func, ArrayRef<
     case JSValue::BOOLEAN:
       obj = vm.heap.new_object<JSBoolean>(vm, arg.val.as_bool);
       break;
-    case JSValue::NUM_INT:
-      obj = vm.heap.new_object<JSNumber>(vm, arg.val.as_int64);
+    case JSValue::NUM_INT64:
+      obj = vm.heap.new_object<JSNumber>(vm, arg.val.as_i64);
       break;
     case JSValue::NUM_FLOAT:
-      obj = vm.heap.new_object<JSNumber>(vm, arg.val.as_float64);
+      obj = vm.heap.new_object<JSNumber>(vm, arg.val.as_f64);
       break;
     case JSValue::STRING:
       obj = vm.heap.new_object<JSString>(vm, *arg.val.as_primitive_string);

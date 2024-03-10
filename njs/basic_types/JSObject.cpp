@@ -57,7 +57,7 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, u16string_view hint) {
 bool JSObject::add_prop(const JSValue& key, const JSValue& value, PropDesc desc) {
   JSObjectProp *new_prop;
   if (key.tag == JSValue::JS_ATOM) {
-    new_prop = &storage[JSObjectKey(key.val.as_int64)];
+    new_prop = &storage[JSObjectKey(key.val.as_i64)];
   }
   else if (key.tag == JSValue::STRING) {
     new_prop = &storage[JSObjectKey(key.val.as_primitive_string)];
@@ -66,7 +66,7 @@ bool JSObject::add_prop(const JSValue& key, const JSValue& value, PropDesc desc)
     new_prop = &storage[JSObjectKey(key.val.as_symbol)];
   }
   else if (key.tag == JSValue::NUM_FLOAT) {
-    new_prop = &storage[JSObjectKey(key.val.as_float64)];
+    new_prop = &storage[JSObjectKey(key.val.as_f64)];
   }
   else {
     return false;

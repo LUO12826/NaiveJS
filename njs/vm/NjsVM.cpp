@@ -136,7 +136,7 @@ CallResult NjsVM::execute(bool stop_at_return) {
         break;
       case InstType::neg:
         assert(sp[-1].is_float64());
-        sp[-1].val.as_float64 = -sp[-1].val.as_float64;
+        sp[-1].val.as_f64 = -sp[-1].val.as_f64;
         break;
       case InstType::add_assign:
         exec_add_assign(inst.operand.two.opr1, inst.operand.two.opr2);
@@ -479,7 +479,7 @@ JSFunction *NjsVM::function_env() {
 
 void NjsVM::exec_add() {
   if (sp[-2].is_float64() && sp[-1].is_float64()) {
-    sp[-2].val.as_float64 += sp[-1].val.as_float64;
+    sp[-2].val.as_f64 += sp[-1].val.as_f64;
     sp -= 1;
     sp[0].set_undefined();
     return;
@@ -498,7 +498,7 @@ void NjsVM::exec_add_assign(int scope, int index) {
   JSValue& value = get_value(scope_type_from_int(scope), index);
   sp -= 1;
   if (value.is_float64() && sp[0].is_float64()) {
-    value.val.as_float64 += sp[0].val.as_float64;
+    value.val.as_f64 += sp[0].val.as_f64;
     sp[0].set_undefined();
     return;
   }
@@ -516,9 +516,9 @@ void NjsVM::exec_compound_assign(InstType type, int scope, int index) {
   // fast path
   if (value.is_float64() && sp[0].is_float64()) {
     switch (type) {
-      case InstType::sub_assign: value.val.as_float64 -= sp[0].val.as_float64; break;
-      case InstType::mul_assign: value.val.as_float64 *= sp[0].val.as_float64; break;
-      case InstType::div_assign: value.val.as_float64 /= sp[0].val.as_float64; break;
+      case InstType::sub_assign: value.val.as_f64 -= sp[0].val.as_f64; break;
+      case InstType::mul_assign: value.val.as_f64 *= sp[0].val.as_f64; break;
+      case InstType::div_assign: value.val.as_f64 /= sp[0].val.as_f64; break;
     }
     sp[0].set_undefined();
     return;
@@ -532,20 +532,20 @@ void NjsVM::exec_compound_assign(InstType type, int scope, int index) {
 void NjsVM::exec_inc_or_dec(int scope, int index, int inc) {
   JSValue& value = get_value(scope_type_from_int(scope), index);
   assert(value.is_float64());
-  value.val.as_float64 += inc;
+  value.val.as_f64 += inc;
 }
 
 void NjsVM::exec_binary(InstType op_type) {
   assert(sp[-2].is_float64() && sp[-1].is_float64());
   switch (op_type) {
     case InstType::sub:
-      sp[-2].val.as_float64 -= sp[-1].val.as_float64;
+      sp[-2].val.as_f64 -= sp[-1].val.as_f64;
       break;
     case InstType::mul:
-      sp[-2].val.as_float64 *= sp[-1].val.as_float64;
+      sp[-2].val.as_f64 *= sp[-1].val.as_f64;
       break;
     case InstType::div:
-      sp[-2].val.as_float64 /= sp[-1].val.as_float64;
+      sp[-2].val.as_f64 /= sp[-1].val.as_f64;
       break;
   }
   sp -= 1;
@@ -617,7 +617,7 @@ void NjsVM::exec_fast_add(Instruction& inst) {
   JSValue& rhs_val = get_value(rhs_scope, rhs_index);
 
   if (lhs_val.is_float64() && rhs_val.is_float64()) {
-    sp[0].set_val(lhs_val.val.as_float64 + rhs_val.val.as_float64);
+    sp[0].set_val(lhs_val.val.as_f64 + rhs_val.val.as_f64);
     sp += 1;
   }
   else {
@@ -949,7 +949,7 @@ void NjsVM::exec_push_str(int str_idx, bool atom) {
   sp[0].tag = atom ? JSValue::JS_ATOM : JSValue::STRING;
 
   if (atom) {
-    sp[0].val.as_int64 = str_idx;
+    sp[0].val.as_i64 = str_idx;
   }
   else {
     auto str = new PrimitiveString(atom_to_str(str_idx));
@@ -1002,7 +1002,7 @@ bool NjsVM::key_access_on_primitive(JSValue& obj, int64_t atom) {
   switch (obj.tag) {
     case JSValue::BOOLEAN:
       break;
-    case JSValue::NUM_INT:
+    case JSValue::NUM_INT64:
       break;
     case JSValue::NUM_FLOAT:
       break;
@@ -1038,7 +1038,7 @@ void NjsVM::exec_index_access(bool get_ref) {
   assert(obj.is_object());
 
   invoker_this = obj;
-  u32 index_int = u32(index.val.as_float64);
+  u32 index_int = u32(index.val.as_f64);
 
   // Index an array
   if (obj.is(JSValue::ARRAY)) {
@@ -1048,14 +1048,14 @@ void NjsVM::exec_index_access(bool get_ref) {
     }
     // in this case, the float value is interpreted as an ordinary property key
     else if (index.is_float64()) {
-      u16string num_str = to_u16string(std::to_string(index.val.as_float64));
+      u16string num_str = to_u16string(std::to_string(index.val.as_f64));
       int64_t atom = str_to_atom(num_str);
       obj = obj.val.as_object->get_prop(atom, get_ref);
     }
     else if (index.is(JSValue::STRING) || index.is(JSValue::JS_ATOM)) {
       auto& index_str = index.is(JSValue::STRING)
                                     ? index.val.as_primitive_string->str
-                                    : atom_to_str(index.val.as_int64);
+                                    : atom_to_str(index.val.as_i64);
 
       int64_t idx_int = scan_index_literal(index_str);
       if (idx_int != -1) {
@@ -1064,7 +1064,7 @@ void NjsVM::exec_index_access(bool get_ref) {
       } else {
         // object property
         int64_t atom = index.is(JSValue::STRING) ? str_to_atom(index_str)
-                                                 : (u32)index.val.as_int64;
+                                                 : (u32)index.val.as_i64;
         obj = obj.val.as_object->get_prop(atom, get_ref);
       }
     }
@@ -1083,14 +1083,14 @@ void NjsVM::exec_index_access(bool get_ref) {
       }
     }
     else if (index.is(JSValue::JS_ATOM)) {
-      if (index.val.as_int64 == StringPool::ATOM_length) {
+      if (index.val.as_i64 == StringPool::ATOM_length) {
         obj.set_val(double(obj.val.as_primitive_string->length()));
       }
     }
   }
   else if (obj.is(JSValue::OBJECT)) {
     if (index.is_float64()) {
-      u16string num_str = to_u16string(std::to_string(index.val.as_float64));
+      u16string num_str = to_u16string(std::to_string(index.val.as_f64));
       int64_t atom = str_to_atom(num_str);
       obj = obj.val.as_object->get_prop(atom, get_ref);
     }
@@ -1099,7 +1099,7 @@ void NjsVM::exec_index_access(bool get_ref) {
       obj = obj.val.as_object->get_prop(atom, get_ref);
     }
     else if (index.is(JSValue::JS_ATOM)) {
-      obj = obj.val.as_object->get_prop(index.val.as_int64, get_ref);
+      obj = obj.val.as_object->get_prop(index.val.as_i64, get_ref);
     }
   }
 
@@ -1148,10 +1148,10 @@ void NjsVM::exec_comparison(InstType type) {
   bool res = false;
   if (lhs.is_float64() && rhs.is_float64()) {
     switch (type) {
-      case InstType::lt: res = lhs.val.as_float64 < rhs.val.as_float64; break;
-      case InstType::gt: res = lhs.val.as_float64 > rhs.val.as_float64; break;
-      case InstType::le: res = lhs.val.as_float64 <= rhs.val.as_float64; break;
-      case InstType::ge: res = lhs.val.as_float64 >= rhs.val.as_float64; break;
+      case InstType::lt: res = lhs.val.as_f64 < rhs.val.as_f64; break;
+      case InstType::gt: res = lhs.val.as_f64 > rhs.val.as_f64; break;
+      case InstType::le: res = lhs.val.as_f64 <= rhs.val.as_f64; break;
+      case InstType::ge: res = lhs.val.as_f64 >= rhs.val.as_f64; break;
     }
   }
   else if (lhs.is(JSValue::STRING) && rhs.is(JSValue::STRING)) {

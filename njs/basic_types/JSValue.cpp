@@ -34,8 +34,8 @@ std::string JSValue::description() const {
 
   stream << "JSValue(tag: " << js_value_tag_names[tag];
   if (tag == BOOLEAN) stream << ", value: " << val.as_bool;
-  else if (tag == NUM_FLOAT) stream << ", value: " << val.as_float64;
-  else if (tag == NUM_INT) stream << ", value: " << val.as_int64;
+  else if (tag == NUM_FLOAT) stream << ", value: " << val.as_f64;
+  else if (tag == NUM_INT64) stream << ", value: " << val.as_i64;
   else if (is_object()) {
     stream << ", obj: " << as_GCObject()->description();
   }
@@ -57,16 +57,16 @@ std::string JSValue::to_string(NjsVM& vm) const {
     case UNDEFINED: output += "undefined"; break;
     case JS_NULL: output += "null"; break;
     case JS_ATOM:
-      output += "Atom(" + std::to_string(val.as_int64) + ')';
+      output += "Atom(" + std::to_string(val.as_i64) + ')';
       break;
     case BOOLEAN:
       output += val.as_bool ? "true" : "false";
       break;
-    case NUM_INT: output += std::to_string(val.as_int64);
+    case NUM_INT64: output += std::to_string(val.as_i64);
       break;
     case NUM_FLOAT: {
       char num_buf[40];
-      int len = print_double_string(val.as_float64, num_buf);
+      int len = print_double_string(val.as_f64, num_buf);
       output += std::string_view(num_buf, len);
       break;
     }
@@ -100,7 +100,7 @@ void JSValue::to_json(u16string& output, NjsVM& vm) const {
   switch (tag) {
     case NUM_FLOAT: {
       char16_t num_buf[40];
-      int len = print_double_u16string(val.as_float64, num_buf);
+      int len = print_double_u16string(val.as_f64, num_buf);
       output += u16string_view(num_buf, len);
       break;
     }

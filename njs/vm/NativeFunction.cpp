@@ -43,7 +43,7 @@ Completion InternalFunctions::set_timeout(NjsVM& vm, JSFunction& func, ArrayRef<
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
-  size_t id = vm.runloop.add_timer(args[0].val.as_function, (size_t)args[1].val.as_float64, false);
+  size_t id = vm.runloop.add_timer(args[0].val.as_function, (size_t)args[1].val.as_f64, false);
   return JSValue(double(id));
 }
 
@@ -51,21 +51,21 @@ Completion InternalFunctions::set_interval(NjsVM& vm, JSFunction& func, ArrayRef
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
-  size_t id = vm.runloop.add_timer(args[0].val.as_function, (size_t)args[1].val.as_float64, true);
+  size_t id = vm.runloop.add_timer(args[0].val.as_function, (size_t)args[1].val.as_f64, true);
   return JSValue(double(id));
 }
 
 Completion InternalFunctions::clear_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 1);
   assert(args[0].is(JSValue::NUM_FLOAT));
-  vm.runloop.remove_timer(size_t(args[0].val.as_float64));
+  vm.runloop.remove_timer(size_t(args[0].val.as_f64));
   return JSValue::undefined;
 }
 
 Completion InternalFunctions::clear_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 1);
   assert(args[0].is(JSValue::NUM_FLOAT));
-  vm.runloop.remove_timer(size_t(args[0].val.as_float64));
+  vm.runloop.remove_timer(size_t(args[0].val.as_f64));
   return JSValue::undefined;
 }
 
