@@ -911,11 +911,14 @@ class CodegenVisitor {
 
   void visit_try_statement(TryStatement& stmt) {
     assert(stmt.try_block->type == ASTNode::AST_STMT_BLOCK);
+
+    bool has_catch = stmt.catch_block != nullptr;
+    bool has_finally = stmt.finally_block != nullptr;
     scope().has_try = true;
 
     // visit the try block to emit bytecode
     u32 try_start = bytecode_pos();
-    visit(stmt.try_block);
+    visit_block_statement(*stmt.try_block->as_block(), {});
     u32 try_end = bytecode_pos() - 1;
 
     // We are going to record the address of the variables in the try block.
@@ -926,37 +929,70 @@ class CodegenVisitor {
     scope().has_try = false;
 
     u32 try_end_jmp = emit(InstType::jmp);
-    u32 catch_pos = try_end_jmp + 1;
+    u32 catch_or_finally_pos = try_end_jmp + 1;
 
     // `throw` statements will jump here
     for (u32 idx : scope().throw_list) {
-      bytecode[idx].operand.two.opr1 = int(catch_pos);
+      bytecode[idx].operand.two.opr1 = int(catch_or_finally_pos);
     }
     scope().throw_list.clear();
     // also, any error in the try block will jump here. So we should add a catch table entry.
     auto& catch_table = scope().get_outer_func()->catch_table;
-    catch_table.emplace_back(try_start, try_end, catch_pos);
+    catch_table.emplace_back(try_start, try_end, catch_or_finally_pos);
     catch_table.back().local_var_begin = var_dispose_start;
     catch_table.back().local_var_end = var_dispose_end;
 
     // in the case of `catch (a) ...`, we are going to store the top-of-stack value to a local
-    // variable. The variable is defined as `let`.
-    if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
+    // variable. The variable is defined as `let` inside the catch block. And since it is the
+    // first variable in the catch block, we know it must be at `var_next_index`.
+    if (has_catch && stmt.catch_ident.is(TokenType::IDENTIFIER)) {
       int catch_id_addr = scope().get_var_next_index() + frame_meta_size;
-      emit(InstType::pop, scope_type_int(scope().get_outer_func()->get_scope_type()),
-           catch_id_addr);
+      emit(InstType::pop, scope_type_int(scope().get_outer_func()->get_scope_type()), catch_id_addr);
     }
-    else {
+    else if (!has_finally) {
       emit(InstType::pop_drop);
     }
 
-    vector<pair<u16string_view, VarKind>> catch_id;
-    if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
-      catch_id.emplace_back(stmt.catch_ident.text, VarKind::DECL_LET);
-    }
-    visit_block_statement(*static_cast<Block *>(stmt.catch_block), catch_id);
+    if (has_catch) {
+      vector<pair<u16string_view, VarKind>> catch_id;
+      if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
+        catch_id.emplace_back(stmt.catch_ident.text, VarKind::DECL_LET);
+      }
 
-    bytecode[try_end_jmp].operand.two.opr1 = bytecode_pos();
+      u32 catch_start = bytecode_pos();
+      var_dispose_start = scope().get_var_next_index() + frame_meta_size;
+
+      visit_block_statement(*static_cast<Block *>(stmt.catch_block), catch_id);
+
+      var_dispose_end = stmt.catch_block->as_block()->scope->get_var_count() + frame_meta_size;
+      u32 catch_end = bytecode_pos() - 1;
+
+      if (has_finally) {
+        // the `throw` in the `catch` block should go here
+        u32 finally1_start = bytecode_pos();
+
+        for (u32 idx : scope().throw_list) {
+          bytecode[idx].operand.two.opr1 = int(finally1_start);
+        }
+        scope().throw_list.clear();
+
+        catch_table.emplace_back(catch_start, catch_end, finally1_start);
+        catch_table.back().local_var_begin = var_dispose_start;
+        catch_table.back().local_var_end = var_dispose_end;
+      }
+    }
+
+    if (has_finally) {
+      // finally1. If there is error in the try block (without catch) or in the catch block, go here.
+      visit_block_statement(*static_cast<Block *>(stmt.finally_block), {});
+      scope().throw_list.push_back( emit(InstType::jmp));
+
+      bytecode[try_end_jmp].operand.two.opr1 = bytecode_pos();
+      // finally2
+      visit_block_statement(*static_cast<Block *>(stmt.finally_block), {});
+    } else {
+      bytecode[try_end_jmp].operand.two.opr1 = bytecode_pos();
+    }
   }
 
   void visit_throw_statement(ThrowStatement& stmt) {
