@@ -38,7 +38,7 @@ struct ParsingError {
 
 class Parser {
  public:
-  Parser(u16string src) : source(std::move(src)), lexer(this->source) {}
+  explicit Parser(u16string src) : source(std::move(src)), lexer(this->source) {}
 
   ASTNode* parse_primary_expression() {
     Token token = lexer.current();
@@ -143,7 +143,7 @@ error:
       name = lexer.current();
       if (is_stmt) {
         bool res = scope().define_symbol(VarKind::DECL_FUNCTION, name.text);
-        if (!res) std::cout << "!!!!define symbol " << name.get_text_utf8() << " failed" << std::endl;
+        if (!res) std::cout << "!!!!define symbol " << name.get_text_utf8() << " failed" << '\n';
       }
       lexer.next();
     }
@@ -180,7 +180,7 @@ error:
     START_POS;
     assert(token_match(TokenType::LEFT_BRACK));
 
-    ArrayLiteral* array = new ArrayLiteral();
+    auto* array = new ArrayLiteral();
 
     // get the token after `[`
     Token token = lexer.next();
@@ -219,7 +219,7 @@ error:
     START_POS;
     assert(token_match(TokenType::LEFT_BRACE));
 
-    ObjectLiteral* obj = new ObjectLiteral();
+    auto* obj = new ObjectLiteral();
     Token token = lexer.next();
     while (token.type != TokenType::RIGHT_BRACE) {
       if (token.is_property_name()) {
@@ -291,7 +291,7 @@ error:
     // if this is the only expression, directly return it
     if (lexer.peek().type != TokenType::COMMA) return element;
 
-    Expression* expr = new Expression();
+    auto* expr = new Expression();
     expr->add_element(element);
     
     while (lexer.peek().type == TokenType::COMMA) {
@@ -529,7 +529,7 @@ error:
     if (base->is_illegal()) {
       return base;
     }
-    LeftHandSideExpr* lhs = new LeftHandSideExpr(base, new_count);
+    auto* lhs = new LeftHandSideExpr(base, new_count);
 
     while (true) {
       
@@ -543,7 +543,7 @@ error:
             return ast;
           }
           assert(ast->type == ASTNode::AST_EXPR_ARGS);
-          Arguments* args = static_cast<Arguments*>(ast);
+          auto* args = static_cast<Arguments*>(ast);
           lhs->add_arguments(args);
 
           if (in_new_expr_ctx) return lhs;
@@ -593,30 +593,26 @@ error:
   ASTNode* parse_arguments() {
     START_POS;
     assert(token_match(TokenType::LEFT_PAREN));
-    std::vector<ASTNode*> args;
-    ASTNode* arg;
+    std::vector<ASTNode*> arguments;
 
     lexer.next();
     while (!token_match(TokenType::RIGHT_PAREN)) {
       if (!token_match(TokenType::COMMA)) {
-        arg = parse_assign_or_arrow_function(false);
-        if (arg->is_illegal()) {
-          for (auto arg : args) delete arg;
-          return arg;
+        ASTNode* argument = parse_assign_or_arrow_function(false);
+        if (argument->is_illegal()) {
+          for (auto arg : arguments) delete arg;
+          return argument;
         }
-        args.emplace_back(arg);
+        arguments.emplace_back(argument);
       }
 
       lexer.next();
     }
 
     assert(token_match(TokenType::RIGHT_PAREN));
-    Arguments* arg_ast = new Arguments(args);
+    auto* arg_ast = new Arguments(arguments);
     arg_ast->set_source(SOURCE_PARSED_EXPR);
     return arg_ast;
-error:
-    for (auto arg : args) delete arg;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_function_body() {
@@ -646,7 +642,7 @@ error:
       // else, `curr_token` will be 'use strict' (a string).
     }
 
-    ProgramOrFunctionBody* prog = new ProgramOrFunctionBody(syntax_type, strict);
+    auto* prog = new ProgramOrFunctionBody(syntax_type, strict);
     ASTNode* statement;
     
     while (!token_match(ending_token_type)) {
@@ -731,7 +727,7 @@ error:
   ASTNode* parse_block_statement() {
     START_POS;
     assert(token_match(TokenType::LEFT_BRACE));
-    Block* block = new Block();
+    auto* block = new Block();
     lexer.next();
 
     push_scope(ScopeType::BLOCK);
@@ -759,7 +755,7 @@ error:
 
     if (kind == VarKind::DECL_VAR) {
       bool res = scope().define_symbol(kind, id.text);
-      if (!res) std::cout << "!!!!define symbol " << id.get_text_utf8() << " failed" << std::endl;
+      if (!res) std::cout << "!!!!define symbol " << id.get_text_utf8() << " failed" << '\n';
     }
 
     if (lexer.peek().type != TokenType::ASSIGN) {
@@ -767,7 +763,7 @@ error:
         lexer.next();
         return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
       }
-      VarDecl* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
+      auto* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
       return var_decl;
     }
     
@@ -782,7 +778,7 @@ error:
     auto var_kind_text = lexer.current().text;
     VarKind var_kind = get_var_kind_from_str(var_kind_text);
     
-    VarStatement* var_stmt = new VarStatement(var_kind);
+    auto* var_stmt = new VarStatement(var_kind);
     ASTNode* decl;
     if (!lexer.next().is_identifier()) {
       goto error;
@@ -1156,7 +1152,7 @@ error:
 
   ASTNode* parse_switch_statement() {
     START_POS;
-    SwitchStatement* switch_stmt = new SwitchStatement();
+    auto* switch_stmt = new SwitchStatement();
     ASTNode* expr;
 
     assert(token_match(u"switch"));

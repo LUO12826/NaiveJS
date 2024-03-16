@@ -244,8 +244,9 @@ class CodegenVisitor {
 //        break;
 //      case ASTNode::AST_STMT_SWITCH:
 //        break;
-//      case ASTNode::AST_EXPR_TRIPLE:
-//        break;
+      case ASTNode::AST_EXPR_TRIPLE:
+        visit_ternary_expr(*static_cast<TernaryExpr *>(node));
+        break;
 //      case ASTNode::AST_EXPR_REGEXP:
 //        break;
 //      case ASTNode::AST_EXPR_COMMA:
@@ -753,8 +754,7 @@ class CodegenVisitor {
       });
     }
 
-    u32 if_end_jmp;
-    if_end_jmp = emit(InstType::jmp);
+    u32 if_end_jmp = emit(InstType::jmp);
 
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
@@ -774,6 +774,28 @@ class CodegenVisitor {
       }
     }
     bytecode[if_end_jmp].operand.two.opr1 = bytecode_pos();
+  }
+
+  void visit_ternary_expr(TernaryExpr& expr) {
+    vector<u32> true_list;
+    vector<u32> false_list;
+    visit_expr_in_logical_expr(*expr.cond_expr, true_list, false_list, false);
+
+    for (u32 idx : true_list) {
+      bytecode[idx].operand.two.opr1 = bytecode_pos();
+    }
+    emit(InstType::pop_drop);
+
+    visit(expr.true_expr);
+    u32 true_end_jmp = emit(InstType::jmp);
+
+    for (u32 idx : false_list) {
+      bytecode[idx].operand.two.opr1 = bytecode_pos();
+    }
+    emit(InstType::pop_drop);
+
+    visit(expr.false_expr);
+    bytecode[true_end_jmp].operand.two.opr1 = bytecode_pos();
   }
 
   void visit_while_statement(WhileStatement& stmt) {
