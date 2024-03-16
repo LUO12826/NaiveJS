@@ -153,13 +153,13 @@ class Scope {
     return outer_scope;
   }
 
-  int64_t resolve_continue_pos() {
-    if (continue_pos != -1) {
-      return continue_pos;
+  Scope *resolve_continue_scope() {
+    if (can_continue) {
+      return this;
     } else if (scope_type != ScopeType::FUNC && scope_type != ScopeType::GLOBAL && outer_scope) {
-      return outer_scope->resolve_continue_pos();
+      return outer_scope->resolve_continue_scope();
     } else {
-      return -1;
+      return nullptr;
     }
   }
 
@@ -291,8 +291,10 @@ class Scope {
  public:
   int64_t continue_pos {-1};
   bool can_break {false};
+  bool can_continue {false};
   bool has_try {false};
   SmallVector<u32, 3> break_list;
+  SmallVector<u32, 3> continue_list;
   SmallVector<u32, 3> throw_list;
   SmallVector<CatchTableEntry, 3> catch_table;
 };

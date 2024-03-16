@@ -63,10 +63,12 @@ enum class InstType {
   jmp,
   jmp_true,
   jmp_false,
+  jmp_cond,
+
   pop_jmp,
   pop_jmp_true,
   pop_jmp_false,
-  jmp_cond,
+  pop_jmp_cond,
 
   gt,
   lt,

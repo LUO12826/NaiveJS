@@ -251,12 +251,13 @@ class CodegenVisitor {
 //        break;
 //      case ASTNode::AST_EXPR_COMMA:
 //        break;
-//      case ASTNode::AST_STMT_DO_WHILE:
-//        break;
+      case ASTNode::AST_STMT_DO_WHILE:
+        visit_do_while_statement(*static_cast<DoWhileStatement *>(node));
+        break;
 //      case ASTNode::AST_STMT_LABEL:
 //        break;
-//      case ASTNode::AST_STMT_EMPTY:
-//        break;
+      case ASTNode::AST_STMT_EMPTY:
+        break;
       default:
         std::cout << node->description() << " not supported yet" << '\n';
         assert(false);
@@ -457,7 +458,7 @@ class CodegenVisitor {
         bytecode[idx].operand.two.opr1 = int(bytecode_pos());
       }
       for (u32 idx : false_list) {
-        bytecode[idx].operand.two.opr1 = int(bytecode_pos());
+        bytecode[idx].operand.two.opr2 = int(bytecode_pos());
       }
     }
     else {
@@ -496,7 +497,6 @@ class CodegenVisitor {
                                   bool need_value) {
     if (expr.is_binary_logical_expr()) {
       visit_logical_expr(*expr.as_binary_expr(), true_list, false_list, need_value);
-      return;
     }
     else if (expr.is_not_expr() && !need_value) {
       auto& not_expr = static_cast<UnaryExpr&>(expr);
@@ -505,14 +505,13 @@ class CodegenVisitor {
       vector<u32> temp = std::move(false_list);
       false_list = std::move(true_list);
       true_list = std::move(temp);
-      return;
     }
-
-    visit(&expr);
-    true_list.push_back(bytecode_pos());
-    emit(InstType::jmp_true);
-    false_list.push_back(bytecode_pos());
-    emit(InstType::jmp);
+    else {
+      visit(&expr);
+      u32 jmp_pos = emit(InstType::jmp_cond);
+      true_list.push_back(jmp_pos);
+      false_list.push_back(jmp_pos);
+    }
   }
 
   void visit_logical_expr(BinaryExpr& expr, vector<u32>& true_list, vector<u32>& false_list,
@@ -526,7 +525,7 @@ class CodegenVisitor {
     if (is_OR) {
       // backpatch( B1.falselist, M.instr)
       for (u32 idx : lhs_false_list) {
-        bytecode[idx].operand.two.opr1 = int(bytecode_pos());
+        bytecode[idx].operand.two.opr2 = int(bytecode_pos());
       }
       true_list.insert(true_list.end(), lhs_true_list.begin(), lhs_true_list.end());
       emit(InstType::pop_drop);
@@ -757,7 +756,7 @@ class CodegenVisitor {
     u32 if_end_jmp = emit(InstType::jmp);
 
     for (u32 idx : false_list) {
-      bytecode[idx].operand.two.opr1 = bytecode_pos();
+      bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
     emit(InstType::pop_drop);
 
@@ -790,7 +789,7 @@ class CodegenVisitor {
     u32 true_end_jmp = emit(InstType::jmp);
 
     for (u32 idx : false_list) {
-      bytecode[idx].operand.two.opr1 = bytecode_pos();
+      bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
     emit(InstType::pop_drop);
 
@@ -799,13 +798,14 @@ class CodegenVisitor {
   }
 
   void visit_while_statement(WhileStatement& stmt) {
-    vector<u32> true_list;
-    vector<u32> false_list;
     u32 loop_start = bytecode_pos();
     scope().continue_pos = loop_start;
     scope().can_break = true;
+    scope().can_continue = true;
 
+    vector<u32> true_list, false_list;
     visit_expr_in_logical_expr(*stmt.condition_expr, true_list, false_list, false);
+
     for (u32 idx : true_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
@@ -823,7 +823,53 @@ class CodegenVisitor {
     emit(InstType::jmp, loop_start);
 
     for (u32 idx : false_list) {
+      bytecode[idx].operand.two.opr2 = bytecode_pos();
+    }
+    emit(InstType::pop_drop);
+
+    for (u32 idx : scope().break_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
+    }
+    scope().break_list.clear();
+
+    scope().can_break = false;
+    scope().can_continue = false;
+    scope().continue_pos = -1;
+
+  }
+
+  void visit_do_while_statement(DoWhileStatement& stmt) {
+    scope().can_continue = true;
+    scope().can_break = true;
+
+    emit(InstType::jmp, bytecode_pos() + 2); // jump over the `pop_drop`
+    u32 loop_start = bytecode_pos();
+    emit(InstType::pop_drop);
+
+    if (is_stmt_valid_in_single_stmt_ctx(stmt.body_stmt)) {
+      visit(stmt.body_stmt);
+    }
+    else {
+      report_error(CodegenError {
+          .message = "SyntaxError: Lexical declaration cannot appear in a single-statement context",
+          .ast_node = stmt.body_stmt,
+      });
+    }
+
+    for (u32 idx : scope().continue_list) {
+      bytecode[idx].operand.two.opr1 = bytecode_pos();
+    }
+    scope().continue_list.clear();
+
+    vector<u32> true_list;
+    vector<u32> false_list;
+    visit_expr_in_logical_expr(*stmt.condition_expr, true_list, false_list, false);
+
+    for (u32 idx : true_list) {
+      bytecode[idx].operand.two.opr1 = loop_start;
+    }
+    for (u32 idx : false_list) {
+      bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
     emit(InstType::pop_drop);
 
@@ -832,13 +878,18 @@ class CodegenVisitor {
     }
 
     scope().can_break = false;
+    scope().can_continue = false;
   }
 
   void visit_continue_break_statement(ContinueOrBreak& stmt) {
     if (stmt.type == ASTNode::AST_STMT_CONTINUE) {
-      int64_t continue_pos = scope().resolve_continue_pos();
-      assert(continue_pos != -1);
-      emit(InstType::jmp, u32(continue_pos));
+      Scope *continue_scope = scope().resolve_continue_scope();
+      assert(continue_scope != nullptr);
+      if (continue_scope->continue_pos != -1) {
+        emit(InstType::jmp, u32(continue_scope->continue_pos));
+      } else {
+        continue_scope->continue_list.push_back(emit(InstType::jmp));
+      }
     }
     else {
       scope().resolve_break_list()->push_back(bytecode_pos());
