@@ -11,6 +11,7 @@
 #include "njs/parser/ast.h"
 #include "njs/parser/Lexer.h"
 #include "njs/utils/helper.h"
+#include "njs/common/Defer.h"
 
 #define START_POS u32 start = lexer.current().start, line_start = lexer.current().line
 #define RENEW_START start = lexer.current().start; line_start = lexer.current().line
@@ -953,48 +954,42 @@ error:
 
     lexer.next();
     if (lexer.current().is_semicolon()) {
-      return parse_for_statement({}, start, line_start);  // for (;
+      return parse_for_statement({}, start, line_start);  // for (; expr; expr)
     }
     else if (token_match(u"var") || token_match(u"let") || token_match(u"const")) {
       VarKind var_kind = get_var_kind_from_str(lexer.current().text);
-      lexer.next();  // skip var
+      lexer.next();  // skip var/let/const
       std::vector<ASTNode*> init_expressions;
 
-      // NOTE(zhuzilin) the starting token for parse_variable_declaration
-      // must be identifier. This is for better error code.
       if (!lexer.current().is_identifier()) goto error;
 
       init_expr = parse_variable_declaration(true, var_kind);
       if (init_expr->is_illegal()) return init_expr;
 
-      // expect `in`, `,`
-      // the `in` case
-      // var VariableDeclarationNoIn in
-      if (lexer.next().text == u"in") return parse_for_in_statement(init_expr, start, line_start);
+      // expect `in` or `,`
+      // the `in` case, that is, var VariableDeclarationNoIn in
+      if (lexer.next().text == u"in") {
+        return parse_for_in_statement(init_expr, start, line_start);
+      }
 
       // the `,` case
-      init_expressions.emplace_back(init_expr);
+      init_expressions.push_back(init_expr);
       while (!lexer.current().is_semicolon()) {
-        // NOTE(zhuzilin) the starting token for parse_variable_declaration
-        // must be identifier. This is for better error code.
         if (!token_match(TokenType::COMMA) || !lexer.next().is_identifier()) {
-          for (auto expr : init_expressions) {
-            delete expr;
-          }
+          for (auto expr : init_expressions) { delete expr; }
           goto error;
         }
 
         init_expr = parse_variable_declaration(true, var_kind);
         if (init_expr->is_illegal()) {
-          for (auto expr : init_expressions)
-            delete expr;
+          for (auto expr : init_expressions) { delete expr; }
           return init_expr;
         }
-        init_expressions.emplace_back(init_expr);
+        init_expressions.push_back(init_expr);
         lexer.next();
-      } 
+      }
       // for (var VariableDeclarationListNoIn; ...)
-      return parse_for_statement(init_expressions, start, line_start);
+      return parse_for_statement(std::move(init_expressions), start, line_start);
     }
     else {
       init_expr = parse_expression(true);
@@ -1018,8 +1013,13 @@ error:
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_for_statement(const std::vector<ASTNode*>& init_expressions, u32 start, u32 line_start) {
+  ASTNode* parse_for_statement(std::vector<ASTNode*> init_expressions, u32 start, u32 line_start) {
     assert(lexer.current().is_semicolon());
+
+    Defer defer([&init_expressions] {
+      for (auto expr : init_expressions) { delete expr; }
+    });
+
     ASTNode* expr1 = nullptr;
     ASTNode* expr2 = nullptr;
     ASTNode* stmt = nullptr;
@@ -1028,9 +1028,6 @@ error:
       lexer.next();
       expr1 = parse_expression(false);  // for (xxx; Expression
       if (expr1->is_illegal()) {
-        for (auto expr : init_expressions) {
-          delete expr;
-        }
         return expr1;
       }
     }
@@ -1043,9 +1040,6 @@ error:
       lexer.next();
       expr2 = parse_expression(false);  // for (xxx; xxx; Expression
       if (expr2->is_illegal()) {
-        for (auto expr : init_expressions) {
-          delete expr;
-        }
         delete expr1;
         return expr2;
       }
@@ -1058,19 +1052,13 @@ error:
     lexer.next();
     stmt = parse_statement();
     if (stmt->is_illegal()) {
-      for (auto expr : init_expressions) {
-        delete expr;
-      }
       delete expr1;
       delete expr2;
       return stmt;
     }
 
-    return new ForStatement(init_expressions, expr1, expr2, stmt, SOURCE_PARSED_EXPR);
+    return new ForStatement(std::move(init_expressions), expr1, expr2, stmt, SOURCE_PARSED_EXPR);
 error:
-    for (auto expr : init_expressions) {
-      delete expr;
-    }
     delete expr1;
     delete expr2;
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
