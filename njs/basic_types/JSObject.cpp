@@ -85,7 +85,7 @@ bool JSObject::add_prop(int64_t key_atom, const JSValue& value, PropDesc desc) {
 }
 
 bool JSObject::add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value, PropDesc desc) {
-  return add_prop(vm.str_to_atom(key_str), value, desc);
+  return add_prop(vm.sv_to_atom(key_str), value, desc);
 }
 
 JSValue JSObject::get_prop(NjsVM& vm, u16string_view name) {
@@ -93,12 +93,12 @@ JSValue JSObject::get_prop(NjsVM& vm, u16string_view name) {
 }
 
 JSValue JSObject::get_prop(NjsVM& vm, u16string_view key_str, bool get_ref) {
-  return get_prop(vm.str_to_atom(key_str), get_ref);
+  return get_prop(vm.sv_to_atom(key_str), get_ref);
 }
 
 bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl) {
 
-  u32 name_idx = vm.str_to_atom(key_str);
+  u32 name_idx = vm.sv_to_atom(key_str);
 
   JSFunctionMeta meta {
       .name_index = name_idx,

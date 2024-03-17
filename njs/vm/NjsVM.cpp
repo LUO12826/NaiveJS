@@ -14,6 +14,7 @@
 #include "njs/basic_types/JSObjectPrototype.h"
 #include "njs/basic_types/JSArrayPrototype.h"
 #include "njs/basic_types/JSFunctionPrototype.h"
+#include "njs/basic_types/GlobalObject.h"
 #include "Completion.h"
 
 namespace njs {
@@ -39,7 +40,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   auto& global_sym_table = visitor.scope_chain[0]->get_symbol_table();
 
   for (auto& [sym_name, sym_rec] : global_sym_table) {
-    global_obj->props_index_map.emplace(u16string(sym_name), sym_rec.index + frame_meta_size);
+    global_obj->props_index_map.emplace(sv_to_atom(sym_name), sym_rec.index + frame_meta_size);
   }
 
   str_pool.record_static_atom_count();
@@ -423,6 +424,10 @@ JSValue NjsVM::pop_stack() {
   sp -= 1;
   // want to make sure that move constructor is called.
   return std::move(sp[0]);
+}
+
+JSValue& NjsVM::stack_get_at_index(size_t index) {
+  return rt_stack[index];
 }
 
 using StackTraceItem = NjsVM::StackTraceItem;

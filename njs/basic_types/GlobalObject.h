@@ -1,6 +1,7 @@
 #ifndef NJS_GLOBAL_OBJECT_H
 #define NJS_GLOBAL_OBJECT_H
 
+#include "njs/vm/NjsVM.h"
 #include "JSObject.h"
 #include "njs/include/robin_hood.h"
 #include <cstdint>
@@ -23,16 +24,28 @@ class GlobalObject: public JSObject {
  public:
   GlobalObject(): JSObject(ObjectClass::CLS_GLOBAL_OBJ) {}
 
-  optional<u32> find_prop_index(const u16string& name) {
-    auto iter = props_index_map.find(name);
+  JSValue& get_or_add_prop(const u16string& name, NjsVM& vm) {
+
+    int64_t name_atom = vm.str_pool.atomize(name);
+    auto iter = props_index_map.find(name_atom);
     if (iter != props_index_map.end()) {
-      return iter->second;
+      return vm.stack_get_at_index(iter->second);
     } else {
-      return std::nullopt;
+      JSValue val_ref = JSObject::get_prop(name_atom, true);
+      return *val_ref.val.as_JSValue;
     }
   }
 
-  unordered_map<u16string, u32> props_index_map;
+  JSValue get_prop(int64_t atom, NjsVM& vm) {
+    auto iter = props_index_map.find(atom);
+    if (iter != props_index_map.end()) {
+      return JSValue(&vm.stack_get_at_index(iter->second));
+    } else {
+      return JSObject::get_prop(atom, false);
+    }
+  }
+
+  unordered_map<int64_t, u32> props_index_map;
 };
 
 } // namespace njs

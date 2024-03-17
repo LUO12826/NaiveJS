@@ -249,8 +249,9 @@ class CodegenVisitor {
         break;
 //      case ASTNode::AST_EXPR_REGEXP:
 //        break;
-//      case ASTNode::AST_EXPR_COMMA:
-//        break;
+      case ASTNode::AST_EXPR_COMMA:
+        visit_comma_expr(*static_cast<Expression *>(node));
+        break;
       case ASTNode::AST_STMT_DO_WHILE:
         visit_do_while_statement(*static_cast<DoWhileStatement *>(node));
         break;
@@ -314,12 +315,17 @@ class CodegenVisitor {
 
     std::vector<u32> top_level_throw;
 
-    for (ASTNode *node : program.statements) {
-      visit(node);
-      if (node->type > ASTNode::BEGIN_EXPR && node->type < ASTNode::END_EXPR &&
-          node->type != ASTNode::AST_EXPR_ASSIGN) {
-        emit(InstType::pop_drop);
+    for (ASTNode *stmt : program.statements) {
+      if (not stmt->is(ASTNode::AST_EXPR_ASSIGN)) {
+        visit(stmt);
+        // pop drop unused result #2
+        if (stmt->type > ASTNode::BEGIN_EXPR && stmt->type < ASTNode::END_EXPR) {
+          emit(InstType::pop_drop);
+        }
+      } else {
+        visit_assignment_expr(*static_cast<AssignmentExpr *>(stmt), false);
       }
+
       if (not scope().throw_list.empty()) {
         auto& throw_list = scope().throw_list;
         top_level_throw.insert(top_level_throw.end(), throw_list.begin(), throw_list.end());
@@ -385,6 +391,16 @@ class CodegenVisitor {
       init_code.emplace_back(InstType::capture, scope_type_int(symbol.storage_scope),
                              symbol.get_index());
     }
+  }
+
+  void visit_comma_expr(Expression& expr) {
+    for (ASTNode *ele : expr.elements) {
+      assert(ele->type > ASTNode::BEGIN_EXPR && ele->type < ASTNode::END_EXPR);
+      visit(ele);
+      emit(InstType::pop_drop);
+    }
+
+    bytecode.pop_back(); // don't pop the result of the last element. It's the result of the comma expression.
   }
 
   void visit_function(Function& func) {
@@ -550,7 +566,13 @@ class CodegenVisitor {
     else false_list.insert(false_list.end(), rhs_false_list.begin(), rhs_false_list.end());
   }
 
-  void visit_assignment_expr(AssignmentExpr& expr) {
+  void visit_assignment_expr(AssignmentExpr& expr, bool need_value = true) {
+
+    auto assign_type_to_op_type = [] (TokenType assign_type) {
+      int assign_type_to_op_type = static_cast<int>(InstType::mul_assign) - TokenType::MUL_ASSIGN;
+      return static_cast<InstType>(assign_type + assign_type_to_op_type);
+    };
+
     // a = b
     if (expr.is_simple_assign()) {
       auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
@@ -558,6 +580,9 @@ class CodegenVisitor {
 
       emit(InstType::fast_assign, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index(),
            scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
+      if (need_value) {
+        emit(InstType::push, scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
+      }
     }
     // a = ... or a += ...
     else if (expr.lhs_is_id()) {
@@ -567,39 +592,38 @@ class CodegenVisitor {
       // a = ...
       if (expr.assign_type == TokenType::ASSIGN) {
         visit(expr.rhs);
-        emit(InstType::pop, lhs_scope, lhs_sym_index);
+        emit(need_value ? InstType::store : InstType::pop, lhs_scope, lhs_sym_index);
       }
       // a += ...
       else if (expr.assign_type == TokenType::ADD_ASSIGN) {
         if (expr.rhs->is(ASTNode::AST_EXPR_NUMBER) && expr.rhs->as_number_literal()->num_val == 1) {
           emit(InstType::inc, lhs_scope, lhs_sym_index);
-        }
-        else {
+        } else {
           visit(expr.rhs);
           emit(InstType::add_assign, lhs_scope, lhs_sym_index);
+        }
+        if (need_value) {
+          emit(InstType::push, lhs_scope, lhs_sym_index);
         }
       }
       // a -= ...
       else if (expr.assign_type == TokenType::SUB_ASSIGN) {
         if (expr.rhs->is(ASTNode::AST_EXPR_NUMBER) && expr.rhs->as_number_literal()->num_val == 1) {
           emit(InstType::dec, lhs_scope, lhs_sym_index);
-        }
-        else {
+        } else {
           visit(expr.rhs);
           emit(InstType::sub_assign, lhs_scope, lhs_sym_index);
+        }
+        if (need_value) {
+          emit(InstType::push, lhs_scope, lhs_sym_index);
         }
       }
       else {
         visit(expr.rhs);
-        switch (expr.assign_type) {
-          case TokenType::MUL_ASSIGN:
-            emit(InstType::mul_assign, lhs_scope, lhs_sym_index);
-            break;
-          case TokenType::DIV_ASSIGN:
-            emit(InstType::div_assign, lhs_scope, lhs_sym_index);
-            break;
-          default:
-            assert(false);
+        emit(assign_type_to_op_type(expr.assign_type), lhs_scope, lhs_sym_index);
+
+        if (need_value) {
+          emit(InstType::push, lhs_scope, lhs_sym_index);
         }
       }
     }
@@ -608,11 +632,16 @@ class CodegenVisitor {
       // LeftHandSide Expression in it.
       if (expr.lhs->type == ASTNode::AST_EXPR_LHS) {
         visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(expr.lhs), true, false);
+      } else {
+        assert(false);
       }
-      else assert(false);
 
       visit(expr.rhs);
-      emit(InstType::prop_assign);
+      if (expr.assign_type == Token::ASSIGN) {
+        emit(InstType::prop_assign, (int)need_value);
+      } else {
+        emit(InstType::prop_compound_assign, static_cast<int>(expr.assign_type), (int)need_value);
+      }
     }
   }
 
@@ -690,7 +719,7 @@ class CodegenVisitor {
     if (not symbol.not_found()) {
       emit(InstType::push, scope_type_int(symbol.storage_scope), symbol.get_index());
     } else {
-      u32 atom = str_pool.atomize(id.get_source());
+      u32 atom = str_pool.atomize_sv(id.get_source());
       emit(InstType::dyn_get_var, scope_type_int(ScopeType::GLOBAL), atom);
     }
   }
@@ -716,7 +745,8 @@ class CodegenVisitor {
 
   void visit_variable_declaration(VarKind var_kind, VarDecl& var_decl) {
     if (var_decl.var_init) {
-      visit(var_decl.var_init);
+      assert(var_decl.var_init->is(ASTNode::AST_EXPR_ASSIGN));
+      visit_assignment_expr(*static_cast<AssignmentExpr *>(var_decl.var_init), false);
     }
     else if (var_kind == VarKind::DECL_LET) {
       auto sym = scope().resolve_symbol(var_decl.id.text);
@@ -953,10 +983,14 @@ class CodegenVisitor {
     }
 
     for (auto *stmt : block.statements) {
-      visit(stmt);
-      if (stmt->type > ASTNode::BEGIN_EXPR && stmt->type < ASTNode::END_EXPR &&
-          stmt->type != ASTNode::AST_EXPR_ASSIGN) {
-        emit(InstType::pop_drop);
+      if (not stmt->is(ASTNode::AST_EXPR_ASSIGN)) {
+        visit(stmt);
+        // pop drop unused result #1
+        if (stmt->type > ASTNode::BEGIN_EXPR && stmt->type < ASTNode::END_EXPR) {
+          emit(InstType::pop_drop);
+        }
+      } else {
+        visit_assignment_expr(*static_cast<AssignmentExpr *>(stmt), false);
       }
     }
 
@@ -1136,7 +1170,7 @@ class CodegenVisitor {
   void report_error(CodegenError err) { error.push_back(std::move(err)); }
 
   u32 add_const(u16string_view str_view) {
-    auto idx = str_pool.atomize(str_view);
+    auto idx = str_pool.atomize_sv(str_view);
     return idx;
   }
 

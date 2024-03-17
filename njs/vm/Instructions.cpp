@@ -39,6 +39,20 @@ void Instruction::swap_two_operands() {
 
 std::string Instruction::description() const {
 
+  static const char *assign_op_names[] = {
+      "add_assign",
+      "sub_assign",
+      "mul_assign",
+      "div_assign",
+      "mod_assign",
+      "lsh_assign",
+      "rsh_assign",
+      "ursh_assign",
+      "and_assign",
+      "or_assign",
+      "xor_assign",
+  };
+
   char buffer[80];
 
   switch (op_type) {
@@ -49,18 +63,20 @@ std::string Instruction::description() const {
     case InstType::neg: sprintf(buffer, "neg"); break;
 
     case InstType::add_assign:
-      sprintf(buffer, "add_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
-      break;
     case InstType::sub_assign:
-      sprintf(buffer, "sub_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
-      break;
     case InstType::mul_assign:
-      sprintf(buffer, "mul_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
-      break;
     case InstType::div_assign:
-      sprintf(buffer, "div_assign  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+    case InstType::mod_assign:
+    case InstType::lsh_assign:
+    case InstType::rsh_assign:
+    case InstType::ursh_assign:
+    case InstType::and_assign:
+    case InstType::or_assign:
+    case InstType::xor_assign: {
+      int index = static_cast<int>(op_type) - static_cast<int>(InstType::add_assign);
+      sprintf(buffer, "%s  %s %d", assign_op_names[index], scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
-
+    }
     case InstType::inc:
       sprintf(buffer, "inc  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
@@ -142,7 +158,12 @@ std::string Instruction::description() const {
       sprintf(buffer, "store  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
     case InstType::prop_assign:
-      sprintf(buffer, "prop_assign");
+      sprintf(buffer, "prop_assign %s", (bool)operand.two.opr1 ? "(need value)" : "");
+      break;
+    case InstType::prop_compound_assign:
+      sprintf(buffer, "prop_compound_assign %s  %s",
+              assign_op_names[operand.two.opr1 - static_cast<int>(InstType::add_assign)],
+              (bool)operand.two.opr2 ? "(need value)" : "");
       break;
     case InstType::var_deinit_range:
       sprintf(buffer, "var_deinit_range  %d %d", operand.two.opr1, operand.two.opr2);

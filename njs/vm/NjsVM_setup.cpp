@@ -1,5 +1,7 @@
 #include "NjsVM.h"
 
+#include "njs/basic_types/GlobalObject.h"
+
 namespace njs {
 
 void NjsVM::setup() {
@@ -30,7 +32,7 @@ void NjsVM::setup() {
     };
     JSFunction *log_func = new_function(log_meta);
 
-    obj->add_prop((int64_t)str_to_atom(u"log"), JSValue(log_func));
+    obj->add_prop((int64_t) sv_to_atom(u"log"), JSValue(log_func));
     return obj;
   });
 
@@ -46,7 +48,7 @@ void NjsVM::setup() {
     };
     JSFunction *func = new_function(meta);
 
-    obj->add_prop((int64_t)str_to_atom(u"stringify"), JSValue(func));
+    obj->add_prop((int64_t) sv_to_atom(u"stringify"), JSValue(func));
     return obj;
   });
 }
@@ -68,19 +70,14 @@ void NjsVM::add_native_func_impl(const u16string& name,
   builder(*func);
 
   auto& global_obj = *static_cast<GlobalObject *>(global_object.val.as_object);
-  auto index = global_obj.find_prop_index(name);
-  if (index.has_value()) {
-    rt_stack[index.value()].set_val(func);
-  }
+  global_obj.get_or_add_prop(name, *this).set_val(func);
 }
 
 void NjsVM::add_builtin_object(const u16string& name,
                                const std::function<JSObject*()>& builder) {
+
   GlobalObject& global_obj = *static_cast<GlobalObject *>(global_object.val.as_object);
-  auto index = global_obj.find_prop_index(name);
-  if (index.has_value()) {
-    rt_stack[index.value()].set_val(builder());
-  }
+  global_obj.get_or_add_prop(name, *this).set_val(builder());
 }
 
 

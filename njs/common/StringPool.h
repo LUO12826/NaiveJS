@@ -28,9 +28,11 @@ class StringPool {
     ATOM_toPrimitive = atomize(u"toPrimitive");    // 7
   }
 
-  u32 atomize(u16string_view str_view);
+  u32 atomize_sv(u16string_view str_view);
+  u32 atomize(const u16string& str);
   u16string& get_string(size_t index);
   bool has_string(u16string_view str_view);
+  bool has_string(const u16string& str);
   std::vector<u16string>& get_string_list();
   void record_static_atom_count();
 
@@ -50,8 +52,7 @@ class StringPool {
   std::vector<u16string> string_list;
 };
 
-inline u32 StringPool::atomize(u16string_view str_view) {
-  u16string str(str_view);
+inline u32 StringPool::atomize(const u16string& str) {
   if (pool.contains(str)) {
     return pool[str];
   }
@@ -59,10 +60,14 @@ inline u32 StringPool::atomize(u16string_view str_view) {
     // copy this string and put it in the list.
     string_list.emplace_back(str);
     // now the string_view in the pool is viewing the string in the list.
-    pool.emplace(std::move(str), next_id);
+    pool.emplace(str, next_id);
     next_id += 1;
     return next_id - 1;
   }
+}
+
+inline u32 StringPool::atomize_sv(u16string_view str_view) {
+  return atomize(u16string(str_view));
 }
 
 inline u16string& StringPool::get_string(size_t index) {
@@ -72,6 +77,11 @@ inline u16string& StringPool::get_string(size_t index) {
 inline bool StringPool::has_string(u16string_view str_view) {
   return pool.contains(u16string(str_view));
 }
+
+inline bool StringPool::has_string(const u16string& str) {
+  return pool.contains(str);
+}
+
 
 inline std::vector<u16string>& StringPool::get_string_list() {
   return string_list;

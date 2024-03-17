@@ -8,7 +8,6 @@
 #include "njs/common/enums.h"
 #include "NativeFunction.h"
 #include "Instructions.h"
-#include "njs/basic_types/GlobalObject.h"
 #include "njs/basic_types/JSFunction.h"
 #include "njs/basic_types/JSValue.h"
 #include "njs/gc/GCHeap.h"
@@ -25,6 +24,7 @@ using std::u16string;
 using llvm::SmallVector;
 
 class CodegenVisitor;
+class GlobalObject;
 struct JSTask;
 
 class NjsVM {
@@ -37,6 +37,7 @@ friend class JSObject;
 friend class JSFunction;
 friend class JSArray;
 friend class JSObjectPrototype;
+friend class GlobalObject;
 friend class JSArrayPrototype;
 friend class JSFunctionPrototype;
 friend class JSStringPrototype;
@@ -65,14 +66,19 @@ friend class InternalFunctions;
   JSValue peek_stack_top();
   void push_stack(JSValue val);
   JSValue pop_stack();
+  JSValue& stack_get_at_index(size_t index);
 
   std::vector<StackTraceItem> capture_stack_trace();
 
   JSObject* new_object(ObjectClass cls = ObjectClass::CLS_OBJECT);
   JSFunction* new_function(const JSFunctionMeta& meta);
 
-  u32 str_to_atom(u16string_view str_view) {
-    return str_pool.atomize(str_view);
+  u32 sv_to_atom(u16string_view str_view) {
+    return str_pool.atomize_sv(str_view);
+  }
+
+  u32 str_to_atom(const u16string& str) {
+    return str_pool.atomize(str);
   }
 
   u16string& atom_to_str(int64_t atom) {
