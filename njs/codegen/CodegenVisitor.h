@@ -569,7 +569,7 @@ class CodegenVisitor {
   void visit_assignment_expr(AssignmentExpr& expr, bool need_value = true) {
 
     auto assign_type_to_op_type = [] (TokenType assign_type) {
-      int assign_type_to_op_type = static_cast<int>(InstType::mul_assign) - TokenType::MUL_ASSIGN;
+      int assign_type_to_op_type = static_cast<int>(InstType::add_assign) - TokenType::ADD_ASSIGN;
       return static_cast<InstType>(assign_type + assign_type_to_op_type);
     };
 
@@ -578,15 +578,44 @@ class CodegenVisitor {
       auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
       auto rhs_sym = scope().resolve_symbol(expr.rhs->get_source());
 
-      emit(InstType::fast_assign, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index(),
-           scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
-      if (need_value) {
-        emit(InstType::push, scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
+      if (!lhs_sym.not_found() && !rhs_sym.not_found()) {
+        emit(InstType::fast_assign, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index(),
+             scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
+        if (need_value) {
+          emit(InstType::push, scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
+        }
+      }
+      else {
+        if (lhs_sym.not_found()) {
+          u32 name_atom = str_pool.atomize_sv(expr.lhs->get_source());
+          emit(InstType::dyn_get_var, name_atom, (int)true);
+          visit(expr.rhs);
+          emit(InstType::prop_assign, (bool)need_value);
+        } else {
+          visit(expr.rhs);
+          emit(need_value ? InstType::store : InstType::pop,
+               scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
+        }
       }
     }
     // a = ... or a += ...
     else if (expr.lhs_is_id()) {
       auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
+
+      if (lhs_sym.not_found()) {
+        u32 name_atom = str_pool.atomize_sv(expr.lhs->get_source());
+        emit(InstType::dyn_get_var, name_atom, (int)true);
+        visit(expr.rhs);
+        if (expr.assign_type == TokenType::ASSIGN) {
+          emit(InstType::prop_assign, (bool)need_value);
+        } else {
+          InstType assign_type = assign_type_to_op_type(expr.assign_type);
+          emit(InstType::prop_compound_assign, static_cast<int>(assign_type), (int)need_value);
+        }
+
+        return;
+      }
+
       int lhs_scope = scope_type_int(lhs_sym.storage_scope);
       int lhs_sym_index = (int)lhs_sym.get_index();
       // a = ...
@@ -594,25 +623,14 @@ class CodegenVisitor {
         visit(expr.rhs);
         emit(need_value ? InstType::store : InstType::pop, lhs_scope, lhs_sym_index);
       }
-      // a += ...
-      else if (expr.assign_type == TokenType::ADD_ASSIGN) {
+      // a += expr or a -= expr
+      else if (expr.assign_type == TokenType::ADD_ASSIGN || expr.assign_type == TokenType::SUB_ASSIGN) {
         if (expr.rhs->is(ASTNode::AST_EXPR_NUMBER) && expr.rhs->as_number_literal()->num_val == 1) {
-          emit(InstType::inc, lhs_scope, lhs_sym_index);
+          InstType inst = expr.assign_type == TokenType::ADD_ASSIGN ? InstType::inc : InstType::dec;
+          emit(inst, lhs_scope, lhs_sym_index);
         } else {
           visit(expr.rhs);
-          emit(InstType::add_assign, lhs_scope, lhs_sym_index);
-        }
-        if (need_value) {
-          emit(InstType::push, lhs_scope, lhs_sym_index);
-        }
-      }
-      // a -= ...
-      else if (expr.assign_type == TokenType::SUB_ASSIGN) {
-        if (expr.rhs->is(ASTNode::AST_EXPR_NUMBER) && expr.rhs->as_number_literal()->num_val == 1) {
-          emit(InstType::dec, lhs_scope, lhs_sym_index);
-        } else {
-          visit(expr.rhs);
-          emit(InstType::sub_assign, lhs_scope, lhs_sym_index);
+          emit(assign_type_to_op_type(expr.assign_type), lhs_scope, lhs_sym_index);
         }
         if (need_value) {
           emit(InstType::push, lhs_scope, lhs_sym_index);
@@ -621,7 +639,6 @@ class CodegenVisitor {
       else {
         visit(expr.rhs);
         emit(assign_type_to_op_type(expr.assign_type), lhs_scope, lhs_sym_index);
-
         if (need_value) {
           emit(InstType::push, lhs_scope, lhs_sym_index);
         }
@@ -640,7 +657,8 @@ class CodegenVisitor {
       if (expr.assign_type == Token::ASSIGN) {
         emit(InstType::prop_assign, (int)need_value);
       } else {
-        emit(InstType::prop_compound_assign, static_cast<int>(expr.assign_type), (int)need_value);
+        InstType assign_type = assign_type_to_op_type(expr.assign_type);
+        emit(InstType::prop_compound_assign, static_cast<int>(assign_type), (int)need_value);
       }
     }
   }
@@ -720,7 +738,7 @@ class CodegenVisitor {
       emit(InstType::push, scope_type_int(symbol.storage_scope), symbol.get_index());
     } else {
       u32 atom = str_pool.atomize_sv(id.get_source());
-      emit(InstType::dyn_get_var, scope_type_int(ScopeType::GLOBAL), atom);
+      emit(InstType::dyn_get_var, atom, (int)false);
     }
   }
 

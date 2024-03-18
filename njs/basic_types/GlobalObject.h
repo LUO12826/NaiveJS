@@ -24,25 +24,36 @@ class GlobalObject: public JSObject {
  public:
   GlobalObject(): JSObject(ObjectClass::CLS_GLOBAL_OBJ) {}
 
-  JSValue& get_or_add_prop(const u16string& name, NjsVM& vm) {
+  JSValue& get_or_add_prop(NjsVM& vm, const u16string& name) {
 
     int64_t name_atom = vm.str_pool.atomize(name);
     auto iter = props_index_map.find(name_atom);
     if (iter != props_index_map.end()) {
       return vm.stack_get_at_index(iter->second);
-    } else {
+    }
+    else {
       JSValue val_ref = JSObject::get_prop(name_atom, true);
       return *val_ref.val.as_JSValue;
     }
   }
 
-  JSValue get_prop(int64_t atom, NjsVM& vm) {
+  JSValue get_prop(NjsVM& vm, int64_t atom, bool get_ref) {
     auto iter = props_index_map.find(atom);
     if (iter != props_index_map.end()) {
-      return JSValue(&vm.stack_get_at_index(iter->second));
-    } else {
-      return JSObject::get_prop(atom, false);
+      if (not get_ref) return vm.stack_get_at_index(iter->second);
+      else return JSValue(&vm.stack_get_at_index(iter->second));
     }
+    else {
+      return JSObject::get_prop(atom, get_ref);
+    }
+  }
+
+  JSValue get_prop(NjsVM& vm, const u16string& name, bool get_ref) {
+    if (!get_ref && !vm.str_pool.has_string(name)) {
+      return JSValue::undefined;
+    }
+    int64_t name_atom = vm.str_pool.atomize(name);
+    return get_prop(vm, name_atom, get_ref);
   }
 
   unordered_map<int64_t, u32> props_index_map;

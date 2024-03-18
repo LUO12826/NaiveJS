@@ -229,7 +229,7 @@ std::string Instruction::description() const {
       sprintf(buffer, "index_access  %s", operand.two.opr1 ? "REF" : "");
       break;
     case InstType::dyn_get_var:
-      sprintf(buffer, "dyn_get_var  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+      sprintf(buffer, "dyn_get_var  %d %d", operand.two.opr1, operand.two.opr2);
       break;
     case InstType::call:
       sprintf(buffer, "call  %d %d", operand.two.opr1, operand.two.opr2);

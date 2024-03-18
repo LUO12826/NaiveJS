@@ -70,14 +70,14 @@ void NjsVM::add_native_func_impl(const u16string& name,
   builder(*func);
 
   auto& global_obj = *static_cast<GlobalObject *>(global_object.val.as_object);
-  global_obj.get_or_add_prop(name, *this).set_val(func);
+  global_obj.get_or_add_prop(*this, name).set_val(func);
 }
 
 void NjsVM::add_builtin_object(const u16string& name,
                                const std::function<JSObject*()>& builder) {
 
   GlobalObject& global_obj = *static_cast<GlobalObject *>(global_object.val.as_object);
-  global_obj.get_or_add_prop(name, *this).set_val(builder());
+  global_obj.get_or_add_prop(*this, name).set_val(builder());
 }
 
 

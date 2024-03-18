@@ -358,6 +358,9 @@ CallResult NjsVM::execute(bool stop_at_return) {
       case InstType::index_access:
         exec_index_access((bool)inst.operand.two.opr1);
         break;
+      case InstType::dyn_get_var:
+        exec_dynamic_get_var(inst.operand.two.opr1, (bool)inst.operand.two.opr2);
+        break;
       default:
         assert(false);
     }
@@ -1022,7 +1025,7 @@ void NjsVM::exec_push_this(bool in_global) {
   }
 }
 
-void NjsVM::exec_key_access(int key_atom, bool get_ref) {
+void NjsVM::exec_key_access(u32 key_atom, bool get_ref) {
   JSValue& val_obj = sp[0];
   invoker_this.assign(val_obj);
 
@@ -1157,6 +1160,20 @@ void NjsVM::exec_index_access(bool get_ref) {
 
   index.set_undefined();
   sp -= 1;
+}
+
+void NjsVM::exec_dynamic_get_var(u32 name_atom, bool get_ref) {
+  auto *global_obj = static_cast<GlobalObject*>(global_object.as_object());
+  JSValue val = global_obj->get_prop(*this, name_atom, get_ref);
+
+  if (val.is_undefined()) {
+    auto& var_name = atom_to_str(name_atom);
+    error_throw(var_name + u" is undefined.");
+    error_handle();
+  } else {
+    sp += 1;
+    sp[0] = val;
+  }
 }
 
 

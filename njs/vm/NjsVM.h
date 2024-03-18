@@ -107,9 +107,10 @@ friend class InternalFunctions;
   // object operation
   void exec_make_object();
   void exec_add_props(int props_cnt);
-  void exec_key_access(int key_atom, bool get_ref);
+  void exec_key_access(u32 key_atom, bool get_ref);
   void exec_index_access(bool get_ref);
   void exec_prop_assign();
+  void exec_dynamic_get_var(u32 name_atom, bool get_ref);
   void exec_compound_assign(InstType type, int opr1, int opr2);
   // array operation
   void exec_make_array(int length);
