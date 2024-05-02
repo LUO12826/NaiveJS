@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cassert>
 #include "njs/global_var.h"
 
 namespace njs {

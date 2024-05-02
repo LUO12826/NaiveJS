@@ -2,6 +2,7 @@
 #define NJS_ENUMS_H
 
 #include <string>
+#include <cassert>
 
 namespace njs {
 
