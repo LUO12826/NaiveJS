@@ -30,7 +30,6 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   , global_catch_table(std::move(visitor.scope_chain[0]->catch_table))
 {
   init_prototypes();
-  top_level_this.set_val(new_object());
 
   auto global_obj = heap.new_object<GlobalObject>();
   global_obj->set_prototype(object_prototype);
@@ -798,7 +797,7 @@ void NjsVM::exec_make_func(int meta_idx) {
     if (bp != stack_begin) {
       func->This = function_env()->This;
     } else {
-      func->This = top_level_this;
+      func->This = global_object;
     }
   }
 
@@ -1021,7 +1020,7 @@ void NjsVM::exec_push_this(bool in_global) {
     assert(function_env());
     sp[0] = function_env()->This;
   } else {
-    sp[0] = top_level_this;
+    sp[0] = global_object;
   }
 }
 

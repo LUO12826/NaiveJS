@@ -178,7 +178,6 @@ friend class InternalFunctions;
   SmallVector<JSFunctionMeta, 10> func_meta;
 
   JSValue invoker_this;
-  JSValue top_level_this;
   JSValue global_object;
 
   // for error handling in the global scope
