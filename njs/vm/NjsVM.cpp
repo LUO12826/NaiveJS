@@ -189,6 +189,9 @@ CallResult NjsVM::execute(bool stop_at_return) {
       case InstType::push:
         exec_push(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
+      case InstType::push_check:
+        exec_push_check(inst.operand.two.opr1, inst.operand.two.opr2);
+        break;
       case InstType::pushi:
         sp += 1;
         sp[0].set_val(inst.operand.num_float);
@@ -739,8 +742,18 @@ void NjsVM::exec_return_error() {
 
 void NjsVM::exec_push(int scope, int index) {
   sp += 1;
-  // TODO: check if the value is UNINIT here.
   sp[0] = get_value(scope_type_from_int(scope), index);
+}
+
+void NjsVM::exec_push_check(int scope, int index) {
+  JSValue& val = get_value(scope_type_from_int(scope), index);
+  if (unlikely(val.is_uninited())) {
+    error_throw(u"Cannot access a variable before initialization");
+    error_handle();
+    return;
+  }
+  sp += 1;
+  sp[0] = val;
 }
 
 void NjsVM::exec_pop(int scope, int index) {

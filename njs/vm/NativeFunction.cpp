@@ -123,17 +123,15 @@ Completion InternalFunctions::json_stringify(NjsVM& vm, JSFunction& func, ArrayR
   return JSValue(new PrimitiveString(std::move(json_string)));
 }
 
-u16string InternalFunctions::build_trace_str(NjsVM& vm) {
+u16string InternalFunctions::build_trace_str(NjsVM& vm, bool remove_top) {
   std::vector<NjsVM::StackTraceItem> trace = vm.capture_stack_trace();
-
   u16string trace_str;
-  // the first item of the stack trace will be the constructor of `Error` object.
-  // So skip the first one.
   bool first = true;
+
   for (auto& tr : trace) {
     if (first) {
       first = false;
-      continue;
+      if (remove_top) continue;
     }
     trace_str += u"  ";
     trace_str += tr.func_name;

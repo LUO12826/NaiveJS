@@ -23,7 +23,7 @@ class InternalFunctions {
   static Completion Object_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static Completion Error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
 
-  static u16string build_trace_str(NjsVM& vm);
+  static u16string build_trace_str(NjsVM& vm, bool remove_top = false);
   static JSValue build_error_internal(NjsVM& vm, const u16string& msg);
 
 };

@@ -586,7 +586,11 @@ class CodegenVisitor {
         emit(InstType::fast_assign, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index(),
              scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
         if (need_value) {
-          emit(InstType::push, scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
+          if (rhs_sym.is_let_or_const()) {
+            emit(InstType::push_check, scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
+          } else {
+            emit(InstType::push, scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
+          }
         }
       }
       else {
@@ -739,7 +743,11 @@ class CodegenVisitor {
   void visit_identifier(ASTNode& id) {
     auto symbol = scope().resolve_symbol(id.get_source());
     if (not symbol.not_found()) {
-      emit(InstType::push, scope_type_int(symbol.storage_scope), symbol.get_index());
+      if (symbol.is_let_or_const()) {
+        emit(InstType::push_check, scope_type_int(symbol.storage_scope), symbol.get_index());
+      } else {
+        emit(InstType::push, scope_type_int(symbol.storage_scope), symbol.get_index());
+      }
     } else {
       u32 atom = str_pool.atomize_sv(id.get_source());
       emit(InstType::dyn_get_var, atom, (int)false);

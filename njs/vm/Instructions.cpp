@@ -124,6 +124,9 @@ std::string Instruction::description() const {
     case InstType::push:
       sprintf(buffer, "push  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
       break;
+    case InstType::push_check:
+      sprintf(buffer, "push_check  %s %d", scope_type_names[operand.two.opr1], operand.two.opr2);
+      break;
     case InstType::pushi:
       sprintf(buffer, "pushi  %lf", operand.num_float);
       break;

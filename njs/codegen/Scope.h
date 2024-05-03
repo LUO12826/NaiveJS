@@ -41,6 +41,11 @@ class Scope {
 
     bool not_found() { return original_symbol == nullptr; }
 
+    bool is_let_or_const() {
+      assert(original_symbol != nullptr);
+      return original_symbol->is_let_or_const();
+    }
+
     static SymbolResolveResult none;
 
     SymbolRecord *original_symbol {nullptr};

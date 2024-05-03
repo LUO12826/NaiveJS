@@ -49,6 +49,7 @@ enum class InstType {
   urshi,
 
   push,
+  push_check,
   pushi,
   push_str,
   push_bool,

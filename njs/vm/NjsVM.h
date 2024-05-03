@@ -92,6 +92,7 @@ friend class InternalFunctions;
   void prepare_for_call(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
   // push
   void exec_push(int scope, int index);
+  void exec_push_check(int scope, int index);
   void exec_push_str(int str_idx, bool atom);
   void exec_push_this(bool in_global);
   // pop or store
