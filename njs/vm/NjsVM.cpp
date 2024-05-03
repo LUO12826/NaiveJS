@@ -39,7 +39,9 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   auto& global_sym_table = visitor.scope_chain[0]->get_symbol_table();
 
   for (auto& [sym_name, sym_rec] : global_sym_table) {
-    global_obj->props_index_map.emplace(sv_to_atom(sym_name), sym_rec.index + frame_meta_size);
+    if (sym_rec.var_kind == VarKind::DECL_VAR || sym_rec.var_kind == VarKind::DECL_FUNCTION) {
+      global_obj->props_index_map.emplace(sv_to_atom(sym_name), sym_rec.index + frame_meta_size);
+    }
   }
 
   str_pool.record_static_atom_count();
@@ -1038,13 +1040,14 @@ void NjsVM::exec_key_access(u32 key_atom, bool get_ref) {
       val_obj = val_obj.val.as_object->get_prop(key_atom, get_ref);
     }
   }
-  else if (val_obj.is_undefined() || val_obj.is_null()) {
+  else if (val_obj.is_uninited() || val_obj.is_undefined() || val_obj.is_null()) {
     goto error;
   }
   else if (!key_access_on_primitive(val_obj, key_atom)) {
     goto error;
   }
 
+  if (val_obj.is_uninited()) val_obj = JSValue::undefined;
   return;
 error:
   error_throw(u"cannot read property of " + to_u16string(val_obj.to_string(*this)));
@@ -1157,6 +1160,7 @@ void NjsVM::exec_index_access(bool get_ref) {
     }
   }
 
+  if (obj.is_uninited()) obj = JSValue::undefined;
   index.set_undefined();
   sp -= 1;
 }
@@ -1165,9 +1169,9 @@ void NjsVM::exec_dynamic_get_var(u32 name_atom, bool get_ref) {
   auto *global_obj = static_cast<GlobalObject*>(global_object.as_object());
   JSValue val = global_obj->get_prop(*this, name_atom, get_ref);
 
-  if (val.is_undefined()) {
+  if (val.is_uninited()) {
     auto& var_name = atom_to_str(name_atom);
-    error_throw(var_name + u" is undefined.");
+    error_throw(var_name + u" is undefined");
     error_handle();
   } else {
     sp += 1;

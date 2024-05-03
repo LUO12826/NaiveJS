@@ -99,7 +99,7 @@ class JSObject : public GCObject {
   template <typename KEY>
   JSValue get_prop(KEY&& key, bool get_ref) {
     JSValue res = get_exist_prop(std::forward<KEY>(key), get_ref);
-    if (res.tag != JSValue::UNDEFINED) {
+    if (res.tag != JSValue::UNINIT) {
       return res;
     }
     else if (get_ref) {
@@ -107,7 +107,7 @@ class JSObject : public GCObject {
       return JSValue(&new_val);
     }
     else {
-      return JSValue::undefined;
+      return JSValue::uninited;
     }
   }
 
@@ -122,7 +122,7 @@ class JSObject : public GCObject {
       return _proto_.as_object()->get_exist_prop(std::forward<KEY>(key), get_ref);
     }
     else {
-      return JSValue::undefined;
+      return JSValue::uninited;
     }
   }
 

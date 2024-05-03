@@ -27,6 +27,10 @@ using u32 = uint32_t;
 struct CodegenError {
   std::string message;
   ASTNode *ast_node;
+
+  void describe() {
+    printf("At line %u: %s\n", ast_node->get_line_start(), message.c_str());
+  }
 };
 
 class CodegenVisitor {
@@ -1156,6 +1160,8 @@ class CodegenVisitor {
     }
   }
 
+  const SmallVector<CodegenError, 10>& get_errors() { return errors; }
+
  private:
   /// Get current scope.
   Scope& scope() { return *scope_chain.back(); }
@@ -1185,7 +1191,10 @@ class CodegenVisitor {
     return bytecode.size() - 1;
   }
 
-  void report_error(CodegenError err) { error.push_back(std::move(err)); }
+  void report_error(CodegenError err) {
+    err.describe();
+    errors.push_back(std::move(err));
+  }
 
   u32 add_const(u16string_view str_view) {
     auto idx = str_pool.atomize_sv(str_view);
@@ -1220,7 +1229,7 @@ class CodegenVisitor {
 
   std::vector<Scope *> scope_chain;
   std::vector<Instruction> bytecode;
-  SmallVector<CodegenError, 10> error;
+  SmallVector<CodegenError, 10> errors;
 
   // for constant
   StringPool str_pool;

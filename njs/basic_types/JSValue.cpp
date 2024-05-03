@@ -54,6 +54,7 @@ std::string JSValue::description() const {
 std::string JSValue::to_string(NjsVM& vm) const {
   std::string output;
   switch (tag) {
+    case UNINIT:
     case UNDEFINED: output += "undefined"; break;
     case JS_NULL: output += "null"; break;
     case JS_ATOM:
@@ -129,6 +130,7 @@ void JSValue::to_json(u16string& output, NjsVM& vm) const {
 }
 
 JSValue JSValue::undefined = JSValue(JSValue::UNDEFINED);
+JSValue JSValue::uninited = JSValue(JSValue::UNINIT);
 JSValue JSValue::null = JSValue(JSValue::JS_NULL);
 
 

@@ -60,6 +60,11 @@ int main(int argc, char *argv[]) {
     visitor.codegen(static_cast<ProgramOrFunctionBody *>(ast));
     codegen_timer.end();
 
+    if (visitor.get_errors().size() > 0) {
+      printf("Terminated due to errors in program.\n");
+      exit(EXIT_FAILURE);
+    }
+
     // execute bytecode
     Timer exec_timer("executed");
     NjsVM vm(visitor);

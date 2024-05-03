@@ -50,7 +50,7 @@ class GlobalObject: public JSObject {
 
   JSValue get_prop(NjsVM& vm, const u16string& name, bool get_ref) {
     if (!get_ref && !vm.str_pool.has_string(name)) {
-      return JSValue::undefined;
+      return JSValue::uninited;
     }
     int64_t name_atom = vm.str_pool.atomize(name);
     return get_prop(vm, name_atom, get_ref);

@@ -88,6 +88,7 @@ struct JSValue {
   };
 
   static JSValue undefined;
+  static JSValue uninited;
   static JSValue null;
 
   static JSValue Atom(int64_t val) {
@@ -216,6 +217,7 @@ struct JSValue {
   void move_to_heap();
 
   bool is_undefined() const { return tag == UNDEFINED; };
+  bool is_uninited() const { return tag == UNINIT; };
   bool is_null() const { return tag == JS_NULL; };
   bool is_int64() const { return tag == NUM_INT64; }
   bool is_float64() const { return tag == NUM_FLOAT; }
