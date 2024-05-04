@@ -77,9 +77,11 @@ class CodegenVisitor {
       std::string func_name = meta.is_anonymous ? "(anonymous)"
                                                 : to_u8string(str_list[meta.name_index]);
       std::cout << "index: " << std::setw(3) << i
-                << " name: " << std::setw(30) << func_name
+                << " name: " << std::setw(20) << func_name
+                << " num_local_var: " << std::setw(4) << meta.local_var_count
+                << " stack_size: " << std::setw(3) << meta.stack_size
                 << " addr: " << meta.code_address << '\n';
-
+      std::cout << "catch table:\n";
       for (auto& catch_item : meta.catch_table) {
         std::cout << "  " << catch_item.description() << '\n';
       }
@@ -341,7 +343,7 @@ class CodegenVisitor {
       emit(InstType::halt);
     }
     else { // function body
-      if (bytecode[bytecode_pos() - 1].op_type != InstType::ret) {
+      if (bytecode.back().op_type != InstType::ret) {
         emit(InstType::push_undef);
         emit(InstType::ret);
       }
@@ -380,6 +382,7 @@ class CodegenVisitor {
         .is_arrow_func = func.is_arrow_func,
         .param_count = (u16)scope().get_param_count(),
         .local_var_count = (u16)scope().get_var_count(),
+        .stack_size = (u16)scope().get_max_stack_size(),
         .code_address = func_start_pos,
         .source_line = func.get_line_start(),
         .catch_table = std::move(scope().catch_table)
@@ -405,6 +408,7 @@ class CodegenVisitor {
     }
 
     bytecode.pop_back(); // don't pop the result of the last element. It's the result of the comma expression.
+    scope().update_stack_usage(1);
   }
 
   void visit_function(Function& func) {
@@ -673,17 +677,17 @@ class CodegenVisitor {
 
   void visit_object_literal(ObjectLiteral& obj_lit) {
     emit(InstType::make_obj);
-
     for (auto& prop : obj_lit.properties) {
       // push the key into the stack
       emit(InstType::push_atom, (int)add_const(prop.key.text));
-
       // push the value into the stack
       visit(prop.value);
     }
 
-    if (!obj_lit.properties.empty()) {
-      emit(InstType::add_props, (int)obj_lit.properties.size());
+    int prop_count = obj_lit.properties.size();
+    if (prop_count > 0) {
+      emit(InstType::add_props, prop_count);
+      scope().update_stack_usage(-prop_count * 2);
     }
   }
 
@@ -698,8 +702,9 @@ class CodegenVisitor {
       }
     }
 
-    if (!array_lit.elements.empty()) {
+    if (array_lit.len > 0) {
       emit(InstType::add_elements, (int)array_lit.len);
+      scope().update_stack_usage(-(int)array_lit.len);
     }
   }
 
@@ -714,9 +719,15 @@ class CodegenVisitor {
       // obj.func()
       if (postfix_type == LeftHandSideExpr::CALL) {
         visit_func_arguments(*(expr.args_list[idx]));
-        bool has_this_object = i > 0 && postfix_ord[i - 1].first != LeftHandSideExpr::CALL;
-        if (!in_new_ctx) emit(InstType::call, expr.args_list[idx]->args.size(), int(has_this_object));
-        else emit(InstType::js_new, expr.args_list[idx]->args.size());
+        bool has_this = i > 0 && postfix_ord[i - 1].first != LeftHandSideExpr::CALL;
+        int arg_count = expr.args_list[idx]->args.size();
+
+        if (unlikely(in_new_ctx && i == postfix_size - 1)) {
+          // if in new context, `visit_new_expr` will emit a js_new instruction.
+        } else {
+          emit(InstType::call, arg_count, int(has_this));
+          scope().update_stack_usage(-(arg_count - 1));
+        }
       }
       // obj.prop
       else if (postfix_type == LeftHandSideExpr::PROP) {
@@ -819,6 +830,8 @@ class CodegenVisitor {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
     emit(InstType::pop_drop);
+    // we don't really `pop_drop` twice, we just `pop_drop` in each branch. to compensate here 1 is added.
+    scope().update_stack_usage(1);
 
     if (stmt.else_block) {
       if (is_stmt_valid_in_single_stmt_ctx(stmt.else_block)) {
@@ -852,6 +865,8 @@ class CodegenVisitor {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
     emit(InstType::pop_drop);
+    // we don't really `pop_drop` twice, we just `pop_drop` in each branch. to compensate here 1 is added.
+    scope().update_stack_usage(1);
 
     visit(expr.false_expr);
     bytecode[true_end_jmp].operand.two.opr1 = bytecode_pos();
@@ -886,6 +901,8 @@ class CodegenVisitor {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
     emit(InstType::pop_drop);
+    // we don't really `pop_drop` twice, we just `pop_drop` in each branch. to compensate here 1 is added.
+    scope().update_stack_usage(1);
 
     for (u32 idx : scope().break_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
@@ -905,6 +922,7 @@ class CodegenVisitor {
     emit(InstType::jmp, bytecode_pos() + 2); // jump over the `pop_drop`
     u32 loop_start = bytecode_pos();
     emit(InstType::pop_drop);
+    scope().update_stack_usage(1);
 
     if (is_stmt_valid_in_single_stmt_ctx(stmt.body_stmt)) {
       visit(stmt.body_stmt);
@@ -1122,7 +1140,7 @@ class CodegenVisitor {
     if (has_finally) {
       // finally1. If there is error in the try block (without catch) or in the catch block, go here.
       visit_block_statement(*static_cast<Block *>(stmt.finally_block), {});
-      scope().throw_list.push_back( emit(InstType::jmp));
+      scope().throw_list.push_back(emit(InstType::jmp));
 
       bytecode[try_end_jmp].operand.two.opr1 = bytecode_pos();
       // finally2
@@ -1156,12 +1174,17 @@ class CodegenVisitor {
     if (expr.callee->is_identifier()) {
       visit(expr.callee);
       emit(InstType::js_new, 0);
+      scope().update_stack_usage(1);
     }
     else if (expr.callee->is_lhs_expr()) {
-      visit_left_hand_side_expr(*(expr.callee->as_lhs_expr()), false, true);
-      if (bytecode[bytecode_pos() - 1].op_type != InstType::js_new) {
-        emit(InstType::js_new, 0);
+      auto& lhs_expr = *expr.callee->as_lhs_expr();
+      visit_left_hand_side_expr(lhs_expr, false, true);
+      int arg_count = 0;
+      if (lhs_expr.postfix_order.back().first == LeftHandSideExpr::CALL) {
+        arg_count = lhs_expr.args_list.back()->arg_count();
       }
+      emit(InstType::js_new, arg_count);
+      scope().update_stack_usage(-(arg_count - 1));
     }
     else {
       assert(false);
@@ -1185,18 +1208,26 @@ class CodegenVisitor {
     scope_chain.pop_back();
     if (scope->get_outer_func()) {
       scope->get_outer_func()->update_var_count(scope->get_var_next_index());
+      scope->get_outer_func()->update_max_stack_size(scope->get_max_stack_size());
     }
   }
 
   template <typename... Args>
-  u32 emit(Args&&...args) {
-    bytecode.emplace_back(std::forward<Args>(args)...);
+  u32 emit(InstType inst_type, Args&&...args) {
+    update_stack_usage_common(inst_type);
+    bytecode.emplace_back(inst_type, std::forward<Args>(args)...);
     return bytecode.size() - 1;
   }
 
   u32 emit(Instruction inst) {
+    update_stack_usage_common(inst.op_type);
     bytecode.push_back(inst);
     return bytecode.size() - 1;
+  }
+
+  void update_stack_usage_common(InstType inst_type) {
+    int diff = Instruction::get_stack_usage(inst_type);
+    scope().update_stack_usage(diff);
   }
 
   void report_error(CodegenError err) {

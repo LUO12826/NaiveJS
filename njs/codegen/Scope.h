@@ -128,6 +128,9 @@ class Scope {
       var_idx_start = outer->var_idx_next;
       var_idx_next = outer->var_idx_next;
       update_var_count(var_idx_next);
+
+      curr_stack_size = outer->curr_stack_size;
+      max_stack_size = outer->max_stack_size;
     }
     if (scope_type == ScopeType::FUNC || scope_type == ScopeType::GLOBAL) {
       outer_func = this;
@@ -195,6 +198,10 @@ class Scope {
     return var_idx_start;
   }
 
+  u32 get_max_stack_size() {
+    return max_stack_size;
+  }
+
   u32 get_var_count() const {
     return var_count;
   }
@@ -205,6 +212,16 @@ class Scope {
 
   void update_var_count(u32 count) {
     var_count = std::max(count, var_count);
+  }
+
+  void update_stack_usage(int diff) {
+    curr_stack_size += diff;
+    assert(curr_stack_size >= 0);
+    max_stack_size = std::max(max_stack_size, curr_stack_size);
+  }
+
+  void update_max_stack_size(int new_max) {
+    max_stack_size = std::max(max_stack_size, new_max);
   }
   
  private:
@@ -288,6 +305,9 @@ class Scope {
   u32 var_idx_start {0};
   u32 var_idx_next {0};
   u32 var_count {0};
+
+  int max_stack_size {0};
+  int curr_stack_size {0};
 
   // for function scope
   SmallVector<SymbolResolveResult, 5> capture_list;

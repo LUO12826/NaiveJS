@@ -194,7 +194,6 @@ class ArrayLiteral : public ASTNode {
   }
 
   void add_element(ASTNode *element) {
-    if (element == nullptr) { printf("warning: null element added to array literal.\n"); }
     elements.emplace_back(len, element);
     len++;
   }

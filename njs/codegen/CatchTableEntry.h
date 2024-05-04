@@ -26,9 +26,13 @@ struct CatchTableEntry {
 
   std::string description() const {
     std::ostringstream ss;
-    ss << "start: " << std::setw(4) << start_pos << " end: " << std::setw(4) << end_pos
-       << " goto: " << std::setw(4) << goto_pos << " var start: " << std::setw(4) << local_var_begin
-       << " var end: " << std::setw(4) << local_var_end;
+    if (start_pos == end_pos) {
+      ss << "(function root)    " << " goto: " << std::setw(4) << goto_pos;
+    } else {
+      ss << "start: " << std::setw(4) << start_pos << " end: " << std::setw(4) << end_pos
+         << " goto: " << std::setw(4) << goto_pos << " var_start: " << std::setw(4) << local_var_begin
+         << " var_end: " << std::setw(4) << local_var_end;
+    }
 
     return ss.str();
   }

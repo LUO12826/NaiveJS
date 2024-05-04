@@ -303,8 +303,6 @@ CallResult NjsVM::execute(bool stop_at_return) {
       case InstType::fast_add:
         exec_fast_add(inst);
         break;
-      case InstType::fast_bin:
-        break;
       case InstType::fast_assign:
         exec_fast_assign(inst);
         break;
@@ -1304,8 +1302,8 @@ void NjsVM::error_handle() {
   }
   // 1.2 an error happens but there is no `catch`
   if (!catch_entry) {
-    assert(catch_table[catch_table.size() - 1].start_pos == catch_table[catch_table.size() - 1].end_pos);
-    pc = catch_table[catch_table.size() - 1].goto_pos;
+    assert(catch_table.back().start_pos == catch_table.back().end_pos);
+    pc = catch_table.back().goto_pos;
   }
 }
 
