@@ -87,11 +87,9 @@ class Parser {
         token = lexer.scan_regexp_literal(pattern, flag);
         if (token.type == TokenType::REGEX) {
           return new RegExpLiteral(pattern, flag, TOKEN_SOURCE_EXPR);
-        }
-        else {
+        } else {
           goto error;
         }
-        break;
       }
       default:
         goto error;
@@ -643,23 +641,20 @@ error:
     }
 
     auto* prog = new ProgramOrFunctionBody(syntax_type, strict);
-    ASTNode* statement;
+    ASTNode* stmt;
     
     while (!token_match(ending_token_type)) {
-      statement = parse_statement();
-      
-      if (statement->is_illegal()) {
+      stmt = parse_statement();
+      if (stmt->is_illegal()) {
         delete prog;
-        return statement;
+        return stmt;
       }
 
-      if (statement->type == ASTNode::AST_FUNC) {
-        prog->add_function_decl(statement);
+      if (stmt->type == ASTNode::AST_FUNC && !stmt->as_function()->is_arrow_func) {
+        prog->add_function_decl(stmt);
+      } else {
+        prog->add_statement(stmt);
       }
-      else {
-        prog->add_statement(statement);
-      }
-
       lexer.next();
     }
     assert(token_match(ending_token_type));
@@ -785,7 +780,6 @@ error:
     }
 
     while (true) {
-
       if (lexer.current().text != u",") {
         decl = parse_variable_declaration(no_in, var_kind);
         if (decl->is_illegal()) {

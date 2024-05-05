@@ -73,6 +73,10 @@ Block *ASTNode::as_block() {
   return static_cast<Block *>(this);
 }
 
+Function *ASTNode::as_function() {
+  return static_cast<Function *>(this);
+}
+
 bool ASTNode::is_illegal() { return type == AST_ILLEGAL; }
 
 bool ASTNode::is_expression() {

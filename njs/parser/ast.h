@@ -127,6 +127,7 @@ class ASTNode {
   ProgramOrFunctionBody *as_func_body();
   NumberLiteral *as_number_literal();
   Block *as_block();
+  Function *as_function();
 
   bool is(Type t) const { return this->type == t; }
   bool is_illegal();

@@ -325,7 +325,7 @@ class CodegenVisitor {
       if (not stmt->is(ASTNode::AST_EXPR_ASSIGN)) {
         visit(stmt);
         // pop drop unused result #2
-        if (stmt->type > ASTNode::BEGIN_EXPR && stmt->type < ASTNode::END_EXPR) {
+        if (stmt->is_expression() || stmt->is(ASTNode::AST_FUNC) && stmt->as_function()->is_arrow_func) {
           emit(InstType::pop_drop);
         }
       } else {
@@ -357,8 +357,7 @@ class CodegenVisitor {
 
     if (program.type == ASTNode::AST_PROGRAM) {
       emit(InstType::halt_err);
-    }
-    else {
+    } else {
       emit(InstType::ret_err);
     }
   }
@@ -726,7 +725,7 @@ class CodegenVisitor {
           // if in new context, `visit_new_expr` will emit a js_new instruction.
         } else {
           emit(InstType::call, arg_count, int(has_this));
-          scope().update_stack_usage(-(arg_count - 1));
+          scope().update_stack_usage(-arg_count);
         }
       }
       // obj.prop
@@ -1038,7 +1037,7 @@ class CodegenVisitor {
       if (not stmt->is(ASTNode::AST_EXPR_ASSIGN)) {
         visit(stmt);
         // pop drop unused result #1
-        if (stmt->type > ASTNode::BEGIN_EXPR && stmt->type < ASTNode::END_EXPR) {
+        if (stmt->is_expression() || stmt->is(ASTNode::AST_FUNC) && stmt->as_function()->is_arrow_func) {
           emit(InstType::pop_drop);
         }
       } else {
@@ -1191,7 +1190,7 @@ class CodegenVisitor {
         arg_count = lhs_expr.args_list.back()->arg_count();
       }
       emit(InstType::js_new, arg_count);
-      scope().update_stack_usage(-(arg_count - 1));
+      scope().update_stack_usage(-arg_count);
     }
     else {
       assert(false);
