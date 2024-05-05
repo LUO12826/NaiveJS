@@ -56,30 +56,22 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, u16string_view hint) {
 
 bool JSObject::add_prop(const JSValue& key, const JSValue& value, PropDesc desc) {
   JSObjectProp *new_prop;
-  if (key.tag == JSValue::JS_ATOM) {
+  if (likely(key.tag == JSValue::JS_ATOM)) {
     new_prop = &storage[JSObjectKey(key.val.as_i64)];
-  }
-  else if (key.tag == JSValue::STRING) {
-    new_prop = &storage[JSObjectKey(key.val.as_primitive_string)];
-  }
-  else if (key.tag == JSValue::SYMBOL) {
+  } else if (key.tag == JSValue::SYMBOL) {
     new_prop = &storage[JSObjectKey(key.val.as_symbol)];
-  }
-  else if (key.tag == JSValue::NUM_FLOAT) {
-    new_prop = &storage[JSObjectKey(key.val.as_f64)];
-  }
-  else {
+  } else {
     return false;
   }
 
-  new_prop->value.assign(value);
+  new_prop->data.value.assign(value);
   new_prop->desc = desc;
   return true;
 }
 
 bool JSObject::add_prop(int64_t key_atom, const JSValue& value, PropDesc desc) {
   JSObjectProp& prop = storage[JSObjectKey(key_atom)];
-  prop.value.assign(value);
+  prop.data.value.assign(value);
   prop.desc = desc;
   return true;
 }
@@ -113,15 +105,18 @@ bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType func
 
 void JSObject::gc_scan_children(GCHeap& heap) {
   for (auto& [key, prop]: storage) {
-    if (prop.value.needs_gc()) {
-      heap.gc_visit_object(prop.value, prop.value.as_GCObject());
+    if (prop.desc.is_value() && prop.data.value.needs_gc()) {
+      heap.gc_visit_object(prop.data.value, prop.data.value.as_GCObject());
     }
-    if (prop.getter.needs_gc()) {
-      heap.gc_visit_object(prop.value, prop.value.as_GCObject());
+    if (prop.desc.is_getset()) {
+      if (prop.data.getset.getter.needs_gc()) {
+        heap.gc_visit_object(prop.data.getset.getter, prop.data.getset.getter.as_GCObject());
+      }
+      if (prop.data.getset.setter.needs_gc()) {
+        heap.gc_visit_object(prop.data.getset.setter, prop.data.getset.setter.as_GCObject());
+      }
     }
-    if (prop.setter.needs_gc()) {
-      heap.gc_visit_object(prop.value, prop.value.as_GCObject());
-    }
+
   }
   if (_proto_.needs_gc()) {
     heap.gc_visit_object(_proto_, _proto_.as_GCObject());
@@ -135,10 +130,10 @@ std::string JSObject::description() {
   u32 print_prop_num = std::min((u32)4, (u32)storage.size());
   u32 i = 0;
   for (auto& [key, prop] : storage) {
-    if (not prop.desc.enumerable) continue;
+    if (not prop.desc.is_enumerable()) continue;
 
     stream << key.to_string() << ": ";
-    stream << prop.value.description() << ", ";
+    stream << prop.data.value.description() << ", ";
 
     i += 1;
     if (i == print_prop_num) break;
@@ -152,7 +147,7 @@ std::string JSObject::to_string(NjsVM& vm) {
   std::string output = "{ ";
 
   for (auto& [key, prop] : storage) {
-    if (not prop.desc.enumerable) continue;
+    if (not prop.desc.is_enumerable()) continue;
 
     if (key.key_type == JSObjectKey::KEY_ATOM) {
       u16string escaped = to_escaped_u16string(vm.atom_to_str(key.key.atom));
@@ -161,9 +156,9 @@ std::string JSObject::to_string(NjsVM& vm) {
     else assert(false);
 
     output += ": ";
-    if (prop.value.is(JSValue::STRING)) output += '"';
-    output += prop.value.to_string(vm);
-    if (prop.value.is(JSValue::STRING)) output += '"';
+    if (prop.data.value.is(JSValue::STRING)) output += '"';
+    output += prop.data.value.to_string(vm);
+    if (prop.data.value.is(JSValue::STRING)) output += '"';
     output += ", ";
   }
 
@@ -176,8 +171,8 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
 
   bool first = true;
   for (auto& [key, prop] : storage) {
-    if (not prop.desc.enumerable) continue;
-    if (prop.value.is_undefined()) continue;
+    if (not prop.desc.is_enumerable()) continue;
+    if (prop.data.value.is_undefined()) continue;
 
     if (first) first = false;
     else output += u',';
@@ -190,7 +185,7 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
     else assert(false);
 
     output += u':';
-    prop.value.to_json(output, vm);
+    prop.data.value.to_json(output, vm);
   }
 
   output += u"}";
@@ -198,7 +193,7 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
 
 JSObject::~JSObject() {
   for (auto& [key, prop] : storage) {
-    if (prop.value.is_RCObject()) prop.value.val.as_RCObject->release();
+    if (prop.data.value.is_RCObject()) prop.data.value.val.as_RCObject->release();
   }
 }
 

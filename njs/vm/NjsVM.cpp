@@ -816,8 +816,8 @@ void NjsVM::exec_make_func(int meta_idx) {
 
   if (not meta.is_arrow_func) {
     JSObject *new_prototype = new_object(ObjectClass::CLS_OBJECT);
-    new_prototype->add_prop(StringPool::ATOM_constructor, JSValue(func), {.enumerable = false});
-    func->add_prop(StringPool::ATOM_prototype, JSValue(new_prototype), {.enumerable = false});
+    new_prototype->add_prop(StringPool::ATOM_constructor, JSValue(func), PropDesc::C | PropDesc::W);
+    func->add_prop(StringPool::ATOM_prototype, JSValue(new_prototype), PropDesc::C | PropDesc::W);
   }
 
   assert(!meta.is_native);
@@ -1069,26 +1069,29 @@ bool NjsVM::key_access_on_primitive(JSValue& obj, int64_t atom) {
 
   switch (obj.tag) {
     case JSValue::BOOLEAN:
-      break;
     case JSValue::NUM_INT64:
-      break;
     case JSValue::NUM_FLOAT:
-      break;
-    case JSValue::STRING:
+    case JSValue::SYMBOL:
       obj.set_undefined();
+      break;
+    case JSValue::STRING: {
       if (atom == StringPool::ATOM_length) {
         auto len = obj.val.as_primitive_string->length();
+        obj.set_undefined();
         obj.set_val(double(len));
       }
       else if (string_prototype.as_object()->has_own_property(atom)) {
         auto func_val = string_prototype.as_object()->get_prop(atom, false);
         assert(func_val.is(JSValue::FUNCTION));
+        obj.set_undefined();
         obj.set_val(func_val.val.as_function);
       }
-      // else the result is `undefined`
+      else {
+        obj.set_undefined();
+      }
       break;
-    case JSValue::SYMBOL:
-      break;
+    }
+
     default:
       assert(false);
   }
@@ -1139,22 +1142,22 @@ void NjsVM::exec_index_access(bool get_ref) {
   }
   // Index a string
   else if (obj.is(JSValue::STRING)) {
-    obj.set_undefined();
-
+    JSValue res;
     // The float value can be interpreted as string index
     if (index.is_float64() && index.is_integer() && index.is_non_negative()) {
       u16string& str = obj.val.as_primitive_string->str;
 
       if (index_int < str.size()) {
         auto new_str = new PrimitiveString(u16string(1, str[index_int]));
-        obj.set_val(new_str);
+        res.set_val(new_str);
       }
     }
-    else if (index.is(JSValue::JS_ATOM)) {
-      if (index.val.as_i64 == StringPool::ATOM_length) {
-        obj.set_val(double(obj.val.as_primitive_string->length()));
-      }
+    else if (index.is(JSValue::JS_ATOM) && index.val.as_i64 == StringPool::ATOM_length) {
+      res.set_val(double(obj.val.as_primitive_string->length()));
     }
+
+    obj.set_undefined();
+    obj = res;
   }
   else if (obj.is(JSValue::OBJECT)) {
     if (index.is_float64()) {
@@ -1228,7 +1231,7 @@ void NjsVM::exec_comparison(InstType type) {
   JSValue& lhs = sp[-1];
   JSValue& rhs = sp[0];
 
-  bool res = false;
+  bool res;
   if (lhs.is_float64() && rhs.is_float64()) {
     switch (type) {
       case InstType::lt: res = lhs.val.as_f64 < rhs.val.as_f64; break;

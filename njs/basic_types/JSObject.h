@@ -17,6 +17,7 @@
 
 namespace njs {
 
+using u8 = uint8_t;
 using std::u16string;
 using std::u16string_view;
 using robin_hood::unordered_flat_map;
@@ -45,9 +46,30 @@ enum class ObjectClass {
 };
 
 struct PropDesc {
-  bool enumerable {true};
-  bool configurable {true};
-  bool writable {true};
+  static constexpr u8 enumerable {1 << 0};
+  static constexpr u8 E {1 << 0};
+  static constexpr u8 configurable {1 << 1};
+  static constexpr u8 C {1 << 1};
+  static constexpr u8 writable {1 << 2};
+  static constexpr u8 W {1 << 2};
+
+  static constexpr u8 ECW {E | C | W};
+
+  static constexpr u8 has_value {1 << 3};
+  static constexpr u8 has_getter {1 << 4};
+  static constexpr u8 has_setter {1 << 5};
+
+  u8 flags {0};
+
+  PropDesc(u8 flags = ECW): flags(has_value | flags) {}
+
+  void set_ECW() { flags |= PropDesc::ECW; }
+
+  bool is_value() const { return flags & has_value; }
+  bool is_getset() const { return flags & (has_getter | has_setter); }
+  bool is_enumerable() const { return flags & enumerable; }
+  bool is_configurable() const { return flags & configurable; }
+  bool is_writable() const { return flags & writable; }
 };
 
 class JSObject : public GCObject {
@@ -55,9 +77,29 @@ class JSObject : public GCObject {
 
   struct JSObjectProp {
     PropDesc desc;
-    JSValue value;
-    JSValue getter;
-    JSValue setter;
+    union Data {
+      JSValue value;
+      struct {
+        JSValue getter;
+        JSValue setter;
+      } getset;
+
+      Data() {}
+
+      Data& operator=(const Data& other) {
+        getset = other.getset;
+        return *this;
+      }
+
+      Data(const Data& other) {
+        getset = other.getset;
+      }
+
+      Data(Data&& other) {
+        getset = other.getset;
+      }
+    } data;
+
   };
 
   JSObject(): obj_class(ObjectClass::CLS_OBJECT) {}
@@ -80,7 +122,7 @@ class JSObject : public GCObject {
     _proto_ = proto;
   }
 
-  JSValue get_prototype() {
+  JSValue get_prototype() const {
     return _proto_;
   }
 
@@ -103,7 +145,7 @@ class JSObject : public GCObject {
       return res;
     }
     else if (get_ref) {
-      JSValue& new_val = storage[JSObjectKey(std::forward<KEY>(key))].value;
+      JSValue& new_val = storage[JSObjectKey(std::forward<KEY>(key))].data.value;
       return JSValue(&new_val);
     }
     else {
@@ -116,7 +158,7 @@ class JSObject : public GCObject {
 
     auto res = storage.find(JSObjectKey(std::forward<KEY>(key)));
     if (res != storage.end()) {
-      return get_ref ? JSValue(&(res->second.value)) : res->second.value;
+      return get_ref ? JSValue(&(res->second.data.value)) : res->second.data.value;
     }
     else if (_proto_.is_object()) {
       return _proto_.as_object()->get_exist_prop(std::forward<KEY>(key), get_ref);

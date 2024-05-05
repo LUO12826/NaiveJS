@@ -829,9 +829,10 @@ class CodegenVisitor {
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
-    emit(InstType::pop_drop);
+
     // we don't really `pop_drop` twice, we just `pop_drop` in each branch. to compensate here 1 is added.
     scope().update_stack_usage(1);
+    emit(InstType::pop_drop);
 
     if (stmt.else_block) {
       if (is_stmt_valid_in_single_stmt_ctx(stmt.else_block)) {
@@ -864,9 +865,10 @@ class CodegenVisitor {
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
-    emit(InstType::pop_drop);
+
     // we don't really `pop_drop` twice, we just `pop_drop` in each branch. to compensate here 1 is added.
     scope().update_stack_usage(1);
+    emit(InstType::pop_drop);
 
     visit(expr.false_expr);
     bytecode[true_end_jmp].operand.two.opr1 = bytecode_pos();
@@ -900,9 +902,10 @@ class CodegenVisitor {
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
-    emit(InstType::pop_drop);
+
     // we don't really `pop_drop` twice, we just `pop_drop` in each branch. to compensate here 1 is added.
     scope().update_stack_usage(1);
+    emit(InstType::pop_drop);
 
     for (u32 idx : scope().break_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
@@ -921,8 +924,9 @@ class CodegenVisitor {
 
     emit(InstType::jmp, bytecode_pos() + 2); // jump over the `pop_drop`
     u32 loop_start = bytecode_pos();
-    emit(InstType::pop_drop);
+
     scope().update_stack_usage(1);
+    emit(InstType::pop_drop);
 
     if (is_stmt_valid_in_single_stmt_ctx(stmt.body_stmt)) {
       visit(stmt.body_stmt);
@@ -1073,6 +1077,8 @@ class CodegenVisitor {
 
     // visit the try block to emit bytecode
     u32 try_start = bytecode_pos();
+    // reserve a stack element for exception
+    scope().update_stack_usage(1);
     visit_block_statement(*stmt.try_block->as_block(), {});
     u32 try_end = bytecode_pos() - 1;
 
@@ -1100,12 +1106,13 @@ class CodegenVisitor {
     // in the case of `catch (a) ...`, we are going to store the top-of-stack value to a local
     // variable. The variable is defined as `let` inside the catch block. And since it is the
     // first variable in the catch block, we know it must be at `var_next_index`.
-    if (has_catch && stmt.catch_ident.is(TokenType::IDENTIFIER)) {
-      int catch_id_addr = scope().get_var_next_index() + frame_meta_size;
-      emit(InstType::pop, scope_type_int(scope().get_outer_func()->get_scope_type()), catch_id_addr);
-    }
-    else if (!has_finally) {
-      emit(InstType::pop_drop);
+    if (has_catch) {
+      if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
+        int catch_id_addr = scope().get_var_next_index() + frame_meta_size;
+        emit(InstType::pop, scope_type_int(scope().get_outer_func()->get_scope_type()), catch_id_addr);
+      } else {
+        emit(InstType::pop_drop);
+      }
     }
 
     if (has_catch) {

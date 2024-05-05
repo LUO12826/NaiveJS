@@ -151,11 +151,15 @@ struct Instruction {
       case InstType::div:
       case InstType::logi_and:
       case InstType::logi_or:
+        return -1;
       case InstType::logi_not:
+        return 0;
       case InstType::bits_and:
       case InstType::bits_or:
       case InstType::bits_xor:
+        return -1;
       case InstType::bits_not:
+        return 0;
       case InstType::lsh:
       case InstType::lshi:
       case InstType::rsh:
