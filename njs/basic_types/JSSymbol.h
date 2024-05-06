@@ -1,47 +1,40 @@
 #ifndef NJS_JS_SYMBOL_H
 #define NJS_JS_SYMBOL_H
 
-#include "RCObject.h"
+#include "njs/gc/GCObject.h"
 #include "njs/utils/helper.h"
 #include <string>
 
 namespace njs {
 
 /// @brief https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol
-struct JSSymbol: public RCObject {
+struct JSSymbol: public GCObject {
 
   inline static size_t global_count {0};
 
   JSSymbol() = default;
-  explicit JSSymbol(std::u16string name);
-
-  RCObject *copy() override {
-    auto *sym = new JSSymbol();
-    sym->seq = this->seq;
-    sym->name = this->name;
-    return sym;
+  explicit JSSymbol(std::u16string name): name(std::move(name)) {
+    seq = JSSymbol::global_count;
+    JSSymbol::global_count += 1;
   }
 
-  bool operator == (const JSSymbol& other) const;
+  bool operator == (const JSSymbol& other) const {
+    return name == other.name && seq == other.seq;
+  }
 
-  std::string to_string();
+  void gc_scan_children(njs::GCHeap &heap) override {}
+
+  std::string description() override {
+    return to_string();
+  }
+
+  std::string to_string() {
+    return "JSSymbol(" + to_u8string(name) + ")";
+  }
 
   std::u16string name;
   size_t seq;
 };
-
-inline JSSymbol::JSSymbol(std::u16string name): name(std::move(name)) {
-  seq = JSSymbol::global_count;
-  JSSymbol::global_count += 1;
-}
-
-inline bool JSSymbol::operator == (const JSSymbol& other) const {
-  return name == other.name && seq == other.seq;
-}
-
-inline std::string JSSymbol::to_string() {
-  return "JSSymbol(" + to_u8string(name) + ")";
-}
 
 } // namespace njs
 

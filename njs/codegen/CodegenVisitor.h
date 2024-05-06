@@ -833,6 +833,9 @@ class CodegenVisitor {
 
     if (is_stmt_valid_in_single_stmt_ctx(stmt.if_block)) {
       visit(stmt.if_block);
+      if (stmt.if_block->is_expression() && !stmt.if_block->is(ASTNode::AST_EXPR_ASSIGN)) {
+        emit(OpType::pop_drop);
+      }
     }
     else {
       report_error(CodegenError {

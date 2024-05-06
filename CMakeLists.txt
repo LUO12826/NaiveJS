@@ -34,6 +34,10 @@ target_compile_options(njs PRIVATE -Wno-deprecated-declarations -fsanitize=addre
 target_link_options(njs PRIVATE -fsanitize=address)
 target_include_directories(njs PRIVATE .)
 
+if(DEBUG)
+    target_compile_definitions(njs PRIVATE DEBUG)
+endif()
+
 # executable for debug print
 add_executable(njs_dbgprint ${SOURCES})
 

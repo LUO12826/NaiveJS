@@ -11,7 +11,6 @@
 #include "njs/utils/helper.h"
 #include "njs/basic_types/JSValue.h"
 #include "njs/gc/GCObject.h"
-#include "RCObject.h"
 #include "JSFunctionMeta.h"
 #include "njs/vm/Completion.h"
 
@@ -105,8 +104,6 @@ class JSObject : public GCObject {
   JSObject(): obj_class(ObjectClass::CLS_OBJECT) {}
   explicit JSObject(ObjectClass cls): obj_class(cls) {}
   explicit JSObject(ObjectClass cls, JSValue proto): obj_class(cls), _proto_(proto) {}
-
-  ~JSObject() override;
 
   void gc_scan_children(GCHeap& heap) override;
 

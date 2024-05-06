@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <string>
-#include "RCObject.h"
+#include <cassert>
 #include "PrimitiveString.h"
 
 namespace njs {
@@ -34,6 +34,8 @@ extern const char *js_value_tag_names[25];
 /// or to a non-temporary storage such as object properties or array elements, `assign`
 /// must be called to handle reference counting correctly.
 struct JSValue {
+friend class NjsVM;
+
   // has corresponding string representation, note to modify when adding
   enum JSValueTag {
     // The following types of values are stored inline in JSValue
@@ -54,8 +56,9 @@ struct JSValue {
     // A reference to another JSValue, no lifecycle considerations
     // Currently only used when need to assign a value to an object's property
     VALUE_HANDLE,
+    STACK_FRAME_META2,
 
-    NEED_RC_BEGIN,
+    NEED_GC_BEGIN,
 
     // Strings and Symbols are stored as pointers in JSValue
     STRING,
@@ -65,17 +68,13 @@ struct JSValue {
     // Currently, turning a variable into a closure variable will turn it into a JSHeapValue
     HEAP_VAL,
 
-    NEED_RC_END,
-
     // These tags exist because:
     // 1. the runtime stack of the VM is a `JSValue[]` array
     // 2. when doing function calls, we have to save some metadata on the stack ( so that when the
     // function returns, we can restore the `pc`, the `frame_base_ptr` and other states.
     STACK_FRAME_META1,
-    STACK_FRAME_META2,
-    OTHER,
 
-    NEED_GC_BEGIN,
+    OBJECT_BEGIN,
 
     BOOLEAN_OBJ,
     NUMBER_OBJ,
@@ -198,23 +197,13 @@ struct JSValue {
   /// Use this method to destroy a temporary value (in general, a temporary value
   /// is a value on the operand stack)
   void set_undefined() {
-    if (is_RCObject() && val.as_RCObject->get_ref_count() == 0) {
-      val.as_RCObject->delete_temp_object();
-    }
-    tag = UNDEFINED;
-  }
-
-  /// Use this method to destroy a in-memory value (the memory here is NjsVM's memory, i.e.,
-  /// function call stack and GCHeap.
-  void dispose() {
-    if (is_RCObject()) val.as_RCObject->release();
     tag = UNDEFINED;
   }
 
   JSValue& deref() const;
   JSValue& deref_heap() const;
 
-  void move_to_heap();
+  void move_to_heap(NjsVM& vm);
 
   bool is_undefined() const { return tag == UNDEFINED; };
   bool is_uninited() const { return tag == UNINIT; };
@@ -244,19 +233,15 @@ struct JSValue {
   }
 
   bool is_object() const {
-    return tag >= NEED_GC_BEGIN && tag <= NEED_GC_END;
+    return tag > OBJECT_BEGIN && tag < NEED_GC_END;
   }
 
   bool is_function() const {
     return tag == FUNCTION;
   }
 
-  bool is_RCObject() const {
-    return tag > NEED_RC_BEGIN && tag < NEED_RC_END;
-  }
-
   bool needs_gc() const {
-    return tag >= NEED_GC_BEGIN && tag <= NEED_GC_END;
+    return tag > NEED_GC_BEGIN && tag < NEED_GC_END;
   }
 
   GCObject *as_GCObject() const;
@@ -299,17 +284,6 @@ struct JSValue {
     assert(tag != STACK_FRAME_META1 && tag != STACK_FRAME_META2);
     assert(rhs.tag != STACK_FRAME_META1 && rhs.tag != STACK_FRAME_META2);
 
-    if (rhs.tag == tag && rhs.flag_bits == flag_bits && rhs.val.as_i64 == val.as_i64) return;
-
-    // if rhs is an RC object, we are going to retain the new object
-    if (rhs.is_RCObject()) {
-      rhs.val.as_RCObject->retain();
-    }
-
-    // if this is an RC object, we are going to release the old object
-    if (is_RCObject()) {
-      val.as_RCObject->release();
-    }
     // copy
     val.as_i64 = rhs.val.as_i64;
     flag_bits = rhs.flag_bits;
@@ -331,8 +305,8 @@ struct JSValue {
     bool as_bool;
 
     JSValue *as_JSValue;
+    GCObject *as_GCObject;
 
-    RCObject *as_RCObject;
     JSSymbol *as_symbol;
     PrimitiveString *as_primitive_string;
     JSHeapValue *as_heap_val;

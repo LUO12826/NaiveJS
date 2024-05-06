@@ -19,9 +19,6 @@ JSFunction::JSFunction(const JSFunctionMeta& meta): JSObject(ObjectClass::CLS_FU
 
 JSFunction::~JSFunction() {
   JSObject::~JSObject();
-  for (auto var : captured_var) {
-    if (var.is_RCObject()) var.val.as_RCObject->release();
-  }
 }
 
 void JSFunction::gc_scan_children(GCHeap& heap) {

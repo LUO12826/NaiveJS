@@ -147,8 +147,8 @@ std::string JSObject::to_string(NjsVM& vm) {
   for (auto& [key, prop] : storage) {
     if (not prop.desc.is_enumerable()) continue;
 
-    if (key.key_type == JSObjectKey::KEY_ATOM) {
-      u16string escaped = to_escaped_u16string(vm.atom_to_str(key.key.atom));
+    if (key.key.tag == JSValue::JS_ATOM) {
+      u16string escaped = to_escaped_u16string(vm.atom_to_str(key.key.val.as_i64));
       output += to_u8string(escaped);
     }
     else assert(false);
@@ -175,9 +175,9 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
     if (first) first = false;
     else output += u',';
     
-    if (key.key_type == JSObjectKey::KEY_ATOM) {
+    if (key.key.tag == JSValue::JS_ATOM) {
       output += u'"';
-      output += to_escaped_u16string(vm.atom_to_str(key.key.atom));
+      output += to_escaped_u16string(vm.atom_to_str(key.key.val.as_i64));
       output += u'"';
     }
     else assert(false);
@@ -187,12 +187,6 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
   }
 
   output += u"}";
-}
-
-JSObject::~JSObject() {
-  for (auto& [key, prop] : storage) {
-    if (prop.data.value.is_RCObject()) prop.data.value.val.as_RCObject->release();
-  }
 }
 
 }

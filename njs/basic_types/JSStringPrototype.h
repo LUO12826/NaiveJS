@@ -40,7 +40,8 @@ class JSStringPrototype : public JSObject {
     else if (func.This.is_object() && func.This.as_object()->obj_class == ObjectClass::CLS_STRING) {
       assert(dynamic_cast<JSString*>(func.This.as_object()) != nullptr);
       auto *str_obj = static_cast<JSString*>(func.This.as_object());
-      return JSValue(str_obj->value.copy());
+      auto prim_string = vm.heap.new_object<PrimitiveString>(str_obj->value.str);
+      return JSValue(prim_string);
     }
     else {
       JSValue err = InternalFunctions::build_error_internal(vm,u"String.prototype.valueOf can only accept argument "

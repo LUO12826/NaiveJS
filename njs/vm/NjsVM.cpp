@@ -258,9 +258,7 @@ CallResult NjsVM::execute(bool stop_at_return) {
         exec_var_dispose_range(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
       case OpType::dup_stack_top:
-        if (sp[0].is_RCObject() && sp[0].val.as_RCObject->get_ref_count() != 0) {
-          sp[0].val.as_RCObject = sp[0].val.as_RCObject->copy();
-        }
+        // TODO: remove this op
         break;
       case OpType::jmp:
         pc = inst.operand.two.opr1;
@@ -668,17 +666,17 @@ void NjsVM::exec_shift(OpType op_type) {
 void NjsVM::exec_return() {
   JSValue *old_sp = bp - func_arg_count - 1 - (int)bp->val.as_function->call_with_this;
 
-  // retain the return value, in case it's deallocated due to the dispose stage bellow.
-  JSValue& ret_val = sp[0];
-  if (ret_val.is_RCObject()) ret_val.val.as_RCObject->retain();
+#ifdef DEBUG
+  JSValue *local_var_end = bp + function_env()->meta.local_var_count + frame_meta_size;
+  assert(sp == local_var_end);
+#endif
 
   // dispose function local storage
-  for (JSValue *val = old_sp + 1; val < &ret_val; val++) {
-    val->dispose();
+  for (JSValue *val = old_sp + 1; val < sp; val++) {
+    val->set_undefined();
   }
-  // but the return value is actually a temporary value, so mark it as temp
-  if (ret_val.is_RCObject()) ret_val.val.as_RCObject->mark_as_temp();
 
+  JSValue& ret_val = sp[0];
   // restore old state
   sp = old_sp;
   pc = bp[0].flag_bits;
@@ -694,22 +692,16 @@ void NjsVM::exec_return_error() {
   JSValue *old_sp = bp - func_arg_count - 1 - (int)bp->val.as_function->call_with_this;
   JSValue *local_var_end = bp + function_env()->meta.local_var_count + frame_meta_size;
 
-  // retain the return value, in case it's deallocated due to the dispose stage bellow.
-  JSValue& ret_val = sp[0];
-  if (ret_val.is_RCObject()) ret_val.val.as_RCObject->retain();
-
   // dispose function local storage
   for (JSValue *val = old_sp + 1; val < local_var_end; val++) {
-    val->dispose();
+    val->set_undefined();
   }
   // dispose the operand stack
-  // TODO: check correctness
-  for (JSValue *addr = local_var_end; addr < &ret_val; addr++) {
+  for (JSValue *addr = local_var_end; addr < sp; addr++) {
     addr->set_undefined();
   }
-  // but the return value is actually a temporary value, so mark it as temp
-  if (ret_val.is_RCObject()) ret_val.val.as_RCObject->mark_as_temp();
 
+  JSValue& ret_val = sp[0];
   // restore old state
   sp = old_sp;
   pc = bp[0].flag_bits;
@@ -780,7 +772,7 @@ void NjsVM::exec_var_dispose(int scope, int index) {
   auto var_scope = scope_type_from_int(scope);
   assert(var_scope == ScopeType::FUNC || var_scope == ScopeType::GLOBAL);
   JSValue& val = var_scope == ScopeType::FUNC ? bp[index] : stack_begin[index];
-  val.dispose();
+  val.set_undefined();
 }
 
 void NjsVM::exec_var_deinit_range(int start, int end) {
@@ -791,7 +783,7 @@ void NjsVM::exec_var_deinit_range(int start, int end) {
 
 void NjsVM::exec_var_dispose_range(int start, int end) {
   for (int i = start; i < end; i++) {
-    bp[i].dispose();
+    bp[i].set_undefined();
   }
 }
 
@@ -832,7 +824,6 @@ void NjsVM::exec_capture(int scope, int index) {
     JSFunction *env_func = function_env();
     assert(env_func);
     JSValue& closure_val = env_func->captured_var[index];
-    closure_val.val.as_heap_val->retain();
     func.captured_var.push_back(closure_val);
   }
   else {
@@ -848,9 +839,8 @@ void NjsVM::exec_capture(int scope, int index) {
     }
 
     if (stack_val->tag != JSValue::HEAP_VAL) {
-      stack_val->move_to_heap();
+      stack_val->move_to_heap(*this);
     }
-    stack_val->val.as_heap_val->retain();
     func.captured_var.push_back(*stack_val);
   }
 }
@@ -868,13 +858,6 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
   // fill the vacancy with `undefined`.
   sp += def_param_cnt > arg_count ? (def_param_cnt - arg_count) : 0;
   u32 actual_arg_cnt = std::max(def_param_cnt, u32(arg_count));
-
-  // function parameters are considered `in memory` variables. So retain the RCObjects here.
-  for (JSValue *val = sp - actual_arg_cnt + 1; val <= sp; val++) {
-    if (val->is_RCObject()) {
-      val->val.as_RCObject->retain();
-    }
-  }
 
   if (!(func->meta.is_arrow_func || func->has_this_binding)) {
     // set up the `this` for the function.
@@ -923,7 +906,7 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
 
     // clean the arguments
     for (JSValue *arg = sp - actual_arg_cnt + 1; arg <= sp; arg++) {
-      arg->dispose();
+      arg->set_undefined();
     }
     sp -= actual_arg_cnt;
     if (has_this_object) {
@@ -1333,7 +1316,7 @@ void NjsVM::error_handle() {
       // dispose local variables
       JSValue *local_start = bp + entry.local_var_begin;
       for (JSValue *val = local_start; val < bp + entry.local_var_end; val++) {
-        val->dispose();
+        val->set_undefined();
       }
 
       break;

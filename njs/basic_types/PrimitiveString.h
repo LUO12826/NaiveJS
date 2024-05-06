@@ -1,23 +1,19 @@
 #ifndef NJS_PRIMITIVE_STRING_H
 #define NJS_PRIMITIVE_STRING_H
 
-#include "RCObject.h"
-#include "njs/utils/lexing_helper.h"
+#include "njs/gc/GCObject.h"
+#include "njs/utils/helper.h"
 #include <string>
 
 namespace njs {
 
 /// @brief PrimitiveString: string that is not wrapped as objects in JavaScript
-struct PrimitiveString: public RCObject {
+struct PrimitiveString: public GCObject {
 
   PrimitiveString() = default;
 
   explicit PrimitiveString(const std::u16string& str);
   explicit PrimitiveString(std::u16string&& str);
-
-  RCObject *copy() override {
-    return new PrimitiveString(this->str);
-  }
 
   bool operator == (const PrimitiveString& other) const;
   bool operator != (const PrimitiveString& other) const;
@@ -26,7 +22,12 @@ struct PrimitiveString: public RCObject {
   bool operator >= (const PrimitiveString& other) const;
   bool operator <= (const PrimitiveString& other) const;
 
-  int64_t convert_to_index() const;
+  void gc_scan_children(njs::GCHeap &heap) override {}
+
+  std::string description() override {
+    return "PrimitiveString(" + to_u8string(str) + ")";
+  }
+
   size_t length() const {
     return str.length();
   }
@@ -60,11 +61,6 @@ inline bool PrimitiveString::operator >= (const PrimitiveString& other) const {
 inline bool PrimitiveString::operator <= (const PrimitiveString& other) const {
   return str <= other.str;
 }
-
-inline int64_t PrimitiveString::convert_to_index() const {
-  return scan_index_literal(this->str);
-}
-
 
 
 } // namespace njs

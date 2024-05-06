@@ -8,6 +8,7 @@
 #include "JSHeapValue.h"
 #include "njs/common/enum_strings.h"
 #include "njs/utils/helper.h"
+#include "njs/vm/NjsVM.h"
 
 namespace njs {
 
@@ -16,9 +17,8 @@ GCObject *JSValue::as_GCObject() const {
   return static_cast<GCObject *>(val.as_object);
 }
 
-void JSValue::move_to_heap() {
-  auto *heap_val = new JSHeapValue(*this);
-  heap_val->retain();
+void JSValue::move_to_heap(NjsVM& vm) {
+  auto *heap_val = vm.heap.new_object<JSHeapValue>(*this);
   this->val.as_heap_val = heap_val;
   this->tag = HEAP_VAL;
 }

@@ -28,6 +28,7 @@ class GlobalObject;
 struct JSTask;
 
 class NjsVM {
+friend struct JSValue;
 friend class JSRunLoop;
 friend class GCHeap;
 friend class JSBoolean;
