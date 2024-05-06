@@ -10,46 +10,6 @@
 
 namespace njs {
 
-inline ErrorOr<bool> abstract_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
-  if (lhs.is_float64() && rhs.is_primitive_string()) {
-    return lhs.val.as_f64 == u16string_to_double(rhs.val.as_primitive_string->str);
-  }
-  else if (lhs.is_primitive_string() && rhs.is_float64()) {
-    return rhs.val.as_f64 == u16string_to_double(lhs.val.as_primitive_string->str);
-  }
-  else if (lhs.is_undefined() && rhs.is_null()) {
-    return true;
-  }
-  else if (lhs.is_null() && rhs.is_undefined()) {
-    return true;
-  }
-  else if (lhs.is_bool()) {
-    double num_val = lhs.val.as_bool ? 1 : 0;
-    return abstract_equals(vm, JSValue(num_val), rhs);
-  }
-  else if (rhs.is_bool()) {
-    double num_val = rhs.val.as_bool ? 1 : 0;
-    return abstract_equals(vm, lhs, JSValue(num_val));
-  } else if ((lhs.is_float64() || lhs.is_primitive_string()) && rhs.is_object()) {
-    Completion to_prim_res = rhs.as_object()->to_primitive(vm);
-
-    if (to_prim_res.is_throw()) {
-      return to_prim_res.get_error();
-    } else {
-      return abstract_equals(vm, lhs, to_prim_res.get_value());
-    }
-  } else if (lhs.is_object() && (rhs.is_float64() || rhs.is_primitive_string())) {
-    Completion to_prim_res = lhs.as_object()->to_primitive(vm);
-    if (to_prim_res.is_throw()) {
-      return to_prim_res.get_error();
-    } else {
-      return abstract_equals(vm, to_prim_res.get_value(), rhs);
-    }
-  }
-
-  return false;
-}
-
 inline ErrorOr<bool> strict_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
   bool res;
   if (lhs.tag == rhs.tag) {
@@ -88,6 +48,49 @@ inline ErrorOr<bool> strict_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
   }
 
   return res;
+}
+
+inline ErrorOr<bool> abstract_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
+  if (lhs.tag == rhs.tag) {
+    return strict_equals(vm, lhs, rhs);
+  }
+  if (lhs.is_float64() && rhs.is_primitive_string()) {
+    return lhs.val.as_f64 == u16string_to_double(rhs.val.as_primitive_string->str);
+  }
+  else if (lhs.is_primitive_string() && rhs.is_float64()) {
+    return rhs.val.as_f64 == u16string_to_double(lhs.val.as_primitive_string->str);
+  }
+  else if (lhs.is_undefined() && rhs.is_null()) {
+    return true;
+  }
+  else if (lhs.is_null() && rhs.is_undefined()) {
+    return true;
+  }
+  else if (lhs.is_bool()) {
+    double num_val = lhs.val.as_bool ? 1 : 0;
+    return abstract_equals(vm, JSValue(num_val), rhs);
+  }
+  else if (rhs.is_bool()) {
+    double num_val = rhs.val.as_bool ? 1 : 0;
+    return abstract_equals(vm, lhs, JSValue(num_val));
+  } else if ((lhs.is_float64() || lhs.is_primitive_string()) && rhs.is_object()) {
+    Completion to_prim_res = rhs.as_object()->to_primitive(vm);
+
+    if (to_prim_res.is_throw()) {
+      return to_prim_res.get_error();
+    } else {
+      return abstract_equals(vm, lhs, to_prim_res.get_value());
+    }
+  } else if (lhs.is_object() && (rhs.is_float64() || rhs.is_primitive_string())) {
+    Completion to_prim_res = lhs.as_object()->to_primitive(vm);
+    if (to_prim_res.is_throw()) {
+      return to_prim_res.get_error();
+    } else {
+      return abstract_equals(vm, to_prim_res.get_value(), rhs);
+    }
+  }
+
+  return false;
 }
 
 }

@@ -25,7 +25,7 @@ Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
     }
   }
   else {
-    return ordinary_to_primitive(vm, preferred_type);
+    return ordinary_to_primitive(vm, u"number");
   }
 
 }

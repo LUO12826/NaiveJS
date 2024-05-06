@@ -43,19 +43,14 @@ void GCHeap::gc_visit_object(JSValue &handle, GCObject *obj) {
 }
 
 std::vector<JSValue *> GCHeap::gather_roots() {
-
   std::vector<JSValue *> roots;
 
   // All values on the rt_stack are possible roots
   for (JSValue *js_val = vm.rt_stack.data(); js_val < vm.sp; js_val++) {
     if (js_val->needs_gc()) roots.push_back(js_val);
-    // STACK_FRAME_META1 contains the pointer to the function that owns the stack frame
-    if (js_val->tag == JSValue::STACK_FRAME_META1) {
-      roots.push_back(js_val);
-    }
   }
-  roots.push_back(&vm.global_object);
 
+  roots.push_back(&vm.global_object);
   roots.push_back(&vm.object_prototype);
   roots.push_back(&vm.array_prototype);
   roots.push_back(&vm.number_prototype);
