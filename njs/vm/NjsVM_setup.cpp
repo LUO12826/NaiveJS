@@ -68,7 +68,7 @@ void NjsVM::add_native_func_impl(const u16string& name,
   func->set_prototype(function_prototype);
 
   builder(*func);
-  global_object.as_object()->add_method(*this, name, native_func);
+  global_object.as_object()->add_prop(meta.name_index, JSValue(func));
 }
 
 void NjsVM::add_builtin_object(const u16string& name,

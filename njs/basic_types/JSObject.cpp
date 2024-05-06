@@ -89,9 +89,7 @@ JSValue JSObject::get_prop(NjsVM& vm, u16string_view key_str, bool get_ref) {
 }
 
 bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl) {
-
   u32 name_idx = vm.sv_to_atom(key_str);
-
   JSFunctionMeta meta {
       .name_index = name_idx,
       .is_native = true,
