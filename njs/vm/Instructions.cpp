@@ -60,23 +60,9 @@ std::string Instruction::description() const {
     case OpType::sub: sprintf(buffer, "sub"); break;
     case OpType::mul: sprintf(buffer, "mul"); break;
     case OpType::div: sprintf(buffer, "div"); break;
+    case OpType::mod: sprintf(buffer, "mod"); break;
     case OpType::neg: sprintf(buffer, "neg"); break;
 
-    case OpType::add_assign:
-    case OpType::sub_assign:
-    case OpType::mul_assign:
-    case OpType::div_assign:
-    case OpType::mod_assign:
-    case OpType::lsh_assign:
-    case OpType::rsh_assign:
-    case OpType::ursh_assign:
-    case OpType::and_assign:
-    case OpType::or_assign:
-    case OpType::xor_assign: {
-      int index = static_cast<int>(op_type) - static_cast<int>(OpType::add_assign);
-      sprintf(buffer, "%s  %s %d", assign_op_names[index], scope_type_names_alt[operand.two.opr1], operand.two.opr2);
-      break;
-    }
     case OpType::inc:
       sprintf(buffer, "inc  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
       break;
@@ -111,16 +97,6 @@ std::string Instruction::description() const {
     case OpType::ursh: sprintf(buffer, "ursh"); break;
     case OpType::urshi: sprintf(buffer, "urshi %u", (u32)operand.two.opr1); break;
 
-    case OpType::fast_add:
-      sprintf(buffer, "fast_add  %s %hu %s %hu",
-                      scope_type_names_alt[operand.four.opr1], operand.four.opr2,
-                      scope_type_names_alt[operand.four.opr3], operand.four.opr4);
-      break;
-    case OpType::fast_assign:
-      sprintf(buffer, "fast_assign  %s %hu %s %hu",
-                      scope_type_names_alt[operand.four.opr1], operand.four.opr2,
-                      scope_type_names_alt[operand.four.opr3], operand.four.opr4);
-      break;
     case OpType::push:
       sprintf(buffer, "push  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
       break;
@@ -157,11 +133,17 @@ std::string Instruction::description() const {
     case OpType::pop:
       sprintf(buffer, "pop  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
       break;
+    case OpType::pop_check:
+      sprintf(buffer, "pop_check  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
+      break;
     case OpType::pop_drop:
       sprintf(buffer, "pop_drop");
       break;
     case OpType::store:
       sprintf(buffer, "store  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
+      break;
+    case OpType::store_check:
+      sprintf(buffer, "store_check  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
       break;
     case OpType::prop_assign:
       sprintf(buffer, "prop_assign %s", (bool)operand.two.opr1 ? "(need value)" : "");
@@ -242,7 +224,7 @@ std::string Instruction::description() const {
       sprintf(buffer, "set_prop_index");
       break;
     case OpType::dyn_get_var:
-      sprintf(buffer, "dyn_get_var  %d %d", operand.two.opr1, operand.two.opr2);
+      sprintf(buffer, "dyn_get_var  %d", operand.two.opr1);
       break;
     case OpType::call:
       sprintf(buffer, "call  %d %d", operand.two.opr1, operand.two.opr2);

@@ -105,6 +105,9 @@ class Token {
     OR_ASSIGN,    // |=
     XOR_ASSIGN,   // ^=
 
+    LOGI_AND_ASSIGN,   // &&=
+    LOGI_OR_ASSIGN,    // ||=
+
     R_ARROW,      // =>
 
     // Null Literal

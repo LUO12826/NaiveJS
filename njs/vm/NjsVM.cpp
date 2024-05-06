@@ -30,17 +30,14 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   , global_catch_table(std::move(visitor.scope_chain[0]->catch_table))
 {
   init_prototypes();
-
-  auto global_obj = heap.new_object<GlobalObject>();
-  global_obj->set_prototype(object_prototype);
+  JSObject *global_obj = new_object();
   global_object.set_val(global_obj);
-
 
   auto& global_sym_table = visitor.scope_chain[0]->get_symbol_table();
 
   for (auto& [sym_name, sym_rec] : global_sym_table) {
     if (sym_rec.var_kind == VarKind::DECL_VAR || sym_rec.var_kind == VarKind::DECL_FUNCTION) {
-      global_obj->props_index_map.emplace(sv_to_atom(sym_name), sym_rec.index + frame_meta_size);
+      global_obj->add_prop(*this, sym_name, JSValue::undefined);
     }
   }
 
@@ -140,14 +137,6 @@ CallResult NjsVM::execute(bool stop_at_return) {
         assert(sp[0].is_float64());
         sp[0].val.as_f64 = -sp[0].val.as_f64;
         break;
-      case OpType::add_assign:
-        exec_add_assign(inst.operand.two.opr1, inst.operand.two.opr2);
-        break;
-      case OpType::sub_assign:
-      case OpType::mul_assign:
-      case OpType::div_assign:
-        exec_compound_assign(inst.op_type, inst.operand.two.opr1, inst.operand.two.opr2);
-        break;
       case OpType::inc:
         exec_inc_or_dec(inst.operand.two.opr1, inst.operand.two.opr2, 1);
         break;
@@ -230,13 +219,28 @@ CallResult NjsVM::execute(bool stop_at_return) {
       case OpType::pop:
         exec_pop(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
+      case OpType::pop_check:
+        exec_pop_check(inst.operand.two.opr1, inst.operand.two.opr2);
+        break;
       case OpType::pop_drop:
         sp[0].set_undefined();
         sp -= 1;
         break;
-      case OpType::store:
-        exec_store(inst.operand.two.opr1, inst.operand.two.opr2);
+      case OpType::store: {
+        auto var_scope = scope_type_from_int(inst.operand.two.opr1);
+        get_value(var_scope, inst.operand.two.opr2).assign(sp[0]);
         break;
+      }
+      case OpType::store_check: {
+        auto var_scope = scope_type_from_int(inst.operand.two.opr1);
+        JSValue& val = get_value(var_scope, inst.operand.two.opr2);
+        if (unlikely(val.is_uninited())) {
+          error_throw(u"Cannot access a variable before initialization");
+          error_handle();
+        } else {
+          val.assign(sp[0]);
+        }
+      }
       case OpType::prop_assign:
         exec_prop_assign(bool(inst.operand.two.opr1));
         break;
@@ -244,8 +248,8 @@ CallResult NjsVM::execute(bool stop_at_return) {
         exec_var_deinit_range(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
       case OpType::var_undef:
-        assert(bp[inst.operand.two.opr1].tag == JSValue::UNINIT);
-        bp[inst.operand.two.opr1].tag = JSValue::UNDEFINED;
+        assert(get_value(ScopeType::FUNC, inst.operand.two.opr1).tag == JSValue::UNINIT);
+        get_value(ScopeType::FUNC, inst.operand.two.opr1).tag = JSValue::UNDEFINED;
         break;
       case OpType::var_dispose:
         exec_var_dispose(inst.operand.two.opr1, inst.operand.two.opr2);
@@ -305,12 +309,6 @@ CallResult NjsVM::execute(bool stop_at_return) {
       }
       case OpType::js_new:
         exec_js_new(inst.operand.two.opr1);
-        break;
-      case OpType::fast_add:
-        exec_fast_add(inst);
-        break;
-      case OpType::fast_assign:
-        exec_fast_assign(inst);
         break;
       case OpType::make_func:
         exec_make_func(inst.operand.two.opr1);
@@ -379,7 +377,7 @@ CallResult NjsVM::execute(bool stop_at_return) {
         exec_set_prop_index();
         break;
       case OpType::dyn_get_var:
-        exec_dynamic_get_var(inst.operand.two.opr1, (bool)inst.operand.two.opr2);
+        exec_dynamic_get_var(inst.operand.two.opr1);
         break;
       default:
         assert(false);
@@ -543,24 +541,6 @@ void NjsVM::exec_add_assign(int scope, int index) {
   sp -= 1;
 }
 
-void NjsVM::exec_compound_assign(OpType type, int scope, int index) {
-  JSValue& value = get_value(scope_type_from_int(scope), index);
-  // fast path
-  if (value.is_float64() && sp[0].is_float64()) {
-    switch (type) {
-      case OpType::sub_assign: value.val.as_f64 -= sp[0].val.as_f64; break;
-      case OpType::mul_assign: value.val.as_f64 *= sp[0].val.as_f64; break;
-      case OpType::div_assign: value.val.as_f64 /= sp[0].val.as_f64; break;
-      default: assert(false);
-    }
-  }
-  else {
-    assert(false);
-  }
-  sp[0].set_undefined();
-  sp -= 1;
-}
-
 void NjsVM::exec_inc_or_dec(int scope, int index, int inc) {
   JSValue& value = get_value(scope_type_from_int(scope), index);
   assert(value.is_float64());
@@ -685,26 +665,6 @@ void NjsVM::exec_shift(OpType op_type) {
   error_handle();
 }
 
-void NjsVM::exec_fast_add(Instruction& inst) {
-
-  auto lhs_scope = scope_type_from_int(inst.operand.four.opr1);
-  auto rhs_scope = scope_type_from_int(inst.operand.four.opr3);
-  auto lhs_index = inst.operand.four.opr2;
-  auto rhs_index = inst.operand.four.opr4;
-
-  JSValue& lhs_val = get_value(lhs_scope, lhs_index);
-  JSValue& rhs_val = get_value(rhs_scope, rhs_index);
-
-  if (lhs_val.is_float64() && rhs_val.is_float64()) {
-    sp += 1;
-    sp[0].set_val(lhs_val.val.as_f64 + rhs_val.val.as_f64);
-  }
-  else {
-    // currently not support.
-    assert(false);
-  }
-}
-
 void NjsVM::exec_return() {
   JSValue *old_sp = bp - func_arg_count - 1 - (int)bp->val.as_function->call_with_this;
 
@@ -783,9 +743,16 @@ void NjsVM::exec_pop(int scope, int index) {
   sp -= 1;
 }
 
-void NjsVM::exec_store(int scope, int index) {
-  auto var_scope = scope_type_from_int(scope);
-  get_value(var_scope, index).assign(sp[0]);
+void NjsVM::exec_pop_check(int scope, int index) {
+  JSValue& val = get_value(scope_type_from_int(scope), index);
+  if (unlikely(val.is_uninited())) {
+    error_throw(u"Cannot access a variable before initialization");
+    error_handle();
+    return;
+  }
+  val.assign(sp[0]);
+  sp[0].set_undefined();
+  sp -= 1;
 }
 
 void NjsVM::exec_prop_assign(bool need_value) {
@@ -1011,17 +978,6 @@ void NjsVM::exec_make_array(int length) {
   auto *array = heap.new_object<JSArray>(*this, length);
   sp += 1;
   sp[0].set_val(array);
-}
-
-void NjsVM::exec_fast_assign(Instruction& inst) {
-
-  auto lhs_scope = scope_type_from_int(inst.operand.four.opr1);
-  auto rhs_scope = scope_type_from_int(inst.operand.four.opr3);
-
-  JSValue& lhs_val = get_value(lhs_scope, inst.operand.four.opr2);
-  JSValue& rhs_val = get_value(rhs_scope, inst.operand.four.opr4);
-
-  lhs_val.assign(rhs_val);
 }
 
 void NjsVM::exec_add_props(int props_cnt) {
@@ -1260,9 +1216,8 @@ void NjsVM::exec_set_prop_index() {
   sp -= 2;
 }
 
-void NjsVM::exec_dynamic_get_var(u32 name_atom, bool get_ref) {
-  auto *global_obj = static_cast<GlobalObject*>(global_object.as_object());
-  JSValue val = global_obj->get_prop(*this, name_atom, get_ref);
+void NjsVM::exec_dynamic_get_var(u32 name_atom) {
+  JSValue val = global_object.as_object()->get_prop(name_atom, false);
 
   if (val.is_uninited()) {
     auto& var_name = atom_to_str(name_atom);

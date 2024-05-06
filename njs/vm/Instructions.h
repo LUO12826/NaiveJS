@@ -17,6 +17,7 @@ enum class OpType {
   sub,
   mul,
   div,
+  mod,
 
   logi_and,
   logi_or,
@@ -43,18 +44,6 @@ enum class OpType {
   eq,
   eq3,
 
-  add_assign,
-  sub_assign,
-  mul_assign,
-  div_assign,
-  mod_assign,
-  lsh_assign,
-  rsh_assign,
-  ursh_assign,
-  and_assign,
-  or_assign,
-  xor_assign,
-
   inc,
   dec,
 
@@ -70,8 +59,10 @@ enum class OpType {
   push_undef,
   push_uninit,
   pop,
+  pop_check,
   pop_drop,
   store,
+  store_check,
   prop_assign,
   var_deinit_range,
   var_undef,
@@ -88,9 +79,6 @@ enum class OpType {
   pop_jmp_true,
   pop_jmp_false,
   pop_jmp_cond,
-
-  fast_add,
-  fast_assign,
 
   make_func,
   capture,
@@ -153,6 +141,7 @@ struct Instruction {
       case OpType::sub:
       case OpType::mul:
       case OpType::div:
+      case OpType::mod:
       case OpType::logi_and:
       case OpType::logi_or:
         return -1;
@@ -179,18 +168,6 @@ struct Instruction {
       case OpType::eq:
       case OpType::eq3:
         return -1;
-      case OpType::add_assign:
-      case OpType::sub_assign:
-      case OpType::mul_assign:
-      case OpType::div_assign:
-      case OpType::mod_assign:
-      case OpType::lsh_assign:
-      case OpType::rsh_assign:
-      case OpType::ursh_assign:
-      case OpType::and_assign:
-      case OpType::or_assign:
-      case OpType::xor_assign:
-        return -1;
       case OpType::inc:
       case OpType::dec:
         return 0;
@@ -207,9 +184,11 @@ struct Instruction {
       case OpType::push_uninit:
         return 1;
       case OpType::pop:
+      case OpType::pop_check:
       case OpType::pop_drop:
         return -1;
       case OpType::store:
+      case OpType::store_check:
         return 0;
       case OpType::prop_assign:
         return -2;
@@ -230,10 +209,6 @@ struct Instruction {
       case OpType::pop_jmp_false:
       case OpType::pop_jmp_cond:
         return -1;
-      case OpType::fast_add:
-        return 1;
-      case OpType::fast_assign:
-        return 0;
       case OpType::make_func:
         return 1;
       case OpType::capture:

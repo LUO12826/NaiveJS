@@ -37,11 +37,10 @@ class CodegenVisitor {
   friend class NjsVM;
 
  public:
-  unordered_map<u16string, u32> global_props_map;
-
   void codegen(ProgramOrFunctionBody *prog) {
 
     push_scope(prog->scope.get());
+    global_var_count = scope().get_var_count();
     visit_program_or_function_body(*prog);
 
     Timer timer("optimized");
@@ -312,11 +311,21 @@ class CodegenVisitor {
       bytecode[jmp_inst_idx].operand.two.opr1 = bytecode_pos();
 
       for (ASTNode *node : program.func_decls) {
+        if (scope().get_scope_type() == ScopeType::GLOBAL) {
+          emit(OpType::push_global_this);
+        }
         auto& func = *static_cast<Function *>(node);
         visit_function(func);
+
         auto symbol = scope().resolve_symbol(func.name.text);
         assert(!symbol.not_found());
-        emit(OpType::pop, scope_type_int(symbol.storage_scope), symbol.get_index());
+        if (scope().get_scope_type() == ScopeType::GLOBAL) {
+          emit(OpType::set_prop_atom, str_pool.atomize_sv(symbol.original_symbol->name));
+          emit(OpType::pop_drop);
+        } else {
+          emit(OpType::pop, scope_type_int(symbol.storage_scope), symbol.get_index());
+        }
+
       }
       // End filling function symbol initialization code
     }
@@ -464,16 +473,6 @@ class CodegenVisitor {
 
   void visit_binary_expr(BinaryExpr& expr) {
 
-    if (expr.op.type == Token::ADD && expr.is_simple_expr()) {
-
-      auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
-      auto rhs_sym = scope().resolve_symbol(expr.rhs->get_source());
-
-      emit(OpType::fast_add, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index(),
-           scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
-      return;
-    }
-
     if (expr.op.is_binary_logical()) {
       vector<u32> true_list;
       vector<u32> false_list;
@@ -576,83 +575,86 @@ class CodegenVisitor {
   }
 
   void visit_assignment_expr(AssignmentExpr& expr, bool need_value = true) {
+    auto assign_type = expr.assign_type;
 
-    auto assign_type_to_op_type = [] (TokenType assign_type) {
-      int assign_type_to_op_type = static_cast<int>(OpType::add_assign) - TokenType::ADD_ASSIGN;
-      return static_cast<OpType>(assign_type + assign_type_to_op_type);
+    auto codegen_rhs = [&] () {
+      if (assign_type != TokenType::ASSIGN) {
+        if (expr.lhs->is_identifier()) {
+          visit_identifier(*expr.lhs);
+        } else {
+          visit_left_hand_side_expr(*expr.lhs->as_lhs_expr(), false, false);
+        }
+
+        visit(expr.rhs);
+        switch (assign_type) {
+          case Token::ADD_ASSIGN:
+          case Token::SUB_ASSIGN:
+          case Token::MUL_ASSIGN:
+          case Token::DIV_ASSIGN:
+          case Token::MOD_ASSIGN: {
+            OpType op = static_cast<OpType>(static_cast<int>(OpType::add) + (assign_type - Token::ADD_ASSIGN));
+            emit(op);
+            break;
+          }
+          case Token::LSH_ASSIGN:
+            emit(OpType::lsh);
+            break;
+          case Token::RSH_ASSIGN:
+            emit(OpType::rsh);
+            break;
+          case Token::UNSIGNED_RSH_ASSIGN:
+            emit(OpType::ursh);
+            break;
+          case Token::AND_ASSIGN:
+            emit(OpType::bits_and);
+            break;
+          case Token::OR_ASSIGN:
+            emit(OpType::bits_or);
+            break;
+          case Token::XOR_ASSIGN:
+            emit(OpType::bits_xor);
+            break;
+          case Token::LOGI_AND_ASSIGN:
+            emit(OpType::logi_and);
+            break;
+          case Token::LOGI_OR_ASSIGN:
+            emit(OpType::logi_or);
+            break;
+        }
+      } else {
+        visit(expr.rhs);
+      }
     };
 
-    // a = b
-    if (expr.is_simple_assign()) {
+    if (expr.lhs_is_id()) {
       auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
-      auto rhs_sym = scope().resolve_symbol(expr.rhs->get_source());
+      bool use_dynamic =
+          lhs_sym.not_found() || (lhs_sym.def_scope == ScopeType::GLOBAL && not lhs_sym.is_let_or_const());
 
-      if (!lhs_sym.not_found() && !rhs_sym.not_found()) {
-        emit(OpType::fast_assign, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index(),
-             scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
-        if (need_value) {
-          if (rhs_sym.is_let_or_const()) {
-            emit(OpType::push_check, scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
-          } else {
-            emit(OpType::push, scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
+      if (not use_dynamic) {
+        if (expr.rhs_is_1() && (assign_type == TokenType::ADD_ASSIGN || assign_type == TokenType::SUB_ASSIGN)) {
+          OpType op = assign_type == TokenType::ADD_ASSIGN  ? OpType::inc : OpType::dec;
+          emit(op, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
+          if (need_value) {
+            emit(OpType::push, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
           }
+          return;
         }
-      }
-      else {
-        if (lhs_sym.not_found()) {
-          u32 name_atom = str_pool.atomize_sv(expr.lhs->get_source());
-          emit(OpType::dyn_get_var, name_atom, (int)true);
-          visit(expr.rhs);
-          emit(OpType::prop_assign, (bool)need_value);
-        } else {
-          visit(expr.rhs);
-          emit(need_value ? OpType::store : OpType::pop,
-               scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
-        }
-      }
-    }
-    // a = ... or a += ...
-    else if (expr.lhs_is_id()) {
-      auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
 
-      if (lhs_sym.not_found()) {
-        u32 name_atom = str_pool.atomize_sv(expr.lhs->get_source());
-        emit(OpType::dyn_get_var, name_atom, (int)true);
-        visit(expr.rhs);
-        if (expr.assign_type == TokenType::ASSIGN) {
-          emit(OpType::prop_assign, (bool)need_value);
+        codegen_rhs();
+        OpType op;
+        if (lhs_sym.is_let_or_const()) {
+          op = need_value ? OpType::store_check : OpType::pop_check;
         } else {
-          assert(false);
+          op = need_value ? OpType::store : OpType::pop;
         }
-        return;
-      }
-
-      int lhs_scope = scope_type_int(lhs_sym.storage_scope);
-      int lhs_sym_index = (int)lhs_sym.get_index();
-      // a = ...
-      if (expr.assign_type == TokenType::ASSIGN) {
+        emit(op, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
+      } else {
+        emit(OpType::push_global_this);
         visit(expr.rhs);
-        emit(need_value ? OpType::store : OpType::pop, lhs_scope, lhs_sym_index);
-      }
-      // a += expr or a -= expr
-      else if (expr.assign_type == TokenType::ADD_ASSIGN || expr.assign_type == TokenType::SUB_ASSIGN) {
-        if (expr.rhs->is(ASTNode::AST_EXPR_NUMBER) && expr.rhs->as_number_literal()->num_val == 1) {
-          OpType inst = expr.assign_type == TokenType::ADD_ASSIGN ? OpType::inc : OpType::dec;
-          emit(inst, lhs_scope, lhs_sym_index);
-        } else {
-          visit(expr.rhs);
-          emit(assign_type_to_op_type(expr.assign_type), lhs_scope, lhs_sym_index);
-        }
-        if (need_value) {
-          emit(OpType::push, lhs_scope, lhs_sym_index);
-        }
-      }
-      else {
-        visit(expr.rhs);
-        emit(assign_type_to_op_type(expr.assign_type), lhs_scope, lhs_sym_index);
-        if (need_value) {
-          emit(OpType::push, lhs_scope, lhs_sym_index);
-        }
+        u32 atom = str_pool.atomize_sv(expr.lhs->get_source());
+        emit(OpType::set_prop_atom, int(atom));
+        if (!need_value) emit(OpType::pop_drop);
       }
     }
     else {
@@ -665,14 +667,9 @@ class CodegenVisitor {
         assert(false);
       }
 
-      visit(expr.rhs);
-      if (expr.assign_type == Token::ASSIGN) {
-        emit(inst_set_prop);
-        if (!need_value) emit(OpType::pop_drop);
-      } else {
-        // TODO: implement this
-        assert(false);
-      }
+      codegen_rhs();
+      emit(inst_set_prop);
+      if (!need_value) emit(OpType::pop_drop);
     }
   }
 
@@ -771,7 +768,9 @@ class CodegenVisitor {
 
   void visit_identifier(ASTNode& id) {
     auto symbol = scope().resolve_symbol(id.get_source());
-    if (not symbol.not_found()) {
+    bool use_dynamic =
+        symbol.not_found() || (symbol.def_scope == ScopeType::GLOBAL && not symbol.is_let_or_const());
+    if (not use_dynamic) {
       if (symbol.is_let_or_const()) {
         emit(OpType::push_check, scope_type_int(symbol.storage_scope), symbol.get_index());
       } else {
@@ -779,7 +778,7 @@ class CodegenVisitor {
       }
     } else {
       u32 atom = str_pool.atomize_sv(id.get_source());
-      emit(OpType::dyn_get_var, atom, (int)false);
+      emit(OpType::dyn_get_var, atom);
     }
   }
 
@@ -803,13 +802,13 @@ class CodegenVisitor {
   }
 
   void visit_variable_declaration(VarKind var_kind, VarDecl& var_decl) {
+    auto sym = scope().resolve_symbol(var_decl.id.text);
+    if (sym.is_let_or_const()) {
+      emit(OpType::var_undef, int(sym.get_index()));
+    }
     if (var_decl.var_init) {
       assert(var_decl.var_init->is(ASTNode::AST_EXPR_ASSIGN));
       visit_assignment_expr(*static_cast<AssignmentExpr *>(var_decl.var_init), false);
-    }
-    else if (var_kind == VarKind::DECL_LET) {
-      auto sym = scope().resolve_symbol(var_decl.id.text);
-      emit(OpType::var_undef, int(sym.get_index()));
     }
   }
 
@@ -1291,6 +1290,7 @@ class CodegenVisitor {
 
   static constexpr u32 frame_meta_size {2};
 
+  size_t global_var_count {0};
   std::vector<Scope *> scope_chain;
   std::vector<Instruction> bytecode;
   SmallVector<CodegenError, 10> errors;
@@ -1299,9 +1299,6 @@ class CodegenVisitor {
   StringPool str_pool;
   SmallVector<double, 10> num_list;
   SmallVector<JSFunctionMeta, 10> func_meta;
-
-  // for atom
-  SmallVector<u16string, 10> atom_pool;
 };
 
 } // namespace njs

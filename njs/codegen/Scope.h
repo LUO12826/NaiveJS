@@ -35,10 +35,6 @@ class Scope {
       return index;
     }
 
-    bool stack_scope() {
-      return storage_scope != ScopeType::CLOSURE && storage_scope != ScopeType::BLOCK;
-    }
-
     bool not_found() { return original_symbol == nullptr; }
 
     bool is_let_or_const() {

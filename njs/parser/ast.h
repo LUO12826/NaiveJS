@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <optional>
 
 #include "njs/codegen/Scope.h"
 #include "njs/codegen/SymbolRecord.h"
@@ -24,6 +25,7 @@ const u32 PRINT_TREE_INDENT = 2;
 
 using std::pair;
 using std::vector;
+using std::optional;
 using std::unique_ptr;
 using std::u16string;
 using std::u16string_view;
@@ -463,6 +465,20 @@ class AssignmentExpr : public ASTNode {
     if (rhs->type == AST_EXPR_ID) return true;
     if (rhs->type != AST_EXPR_LHS) return false;
     return static_cast<LeftHandSideExpr *>(rhs)->is_id();
+  }
+
+  bool rhs_is_1() {
+    return rhs->is(ASTNode::AST_EXPR_NUMBER) && (rhs->as_number_literal()->num_val == 1.0);
+  }
+
+  optional<int8_t > rhs_as_int8() {
+    if (!rhs->is(ASTNode::AST_EXPR_NUMBER)) return false;
+    double val = rhs->as_number_literal()->num_val;
+    if (val >= -128.0 && val <= 127.0 && val == (int)val) {
+      return int8_t(val);
+    } else {
+      return std::nullopt;
+    }
   }
 
   Token::TokenType assign_type;

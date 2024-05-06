@@ -96,7 +96,7 @@ friend class InternalFunctions;
   void exec_push_str(int str_idx, bool atom);
   // pop or store
   void exec_pop(int scope, int index);
-  void exec_store(int scope, int index);
+  void exec_pop_check(int scope, int index);
   // function operation
   void exec_make_func(int meta_idx);
   void exec_capture(int scope, int index);
@@ -112,14 +112,11 @@ friend class InternalFunctions;
   void exec_set_prop_atom(u32 key_atom);
   void exec_set_prop_index();
   void exec_prop_assign(bool need_value);
-  void exec_dynamic_get_var(u32 name_atom, bool get_ref);
-  void exec_compound_assign(OpType type, int opr1, int opr2);
+  void exec_dynamic_get_var(u32 name_atom);
   // array operation
   void exec_make_array(int length);
   void exec_add_elements(int elements_cnt);
   // binary operation
-  void exec_fast_assign(Instruction& inst);
-  void exec_fast_add(Instruction& inst);
   void exec_comparison(OpType type);
 
   void exec_add();
