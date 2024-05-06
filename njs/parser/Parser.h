@@ -509,7 +509,6 @@ error:
     START_POS;
     Token token = lexer.current();
     ASTNode* base = nullptr;
-    u32 new_count = 0;
 
     // need test
     if (token.text == u"new") {    
@@ -527,7 +526,7 @@ error:
     if (base->is_illegal()) {
       return base;
     }
-    auto* lhs = new LeftHandSideExpr(base, new_count);
+    auto* lhs = new LeftHandSideExpr(base);
 
     while (true) {
       
@@ -575,7 +574,7 @@ error:
           break;
         }
         default:
-          if (lhs->postfix_order.empty()) {
+          if (lhs->postfixs.empty()) {
             lhs->base = nullptr;
             delete lhs;
             return base;

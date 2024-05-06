@@ -341,15 +341,29 @@ class LeftHandSideExpr : public ASTNode {
     PROP,
   };
 
-  LeftHandSideExpr(ASTNode *base, u32 new_count)
-      : ASTNode(AST_EXPR_LHS), base(base), new_count(new_count) {
+  struct Postfix {
+    PostfixType type;
+    union Subtree {
+      Arguments *args_expr;
+      ASTNode *index_expr;
+      u16string_view prop_name;
+
+      Subtree(): prop_name() {}
+    } subtree;
+
+    Postfix(PostfixType type): type(type) {}
+  };
+
+  LeftHandSideExpr(ASTNode *base) : ASTNode(AST_EXPR_LHS), base(base) {
     add_child(base);
   }
 
   ~LeftHandSideExpr() override {
     delete base;
-    for (auto args : args_list) delete args;
-    for (auto index : index_list) delete index;
+    for (auto& post : postfixs) {
+      if (post.type == CALL) delete post.subtree.args_expr;
+      if (post.type == INDEX) delete post.subtree.index_expr;
+    }
   }
 
   std::string description() override {
@@ -357,34 +371,33 @@ class LeftHandSideExpr : public ASTNode {
   }
 
   void add_arguments(Arguments *args) {
-    postfix_order.emplace_back(CALL, args_list.size());
-    args_list.push_back(args);
+    Postfix post(CALL);
+    post.subtree.args_expr = args;
+    postfixs.push_back(post);
     add_child(args);
   }
 
   void add_index(ASTNode *index) {
-    postfix_order.emplace_back(INDEX, index_list.size());
-    index_list.push_back(index);
+    Postfix post(INDEX);
+    post.subtree.index_expr = index;
+    postfixs.push_back(post);
     add_child(index);
   }
 
   void add_prop(const Token& prop) {
-    postfix_order.emplace_back(PROP, prop_list.size());
-    prop_list.push_back(prop);
+    Postfix post(PROP);
+    post.subtree.prop_name = prop.text;
+    postfixs.push_back(post);
     add_child(new ASTNode(AST_TOKEN, prop.text, prop.start, prop.end, prop.line));
   }
 
   bool is_id() {
-    return base->type == ASTNode::AST_EXPR_ID && postfix_order.empty();
+    return base->type == ASTNode::AST_EXPR_ID && postfixs.empty();
   }
 
   ASTNode *base;
-  u32 new_count;
 
-  vector<pair<PostfixType, u32>> postfix_order;
-  vector<Arguments *> args_list;
-  vector<ASTNode *> index_list;
-  vector<Token> prop_list;
+  vector<Postfix> postfixs;
 };
 
 class BinaryExpr : public ASTNode {
@@ -442,13 +455,13 @@ class AssignmentExpr : public ASTNode {
 
   bool lhs_is_id() {
     if (lhs->type == AST_EXPR_ID) return true;
-    if (lhs->type != AST_EXPR_LHS) { return false; }
+    if (lhs->type != AST_EXPR_LHS) return false;
     return static_cast<LeftHandSideExpr *>(lhs)->is_id();
   }
 
   bool rhs_is_id() {
     if (rhs->type == AST_EXPR_ID) return true;
-    if (rhs->type != AST_EXPR_LHS) { return false; }
+    if (rhs->type != AST_EXPR_LHS) return false;
     return static_cast<LeftHandSideExpr *>(rhs)->is_id();
   }
 

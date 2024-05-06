@@ -108,24 +108,26 @@ friend class InternalFunctions;
   // object operation
   void exec_make_object();
   void exec_add_props(int props_cnt);
-  void exec_key_access(u32 key_atom, bool get_ref);
-  void exec_index_access(bool get_ref);
-  void exec_prop_assign();
+  void exec_key_access(u32 key_atom, bool get_ref, int keep_obj);
+  void exec_index_access(bool get_ref, int keep_obj);
+  void exec_set_prop_atom(u32 key_atom);
+  void exec_set_prop_index();
+  void exec_prop_assign(bool need_value);
   void exec_dynamic_get_var(u32 name_atom, bool get_ref);
-  void exec_compound_assign(InstType type, int opr1, int opr2);
+  void exec_compound_assign(OpType type, int opr1, int opr2);
   // array operation
   void exec_make_array(int length);
   void exec_add_elements(int elements_cnt);
   // binary operation
   void exec_fast_assign(Instruction& inst);
   void exec_fast_add(Instruction& inst);
-  void exec_comparison(InstType type);
+  void exec_comparison(OpType type);
 
   void exec_add();
-  void exec_binary(InstType op_type);
-  void exec_logi(InstType op_type);
-  void exec_bits(InstType op_type);
-  void exec_shift(InstType op_type);
+  void exec_binary(OpType op_type);
+  void exec_logi(OpType op_type);
+  void exec_bits(OpType op_type);
+  void exec_shift(OpType op_type);
   void exec_strict_equality(bool flip);
   void exec_abstract_equality(bool flip);
 
@@ -140,7 +142,8 @@ friend class InternalFunctions;
   JSFunction *function_env();
   JSValue& get_value(ScopeType scope, int index);
 
-  bool key_access_on_primitive(JSValue& obj, int64_t atom);
+  bool key_access_on_primitive(JSValue& obj, int64_t atom, int keep_obj);
+  JSValue index_object(JSValue obj, JSValue index, bool get_ref);
 
   void error_throw(const u16string& msg);
   void error_handle();
@@ -178,7 +181,6 @@ friend class InternalFunctions;
   SmallVector<double, 10> num_list;
   SmallVector<JSFunctionMeta, 10> func_meta;
 
-  JSValue invoker_this;
   JSValue global_object;
 
   // for error handling in the global scope

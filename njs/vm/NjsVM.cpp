@@ -128,48 +128,48 @@ CallResult NjsVM::execute(bool stop_at_return) {
     Instruction& inst = bytecode[pc++];
 
     switch (inst.op_type) {
-      case InstType::add:
+      case OpType::add:
         exec_add();
         break;
-      case InstType::sub:
-      case InstType::mul:
-      case InstType::div:
+      case OpType::sub:
+      case OpType::mul:
+      case OpType::div:
         exec_binary(inst.op_type);
         break;
-      case InstType::neg:
+      case OpType::neg:
         assert(sp[0].is_float64());
         sp[0].val.as_f64 = -sp[0].val.as_f64;
         break;
-      case InstType::add_assign:
+      case OpType::add_assign:
         exec_add_assign(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
-      case InstType::sub_assign:
-      case InstType::mul_assign:
-      case InstType::div_assign:
+      case OpType::sub_assign:
+      case OpType::mul_assign:
+      case OpType::div_assign:
         exec_compound_assign(inst.op_type, inst.operand.two.opr1, inst.operand.two.opr2);
         break;
-      case InstType::inc:
+      case OpType::inc:
         exec_inc_or_dec(inst.operand.two.opr1, inst.operand.two.opr2, 1);
         break;
-      case InstType::dec:
+      case OpType::dec:
         exec_inc_or_dec(inst.operand.two.opr1, inst.operand.two.opr2, -1);
         break;
-      case InstType::logi_and:
-      case InstType::logi_or:
+      case OpType::logi_and:
+      case OpType::logi_or:
         exec_logi(inst.op_type);
         break;
-      case InstType::logi_not: {
+      case OpType::logi_not: {
         bool bool_val = sp[0].bool_value();
         sp[0].set_undefined();
         sp[0].set_val(!bool_val);
         break;
       }
-      case InstType::bits_and:
-      case InstType::bits_or:
-      case InstType::bits_xor:
+      case OpType::bits_and:
+      case OpType::bits_or:
+      case OpType::bits_xor:
         exec_bits(inst.op_type);
         break;
-      case InstType::bits_not: {
+      case OpType::bits_not: {
         auto res = to_int32(*this, sp[0]);
         sp[0].set_undefined();
         if (res.is_value()) {
@@ -181,160 +181,160 @@ CallResult NjsVM::execute(bool stop_at_return) {
         }
         break;
       }
-      case InstType::lsh:
-      case InstType::rsh:
-      case InstType::ursh:
+      case OpType::lsh:
+      case OpType::rsh:
+      case OpType::ursh:
         exec_shift(inst.op_type);
         break;
-      case InstType::push:
+      case OpType::push:
         exec_push(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
-      case InstType::push_check:
+      case OpType::push_check:
         exec_push_check(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
-      case InstType::pushi:
+      case OpType::pushi:
         sp += 1;
         sp[0].set_val(inst.operand.num_float);
         break;
-      case InstType::push_str:
+      case OpType::push_str:
         exec_push_str(inst.operand.two.opr1, false);
         break;
-      case InstType::push_atom:
+      case OpType::push_atom:
         exec_push_str(inst.operand.two.opr1, true);
         break;
-      case InstType::push_bool:
+      case OpType::push_bool:
         sp += 1;
         sp[0].set_val(bool(inst.operand.two.opr1));
         break;
-      case InstType::push_this:
+      case OpType::push_this:
         exec_push_this(bool(inst.operand.two.opr1));
         break;
-      case InstType::push_null:
+      case OpType::push_null:
         sp += 1;
         sp[0].tag = JSValue::JS_NULL;
         break;
-      case InstType::push_undef:
+      case OpType::push_undef:
         sp += 1;
         sp[0].tag = JSValue::UNDEFINED;
         break;
-      case InstType::push_uninit:
+      case OpType::push_uninit:
         sp += 1;
         sp[0].tag = JSValue::UNINIT;
         break;
-      case InstType::pop:
+      case OpType::pop:
         exec_pop(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
-      case InstType::pop_drop:
+      case OpType::pop_drop:
         sp[0].set_undefined();
         sp -= 1;
         break;
-      case InstType::store:
+      case OpType::store:
         exec_store(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
-      case InstType::prop_assign:
-        exec_prop_assign();
+      case OpType::prop_assign:
+        exec_prop_assign(bool(inst.operand.two.opr1));
         break;
-      case InstType::var_deinit_range:
+      case OpType::var_deinit_range:
         exec_var_deinit_range(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
-      case InstType::var_undef:
+      case OpType::var_undef:
         assert(bp[inst.operand.two.opr1].tag == JSValue::UNINIT);
         bp[inst.operand.two.opr1].tag = JSValue::UNDEFINED;
         break;
-      case InstType::var_dispose:
+      case OpType::var_dispose:
         exec_var_dispose(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
-      case InstType::var_dispose_range:
+      case OpType::var_dispose_range:
         exec_var_dispose_range(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
-      case InstType::dup_stack_top:
+      case OpType::dup_stack_top:
         if (sp[0].is_RCObject() && sp[0].val.as_RCObject->get_ref_count() != 0) {
           sp[0].val.as_RCObject = sp[0].val.as_RCObject->copy();
         }
         break;
-      case InstType::jmp:
+      case OpType::jmp:
         pc = inst.operand.two.opr1;
         break;
-      case InstType::jmp_true:
+      case OpType::jmp_true:
         if (sp[0].bool_value()) {
           pc = inst.operand.two.opr1;
         }
         break;
-      case InstType::jmp_false:
+      case OpType::jmp_false:
         if (sp[0].is_falsy()) {
           pc = inst.operand.two.opr1;
         }
         break;
-      case InstType::jmp_cond:
+      case OpType::jmp_cond:
         if (sp[0].bool_value()) {
           pc = inst.operand.two.opr1;
         } else {
           pc = inst.operand.two.opr2;
         }
         break;
-      case InstType::gt:
-      case InstType::lt:
-      case InstType::ge:
-      case InstType::le:
+      case OpType::gt:
+      case OpType::lt:
+      case OpType::ge:
+      case OpType::le:
         exec_comparison(inst.op_type);
         break;
-      case InstType::ne:
+      case OpType::ne:
         exec_abstract_equality(true);
         break;
-      case InstType::eq:
+      case OpType::eq:
         exec_abstract_equality(false);
         break;
-      case InstType::ne3:
+      case OpType::ne3:
         exec_strict_equality(true);
         break;
-      case InstType::eq3:
+      case OpType::eq3:
         exec_strict_equality(false);
         break;
-      case InstType::call: {
+      case OpType::call: {
         CallResult res = exec_call(inst.operand.two.opr1, bool(inst.operand.two.opr2));
         if (res == CallResult::DONE_ERROR) {
           error_handle();
         }
         break;
       }
-      case InstType::js_new:
+      case OpType::js_new:
         exec_js_new(inst.operand.two.opr1);
         break;
-      case InstType::fast_add:
+      case OpType::fast_add:
         exec_fast_add(inst);
         break;
-      case InstType::fast_assign:
+      case OpType::fast_assign:
         exec_fast_assign(inst);
         break;
-      case InstType::make_func:
+      case OpType::make_func:
         exec_make_func(inst.operand.two.opr1);
         break;
-      case InstType::capture:
+      case OpType::capture:
         exec_capture(inst.operand.two.opr1, inst.operand.two.opr2);
         break;
-      case InstType::make_obj:
+      case OpType::make_obj:
         exec_make_object();
         break;
-      case InstType::make_array:
+      case OpType::make_array:
         exec_make_array(inst.operand.two.opr1);
         break;
-      case InstType::add_props:
+      case OpType::add_props:
         exec_add_props(inst.operand.two.opr1);
         break;
-      case InstType::add_elements:
+      case OpType::add_elements:
         exec_add_elements(inst.operand.two.opr1);
         break;
-      case InstType::ret:
+      case OpType::ret:
         exec_return();
         if (stop_at_return && bp < saved_bp) return CallResult::DONE_NORMAL;
         break;
-      case InstType::ret_err: {
+      case OpType::ret_err: {
         exec_return_error();
         if (stop_at_return && bp < saved_bp) return CallResult::DONE_ERROR;
         error_handle();
         break;
       }
-      case InstType::halt:
+      case OpType::halt:
         if (!global_end) {
           global_end = true;
           assert(global_sp == sp);
@@ -349,18 +349,30 @@ CallResult NjsVM::execute(bool stop_at_return) {
           printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp - rt_stack.data(), pc);
         }
         return CallResult::DONE_NORMAL;
-      case InstType::halt_err:
+      case OpType::halt_err:
         exec_halt_err(inst);
         return CallResult::DONE_NORMAL;
-      case InstType::nop:
+      case OpType::nop:
         break;
-      case InstType::key_access:
-        exec_key_access(inst.operand.two.opr1, (bool)inst.operand.two.opr2);
+      case OpType::key_access:
+      case OpType::key_access2: {
+        int keep_obj = static_cast<int>(inst.op_type) - static_cast<int>(OpType::key_access);
+        exec_key_access(inst.operand.two.opr1, (bool)inst.operand.two.opr2, keep_obj);
         break;
-      case InstType::index_access:
-        exec_index_access((bool)inst.operand.two.opr1);
+      }
+      case OpType::index_access:
+      case OpType::index_access2: {
+        int keep_obj = static_cast<int>(inst.op_type) - static_cast<int>(OpType::index_access);
+        exec_index_access((bool)inst.operand.two.opr1, keep_obj);
         break;
-      case InstType::dyn_get_var:
+      }
+      case OpType::set_prop_atom:
+        exec_set_prop_atom(inst.operand.two.opr1);
+        break;
+      case OpType::set_prop_index:
+        exec_set_prop_index();
+        break;
+      case OpType::dyn_get_var:
         exec_dynamic_get_var(inst.operand.two.opr1, (bool)inst.operand.two.opr2);
         break;
       default:
@@ -401,14 +413,17 @@ Completion NjsVM::call_function(JSFunction *func, const std::vector<JSValue>& ar
 }
 
 void NjsVM::prepare_for_call(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj) {
+  if (this_obj) {
+    sp += 1;
+    sp[0].set_val(this_obj);
+  }
   sp += 1;
   sp[0].set_val(func);
+
   for (auto& arg : args) {
     sp += 1;
     sp[0] = arg;
   }
-
-  if (this_obj) invoker_this.set_val(this_obj);
 }
 
 void NjsVM::pop_drop() {
@@ -522,14 +537,14 @@ void NjsVM::exec_add_assign(int scope, int index) {
   sp -= 1;
 }
 
-void NjsVM::exec_compound_assign(InstType type, int scope, int index) {
+void NjsVM::exec_compound_assign(OpType type, int scope, int index) {
   JSValue& value = get_value(scope_type_from_int(scope), index);
   // fast path
   if (value.is_float64() && sp[0].is_float64()) {
     switch (type) {
-      case InstType::sub_assign: value.val.as_f64 -= sp[0].val.as_f64; break;
-      case InstType::mul_assign: value.val.as_f64 *= sp[0].val.as_f64; break;
-      case InstType::div_assign: value.val.as_f64 /= sp[0].val.as_f64; break;
+      case OpType::sub_assign: value.val.as_f64 -= sp[0].val.as_f64; break;
+      case OpType::mul_assign: value.val.as_f64 *= sp[0].val.as_f64; break;
+      case OpType::div_assign: value.val.as_f64 /= sp[0].val.as_f64; break;
       default: assert(false);
     }
   }
@@ -546,16 +561,16 @@ void NjsVM::exec_inc_or_dec(int scope, int index, int inc) {
   value.val.as_f64 += inc;
 }
 
-void NjsVM::exec_binary(InstType op_type) {
+void NjsVM::exec_binary(OpType op_type) {
   assert(sp[-1].is_float64() && sp[0].is_float64());
   switch (op_type) {
-    case InstType::sub:
+    case OpType::sub:
       sp[-1].val.as_f64 -= sp[0].val.as_f64;
       break;
-    case InstType::mul:
+    case OpType::mul:
       sp[-1].val.as_f64 *= sp[0].val.as_f64;
       break;
-    case InstType::div:
+    case OpType::div:
       sp[-1].val.as_f64 /= sp[0].val.as_f64;
       break;
     default:
@@ -565,15 +580,15 @@ void NjsVM::exec_binary(InstType op_type) {
   sp -= 1;
 }
 
-void NjsVM::exec_logi(InstType op_type) {
+void NjsVM::exec_logi(OpType op_type) {
   switch (op_type) {
-    case InstType::logi_and:
+    case OpType::logi_and:
       if (!sp[-1].is_falsy()) {
         sp[-1].set_undefined();
         sp[-1] = std::move(sp[0]);
       }
       break;
-    case InstType::logi_or:
+    case OpType::logi_or:
       if (sp[-1].is_falsy()) {
         sp[-1].set_undefined();
         sp[-1] = std::move(sp[0]);
@@ -585,7 +600,7 @@ void NjsVM::exec_logi(InstType op_type) {
   sp -= 1;
 }
 
-void NjsVM::exec_bits(njs::InstType op_type) {
+void NjsVM::exec_bits(njs::OpType op_type) {
 
   ErrorOr<uint32_t> lhs, rhs;
 
@@ -599,13 +614,13 @@ void NjsVM::exec_bits(njs::InstType op_type) {
   sp[0].set_undefined();
 
   switch (op_type) {
-    case InstType::bits_and:
+    case OpType::bits_and:
       sp[-1].set_val(double(lhs.get_value() & rhs.get_value()));
       break;
-    case InstType::bits_or:
+    case OpType::bits_or:
       sp[-1].set_val(double(lhs.get_value() | rhs.get_value()));
       break;
-    case InstType::bits_xor:
+    case OpType::bits_xor:
       sp[-1].set_val(double(lhs.get_value() ^ rhs.get_value()));
       break;
     default:
@@ -623,7 +638,7 @@ void NjsVM::exec_bits(njs::InstType op_type) {
   error_handle();
 }
 
-void NjsVM::exec_shift(InstType op_type) {
+void NjsVM::exec_shift(OpType op_type) {
   ErrorOr<int32_t> lhs;
   ErrorOr<uint32_t> rhs;
   uint32_t shift_len;
@@ -640,13 +655,13 @@ void NjsVM::exec_shift(InstType op_type) {
   shift_len = rhs.get_value() & 0x1f;
 
   switch (op_type) {
-    case InstType::lsh:
+    case OpType::lsh:
       sp[-1].set_val(double(lhs.get_value() << shift_len));
       break;
-    case InstType::rsh:
+    case OpType::rsh:
       sp[-1].set_val(double(lhs.get_value() >> shift_len));
       break;
-    case InstType::ursh:
+    case OpType::ursh:
       sp[-1].set_val(double(u32(lhs.get_value()) >> shift_len));
       break;
     default:
@@ -685,7 +700,7 @@ void NjsVM::exec_fast_add(Instruction& inst) {
 }
 
 void NjsVM::exec_return() {
-  JSValue *old_sp = bp - func_arg_count - 1;
+  JSValue *old_sp = bp - func_arg_count - 1 - (int)bp->val.as_function->call_with_this;
 
   // retain the return value, in case it's deallocated due to the dispose stage bellow.
   JSValue& ret_val = sp[0];
@@ -705,11 +720,12 @@ void NjsVM::exec_return() {
   func_arg_count = bp[1].flag_bits;
 
   // move the return value.
+  sp[0].set_undefined();
   sp[0] = std::move(ret_val);
 }
 
 void NjsVM::exec_return_error() {
-  JSValue *old_sp = bp - func_arg_count - 1;
+  JSValue *old_sp = bp - func_arg_count - 1 - (int)bp->val.as_function->call_with_this;
   JSValue *local_var_end = bp + function_env()->meta.local_var_count + frame_meta_size;
 
   // retain the return value, in case it's deallocated due to the dispose stage bellow.
@@ -735,6 +751,7 @@ void NjsVM::exec_return_error() {
   func_arg_count = bp[1].flag_bits;
 
   // move the return value
+  sp[0].set_undefined();
   sp[0] = std::move(ret_val);
 }
 
@@ -765,20 +782,25 @@ void NjsVM::exec_store(int scope, int index) {
   get_value(var_scope, index).assign(sp[0]);
 }
 
-void NjsVM::exec_prop_assign() {
+void NjsVM::exec_prop_assign(bool need_value) {
   assert(sp[0].tag != JSValue::VALUE_HANDLE && sp[0].tag != JSValue::HEAP_VAL);
 
   JSValue& target_val = sp[-1];
   if (target_val.tag == JSValue::VALUE_HANDLE) {
     target_val.val.as_JSValue->assign(sp[0]);
-  }
-  else {
+  } else {
     printf("VM warning: invalid property assign.\n");
   }
 
-  sp[0].set_undefined();
-  sp[-1].set_undefined();
-  sp -= 2;
+  if (unlikely(need_value)) {
+    sp[-1].set_undefined();
+    sp[-1] = std::move(sp[0]);
+    sp -= 1;
+  } else {
+    sp[0].set_undefined();
+    sp[-1].set_undefined();
+    sp -= 2;
+  }
 }
 
 void NjsVM::exec_var_dispose(int scope, int index) {
@@ -861,10 +883,12 @@ void NjsVM::exec_capture(int scope, int index) {
 }
 
 CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
+  JSValue& this_obj = has_this_object ? sp[-arg_count - 1] : global_object;
   JSValue& func_val = sp[-arg_count];
   assert(func_val.tag == JSValue::FUNCTION);
   assert(func_val.val.as_object->obj_class == ObjectClass::CLS_FUNCTION);
   JSFunction *func = func_val.val.as_function;
+  func->call_with_this = has_this_object;
 
   u32 def_param_cnt = func->meta.param_count;
   // If the actually passed arguments are fewer than the formal parameters,
@@ -881,8 +905,7 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
 
   if (!(func->meta.is_arrow_func || func->has_this_binding)) {
     // set up the `this` for the function.
-    func->This.assign(has_this_object ? invoker_this : global_object);
-    invoker_this.set_undefined();
+    func->This.assign(has_this_object ? this_obj : global_object);
   }
 
   // note that, even if the function is a native function, we set up the frame metadata
@@ -913,7 +936,12 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
     sp += 1;
     Completion comp = func->native_func(*this, *func, ArrayRef<JSValue>(&func_val + 1, actual_arg_cnt));
     // if the native function throws an error, move this error object to the place where the return value should reside.
-    func_val = comp.is_throw() ? comp.get_error() : comp.get_value();
+    if (has_this_object) {
+      this_obj.set_undefined();
+      this_obj = comp.get_value_or_error();
+    } else {
+      func_val = comp.get_value_or_error();
+    }
 
     // clean the STACK_FRAME_META1 and STACK_FRAME_META2
     sp -= 2;
@@ -925,6 +953,10 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
       arg->dispose();
     }
     sp -= actual_arg_cnt;
+    if (has_this_object) {
+      sp[0].tag = JSValue::UNDEFINED;
+      sp -= 1;
+    }
     bp = saved_bp;
     return comp.is_throw() ? CallResult::DONE_ERROR : CallResult::DONE_NORMAL;
   }
@@ -933,12 +965,16 @@ CallResult NjsVM::exec_call(int arg_count, bool has_this_object) {
 void NjsVM::exec_js_new(int arg_count) {
   JSValue& ctor = sp[-arg_count];
   assert(ctor.is(JSValue::FUNCTION));
-
   // prepare `this` object
   JSValue proto = ctor.val.as_function->get_prop(StringPool::ATOM_prototype, false);
   proto = proto.is_object() ? proto : object_prototype;
   auto *this_obj = heap.new_object<JSObject>(ObjectClass::CLS_OBJECT, proto);
-  invoker_this.set_val(this_obj);
+
+  for (int i = 1; i > -arg_count; i--) {
+    sp[i] = sp[i - 1];
+  }
+  sp[-arg_count].set_val(this_obj);
+  sp += 1;
 
   // run the constructor
   CallResult call_res = exec_call(arg_count, true);
@@ -953,13 +989,11 @@ void NjsVM::exec_js_new(int arg_count) {
 
   JSValue& ret_val = sp[0];
   // if the constructor doesn't return an Object (which should be the common case),
-  // set the stack top (where the return locates) to the `invoker_this` object.
+  // set the stack top (where the return locates) to the `this_obj`.
   if (!ret_val.is_object()) {
     ret_val.set_undefined();
     ret_val.set_val(this_obj);
   }
-  // Now the newly constructed object is on the stack top. thus set the invoker this to `undefined`.
-  invoker_this.set_undefined();
 }
 
 void NjsVM::exec_make_object() {
@@ -1037,57 +1071,57 @@ void NjsVM::exec_push_this(bool in_global) {
   }
 }
 
-void NjsVM::exec_key_access(u32 key_atom, bool get_ref) {
+void NjsVM::exec_key_access(u32 key_atom, bool get_ref, int keep_obj) {
   JSValue& val_obj = sp[0];
-  invoker_this.assign(val_obj);
 
   if (Global::show_vm_exec_steps) {
     std::cout << "...visit key " << to_u8string(atom_to_str(key_atom)) << '\n';
   }
   if(val_obj.is_object()) {
     if (int64_t(key_atom) == StringPool::ATOM___proto__) {
-      val_obj = val_obj.val.as_object->get_prototype();
+      sp[keep_obj] = val_obj.val.as_object->get_prototype();
     } else {
-      val_obj = val_obj.val.as_object->get_prop(key_atom, get_ref);
+      sp[keep_obj] = val_obj.val.as_object->get_prop(key_atom, get_ref);
     }
   }
   else if (val_obj.is_uninited() || val_obj.is_undefined() || val_obj.is_null()) {
     goto error;
   }
-  else if (!key_access_on_primitive(val_obj, key_atom)) {
+  else if (!key_access_on_primitive(val_obj, key_atom, keep_obj)) {
     goto error;
   }
 
-  if (val_obj.is_uninited()) val_obj = JSValue::undefined;
+  sp += keep_obj;
+  if (sp[keep_obj].is_uninited()) val_obj = JSValue::undefined;
   return;
 error:
   error_throw(u"cannot read property of " + to_u16string(val_obj.to_string(*this)));
   error_handle();
 }
 
-bool NjsVM::key_access_on_primitive(JSValue& obj, int64_t atom) {
+bool NjsVM::key_access_on_primitive(JSValue& obj, int64_t atom, int keep_obj) {
 
   switch (obj.tag) {
     case JSValue::BOOLEAN:
     case JSValue::NUM_INT64:
     case JSValue::NUM_FLOAT:
     case JSValue::SYMBOL:
-      obj.set_undefined();
+      sp[keep_obj].set_undefined();
       break;
     case JSValue::STRING: {
       if (atom == StringPool::ATOM_length) {
         auto len = obj.val.as_primitive_string->length();
-        obj.set_undefined();
-        obj.set_val(double(len));
+        sp[keep_obj].set_undefined();
+        sp[keep_obj].set_val(double(len));
       }
       else if (string_prototype.as_object()->has_own_property(atom)) {
         auto func_val = string_prototype.as_object()->get_prop(atom, false);
         assert(func_val.is(JSValue::FUNCTION));
-        obj.set_undefined();
-        obj.set_val(func_val.val.as_function);
+        sp[keep_obj].set_undefined();
+        sp[keep_obj].set_val(func_val.val.as_function);
       }
       else {
-        obj.set_undefined();
+        sp[keep_obj].set_undefined();
       }
       break;
     }
@@ -1099,50 +1133,59 @@ bool NjsVM::key_access_on_primitive(JSValue& obj, int64_t atom) {
   return true;
 }
 
-void NjsVM::exec_index_access(bool get_ref) {
+void NjsVM::exec_index_access(bool get_ref, int keep_obj) {
+  int res_index = keep_obj - 1;
   JSValue& index = sp[0];
   JSValue& obj = sp[-1];
 
+  JSValue prop = index_object(obj, index, get_ref);
+
+  sp[res_index].set_undefined();
+  index.set_undefined();
+  sp[res_index] = prop;
+  sp += res_index;
+}
+
+JSValue NjsVM::index_object(JSValue obj, JSValue index, bool get_ref) {
   assert(index.tag == JSValue::STRING
-        || index.tag == JSValue::JS_ATOM
-        || index.tag == JSValue::NUM_FLOAT);
+         || index.tag == JSValue::JS_ATOM
+         || index.tag == JSValue::NUM_FLOAT);
   assert(obj.is_object());
 
-  invoker_this = obj;
+  JSValue res;
   u32 index_int = u32(index.val.as_f64);
 
   // Index an array
   if (obj.is(JSValue::ARRAY)) {
     // The float value can be interpreted as array index
     if (index.is_float64() && index.is_integer() && index.is_non_negative()) {
-      obj = obj.val.as_array->access_element(index_int, get_ref);
+      res = obj.val.as_array->access_element(index_int, get_ref);
     }
     // in this case, the float value is interpreted as an ordinary property key
     else if (index.is_float64()) {
       u16string num_str = to_u16string(std::to_string(index.val.as_f64));
       int64_t atom = str_to_atom(num_str);
-      obj = obj.val.as_object->get_prop(atom, get_ref);
+      res = obj.val.as_object->get_prop(atom, get_ref);
     }
     else if (index.is(JSValue::STRING) || index.is(JSValue::JS_ATOM)) {
       auto& index_str = index.is(JSValue::STRING)
-                                    ? index.val.as_primitive_string->str
-                                    : atom_to_str(index.val.as_i64);
+                        ? index.val.as_primitive_string->str
+                        : atom_to_str(index.val.as_i64);
 
       int64_t idx_int = scan_index_literal(index_str);
       if (idx_int != -1) {
         // string can be converted to number
-        obj = obj.val.as_array->access_element(u32(idx_int), get_ref);
+        res = obj.val.as_array->access_element(u32(idx_int), get_ref);
       } else {
         // object property
         int64_t atom = index.is(JSValue::STRING) ? str_to_atom(index_str)
                                                  : (u32)index.val.as_i64;
-        obj = obj.val.as_object->get_prop(atom, get_ref);
+        res = obj.val.as_object->get_prop(atom, get_ref);
       }
     }
   }
   // Index a string
   else if (obj.is(JSValue::STRING)) {
-    JSValue res;
     // The float value can be interpreted as string index
     if (index.is_float64() && index.is_integer() && index.is_non_negative()) {
       u16string& str = obj.val.as_primitive_string->str;
@@ -1155,28 +1198,71 @@ void NjsVM::exec_index_access(bool get_ref) {
     else if (index.is(JSValue::JS_ATOM) && index.val.as_i64 == StringPool::ATOM_length) {
       res.set_val(double(obj.val.as_primitive_string->length()));
     }
-
-    obj.set_undefined();
-    obj = res;
   }
   else if (obj.is(JSValue::OBJECT)) {
     if (index.is_float64()) {
       u16string num_str = to_u16string(std::to_string(index.val.as_f64));
       int64_t atom = str_to_atom(num_str);
-      obj = obj.val.as_object->get_prop(atom, get_ref);
+      res = obj.val.as_object->get_prop(atom, get_ref);
     }
     else if (index.is(JSValue::STRING)) {
       int64_t atom = str_to_atom(index.val.as_primitive_string->str);
-      obj = obj.val.as_object->get_prop(atom, get_ref);
+      res = obj.val.as_object->get_prop(atom, get_ref);
     }
     else if (index.is(JSValue::JS_ATOM)) {
-      obj = obj.val.as_object->get_prop(index.val.as_i64, get_ref);
+      res = obj.val.as_object->get_prop(index.val.as_i64, get_ref);
     }
   }
 
-  if (obj.is_uninited()) obj = JSValue::undefined;
-  index.set_undefined();
+  return res;
+}
+
+// top of stack: value, obj
+void NjsVM::exec_set_prop_atom(u32 key_atom) {
+  JSValue &val = sp[0];
+  JSValue &obj = sp[-1];
+
+  if (Global::show_vm_exec_steps) {
+    std::cout << "...visit key " << to_u8string(atom_to_str(key_atom)) << '\n';
+  }
+  if (obj.is_object()) {
+    if (unlikely(int64_t(key_atom) == StringPool::ATOM___proto__)) {
+      obj.val.as_object->set_prototype(val);
+    } else {
+      obj.val.as_object->get_prop(key_atom, true).val.as_JSValue->assign(val);
+    }
+  } else if (obj.is_uninited() || obj.is_undefined() || obj.is_null()) {
+    error_throw(u"cannot read property of " + to_u16string(obj.to_string(*this)));
+    error_handle();
+    return;
+  }
+  // else the obj is a primitive type. do nothing.
+
+  obj.set_undefined();
+  obj = std::move(val);
   sp -= 1;
+}
+
+// top of stack: value, index, obj
+void NjsVM::exec_set_prop_index() {
+  JSValue& val = sp[0];
+  JSValue& index = sp[-1];
+  JSValue& obj = sp[-2];
+
+  if (obj.is_object()) {
+    index_object(obj, index, true).val.as_JSValue->assign(val);
+  } else if (obj.is_uninited() || obj.is_undefined() || obj.is_null()) {
+    error_throw(u"cannot set property of " + to_u16string(obj.to_string(*this)));
+    error_handle();
+    return;
+  }
+  // else the obj is a primitive type. do nothing.
+
+  obj.set_undefined();
+  index.set_undefined();
+
+  obj = std::move(val);
+  sp -= 2;
 }
 
 void NjsVM::exec_dynamic_get_var(u32 name_atom, bool get_ref) {
@@ -1227,26 +1313,26 @@ void NjsVM::exec_abstract_equality(bool flip) {
 }
 
 
-void NjsVM::exec_comparison(InstType type) {
+void NjsVM::exec_comparison(OpType type) {
   JSValue& lhs = sp[-1];
   JSValue& rhs = sp[0];
 
   bool res;
   if (lhs.is_float64() && rhs.is_float64()) {
     switch (type) {
-      case InstType::lt: res = lhs.val.as_f64 < rhs.val.as_f64; break;
-      case InstType::gt: res = lhs.val.as_f64 > rhs.val.as_f64; break;
-      case InstType::le: res = lhs.val.as_f64 <= rhs.val.as_f64; break;
-      case InstType::ge: res = lhs.val.as_f64 >= rhs.val.as_f64; break;
+      case OpType::lt: res = lhs.val.as_f64 < rhs.val.as_f64; break;
+      case OpType::gt: res = lhs.val.as_f64 > rhs.val.as_f64; break;
+      case OpType::le: res = lhs.val.as_f64 <= rhs.val.as_f64; break;
+      case OpType::ge: res = lhs.val.as_f64 >= rhs.val.as_f64; break;
       default: assert(false);
     }
   }
   else if (lhs.is(JSValue::STRING) && rhs.is(JSValue::STRING)) {
     switch (type) {
-      case InstType::lt: res = *lhs.val.as_primitive_string < *rhs.val.as_primitive_string; break;
-      case InstType::gt: res = *lhs.val.as_primitive_string > *rhs.val.as_primitive_string; break;
-      case InstType::le: res = *lhs.val.as_primitive_string <= *rhs.val.as_primitive_string; break;
-      case InstType::ge: res = *lhs.val.as_primitive_string >= *rhs.val.as_primitive_string; break;
+      case OpType::lt: res = *lhs.val.as_primitive_string < *rhs.val.as_primitive_string; break;
+      case OpType::gt: res = *lhs.val.as_primitive_string > *rhs.val.as_primitive_string; break;
+      case OpType::le: res = *lhs.val.as_primitive_string <= *rhs.val.as_primitive_string; break;
+      case OpType::ge: res = *lhs.val.as_primitive_string >= *rhs.val.as_primitive_string; break;
       default: assert(false);
     }
     lhs.set_undefined();

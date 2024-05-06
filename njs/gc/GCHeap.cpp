@@ -54,7 +54,6 @@ std::vector<JSValue *> GCHeap::gather_roots() {
       roots.push_back(js_val);
     }
   }
-  if (vm.invoker_this.needs_gc()) roots.push_back(&vm.invoker_this);
   roots.push_back(&vm.global_object);
 
   roots.push_back(&vm.object_prototype);

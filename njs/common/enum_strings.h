@@ -159,6 +159,14 @@ inline const char *scope_type_names[5] = {
     "CLOSURE_SCOPE"
 };
 
+inline const char *scope_type_names_alt[5] = {
+    "global",
+    "local",
+    "arg",
+    "(error)",
+    "closure"
+};
+
 inline const char *js_value_tag_names[25] = {
     "UNDEFINED",
     "JS_NULL",

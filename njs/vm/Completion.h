@@ -49,6 +49,10 @@ class Completion {
     return val_or_err;
   }
 
+  JSValue& get_value_or_error() {
+    return val_or_err;
+  }
+
  private:
   Type type;
   JSValue val_or_err;

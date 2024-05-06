@@ -104,27 +104,27 @@ class CodegenVisitor {
       auto& prev_inst = bytecode[i - 1];
       pos_moved[i] = -removed_inst_cnt;
 
-      //      if (inst.op_type == InstType:: push && prev_inst.op_type == InstType::pop) {
+      //      if (inst.op_type == OpType:: push && prev_inst.op_type == OpType::pop) {
       //        if (inst.operand.two.opr1 == prev_inst.operand.two.opr1
       //            && inst.operand.two.opr2 == prev_inst.operand.two.opr2) {
       //          removed_inst_cnt += 1;
-      //          inst.op_type = InstType::nop;
-      //          prev_inst.op_type = InstType::store;
+      //          inst.op_type = OpType::nop;
+      //          prev_inst.op_type = OpType::store;
       //        }
       //      }
 
-      if (inst.op_type == InstType::jmp_true || inst.op_type == InstType::jmp) {
+      if (inst.op_type == OpType::jmp_true || inst.op_type == OpType::jmp) {
         if (inst.operand.two.opr1 == i + 1) {
           removed_inst_cnt += 1;
-          inst.op_type = InstType::nop;
+          inst.op_type = OpType::nop;
         }
 
-        if (inst.op_type == InstType::jmp && prev_inst.op_type == InstType::jmp_true &&
+        if (inst.op_type == OpType::jmp && prev_inst.op_type == OpType::jmp_true &&
             prev_inst.operand.two.opr1 == i + 1) {
 
-          prev_inst.op_type = InstType::jmp_false;
+          prev_inst.op_type = OpType::jmp_false;
           prev_inst.operand.two.opr1 = inst.operand.two.opr1;
-          inst.op_type = InstType::nop;
+          inst.op_type = OpType::nop;
           removed_inst_cnt += 1;
         }
       }
@@ -133,11 +133,11 @@ class CodegenVisitor {
     size_t new_inst_ptr = 0;
     for (size_t i = 0; i < len; i++) {
 
-      if (bytecode[i].op_type != InstType::nop) {
+      if (bytecode[i].op_type != OpType::nop) {
         auto& inst = bytecode[i];
         // Fix the jump target of the jmp instructions
-        if (inst.op_type == InstType::jmp || inst.op_type == InstType::jmp_true ||
-            inst.op_type == InstType::jmp_false) {
+        if (inst.op_type == OpType::jmp || inst.op_type == OpType::jmp_true ||
+            inst.op_type == OpType::jmp_false) {
           inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
         }
         bytecode[new_inst_ptr] = inst;
@@ -201,18 +201,18 @@ class CodegenVisitor {
         visit_array_literal(*static_cast<ArrayLiteral *>(node));
         break;
       case ASTNode::AST_EXPR_NULL:
-        emit(InstType::push_null);
+        emit(OpType::push_null);
         break;
       case ASTNode::AST_EXPR_THIS: {
         bool in_global = scope().get_outer_func()->get_scope_type() == ScopeType::GLOBAL;
-        emit(InstType::push_this, int(in_global));
+        emit(OpType::push_this, int(in_global));
         break;
       }
       case ASTNode::AST_EXPR_PAREN:
         visit(static_cast<ParenthesisExpr *>(node)->expr);
         break;
       case ASTNode::AST_EXPR_BOOL:
-        emit(InstType::push_bool, u32(node->get_source() == u"true"));
+        emit(OpType::push_bool, u32(node->get_source() == u"true"));
         break;
       case ASTNode::AST_STMT_VAR:
         visit_variable_statement(*static_cast<VarStatement *>(node));
@@ -295,12 +295,12 @@ class CodegenVisitor {
     int deinit_end = int(scope().get_var_next_index() + frame_meta_size);
     // set local `let` and `const` variables to UNINIT.
     if (deinit_end - deinit_begin != 0) {
-      emit(InstType::var_deinit_range, deinit_begin, deinit_end);
+      emit(OpType::var_deinit_range, deinit_begin, deinit_end);
     }
 
     // begin codegen for inner functions
     if (!scope().get_inner_func_init_code().empty()) {
-      u32 jmp_inst_idx = emit(InstType::jmp);
+      u32 jmp_inst_idx = emit(OpType::jmp);
 
       // generate bytecode for functions first, then record its function meta index in the map.
       for (auto& [func, init_code] : scope().get_inner_func_init_code()) {
@@ -314,7 +314,7 @@ class CodegenVisitor {
         visit_function(func);
         auto symbol = scope().resolve_symbol(func.name.text);
         assert(!symbol.not_found());
-        emit(InstType::pop, scope_type_int(symbol.storage_scope), symbol.get_index());
+        emit(OpType::pop, scope_type_int(symbol.storage_scope), symbol.get_index());
       }
       // End filling function symbol initialization code
     }
@@ -326,7 +326,7 @@ class CodegenVisitor {
         visit(stmt);
         // pop drop unused result #2
         if (stmt->is_expression() || stmt->is(ASTNode::AST_FUNC) && stmt->as_function()->is_arrow_func) {
-          emit(InstType::pop_drop);
+          emit(OpType::pop_drop);
         }
       } else {
         visit_assignment_expr(*static_cast<AssignmentExpr *>(stmt), false);
@@ -340,12 +340,12 @@ class CodegenVisitor {
     }
 
     if (program.type == ASTNode::AST_PROGRAM) {
-      emit(InstType::halt);
+      emit(OpType::halt);
     }
     else { // function body
-      if (bytecode.back().op_type != InstType::ret) {
-        emit(InstType::push_undef);
-        emit(InstType::ret);
+      if (bytecode.back().op_type != OpType::ret) {
+        emit(OpType::push_undef);
+        emit(OpType::ret);
       }
     }
 
@@ -356,9 +356,9 @@ class CodegenVisitor {
     }
 
     if (program.type == ASTNode::AST_PROGRAM) {
-      emit(InstType::halt_err);
+      emit(OpType::halt_err);
     } else {
-      emit(InstType::ret_err);
+      emit(OpType::ret_err);
     }
   }
 
@@ -390,11 +390,11 @@ class CodegenVisitor {
     pop_scope();
 
     // let the VM make a function
-    init_code.emplace_back(InstType::make_func, func_idx);
+    init_code.emplace_back(OpType::make_func, func_idx);
 
     // capture closure variables
     for (auto symbol : capture_list) {
-      init_code.emplace_back(InstType::capture, scope_type_int(symbol.storage_scope),
+      init_code.emplace_back(OpType::capture, scope_type_int(symbol.storage_scope),
                              symbol.get_index());
     }
   }
@@ -403,7 +403,7 @@ class CodegenVisitor {
     for (ASTNode *ele : expr.elements) {
       assert(ele->type > ASTNode::BEGIN_EXPR && ele->type < ASTNode::END_EXPR);
       visit(ele);
-      emit(InstType::pop_drop);
+      emit(OpType::pop_drop);
     }
 
     bytecode.pop_back(); // don't pop the result of the last element. It's the result of the comma expression.
@@ -423,10 +423,10 @@ class CodegenVisitor {
       case Token::LOGICAL_NOT:
         if (expr.is_prefix_op) {
           if (expr.operand->is(ASTNode::AST_EXPR_BOOL)) {
-            emit(InstType::push_bool, u32(not (expr.operand->get_source() == u"true")));
+            emit(OpType::push_bool, u32(not (expr.operand->get_source() == u"true")));
           } else {
             visit(expr.operand);
-            emit(InstType::logi_not);
+            emit(OpType::logi_not);
           }
         }
         else {
@@ -436,7 +436,7 @@ class CodegenVisitor {
       case Token::BIT_NOT:
         if (expr.is_prefix_op) {
           visit(expr.operand);
-          emit(InstType::bits_not);
+          emit(OpType::bits_not);
         }
         else {
           assert(false);
@@ -448,7 +448,7 @@ class CodegenVisitor {
             emit(Instruction::num_imm(-expr.operand->as_number_literal()->num_val));
           } else {
             visit(expr.operand);
-            emit(InstType::neg);
+            emit(OpType::neg);
           }
         }
         else {
@@ -467,7 +467,7 @@ class CodegenVisitor {
       auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
       auto rhs_sym = scope().resolve_symbol(expr.rhs->get_source());
 
-      emit(InstType::fast_add, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index(),
+      emit(OpType::fast_add, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index(),
            scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
       return;
     }
@@ -488,28 +488,28 @@ class CodegenVisitor {
       visit(expr.lhs);
       visit(expr.rhs);
       switch (expr.op.type) {
-        case Token::ADD: emit(InstType::add); break;
-        case Token::SUB: emit(InstType::sub); break;
-        case Token::MUL: emit(InstType::mul); break;
-        case Token::DIV: emit(InstType::div); break;
+        case Token::ADD: emit(OpType::add); break;
+        case Token::SUB: emit(OpType::sub); break;
+        case Token::MUL: emit(OpType::mul); break;
+        case Token::DIV: emit(OpType::div); break;
 
-        case Token::BIT_AND: emit(InstType::bits_and); break;
-        case Token::BIT_OR: emit(InstType::bits_or); break;
-        case Token::BIT_XOR: emit(InstType::bits_xor); break;
+        case Token::BIT_AND: emit(OpType::bits_and); break;
+        case Token::BIT_OR: emit(OpType::bits_or); break;
+        case Token::BIT_XOR: emit(OpType::bits_xor); break;
 
-        case Token::LSH: emit(InstType::lsh); break;
-        case Token::RSH: emit(InstType::rsh); break;
-        case Token::UNSIGNED_RSH: emit(InstType::ursh); break;
+        case Token::LSH: emit(OpType::lsh); break;
+        case Token::RSH: emit(OpType::rsh); break;
+        case Token::UNSIGNED_RSH: emit(OpType::ursh); break;
 
-        case Token::NE: emit(InstType::ne); break;
-        case Token::EQ: emit(InstType::eq); break;
-        case Token::EQ3: emit(InstType::eq3); break;
-        case Token::NE3: emit(InstType::ne3); break;
+        case Token::NE: emit(OpType::ne); break;
+        case Token::EQ: emit(OpType::eq); break;
+        case Token::EQ3: emit(OpType::eq3); break;
+        case Token::NE3: emit(OpType::ne3); break;
 
-        case Token::LE: emit(InstType::le); break;
-        case Token::LT: emit(InstType::lt); break;
-        case Token::GT: emit(InstType::gt); break;
-        case Token::GE: emit(InstType::ge); break;
+        case Token::LE: emit(OpType::le); break;
+        case Token::LT: emit(OpType::lt); break;
+        case Token::GT: emit(OpType::gt); break;
+        case Token::GE: emit(OpType::ge); break;
         default: assert(false);
       }
     }
@@ -531,7 +531,7 @@ class CodegenVisitor {
     }
     else {
       visit(&expr);
-      u32 jmp_pos = emit(InstType::jmp_cond);
+      u32 jmp_pos = emit(OpType::jmp_cond);
       true_list.push_back(jmp_pos);
       false_list.push_back(jmp_pos);
     }
@@ -551,14 +551,14 @@ class CodegenVisitor {
         bytecode[idx].operand.two.opr2 = int(bytecode_pos());
       }
       true_list.insert(true_list.end(), lhs_true_list.begin(), lhs_true_list.end());
-      emit(InstType::pop_drop);
+      emit(OpType::pop_drop);
     }
     else {
       for (u32 idx : lhs_true_list) {
         bytecode[idx].operand.two.opr1 = int(bytecode_pos());
       }
       false_list.insert(false_list.end(), lhs_false_list.begin(), lhs_false_list.end());
-      emit(InstType::pop_drop);
+      emit(OpType::pop_drop);
     }
 
     vector<u32> rhs_true_list;
@@ -576,8 +576,8 @@ class CodegenVisitor {
   void visit_assignment_expr(AssignmentExpr& expr, bool need_value = true) {
 
     auto assign_type_to_op_type = [] (TokenType assign_type) {
-      int assign_type_to_op_type = static_cast<int>(InstType::add_assign) - TokenType::ADD_ASSIGN;
-      return static_cast<InstType>(assign_type + assign_type_to_op_type);
+      int assign_type_to_op_type = static_cast<int>(OpType::add_assign) - TokenType::ADD_ASSIGN;
+      return static_cast<OpType>(assign_type + assign_type_to_op_type);
     };
 
     // a = b
@@ -586,25 +586,25 @@ class CodegenVisitor {
       auto rhs_sym = scope().resolve_symbol(expr.rhs->get_source());
 
       if (!lhs_sym.not_found() && !rhs_sym.not_found()) {
-        emit(InstType::fast_assign, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index(),
+        emit(OpType::fast_assign, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index(),
              scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
         if (need_value) {
           if (rhs_sym.is_let_or_const()) {
-            emit(InstType::push_check, scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
+            emit(OpType::push_check, scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
           } else {
-            emit(InstType::push, scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
+            emit(OpType::push, scope_type_int(rhs_sym.storage_scope), rhs_sym.get_index());
           }
         }
       }
       else {
         if (lhs_sym.not_found()) {
           u32 name_atom = str_pool.atomize_sv(expr.lhs->get_source());
-          emit(InstType::dyn_get_var, name_atom, (int)true);
+          emit(OpType::dyn_get_var, name_atom, (int)true);
           visit(expr.rhs);
-          emit(InstType::prop_assign, (bool)need_value);
+          emit(OpType::prop_assign, (bool)need_value);
         } else {
           visit(expr.rhs);
-          emit(need_value ? InstType::store : InstType::pop,
+          emit(need_value ? OpType::store : OpType::pop,
                scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
         }
       }
@@ -615,15 +615,13 @@ class CodegenVisitor {
 
       if (lhs_sym.not_found()) {
         u32 name_atom = str_pool.atomize_sv(expr.lhs->get_source());
-        emit(InstType::dyn_get_var, name_atom, (int)true);
+        emit(OpType::dyn_get_var, name_atom, (int)true);
         visit(expr.rhs);
         if (expr.assign_type == TokenType::ASSIGN) {
-          emit(InstType::prop_assign, (bool)need_value);
+          emit(OpType::prop_assign, (bool)need_value);
         } else {
-          InstType assign_type = assign_type_to_op_type(expr.assign_type);
-          emit(InstType::prop_compound_assign, static_cast<int>(assign_type), (int)need_value);
+          assert(false);
         }
-
         return;
       }
 
@@ -632,135 +630,154 @@ class CodegenVisitor {
       // a = ...
       if (expr.assign_type == TokenType::ASSIGN) {
         visit(expr.rhs);
-        emit(need_value ? InstType::store : InstType::pop, lhs_scope, lhs_sym_index);
+        emit(need_value ? OpType::store : OpType::pop, lhs_scope, lhs_sym_index);
       }
       // a += expr or a -= expr
       else if (expr.assign_type == TokenType::ADD_ASSIGN || expr.assign_type == TokenType::SUB_ASSIGN) {
         if (expr.rhs->is(ASTNode::AST_EXPR_NUMBER) && expr.rhs->as_number_literal()->num_val == 1) {
-          InstType inst = expr.assign_type == TokenType::ADD_ASSIGN ? InstType::inc : InstType::dec;
+          OpType inst = expr.assign_type == TokenType::ADD_ASSIGN ? OpType::inc : OpType::dec;
           emit(inst, lhs_scope, lhs_sym_index);
         } else {
           visit(expr.rhs);
           emit(assign_type_to_op_type(expr.assign_type), lhs_scope, lhs_sym_index);
         }
         if (need_value) {
-          emit(InstType::push, lhs_scope, lhs_sym_index);
+          emit(OpType::push, lhs_scope, lhs_sym_index);
         }
       }
       else {
         visit(expr.rhs);
         emit(assign_type_to_op_type(expr.assign_type), lhs_scope, lhs_sym_index);
         if (need_value) {
-          emit(InstType::push, lhs_scope, lhs_sym_index);
+          emit(OpType::push, lhs_scope, lhs_sym_index);
         }
       }
     }
     else {
-      // check if left hand side is LeftHandSide Expression (or Parenthesized Expression with
-      // LeftHandSide Expression in it.
+      // check if left hand side is LeftHandSide Expression
+      Instruction inst_set_prop;
       if (expr.lhs->type == ASTNode::AST_EXPR_LHS) {
-        visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(expr.lhs), true, false);
-      } else {
+        inst_set_prop = visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(expr.lhs), true, false);
+      }
+      if (inst_set_prop.op_type == OpType::nop) {
         assert(false);
       }
 
       visit(expr.rhs);
       if (expr.assign_type == Token::ASSIGN) {
-        emit(InstType::prop_assign, (int)need_value);
+        emit(inst_set_prop);
+        if (!need_value) emit(OpType::pop_drop);
       } else {
-        InstType assign_type = assign_type_to_op_type(expr.assign_type);
-        emit(InstType::prop_compound_assign, static_cast<int>(assign_type), (int)need_value);
+        // TODO: implement this
+        assert(false);
       }
     }
   }
 
   void visit_object_literal(ObjectLiteral& obj_lit) {
-    emit(InstType::make_obj);
+    emit(OpType::make_obj);
     for (auto& prop : obj_lit.properties) {
       // push the key into the stack
-      emit(InstType::push_atom, (int)add_const(prop.key.text));
+      emit(OpType::push_atom, (int)add_const(prop.key.text));
       // push the value into the stack
       visit(prop.value);
     }
 
     int prop_count = obj_lit.properties.size();
     if (prop_count > 0) {
-      emit(InstType::add_props, prop_count);
+      emit(OpType::add_props, prop_count);
       scope().update_stack_usage(-prop_count * 2);
     }
   }
 
   void visit_array_literal(ArrayLiteral& array_lit) {
-    emit(InstType::make_array, (int)array_lit.len);
+    emit(OpType::make_array, (int)array_lit.len);
 
     for (auto& [idx, element] : array_lit.elements) {
       if (element != nullptr) {
         visit(element);
       } else {
-        emit(InstType::push_uninit);
+        emit(OpType::push_uninit);
       }
     }
 
     if (array_lit.len > 0) {
-      emit(InstType::add_elements, (int)array_lit.len);
+      emit(OpType::add_elements, (int)array_lit.len);
       scope().update_stack_usage(-(int)array_lit.len);
     }
   }
 
-  void visit_left_hand_side_expr(LeftHandSideExpr& expr, bool create_ref, bool in_new_ctx) {
+  Instruction visit_left_hand_side_expr(LeftHandSideExpr& expr, bool create_ref, bool in_new_ctx) {
+    using LHS = LeftHandSideExpr::PostfixType;
+    auto& postfixs = expr.postfixs;
+    size_t postfix_size = postfixs.size();
+    Instruction inst_set_prop;
+
     visit(expr.base);
-    auto& postfix_ord = expr.postfix_order;
-    size_t postfix_size = expr.postfix_order.size();
+
+#define CALL_AHEAD ((i + 1 < postfix_size) && postfixs[i+1].type == LHS::CALL)
+#define NEW_CTX_LAST_CALL (in_new_ctx && (i + 1 == postfix_size - 1))
 
     for (size_t i = 0; i < postfix_size; i++) {
-      auto postfix_type = postfix_ord[i].first;
-      u32 idx = postfix_ord[i].second;
+      auto postfix = postfixs[i];
       // obj.func()
-      if (postfix_type == LeftHandSideExpr::CALL) {
-        visit_func_arguments(*(expr.args_list[idx]));
-        bool has_this = i > 0 && postfix_ord[i - 1].first != LeftHandSideExpr::CALL;
-        int arg_count = expr.args_list[idx]->args.size();
+      if (postfix.type == LHS::CALL) {
+        visit_func_arguments(*postfix.subtree.args_expr);
+        bool has_this = i > 0 && postfixs[i - 1].type != LHS::CALL;
+        int arg_count = postfix.subtree.args_expr->arg_count();
 
         if (unlikely(in_new_ctx && i == postfix_size - 1)) {
           // if in new context, `visit_new_expr` will emit a js_new instruction.
         } else {
-          emit(InstType::call, arg_count, int(has_this));
+          emit(OpType::call, arg_count, int(has_this));
           scope().update_stack_usage(-arg_count);
         }
       }
       // obj.prop
-      else if (postfix_type == LeftHandSideExpr::PROP) {
-        size_t prop_start = i;
-        for (; i < postfix_size && postfix_ord[i].first == LeftHandSideExpr::PROP; i++) {
-          idx = postfix_ord[i].second;
-          int key_id = (int)add_const(expr.prop_list[idx].text);
-          emit(InstType::key_access, key_id, 0);
+      else if (postfix.type == LHS::PROP) {
+        int key_id = (int)add_const(postfixs[i].subtree.prop_name);
+        if (unlikely(create_ref && i == postfix_size - 1)) {
+          inst_set_prop = Instruction(OpType::set_prop_atom, key_id);
+        } else {
+          if (CALL_AHEAD && !NEW_CTX_LAST_CALL) {
+            emit(OpType::key_access2, key_id, 0);
+          } else {
+            emit(OpType::key_access, key_id, 0);
+          }
         }
-        bytecode.back().operand.two.opr2 = int(create_ref);
-        // Both the for loop above and the outer for loop have `+1` at the end. so minus one here.
-        i -= 1;
       }
       // obj[prop]
-      else if (postfix_type == LeftHandSideExpr::INDEX) {
+      else if (postfix.type == LHS::INDEX) {
         // evaluate the index expression
-        assert(expr.index_list[idx]->is_expression());
-        visit(expr.index_list[idx]);
-        emit(InstType::index_access, int(create_ref && i == postfix_size - 1));
+        assert(postfix.subtree.index_expr->is_expression());
+        visit(postfix.subtree.index_expr);
+
+        if (unlikely(create_ref && i == postfix_size - 1)) {
+          inst_set_prop = Instruction(OpType::set_prop_index);
+        } else {
+          if (CALL_AHEAD && !NEW_CTX_LAST_CALL) {
+            emit(OpType::index_access2, int(false));
+          } else {
+            emit(OpType::index_access, int(false));
+          }
+        }
       }
     }
+
+    return inst_set_prop;
   }
 
   void visit_identifier(ASTNode& id) {
     auto symbol = scope().resolve_symbol(id.get_source());
     if (not symbol.not_found()) {
       if (symbol.is_let_or_const()) {
-        emit(InstType::push_check, scope_type_int(symbol.storage_scope), symbol.get_index());
+        emit(OpType::push_check, scope_type_int(symbol.storage_scope), symbol.get_index());
       } else {
-        emit(InstType::push, scope_type_int(symbol.storage_scope), symbol.get_index());
+        emit(OpType::push, scope_type_int(symbol.storage_scope), symbol.get_index());
       }
     } else {
       u32 atom = str_pool.atomize_sv(id.get_source());
-      emit(InstType::dyn_get_var, atom, (int)false);
+      emit(OpType::dyn_get_var, atom, (int)false);
     }
   }
 
@@ -774,7 +791,7 @@ class CodegenVisitor {
 
   void visit_string_literal(StringLiteral& node) {
     auto& str = node.str_val;
-    emit(InstType::push_str, (int)add_const(str));
+    emit(OpType::push_str, (int)add_const(str));
   }
 
   void visit_variable_statement(VarStatement& var_stmt) {
@@ -790,7 +807,7 @@ class CodegenVisitor {
     }
     else if (var_kind == VarKind::DECL_LET) {
       auto sym = scope().resolve_symbol(var_decl.id.text);
-      emit(InstType::var_undef, int(sym.get_index()));
+      emit(OpType::var_undef, int(sym.get_index()));
     }
   }
 
@@ -799,9 +816,9 @@ class CodegenVisitor {
       visit(return_stmt.expr);
     }
     else {
-      emit(InstType::push_undef);
+      emit(OpType::push_undef);
     }
-    emit(InstType::ret);
+    emit(OpType::ret);
   }
 
   void visit_if_statement(IfStatement& stmt) {
@@ -811,7 +828,7 @@ class CodegenVisitor {
     for (u32 idx : true_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
-    emit(InstType::pop_drop);
+    emit(OpType::pop_drop);
 
     if (is_stmt_valid_in_single_stmt_ctx(stmt.if_block)) {
       visit(stmt.if_block);
@@ -823,7 +840,7 @@ class CodegenVisitor {
       });
     }
 
-    u32 if_end_jmp = emit(InstType::jmp);
+    u32 if_end_jmp = emit(OpType::jmp);
 
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
@@ -831,7 +848,7 @@ class CodegenVisitor {
 
     // we don't really `pop_drop` twice, we just `pop_drop` in each branch. to compensate here 1 is added.
     scope().update_stack_usage(1);
-    emit(InstType::pop_drop);
+    emit(OpType::pop_drop);
 
     if (stmt.else_block) {
       if (is_stmt_valid_in_single_stmt_ctx(stmt.else_block)) {
@@ -856,10 +873,10 @@ class CodegenVisitor {
     for (u32 idx : true_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
-    emit(InstType::pop_drop);
+    emit(OpType::pop_drop);
 
     visit(expr.true_expr);
-    u32 true_end_jmp = emit(InstType::jmp);
+    u32 true_end_jmp = emit(OpType::jmp);
 
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
@@ -867,7 +884,7 @@ class CodegenVisitor {
 
     // we don't really `pop_drop` twice, we just `pop_drop` in each branch. to compensate here 1 is added.
     scope().update_stack_usage(1);
-    emit(InstType::pop_drop);
+    emit(OpType::pop_drop);
 
     visit(expr.false_expr);
     bytecode[true_end_jmp].operand.two.opr1 = bytecode_pos();
@@ -885,7 +902,7 @@ class CodegenVisitor {
     for (u32 idx : true_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
-    emit(InstType::pop_drop);
+    emit(OpType::pop_drop);
 
     if (is_stmt_valid_in_single_stmt_ctx(stmt.body_stmt)) {
       visit(stmt.body_stmt);
@@ -896,7 +913,7 @@ class CodegenVisitor {
           .ast_node = stmt.body_stmt,
       });
     }
-    emit(InstType::jmp, loop_start);
+    emit(OpType::jmp, loop_start);
 
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
@@ -904,7 +921,7 @@ class CodegenVisitor {
 
     // we don't really `pop_drop` twice, we just `pop_drop` in each branch. to compensate here 1 is added.
     scope().update_stack_usage(1);
-    emit(InstType::pop_drop);
+    emit(OpType::pop_drop);
 
     for (u32 idx : scope().break_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
@@ -921,11 +938,11 @@ class CodegenVisitor {
     scope().can_continue = true;
     scope().can_break = true;
 
-    emit(InstType::jmp, bytecode_pos() + 2); // jump over the `pop_drop`
+    emit(OpType::jmp, bytecode_pos() + 2); // jump over the `pop_drop`
     u32 loop_start = bytecode_pos();
 
     scope().update_stack_usage(1);
-    emit(InstType::pop_drop);
+    emit(OpType::pop_drop);
 
     if (is_stmt_valid_in_single_stmt_ctx(stmt.body_stmt)) {
       visit(stmt.body_stmt);
@@ -952,7 +969,7 @@ class CodegenVisitor {
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
-    emit(InstType::pop_drop);
+    emit(OpType::pop_drop);
 
     for (u32 idx : scope().break_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
@@ -967,14 +984,14 @@ class CodegenVisitor {
       Scope *continue_scope = scope().resolve_continue_scope();
       assert(continue_scope != nullptr);
       if (continue_scope->continue_pos != -1) {
-        emit(InstType::jmp, u32(continue_scope->continue_pos));
+        emit(OpType::jmp, u32(continue_scope->continue_pos));
       } else {
-        continue_scope->continue_list.push_back(emit(InstType::jmp));
+        continue_scope->continue_list.push_back(emit(OpType::jmp));
       }
     }
     else {
       scope().resolve_break_list()->push_back(bytecode_pos());
-      emit(InstType::jmp);
+      emit(OpType::jmp);
     }
   }
 
@@ -1007,12 +1024,12 @@ class CodegenVisitor {
     // to be deinit.
     int deinit_end = int(scope().get_var_next_index() + frame_meta_size - extra_var.size());
     if (deinit_end - deinit_begin != 0) {
-      emit(InstType::var_deinit_range, deinit_begin, deinit_end);
+      emit(OpType::var_deinit_range, deinit_begin, deinit_end);
     }
 
     // begin codegen for inner functions
     if (!scope().get_inner_func_init_code().empty()) {
-      u32 jmp_inst_idx = emit(InstType::jmp);
+      u32 jmp_inst_idx = emit(OpType::jmp);
 
       // generate bytecode for functions first, then record its function meta index in the map.
       for (auto& [func, init_code] : scope().get_inner_func_init_code()) {
@@ -1028,7 +1045,7 @@ class CodegenVisitor {
         visit_function(func);
         auto symbol = scope().resolve_symbol(func.name.text);
         assert(!symbol.not_found());
-        emit(InstType::pop, scope_type_int(symbol.storage_scope), symbol.get_index());
+        emit(OpType::pop, scope_type_int(symbol.storage_scope), symbol.get_index());
       }
       // End filling function symbol initialization code
     }
@@ -1038,7 +1055,7 @@ class CodegenVisitor {
         visit(stmt);
         // pop drop unused result #1
         if (stmt->is_expression() || stmt->is(ASTNode::AST_FUNC) && stmt->as_function()->is_arrow_func) {
-          emit(InstType::pop_drop);
+          emit(OpType::pop_drop);
         }
       } else {
         visit_assignment_expr(*static_cast<AssignmentExpr *>(stmt), false);
@@ -1058,12 +1075,12 @@ class CodegenVisitor {
 //        assert(false);
 //      }
 //      auto scope_type = scope.get_outer_func()->get_scope_type();
-//      emit(InstType::var_dispose, scope_type_int(scope_type), sym_rec.offset_idx());
+//      emit(OpType::var_dispose, scope_type_int(scope_type), sym_rec.offset_idx());
 //    }
     int disp_begin = int(scope.get_var_start_index() + frame_meta_size);
     int disp_end = int(scope.get_var_next_index() + frame_meta_size);
     if (disp_end - disp_begin != 0) {
-      emit(InstType::var_dispose_range, disp_begin, disp_end);
+      emit(OpType::var_dispose_range, disp_begin, disp_end);
     }
   }
 
@@ -1088,7 +1105,7 @@ class CodegenVisitor {
 
     scope().has_try = false;
 
-    u32 try_end_jmp = emit(InstType::jmp);
+    u32 try_end_jmp = emit(OpType::jmp);
     u32 catch_or_finally_pos = try_end_jmp + 1;
 
     // `throw` statements will jump here
@@ -1108,9 +1125,9 @@ class CodegenVisitor {
     if (has_catch) {
       if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
         int catch_id_addr = scope().get_var_next_index() + frame_meta_size;
-        emit(InstType::pop, scope_type_int(scope().get_outer_func()->get_scope_type()), catch_id_addr);
+        emit(OpType::pop, scope_type_int(scope().get_outer_func()->get_scope_type()), catch_id_addr);
       } else {
-        emit(InstType::pop_drop);
+        emit(OpType::pop_drop);
       }
     }
 
@@ -1146,7 +1163,7 @@ class CodegenVisitor {
     if (has_finally) {
       // finally1. If there is error in the try block (without catch) or in the catch block, go here.
       visit_block_statement(*static_cast<Block *>(stmt.finally_block), {});
-      scope().throw_list.push_back(emit(InstType::jmp));
+      scope().throw_list.push_back(emit(OpType::jmp));
 
       bytecode[try_end_jmp].operand.two.opr1 = bytecode_pos();
       // finally2
@@ -1159,7 +1176,7 @@ class CodegenVisitor {
   void visit_throw_statement(ThrowStatement& stmt) {
     assert(stmt.expr->is_expression());
     visit(stmt.expr);
-    emit(InstType::dup_stack_top);
+    emit(OpType::dup_stack_top);
 
     Scope *scope_to_clean = &scope();
     while (true) {
@@ -1173,23 +1190,23 @@ class CodegenVisitor {
     }
 
     scope().resolve_throw_list()->push_back(bytecode_pos());
-    emit(InstType::jmp);
+    emit(OpType::jmp);
   }
 
   void visit_new_expr(NewExpr& expr) {
     if (expr.callee->is_identifier()) {
       visit(expr.callee);
-      emit(InstType::js_new, 0);
+      emit(OpType::js_new, 0);
       scope().update_stack_usage(1);
     }
     else if (expr.callee->is_lhs_expr()) {
       auto& lhs_expr = *expr.callee->as_lhs_expr();
       visit_left_hand_side_expr(lhs_expr, false, true);
       int arg_count = 0;
-      if (lhs_expr.postfix_order.back().first == LeftHandSideExpr::CALL) {
-        arg_count = lhs_expr.args_list.back()->arg_count();
+      if (lhs_expr.postfixs.back().type == LeftHandSideExpr::CALL) {
+        arg_count = lhs_expr.postfixs.back().subtree.args_expr->arg_count();
       }
-      emit(InstType::js_new, arg_count);
+      emit(OpType::js_new, arg_count);
       scope().update_stack_usage(-arg_count);
     }
     else {
@@ -1219,7 +1236,7 @@ class CodegenVisitor {
   }
 
   template <typename... Args>
-  u32 emit(InstType inst_type, Args&&...args) {
+  u32 emit(OpType inst_type, Args&&...args) {
     update_stack_usage_common(inst_type);
     bytecode.emplace_back(inst_type, std::forward<Args>(args)...);
     return bytecode.size() - 1;
@@ -1231,7 +1248,7 @@ class CodegenVisitor {
     return bytecode.size() - 1;
   }
 
-  void update_stack_usage_common(InstType inst_type) {
+  void update_stack_usage_common(OpType inst_type) {
     int diff = Instruction::get_stack_usage(inst_type);
     scope().update_stack_usage(diff);
   }
