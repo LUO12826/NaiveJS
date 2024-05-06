@@ -139,8 +139,11 @@ std::string Instruction::description() const {
     case OpType::push_atom:
       sprintf(buffer, "push_atom  %d", operand.two.opr1);
       break;
-    case OpType::push_this:
-      sprintf(buffer, "push_this  %d", operand.two.opr1);
+    case OpType::push_func_this:
+      sprintf(buffer, "push_this");
+      break;
+    case OpType::push_global_this:
+      sprintf(buffer, "push_global_this");
       break;
     case OpType::push_null:
       sprintf(buffer, "push_null");

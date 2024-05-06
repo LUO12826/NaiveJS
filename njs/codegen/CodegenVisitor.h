@@ -203,11 +203,13 @@ class CodegenVisitor {
       case ASTNode::AST_EXPR_NULL:
         emit(OpType::push_null);
         break;
-      case ASTNode::AST_EXPR_THIS: {
-        bool in_global = scope().get_outer_func()->get_scope_type() == ScopeType::GLOBAL;
-        emit(OpType::push_this, int(in_global));
+      case ASTNode::AST_EXPR_THIS:
+        if (scope().get_outer_func()->get_scope_type() == ScopeType::GLOBAL) {
+          emit(OpType::push_global_this);
+        } else {
+          emit(OpType::push_func_this);
+        }
         break;
-      }
       case ASTNode::AST_EXPR_PAREN:
         visit(static_cast<ParenthesisExpr *>(node)->expr);
         break;

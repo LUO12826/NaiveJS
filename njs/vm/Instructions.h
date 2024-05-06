@@ -64,7 +64,8 @@ enum class OpType {
   push_str,
   push_bool,
   push_atom,
-  push_this,
+  push_func_this,
+  push_global_this,
   push_null,
   push_undef,
   push_uninit,
@@ -199,7 +200,8 @@ struct Instruction {
       case OpType::push_str:
       case OpType::push_bool:
       case OpType::push_atom:
-      case OpType::push_this:
+      case OpType::push_func_this:
+      case OpType::push_global_this:
       case OpType::push_null:
       case OpType::push_undef:
       case OpType::push_uninit:

@@ -206,8 +206,14 @@ CallResult NjsVM::execute(bool stop_at_return) {
         sp += 1;
         sp[0].set_val(bool(inst.operand.two.opr1));
         break;
-      case OpType::push_this:
-        exec_push_this(bool(inst.operand.two.opr1));
+      case OpType::push_func_this:
+        assert(function_env());
+        sp += 1;
+        sp[0] = function_env()->This;
+        break;
+      case OpType::push_global_this:
+        sp += 1;
+        sp[0] = global_object;
         break;
       case OpType::push_null:
         sp += 1;
@@ -1057,17 +1063,6 @@ void NjsVM::exec_push_str(int str_idx, bool atom) {
   } else {
     auto str = new PrimitiveString(atom_to_str(str_idx));
     sp[0].val.as_primitive_string = str;
-  }
-}
-
-void NjsVM::exec_push_this(bool in_global) {
-  sp += 1;
-
-  if (!in_global) {
-    assert(function_env());
-    sp[0] = function_env()->This;
-  } else {
-    sp[0] = global_object;
   }
 }
 

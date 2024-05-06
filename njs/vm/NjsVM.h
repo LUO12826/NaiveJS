@@ -94,7 +94,6 @@ friend class InternalFunctions;
   void exec_push(int scope, int index);
   void exec_push_check(int scope, int index);
   void exec_push_str(int str_idx, bool atom);
-  void exec_push_this(bool in_global);
   // pop or store
   void exec_pop(int scope, int index);
   void exec_store(int scope, int index);
