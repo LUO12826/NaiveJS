@@ -17,6 +17,8 @@ class ArrayRef {
 
   size_t size() const { return length; }
 
+  T* data() { return start; }
+
  private:
   T* start;
   size_t length;

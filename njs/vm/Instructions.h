@@ -68,7 +68,6 @@ enum class OpType {
   var_undef,
   var_dispose,
   var_dispose_range,
-  dup_stack_top,
 
   jmp,
   jmp_true,
@@ -197,8 +196,6 @@ struct Instruction {
       case OpType::var_dispose:
       case OpType::var_dispose_range:
         return 0;
-      case OpType::dup_stack_top:
-        return 1;
       case OpType::jmp:
       case OpType::jmp_true:
       case OpType::jmp_false:

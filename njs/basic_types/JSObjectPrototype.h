@@ -27,12 +27,12 @@ class JSObjectPrototype : public JSObject {
   }
 
   static Completion toString(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-    return JSValue(new PrimitiveString(u"[object Object]"));
+    return JSValue(vm.heap.new_object<PrimitiveString>(u"[object Object]"));
   }
 
   static Completion toLocaleString(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
     // TODO
-    return JSValue(new PrimitiveString(u"[object Object]"));
+    return JSValue(vm.heap.new_object<PrimitiveString>(u"[object Object]"));
   }
 
   static Completion hasOwnProperty(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {

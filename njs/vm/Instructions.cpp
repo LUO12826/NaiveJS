@@ -160,9 +160,6 @@ std::string Instruction::description() const {
     case OpType::var_dispose_range:
       sprintf(buffer, "var_dispose_range  %d %d", operand.two.opr1, operand.two.opr2);
       break;
-    case OpType::dup_stack_top:
-      sprintf(buffer, "dup_stack_top");
-      break;
     case OpType::jmp:
       sprintf(buffer, "jmp  %d", operand.two.opr1);
       break;

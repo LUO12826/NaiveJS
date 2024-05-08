@@ -71,7 +71,7 @@ inline ErrorOr<double> to_number(NjsVM &vm, JSValue val) {
     default:
       if (val.is_object()) {
         Completion comp = val.as_object()->to_primitive(vm, u"number");
-        if (comp.is_throw()) return comp.get_error();
+        if (comp.is_throw()) return comp.get_value();
 
         return to_number(vm, comp.get_value());
       } else {

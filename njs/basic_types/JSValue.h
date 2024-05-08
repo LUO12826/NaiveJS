@@ -115,6 +115,7 @@ friend class NjsVM;
   JSValue& operator = (const JSValue& other) = default;
 
   JSValue& operator = (JSValue&& other) noexcept {
+    if (this == &other) return *this;
     val = other.val;
     tag = other.tag;
     flag_bits = other.flag_bits;

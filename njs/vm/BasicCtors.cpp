@@ -45,7 +45,8 @@ Completion InternalFunctions::Error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<J
   }
 
   u16string trace_str = InternalFunctions::build_trace_str(vm);
-  err_obj->add_prop(vm, u"stack", JSValue(new PrimitiveString(std::move(trace_str))));
+  auto prim_trace = vm.heap.new_object<PrimitiveString>(std::move(trace_str));
+  err_obj->add_prop(vm, u"stack", JSValue(prim_trace));
 
   return JSValue(err_obj);
 }

@@ -55,7 +55,7 @@ class JSArrayPrototype : public JSObject {
           if (a.is_undefined()) return false;
           if (b.is_undefined()) return true;
 
-          comp = vm.call_function(args[0].val.as_function, {a, b}, nullptr);
+          comp = vm.call_function(args[0].val.as_function, nullptr, {a, b});
           if (comp.is_throw()) {
             throw std::runtime_error("");
           }
@@ -65,7 +65,7 @@ class JSArrayPrototype : public JSObject {
         });
       }
       catch (std::runtime_error& err) {
-        return Completion::with_throw(comp.get_error());
+        return Completion::with_throw(comp.get_value());
       }
 
     }

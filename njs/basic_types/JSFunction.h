@@ -33,7 +33,6 @@ class JSFunction : public JSObject {
   JSFunctionMeta meta;
 
   bool has_this_binding {false};
-  bool call_with_this {false};
   JSValue This {JSValue::undefined};
   std::vector<JSValue> captured_var;
   NativeFuncType native_func {nullptr};

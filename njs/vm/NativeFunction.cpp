@@ -103,7 +103,7 @@ Completion InternalFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValu
 
     if (auto res = cli.Get(path)) {
       task->args.emplace_back((double)res->status);
-      task->args.emplace_back(new PrimitiveString(to_u16string(res->body)));
+      task->args.emplace_back(vm.heap.new_object<PrimitiveString>(to_u16string(res->body)));
     } else {
       auto err = res.error();
       std::cout << "HTTP error: " << httplib::to_string(err) << '\n';
@@ -120,7 +120,7 @@ Completion InternalFunctions::json_stringify(NjsVM& vm, JSFunction& func, ArrayR
   assert(args.size() >= 1);
   u16string json_string;
   args[0].to_json(json_string, vm);
-  return JSValue(new PrimitiveString(std::move(json_string)));
+  return JSValue(vm.heap.new_object<PrimitiveString>(std::move(json_string)));
 }
 
 u16string InternalFunctions::build_trace_str(NjsVM& vm, bool remove_top) {
@@ -149,10 +149,12 @@ u16string InternalFunctions::build_trace_str(NjsVM& vm, bool remove_top) {
 
 JSValue InternalFunctions::build_error_internal(NjsVM& vm, const u16string& msg) {
   auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR);
-  err_obj->add_prop(vm, u"message", JSValue(new PrimitiveString(msg)));
+  auto prim_msg = vm.heap.new_object<PrimitiveString>(msg);
+  err_obj->add_prop(vm, u"message", JSValue(prim_msg));
 
   u16string trace_str = build_trace_str(vm);
-  err_obj->add_prop(vm, u"stack", JSValue(new PrimitiveString(std::move(trace_str))));
+  auto prim_stack = vm.heap.new_object<PrimitiveString>(std::move(trace_str));
+  err_obj->add_prop(vm, u"stack", JSValue(prim_stack));
 
   return JSValue(err_obj);
 }

@@ -1,7 +1,5 @@
 #include "NjsVM.h"
 
-#include "njs/basic_types/GlobalObject.h"
-
 namespace njs {
 
 void NjsVM::setup() {

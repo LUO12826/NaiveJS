@@ -46,8 +46,12 @@ std::vector<JSValue *> GCHeap::gather_roots() {
   std::vector<JSValue *> roots;
 
   // All values on the rt_stack are possible roots
-  for (JSValue *js_val = vm.rt_stack.data(); js_val < vm.sp; js_val++) {
-    if (js_val->needs_gc()) roots.push_back(js_val);
+  for (JSStackFrame *frame : vm.stack_frames) {
+    for (JSValue *val = frame->buffer; val < frame->buffer + frame->alloc_cnt; val++) {
+      if (val->needs_gc()) {
+        roots.push_back(val);
+      }
+    }
   }
 
   roots.push_back(&vm.global_object);

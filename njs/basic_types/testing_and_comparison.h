@@ -77,14 +77,14 @@ inline ErrorOr<bool> abstract_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
     Completion to_prim_res = rhs.as_object()->to_primitive(vm);
 
     if (to_prim_res.is_throw()) {
-      return to_prim_res.get_error();
+      return to_prim_res.get_value();
     } else {
       return abstract_equals(vm, lhs, to_prim_res.get_value());
     }
   } else if (lhs.is_object() && (rhs.is_float64() || rhs.is_primitive_string())) {
     Completion to_prim_res = lhs.as_object()->to_primitive(vm);
     if (to_prim_res.is_throw()) {
-      return to_prim_res.get_error();
+      return to_prim_res.get_value();
     } else {
       return abstract_equals(vm, to_prim_res.get_value(), rhs);
     }

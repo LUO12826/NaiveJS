@@ -44,15 +44,6 @@ class Completion {
     return val_or_err;
   }
 
-  JSValue& get_error() {
-    assert(type == Type::THROW && val_or_err.is_object());
-    return val_or_err;
-  }
-
-  JSValue& get_value_or_error() {
-    return val_or_err;
-  }
-
  private:
   Type type;
   JSValue val_or_err;

@@ -29,8 +29,11 @@ class JSStringPrototype : public JSObject {
                                                    : func.This.val.as_string->value.str;
 
     double index = args[0].val.as_f64;
-    if (index < 0 || index > str.size()) return JSValue(new PrimitiveString(u""));
-    return JSValue(new PrimitiveString(u16string{str[(size_t)index]}));
+    if (index < 0 || index > str.size()) {
+      return JSValue(vm.heap.new_object<PrimitiveString>(u""));
+    }
+    auto *prim_str = vm.heap.new_object<PrimitiveString>(u16string{str[(size_t)index]});
+    return JSValue(prim_str);
   }
 
   static Completion valueOf(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {

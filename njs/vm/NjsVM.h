@@ -27,6 +27,25 @@ class CodegenVisitor;
 class GlobalObject;
 struct JSTask;
 
+struct CallFlags {
+  bool constructor : 1 {false};
+  bool copy_args : 1 {false};
+  bool buffer_on_heap : 1 {false};
+  bool generator : 1 {false};
+};
+
+struct JSStackFrame {
+  JSStackFrame *prev_frame {nullptr};
+  JSValue function;
+  size_t alloc_cnt {0};
+  JSValue *buffer {nullptr};
+  JSValue *args_buf {nullptr};
+  JSValue *local_vars {nullptr};
+  JSValue *stack {nullptr};
+  JSValue *sp {nullptr};
+  u32 pc {0};
+};
+
 class NjsVM {
 friend struct JSValue;
 friend class JSRunLoop;
@@ -63,12 +82,6 @@ friend class InternalFunctions;
   void setup();
   void run();
 
-  void pop_drop();
-  JSValue peek_stack_top();
-  void push_stack(JSValue val);
-  JSValue pop_stack();
-  JSValue& stack_get_at_index(size_t index);
-
   std::vector<StackTraceItem> capture_stack_trace();
 
   JSObject* new_object(ObjectClass cls = ObjectClass::CLS_OBJECT);
@@ -87,24 +100,15 @@ friend class InternalFunctions;
   }
 
  private:
-  CallResult execute(bool stop_at_return = false);
+  void execute();
   void execute_task(JSTask& task);
-  Completion call_function(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
-  void prepare_for_call(JSFunction *func, const std::vector<JSValue>& args, JSObject *this_obj);
-  // push
-  void exec_push(int scope, int index);
-  void exec_push_check(int scope, int index);
-  void exec_push_str(int str_idx, bool atom);
-  // pop or store
-  void exec_pop(int scope, int index);
-  void exec_pop_check(int scope, int index);
+  Completion call_function(JSFunction *func, JSObject *this_obj,
+                           const std::vector<JSValue>& args, CallFlags flags = CallFlags());
+  Completion call_internal(JSFunction *callee, JSValue this_obj, ArrayRef<JSValue> argv, CallFlags flags);
   // function operation
-  void exec_make_func(int meta_idx);
-  void exec_capture(int scope, int index);
-  CallResult exec_call(int arg_count, bool has_this_object);
+  void exec_make_func(int meta_idx, JSValue env_this);
+  CallResult exec_call(int arg_count, bool has_this_object, JSStackFrame *frame);
   void exec_js_new(int arg_count);
-  void exec_return();
-  void exec_return_error();
   // object operation
   void exec_make_object();
   void exec_add_props(int props_cnt);
@@ -128,47 +132,31 @@ friend class InternalFunctions;
   void exec_strict_equality(bool flip);
   void exec_abstract_equality(bool flip);
 
-  void exec_add_assign(int scope, int index);
-  void exec_inc_or_dec(int scope, int index, int inc);
-
-  void exec_var_deinit_range(int start, int end);
-  void exec_var_dispose(int scope, int index);
-  void exec_var_dispose_range(int start, int end);
   void exec_halt_err(Instruction &inst);
-
-  JSFunction *function_env();
-  JSValue& get_value(ScopeType scope, int index);
 
   bool key_access_on_primitive(JSValue& obj, int64_t atom, int keep_obj);
   JSValue index_object(JSValue obj, JSValue index, bool get_ref);
 
   void error_throw(const u16string& msg);
   void error_handle();
+  void print_unhandled_error(JSValue err_val);
 
   void init_prototypes();
 
   constexpr static u32 frame_meta_size {2};
-  u32 max_stack_size {10240};
 
+  JSFunctionMeta global_meta;
   // stack pointer
   JSValue *sp;
-  // start of current stack frame
-  JSValue *bp;
-
-  JSValue *global_sp;
-  // program counter
-  u32 pc {0};
-
-  // argument count of current function
-  u32 func_arg_count {0};
+  u32 pc;
 
   // true if the code in the global scope is executed
   bool global_end {false};
 
   GCHeap heap;
 
-  std::vector<JSValue> rt_stack;
-  JSValue *stack_begin;
+  std::vector<JSStackFrame*> stack_frames;
+  JSStackFrame *curr_frame {nullptr};
 
   std::vector<Instruction> bytecode;
   JSRunLoop runloop;

@@ -1180,7 +1180,6 @@ class CodegenVisitor {
   void visit_throw_statement(ThrowStatement& stmt) {
     assert(stmt.expr->is_expression());
     visit(stmt.expr);
-    emit(OpType::dup_stack_top);
 
     Scope *scope_to_clean = &scope();
     while (true) {
@@ -1199,9 +1198,10 @@ class CodegenVisitor {
 
   void visit_new_expr(NewExpr& expr) {
     if (expr.callee->is_identifier()) {
-      visit(expr.callee);
-      emit(OpType::js_new, 0);
+      visit_identifier(*expr.callee);
       scope().update_stack_usage(1);
+      emit(OpType::js_new, 0);
+      scope().update_stack_usage(-1);
     }
     else if (expr.callee->is_lhs_expr()) {
       auto& lhs_expr = *expr.callee->as_lhs_expr();
@@ -1210,8 +1210,9 @@ class CodegenVisitor {
       if (lhs_expr.postfixs.back().type == LeftHandSideExpr::CALL) {
         arg_count = lhs_expr.postfixs.back().subtree.args_expr->arg_count();
       }
+      scope().update_stack_usage(1);
       emit(OpType::js_new, arg_count);
-      scope().update_stack_usage(-arg_count);
+      scope().update_stack_usage(-arg_count - 1);
     }
     else {
       assert(false);
