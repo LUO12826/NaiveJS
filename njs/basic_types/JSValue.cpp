@@ -13,7 +13,7 @@
 namespace njs {
 
 GCObject *JSValue::as_GCObject() const {
-  assert(tag == OBJECT || tag == FUNCTION || tag == ARRAY || tag == STACK_FRAME_META1);
+  assert(tag == OBJECT || tag == FUNCTION || tag == ARRAY);
   return static_cast<GCObject *>(val.as_object);
 }
 
@@ -38,10 +38,6 @@ std::string JSValue::description() const {
   else if (tag == NUM_INT64) stream << ", value: " << val.as_i64;
   else if (is_object()) {
     stream << ", obj: " << as_GCObject()->description();
-  }
-  else if (tag == STACK_FRAME_META1) {
-    stream << ", function named: " << to_u8string(val.as_function->name)
-           << " @" << std::hex << val.as_function;
   }
   else if (tag == STRING) {
     stream << ", value: " << to_u8string(val.as_primitive_string->str);
@@ -77,16 +73,10 @@ std::string JSValue::to_string(NjsVM& vm) const {
     case VALUE_HANDLE:
       output += deref().to_string(vm);
       break;
-    case STRING: {
-//      u16string escaped = to_escaped_u16string(val.as_primitive_string->str);
-//      output += to_u8string(escaped);
+    case STRING:
       output += to_u8string(val.as_primitive_string->str);
       break;
-    }
     case SYMBOL: break;
-    case STACK_FRAME_META1:
-      output += val.as_function->to_string(vm);
-      break;
     default:
       if (is_object()) {
         output += val.as_object->to_string(vm);

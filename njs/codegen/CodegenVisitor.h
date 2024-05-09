@@ -1,20 +1,21 @@
 #ifndef NJS_CODEGEN_VISITOR_H
 #define NJS_CODEGEN_VISITOR_H
 
+#include <cstdint>
+#include <iomanip>
+#include <iostream>
+#include <string>
 #include "Scope.h"
 #include "njs/basic_types/JSFunction.h"
 #include "njs/common/StringPool.h"
 #include "njs/common/enums.h"
+#include "njs/common/common_def.h"
 #include "njs/include/SmallVector.h"
 #include "njs/include/robin_hood.h"
 #include "njs/parser/ast.h"
 #include "njs/utils/Timer.h"
 #include "njs/utils/helper.h"
 #include "njs/vm/Instructions.h"
-#include <cstdint>
-#include <iomanip>
-#include <iostream>
-#include <string>
 
 namespace njs {
 
@@ -1291,8 +1292,6 @@ class CodegenVisitor {
     }
     return true;
   }
-
-  static constexpr u32 frame_meta_size {2};
 
   size_t global_var_count {0};
   std::vector<Scope *> scope_chain;

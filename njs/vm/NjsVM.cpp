@@ -1,20 +1,22 @@
 #include "NjsVM.h"
 
 #include <iostream>
+#include "Completion.h"
+#include "njs/global_var.h"
+#include "njs/common/common_def.h"
+#include "njs/codegen/CodegenVisitor.h"
 #include "njs/basic_types/JSHeapValue.h"
 #include "njs/basic_types/PrimitiveString.h"
 #include "njs/basic_types/conversion.h"
 #include "njs/basic_types/testing_and_comparison.h"
 #include "njs/basic_types/JSArray.h"
-#include "njs/codegen/CodegenVisitor.h"
-#include "njs/global_var.h"
 #include "njs/basic_types/JSNumberPrototype.h"
 #include "njs/basic_types/JSBooleanPrototype.h"
 #include "njs/basic_types/JSStringPrototype.h"
 #include "njs/basic_types/JSObjectPrototype.h"
 #include "njs/basic_types/JSArrayPrototype.h"
 #include "njs/basic_types/JSFunctionPrototype.h"
-#include "Completion.h"
+
 
 namespace njs {
 

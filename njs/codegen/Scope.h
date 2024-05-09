@@ -4,6 +4,7 @@
 #include "SymbolRecord.h"
 #include "njs/common/enum_strings.h"
 #include "njs/common/enums.h"
+#include "njs/common/common_def.h"
 #include "njs/include/robin_hood.h"
 #include "njs/vm/Instructions.h"
 #include "njs/codegen/CatchTableEntry.h"
@@ -30,7 +31,7 @@ class Scope {
 
     u32 get_index() {
       if (storage_scope == ScopeType::GLOBAL || storage_scope == ScopeType::FUNC) {
-        return index + 2;
+        return index + frame_meta_size;
       }
       return index;
     }

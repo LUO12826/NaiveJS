@@ -167,53 +167,43 @@ inline const char *scope_type_names_alt[5] = {
     "closure"
 };
 
-inline const char *js_value_tag_names[25] = {
+inline const char *js_value_tag_names[23] = {
     "UNDEFINED",
+    "UNINIT",
     "JS_NULL",
-
     "JS_ATOM",
     "BOOLEAN",
-
     "NUM_UINT32",
     "NUM_INT32",
     "NUM_INT64",
     "NUM_FLOAT",
-
     "VALUE_HANDLE",
-
-    "NEED_RC_BEGIN",
-
+    "NEED_GC_BEGIN",
     "STRING",
     "SYMBOL",
-
     "HEAP_VAL",
-
-    "NEED_RC_END",
-
-    "STACK_FRAME_META1",
-    "STACK_FRAME_META2",
-    "OTHER",
-
-    "NEED_GC_BEGIN",
-
+    "OBJECT_BEGIN",
     "BOOLEAN_OBJ",
     "NUMBER_OBJ",
     "STRING_OBJ",
     "OBJECT",
     "ARRAY",
     "FUNCTION",
-
-    "NEED_GC_END"
+    "NEED_GC_END",
+    "JSVALUE_TAG_CNT",
 };
 
-inline const char *object_class_names[14] = {
+inline const char *object_class_names[15] = {
     "CLS_OBJECT",
     "CLS_ARRAY",
     "CLS_STRING",
+    "CLS_NUMBER",
+    "CLS_BOOLEAN",
     "CLS_ERROR",
     "CLS_DATE",
     "CLS_FUNCTION",
     "CLS_CUSTOM",
+
     "CLS_OBJECT_PROTO",
     "CLS_ARRAY_PROTO",
     "CLS_NUMBER_PROTO",
@@ -222,9 +212,6 @@ inline const char *object_class_names[14] = {
     "CLS_FUNCTION_PROTO",
 };
 
-inline const char *inst_type_names[6] {
-
-};
 
 } // namespace njs
 

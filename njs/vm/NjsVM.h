@@ -154,8 +154,7 @@ friend class InternalFunctions;
 
   void init_prototypes();
 
-  constexpr static u32 frame_meta_size {2};
-
+  // currently see the global scope as a big, outermost function.
   JSFunctionMeta global_meta;
 
   // true if the code in the global scope is executed

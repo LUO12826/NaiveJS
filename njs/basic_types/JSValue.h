@@ -19,7 +19,7 @@ struct JSSymbol;
 
 using std::u16string;
 
-extern const char *js_value_tag_names[25];
+extern const char *js_value_tag_names[23];
 
 /// Type for values in JavaScript
 /// JSValue may point to an object that manages memory by reference counting,
@@ -56,7 +56,6 @@ friend class NjsVM;
     // A reference to another JSValue, no lifecycle considerations
     // Currently only used when need to assign a value to an object's property
     VALUE_HANDLE,
-    STACK_FRAME_META2,
 
     NEED_GC_BEGIN,
 
@@ -68,12 +67,6 @@ friend class NjsVM;
     // Currently, turning a variable into a closure variable will turn it into a JSHeapValue
     HEAP_VAL,
 
-    // These tags exist because:
-    // 1. the runtime stack of the VM is a `JSValue[]` array
-    // 2. when doing function calls, we have to save some metadata on the stack ( so that when the
-    // function returns, we can restore the `pc`, the `frame_base_ptr` and other states.
-    STACK_FRAME_META1,
-
     OBJECT_BEGIN,
 
     BOOLEAN_OBJ,
@@ -83,7 +76,8 @@ friend class NjsVM;
     ARRAY,
     FUNCTION,
 
-    NEED_GC_END
+    NEED_GC_END,
+    JSVALUE_TAG_CNT
   };
 
   static JSValue undefined;
@@ -282,9 +276,6 @@ friend class NjsVM;
   }
 
   void assign(const JSValue& rhs) {
-    assert(tag != STACK_FRAME_META1 && tag != STACK_FRAME_META2);
-    assert(rhs.tag != STACK_FRAME_META1 && rhs.tag != STACK_FRAME_META2);
-
     // copy
     val.as_i64 = rhs.val.as_i64;
     flag_bits = rhs.flag_bits;
