@@ -54,7 +54,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
 
 NjsVM::~NjsVM() {
   assert(curr_frame != nullptr);
-  // this should be the buffer for the global scope and it should be on the heap.
+  // this should be the buffer for the global scope, and it should be on the heap.
   free(curr_frame->buffer);
   delete curr_frame;
 }
@@ -162,7 +162,7 @@ Completion NjsVM::call_internal(
     val->set_undefined();
   }
 
-  auto get_value = [=, &sp, this] (ScopeType scope, int index) -> JSValue& {
+  auto get_value = [=, this] (ScopeType scope, int index) -> JSValue& {
     if (scope == ScopeType::FUNC) {
       JSValue &val = local_vars[index];
       return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();

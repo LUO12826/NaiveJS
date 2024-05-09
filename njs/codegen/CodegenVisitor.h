@@ -387,7 +387,7 @@ class CodegenVisitor {
     auto capture_list = std::move(scope().get_capture_list());
 
     // create metadata for function
-    u32 func_idx = add_function_meta( JSFunctionMeta {
+    u32 func_idx = add_function_meta(JSFunctionMeta {
         .name_index = func.has_name() ? add_const(func.name.text) : 0,
         .is_anonymous = !func.has_name() || func.is_arrow_func,
         .is_arrow_func = func.is_arrow_func,
@@ -1275,7 +1275,7 @@ class CodegenVisitor {
     return idx;
   }
 
-  u32 add_function_meta(JSFunctionMeta meta) {
+  u32 add_function_meta(const JSFunctionMeta& meta) {
     auto idx = func_meta.size();
     func_meta.push_back(meta);
     return idx;

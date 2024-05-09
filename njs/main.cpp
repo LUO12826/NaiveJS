@@ -82,27 +82,29 @@ void read_options(int argc, char *argv[]) {
   int option;
   while ((option = getopt(argc, argv, "bgatvf:")) != -1) {
     switch (option) {
-    case 'b':
-      Global::show_codegen_result = true;
-      break;
-    case 'g':
-      Global::show_gc_statistics = true;
-      break;
-    case 'v':
-      Global::show_vm_exec_steps = true;
-      break;
-    case 'a':
-      show_ast = true;
-      break;
-    case 't':
-      show_tokens = true;
-      break;
-    case 'f':
-      file_path = string(optarg);
-      break;
-    case '?':
-      std::cerr << "Unknown option: " << static_cast<char>(optopt) << '\n';
-      break;
+      case 'b':
+        Global::show_codegen_result = true;
+        break;
+      case 'g':
+        Global::show_gc_statistics = true;
+        break;
+      case 'v':
+        Global::show_vm_exec_steps = true;
+        break;
+      case 'a':
+        show_ast = true;
+        break;
+      case 't':
+        show_tokens = true;
+        break;
+      case 'f':
+        file_path = string(optarg);
+        break;
+      case '?':
+        std::cerr << "Unknown option: " << static_cast<char>(optopt) << '\n';
+        break;
+      default:
+        break;
     }
   }
 }
