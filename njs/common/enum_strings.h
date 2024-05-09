@@ -213,7 +213,6 @@ inline const char *object_class_names[14] = {
     "CLS_ERROR",
     "CLS_DATE",
     "CLS_FUNCTION",
-    "CLS_GLOBAL_OBJ",
     "CLS_CUSTOM",
     "CLS_OBJECT_PROTO",
     "CLS_ARRAY_PROTO",

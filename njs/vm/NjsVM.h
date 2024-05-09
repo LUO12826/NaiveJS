@@ -22,9 +22,9 @@ namespace njs {
 using u32 = uint32_t;
 using std::u16string;
 using llvm::SmallVector;
+using SPRef = JSValue*&;
 
 class CodegenVisitor;
-class GlobalObject;
 struct JSTask;
 
 struct CallFlags {
@@ -44,6 +44,20 @@ struct JSStackFrame {
   JSValue *stack {nullptr};
   JSValue *sp {nullptr};
   u32 pc {0};
+  u32 *pc_ref {nullptr};
+
+  JSStackFrame *move_to_heap() {
+    JSStackFrame& frame = *new JSStackFrame(*this);
+    frame.buffer = (JSValue*)malloc(sizeof(JSValue) * frame.alloc_cnt);
+    memcpy(frame.buffer, this->buffer, sizeof(JSValue) * frame.alloc_cnt);
+    auto addr_diff = frame.buffer - this->buffer;
+    frame.args_buf += addr_diff;
+    frame.local_vars += addr_diff;
+    frame.stack += addr_diff;
+    frame.sp += addr_diff;
+
+    return &frame;
+  }
 };
 
 class NjsVM {
@@ -57,7 +71,6 @@ friend class JSObject;
 friend class JSFunction;
 friend class JSArray;
 friend class JSObjectPrototype;
-friend class GlobalObject;
 friend class JSArrayPrototype;
 friend class JSFunctionPrototype;
 friend class JSStringPrototype;
@@ -73,6 +86,7 @@ friend class InternalFunctions;
 
   // These parameters are only for temporary convenience
   explicit NjsVM(CodegenVisitor& visitor);
+  ~NjsVM();
 
   void add_native_func_impl(const u16string& name,
                             NativeFuncType func,
@@ -106,39 +120,36 @@ friend class InternalFunctions;
                            const std::vector<JSValue>& args, CallFlags flags = CallFlags());
   Completion call_internal(JSFunction *callee, JSValue this_obj, ArrayRef<JSValue> argv, CallFlags flags);
   // function operation
-  void exec_make_func(int meta_idx, JSValue env_this);
-  CallResult exec_call(int arg_count, bool has_this_object, JSStackFrame *frame);
-  void exec_js_new(int arg_count);
+  void exec_make_func(SPRef sp, int meta_idx, JSValue env_this);
+  CallResult exec_call(SPRef sp, int arg_count, bool has_this_object);
+  void exec_js_new(SPRef sp, int arg_count);
   // object operation
-  void exec_make_object();
-  void exec_add_props(int props_cnt);
-  void exec_key_access(u32 key_atom, bool get_ref, int keep_obj);
-  void exec_index_access(bool get_ref, int keep_obj);
-  void exec_set_prop_atom(u32 key_atom);
-  void exec_set_prop_index();
-  void exec_prop_assign(bool need_value);
-  void exec_dynamic_get_var(u32 name_atom);
+  void exec_add_props(SPRef sp, int props_cnt);
+  void exec_key_access(SPRef sp, u32 key_atom, bool get_ref, int keep_obj);
+  void exec_index_access(SPRef sp, bool get_ref, int keep_obj);
+  void exec_set_prop_atom(SPRef sp, u32 key_atom);
+  void exec_set_prop_index(SPRef sp);
+  void exec_dynamic_get_var(SPRef sp, u32 name_atom);
   // array operation
-  void exec_make_array(int length);
-  void exec_add_elements(int elements_cnt);
+  void exec_add_elements(SPRef sp, int elements_cnt);
   // binary operation
-  void exec_comparison(OpType type);
+  void exec_comparison(SPRef sp, OpType type);
 
-  void exec_add();
-  void exec_binary(OpType op_type);
-  void exec_logi(OpType op_type);
-  void exec_bits(OpType op_type);
-  void exec_shift(OpType op_type);
-  void exec_strict_equality(bool flip);
-  void exec_abstract_equality(bool flip);
+  void exec_add(SPRef sp);
+  void exec_binary(SPRef sp, OpType op_type);
+  void exec_logi(SPRef sp, OpType op_type);
+  void exec_bits(SPRef sp, OpType op_type);
+  void exec_shift(SPRef sp, OpType op_type);
+  void exec_strict_equality(SPRef sp, bool flip);
+  void exec_abstract_equality(SPRef sp, bool flip);
 
-  void exec_halt_err(Instruction &inst);
+  void exec_halt_err(SPRef sp, Instruction &inst);
 
-  bool key_access_on_primitive(JSValue& obj, int64_t atom, int keep_obj);
+  bool key_access_on_primitive(SPRef sp, JSValue& obj, int64_t atom, int keep_obj);
   JSValue index_object(JSValue obj, JSValue index, bool get_ref);
 
-  void error_throw(const u16string& msg);
-  void error_handle();
+  void error_throw(SPRef sp, const u16string& msg);
+  void error_handle(SPRef sp);
   void print_unhandled_error(JSValue err_val);
 
   void init_prototypes();
@@ -146,9 +157,6 @@ friend class InternalFunctions;
   constexpr static u32 frame_meta_size {2};
 
   JSFunctionMeta global_meta;
-  // stack pointer
-  JSValue *sp;
-  u32 pc;
 
   // true if the code in the global scope is executed
   bool global_end {false};

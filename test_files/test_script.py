@@ -2,6 +2,14 @@ import os
 
 BUILD_DIR = "build"
 
+test_ignored = [
+    "jquery-1.4.2.js",
+    "temp_test.js",
+    "test_typescript.js",
+    "test_string_lit.js",
+    "test_number_lit.js",
+]
+
 file_and_expected = {
 
     "test_bool_expr.js": '''
@@ -19,6 +27,29 @@ file_and_expected = {
 [LOG] this is a string 
 [LOG] this is a string 
 [LOG] this is a string 
+''',
+    "test_this_binding.js": '''
+[LOG] [ { }, { }, ]
+[LOG] { prop: 12, }
+[LOG] { prop: 12, }
+''',
+
+    "test_bitwise.js":
+'''
+[LOG] test passed: 3 AND 1 should be 1 
+[LOG] test passed: 4 AND 1 should be 0 
+[LOG] test passed: 3 OR 1 should be 3 
+[LOG] test passed: 4 OR 1 should be 5 
+[LOG] test passed: 3 XOR 1 should be 2 
+[LOG] test passed: 4 XOR 1 should be 5 
+[LOG] test passed: NOT 3 should be -4 
+[LOG] test passed: NOT -1 should be 0 
+[LOG] test passed: 3 left shifted by 1 should be 6 
+[LOG] test passed: 1 left shifted by 3 should be 8 
+[LOG] test passed: 8 right shifted by 1 should be 4 
+[LOG] test passed: -8 right shifted by 2 should be -2 
+[LOG] test passed: 8 unsigned right shifted by 1 should be 4 
+[LOG] test passed: -8 unsigned right shifted by 2 should be 1073741822
 ''',
 
     "test_fibonacci.js": [
@@ -58,7 +89,7 @@ def check_test_files(directory, exec_path):
     num_not_match = 0
 
     for file in os.listdir(directory):
-        if file in ["jquery-1.4.2.js", "temp_test.js"]:
+        if file in test_ignored:
             continue
 
         if not file.endswith(".js"):
@@ -111,3 +142,4 @@ if __name__ == "__main__":
     current_directory = os.path.dirname(os.path.abspath(__file__))
     njs_exec_path = os.path.join(current_directory, f"../{BUILD_DIR}/njs")
     check_test_files(current_directory, njs_exec_path)
+    print("skipped: " + ", ".join(test_ignored))

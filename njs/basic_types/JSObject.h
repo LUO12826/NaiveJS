@@ -33,7 +33,6 @@ enum class ObjectClass {
   CLS_ERROR,
   CLS_DATE,
   CLS_FUNCTION,
-  CLS_GLOBAL_OBJ,
   CLS_CUSTOM,
 
   CLS_OBJECT_PROTO,
