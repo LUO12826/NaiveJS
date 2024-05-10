@@ -318,6 +318,8 @@ inline JSValue& JSValue::deref() const {
   return *val.as_JSValue;
 }
 
+inline const JSValue undefined{JSValue::UNDEFINED};
+
 } // namespace njs
 
 #endif // NJS_JSVALUE_H

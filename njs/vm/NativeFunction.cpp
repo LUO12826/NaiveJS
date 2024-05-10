@@ -123,6 +123,10 @@ Completion NativeFunctions::json_stringify(NjsVM& vm, JSFunction& func, ArrayRef
   return JSValue(vm.heap.new_object<PrimitiveString>(std::move(json_string)));
 }
 
+Completion NativeFunctions::Symbol(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  return JSValue::undefined;
+}
+
 u16string NativeFunctions::build_trace_str(NjsVM& vm, bool remove_top) {
   std::vector<NjsVM::StackTraceItem> trace = vm.capture_stack_trace();
   u16string trace_str;

@@ -120,6 +120,7 @@ void NjsVM::run() {
 
 void NjsVM::execute() {
   auto *func = heap.new_object<JSFunction>(global_meta);
+  func->This = global_object;
   call_internal(func, global_object, ArrayRef<JSValue>(nullptr, 0), CallFlags());
 }
 
@@ -568,7 +569,7 @@ using StackTraceItem = NjsVM::StackTraceItem;
 std::vector<StackTraceItem> NjsVM::capture_stack_trace() {
   std::vector<StackTraceItem> trace;
 
-  for (size_t i = stack_frames.size(); i > 0; i--) {
+  for (size_t i = stack_frames.size() - 1; i > 0; i--) {
     auto func = stack_frames[i]->function.val.as_function;
     trace.emplace_back(StackTraceItem {
         .func_name = func->meta.is_anonymous ? u"(anonymous)" : func->name,

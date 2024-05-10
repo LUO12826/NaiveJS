@@ -26,6 +26,7 @@ class StringPool {
     ATOM_toString = atomize(u"toString");          // 5
     ATOM_valueOf = atomize(u"valueOf");            // 6
     ATOM_toPrimitive = atomize(u"toPrimitive");    // 7
+    ATOM_iterator = atomize(u"iterator");          // 8
   }
 
   u32 atomize_sv(u16string_view str_view);
@@ -44,6 +45,7 @@ class StringPool {
   inline static int64_t ATOM_toString;
   inline static int64_t ATOM_valueOf;
   inline static int64_t ATOM_toPrimitive;
+  inline static int64_t ATOM_iterator;
 
  private:
   u32 next_id {0};

@@ -16,6 +16,11 @@ void NjsVM::setup() {
     func.add_prop(StringPool::ATOM_prototype, object_prototype);
   });
 
+  add_native_func_impl(u"Symbol", NativeFunctions::Symbol, [this] (JSFunction& func) {
+    JSValue sym_iterator(heap.new_object<JSSymbol>(u"iterator"));
+    func.add_prop(StringPool::ATOM_iterator, sym_iterator);
+  });
+
   add_native_func_impl(u"Error", NativeFunctions::Error_ctor, [] (auto& f) {});
 
   add_builtin_object(u"console", [this] () {

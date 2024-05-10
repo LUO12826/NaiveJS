@@ -319,11 +319,11 @@ class CodegenVisitor {
         visit_function(func);
 
         auto symbol = scope().resolve_symbol(func.name.text);
-        assert(!symbol.not_found());
         if (scope().get_scope_type() == ScopeType::GLOBAL) {
-          emit(OpType::set_prop_atom, str_pool.atomize_sv(symbol.original_symbol->name));
+          emit(OpType::set_prop_atom, str_pool.atomize_sv(func.name.text));
           emit(OpType::pop_drop);
         } else {
+          assert(!symbol.not_found());
           emit(OpType::pop, scope_type_int(symbol.storage_scope), symbol.get_index());
         }
 
