@@ -28,7 +28,7 @@ class JSBooleanPrototype : public JSObject {
       return JSValue(bool_obj->value);
     }
     else {
-      JSValue err = InternalFunctions::build_error_internal(vm,u"Boolean.prototype.valueOf can only accept argument "
+      JSValue err = NativeFunctions::build_error_internal(vm, u"Boolean.prototype.valueOf can only accept argument "
                                                                "of type boolean or boolean object.");
       return Completion::with_throw(err);
     }

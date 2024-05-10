@@ -47,7 +47,7 @@ class JSStringPrototype : public JSObject {
       return JSValue(prim_string);
     }
     else {
-      JSValue err = InternalFunctions::build_error_internal(vm,u"String.prototype.valueOf can only accept argument "
+      JSValue err = NativeFunctions::build_error_internal(vm, u"String.prototype.valueOf can only accept argument "
                                                                "of type string or string object.");
       return Completion::with_throw(err);
     }

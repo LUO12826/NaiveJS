@@ -17,7 +17,7 @@ Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
       return to_prim_res;
     }
     else if (to_prim_res.get_value().is_object()) {
-      JSValue err = InternalFunctions::build_error_internal(vm, u"TypeError");
+      JSValue err = NativeFunctions::build_error_internal(vm, u"TypeError");
       return Completion::with_throw(err);
     }
     else {
@@ -50,7 +50,7 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, u16string_view hint) {
     }
   }
 
-  JSValue err = InternalFunctions::build_error_internal(vm, u"TypeError");
+  JSValue err = NativeFunctions::build_error_internal(vm, u"TypeError");
   return Completion::with_throw(err);
 }
 

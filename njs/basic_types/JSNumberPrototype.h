@@ -27,7 +27,7 @@ class JSNumberPrototype : public JSObject {
       return JSValue(num_obj->value);
     }
     else {
-      JSValue err = InternalFunctions::build_error_internal(vm,u"Number.prototype.valueOf can only accept argument "
+      JSValue err = NativeFunctions::build_error_internal(vm, u"Number.prototype.valueOf can only accept argument "
                                                                "of type number or number object.");
       return Completion::with_throw(err);
     }

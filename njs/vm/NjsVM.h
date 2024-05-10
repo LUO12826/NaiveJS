@@ -75,7 +75,7 @@ friend class JSObjectPrototype;
 friend class JSArrayPrototype;
 friend class JSFunctionPrototype;
 friend class JSStringPrototype;
-friend class InternalFunctions;
+friend class NativeFunctions;
 
  public:
 

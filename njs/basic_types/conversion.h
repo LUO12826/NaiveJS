@@ -65,7 +65,7 @@ inline ErrorOr<double> to_number(NjsVM &vm, JSValue val) {
     case JSValue::NUM_FLOAT:
       return val.val.as_f64;
     case JSValue::SYMBOL:
-      return InternalFunctions::build_error_internal(vm, u"TypeError");
+      return NativeFunctions::build_error_internal(vm, u"TypeError");
     case JSValue::STRING:
       return u16string_to_double(val.val.as_primitive_string->str);
     default:

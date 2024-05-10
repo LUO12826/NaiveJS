@@ -8,7 +8,7 @@ namespace njs {
 
 class NjsVM;
 
-class InternalFunctions {
+class NativeFunctions {
  public:
   static Completion log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);
   static Completion debug_log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args);

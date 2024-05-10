@@ -1139,7 +1139,7 @@ void NjsVM::exec_comparison(SPRef sp, OpType type) {
 }
 
 void NjsVM::error_throw(SPRef sp, const u16string& msg) {
-  JSValue err_obj = InternalFunctions::build_error_internal(*this, msg);
+  JSValue err_obj = NativeFunctions::build_error_internal(*this, msg);
   sp += 1;
   sp[0] = err_obj;
 }

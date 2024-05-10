@@ -7,7 +7,7 @@
 
 namespace njs {
 
-Completion InternalFunctions::Object_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::Object_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   if (args.size() == 0 || args[0].is_null() || args[0].is_undefined()) {
     return JSValue(vm.new_object());
   }
@@ -36,7 +36,7 @@ Completion InternalFunctions::Object_ctor(NjsVM& vm, JSFunction& func, ArrayRef<
   return JSValue(obj);
 }
 
-Completion InternalFunctions::Error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::Error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR);
   if (args.size() > 0 && args[0].is_string_type()) {
     // only supports primitive string now.
@@ -44,7 +44,7 @@ Completion InternalFunctions::Error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<J
     err_obj->add_prop(vm, u"message", JSValue(args[0].val.as_primitive_string));
   }
 
-  u16string trace_str = InternalFunctions::build_trace_str(vm);
+  u16string trace_str = NativeFunctions::build_trace_str(vm);
   auto prim_trace = vm.heap.new_object<PrimitiveString>(std::move(trace_str));
   err_obj->add_prop(vm, u"stack", JSValue(prim_trace));
 

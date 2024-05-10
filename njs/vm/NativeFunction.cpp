@@ -5,7 +5,7 @@
 
 namespace njs {
 
-Completion InternalFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   std::string output = "\033[32m[LOG] ";
 
   for (int i = 0; i < args.size(); i++) {
@@ -20,7 +20,7 @@ Completion InternalFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue>
   return JSValue::undefined;
 }
 
-Completion InternalFunctions::debug_log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::debug_log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   std::string output = "\033[32m[LOG] ";
 
   for (int i = 0; i < args.size(); i++) {
@@ -34,12 +34,12 @@ Completion InternalFunctions::debug_log(NjsVM& vm, JSFunction& func, ArrayRef<JS
   return JSValue::undefined;
 }
 
-Completion InternalFunctions::js_gc(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::js_gc(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   vm.heap.gc();
   return JSValue::undefined;
 }
 
-Completion InternalFunctions::set_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::set_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
@@ -47,7 +47,7 @@ Completion InternalFunctions::set_timeout(NjsVM& vm, JSFunction& func, ArrayRef<
   return JSValue(double(id));
 }
 
-Completion InternalFunctions::set_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::set_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
@@ -55,14 +55,14 @@ Completion InternalFunctions::set_interval(NjsVM& vm, JSFunction& func, ArrayRef
   return JSValue(double(id));
 }
 
-Completion InternalFunctions::clear_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::clear_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 1);
   assert(args[0].is(JSValue::NUM_FLOAT));
   vm.runloop.remove_timer(size_t(args[0].val.as_f64));
   return JSValue::undefined;
 }
 
-Completion InternalFunctions::clear_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::clear_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 1);
   assert(args[0].is(JSValue::NUM_FLOAT));
   vm.runloop.remove_timer(size_t(args[0].val.as_f64));
@@ -87,7 +87,7 @@ void separate_host_and_path(const std::string& url, std::string& host, std::stri
   }
 }
 
-Completion InternalFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::STRING));
   assert(args[1].is(JSValue::FUNCTION));
@@ -116,14 +116,14 @@ Completion InternalFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValu
   return JSValue::undefined;
 }
 
-Completion InternalFunctions::json_stringify(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::json_stringify(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
   assert(args.size() >= 1);
   u16string json_string;
   args[0].to_json(json_string, vm);
   return JSValue(vm.heap.new_object<PrimitiveString>(std::move(json_string)));
 }
 
-u16string InternalFunctions::build_trace_str(NjsVM& vm, bool remove_top) {
+u16string NativeFunctions::build_trace_str(NjsVM& vm, bool remove_top) {
   std::vector<NjsVM::StackTraceItem> trace = vm.capture_stack_trace();
   u16string trace_str;
   bool first = true;
@@ -147,7 +147,7 @@ u16string InternalFunctions::build_trace_str(NjsVM& vm, bool remove_top) {
   return trace_str;
 }
 
-JSValue InternalFunctions::build_error_internal(NjsVM& vm, const u16string& msg) {
+JSValue NativeFunctions::build_error_internal(NjsVM& vm, const u16string& msg) {
   auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR);
   auto prim_msg = vm.heap.new_object<PrimitiveString>(msg);
   err_obj->add_prop(vm, u"message", JSValue(prim_msg));

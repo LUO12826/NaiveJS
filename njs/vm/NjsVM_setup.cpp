@@ -3,20 +3,20 @@
 namespace njs {
 
 void NjsVM::setup() {
-  add_native_func_impl(u"log", InternalFunctions::debug_log, [] (auto& f) {});
-  add_native_func_impl(u"$gc", InternalFunctions::js_gc, [] (auto& f) {});
-  add_native_func_impl(u"setTimeout", InternalFunctions::set_timeout, [] (auto& f) {});
-  add_native_func_impl(u"setInterval", InternalFunctions::set_interval, [] (auto& f) {});
-  add_native_func_impl(u"clearTimeout", InternalFunctions::clear_timeout, [] (auto& f) {});
-  add_native_func_impl(u"clearInterval", InternalFunctions::clear_interval, [] (auto& f) {});
-  add_native_func_impl(u"fetch", InternalFunctions::fetch, [] (auto& f) {});
+  add_native_func_impl(u"log", NativeFunctions::debug_log, [] (auto& f) {});
+  add_native_func_impl(u"$gc", NativeFunctions::js_gc, [] (auto& f) {});
+  add_native_func_impl(u"setTimeout", NativeFunctions::set_timeout, [] (auto& f) {});
+  add_native_func_impl(u"setInterval", NativeFunctions::set_interval, [] (auto& f) {});
+  add_native_func_impl(u"clearTimeout", NativeFunctions::clear_timeout, [] (auto& f) {});
+  add_native_func_impl(u"clearInterval", NativeFunctions::clear_interval, [] (auto& f) {});
+  add_native_func_impl(u"fetch", NativeFunctions::fetch, [] (auto& f) {});
 
-  add_native_func_impl(u"Object", InternalFunctions::Object_ctor, [this] (JSFunction& func) {
+  add_native_func_impl(u"Object", NativeFunctions::Object_ctor, [this] (JSFunction& func) {
     object_prototype.as_object()->add_prop(StringPool::ATOM_constructor, JSValue(&func));
     func.add_prop(StringPool::ATOM_prototype, object_prototype);
   });
 
-  add_native_func_impl(u"Error", InternalFunctions::Error_ctor, [] (auto& f) {});
+  add_native_func_impl(u"Error", NativeFunctions::Error_ctor, [] (auto& f) {});
 
   add_builtin_object(u"console", [this] () {
     JSObject *obj = new_object();
@@ -26,7 +26,7 @@ void NjsVM::setup() {
         .is_native = true,
         .param_count = 0,
         .local_var_count = 0,
-        .native_func = InternalFunctions::log,
+        .native_func = NativeFunctions::log,
     };
     JSFunction *log_func = new_function(log_meta);
 
@@ -42,7 +42,7 @@ void NjsVM::setup() {
         .is_native = true,
         .param_count = 1,
         .local_var_count = 0,
-        .native_func = InternalFunctions::json_stringify,
+        .native_func = NativeFunctions::json_stringify,
     };
     JSFunction *func = new_function(meta);
 
