@@ -4,10 +4,11 @@
 #include "njs/basic_types/JSBoolean.h"
 #include "njs/basic_types/JSNumber.h"
 #include "njs/basic_types/JSString.h"
+#include "njs/common/common_def.h"
 
 namespace njs {
 
-Completion NativeFunctions::Object_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::Object_ctor(vm_func_This_args_flags) {
   if (args.size() == 0 || args[0].is_null() || args[0].is_undefined()) {
     return JSValue(vm.new_object());
   }
@@ -36,7 +37,7 @@ Completion NativeFunctions::Object_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JS
   return JSValue(obj);
 }
 
-Completion NativeFunctions::Error_ctor(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::Error_ctor(vm_func_This_args_flags) {
   auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR);
   if (args.size() > 0 && args[0].is_string_type()) {
     // only supports primitive string now.

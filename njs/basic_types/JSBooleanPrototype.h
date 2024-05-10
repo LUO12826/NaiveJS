@@ -5,6 +5,7 @@
 #include "JSBoolean.h"
 #include "njs/vm/NjsVM.h"
 #include "njs/vm/NativeFunction.h"
+#include "njs/common/common_def.h"
 
 namespace njs {
 
@@ -18,13 +19,13 @@ class JSBooleanPrototype : public JSObject {
     return u"BooleanPrototype";
   }
 
-  static Completion valueOf(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-    if (func.This.is(JSValue::BOOLEAN)) {
-      return func.This;
+  static Completion valueOf(vm_func_This_args_flags) {
+    if (This.is(JSValue::BOOLEAN)) {
+      return This;
     }
-    else if (func.This.is_object() && func.This.as_object()->obj_class == ObjectClass::CLS_BOOLEAN) {
-      assert(dynamic_cast<JSBoolean*>(func.This.as_object()) != nullptr);
-      auto *bool_obj = static_cast<JSBoolean*>(func.This.as_object());
+    else if (This.is_object() && This.as_object()->obj_class == ObjectClass::CLS_BOOLEAN) {
+      assert(dynamic_cast<JSBoolean*>(This.as_object()) != nullptr);
+      auto *bool_obj = static_cast<JSBoolean*>(This.as_object());
       return JSValue(bool_obj->value);
     }
     else {

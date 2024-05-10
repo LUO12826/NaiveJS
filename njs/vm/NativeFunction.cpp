@@ -5,7 +5,7 @@
 
 namespace njs {
 
-Completion NativeFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::log(vm_func_This_args_flags) {
   std::string output = "\033[32m[LOG] ";
 
   for (int i = 0; i < args.size(); i++) {
@@ -17,10 +17,10 @@ Completion NativeFunctions::log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> a
   printf("%s", output.c_str());
   vm.log_buffer.push_back(std::move(output));
 
-  return JSValue::undefined;
+  return undefined;
 }
 
-Completion NativeFunctions::debug_log(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::debug_log(vm_func_This_args_flags) {
   std::string output = "\033[32m[LOG] ";
 
   for (int i = 0; i < args.size(); i++) {
@@ -31,15 +31,15 @@ Completion NativeFunctions::debug_log(NjsVM& vm, JSFunction& func, ArrayRef<JSVa
   output += "\n\033[0m";
   printf("%s", output.c_str());
 
-  return JSValue::undefined;
+  return undefined;
 }
 
-Completion NativeFunctions::js_gc(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::js_gc(vm_func_This_args_flags) {
   vm.heap.gc();
-  return JSValue::undefined;
+  return undefined;
 }
 
-Completion NativeFunctions::set_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::set_timeout(vm_func_This_args_flags) {
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
@@ -47,7 +47,7 @@ Completion NativeFunctions::set_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JS
   return JSValue(double(id));
 }
 
-Completion NativeFunctions::set_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::set_interval(vm_func_This_args_flags) {
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
@@ -55,18 +55,18 @@ Completion NativeFunctions::set_interval(NjsVM& vm, JSFunction& func, ArrayRef<J
   return JSValue(double(id));
 }
 
-Completion NativeFunctions::clear_interval(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::clear_interval(vm_func_This_args_flags) {
   assert(args.size() >= 1);
   assert(args[0].is(JSValue::NUM_FLOAT));
   vm.runloop.remove_timer(size_t(args[0].val.as_f64));
-  return JSValue::undefined;
+  return undefined;
 }
 
-Completion NativeFunctions::clear_timeout(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::clear_timeout(vm_func_This_args_flags) {
   assert(args.size() >= 1);
   assert(args[0].is(JSValue::NUM_FLOAT));
   vm.runloop.remove_timer(size_t(args[0].val.as_f64));
-  return JSValue::undefined;
+  return undefined;
 }
 
 void separate_host_and_path(const std::string& url, std::string& host, std::string& path) {
@@ -87,7 +87,7 @@ void separate_host_and_path(const std::string& url, std::string& host, std::stri
   }
 }
 
-Completion NativeFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::fetch(vm_func_This_args_flags) {
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::STRING));
   assert(args[1].is(JSValue::FUNCTION));
@@ -113,18 +113,18 @@ Completion NativeFunctions::fetch(NjsVM& vm, JSFunction& func, ArrayRef<JSValue>
 
   }, std::move(url));
 
-  return JSValue::undefined;
+  return undefined;
 }
 
-Completion NativeFunctions::json_stringify(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+Completion NativeFunctions::json_stringify(vm_func_This_args_flags) {
   assert(args.size() >= 1);
   u16string json_string;
   args[0].to_json(json_string, vm);
   return JSValue(vm.heap.new_object<PrimitiveString>(std::move(json_string)));
 }
 
-Completion NativeFunctions::Symbol(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-  return JSValue::undefined;
+Completion NativeFunctions::Symbol(vm_func_This_args_flags) {
+  return undefined;
 }
 
 u16string NativeFunctions::build_trace_str(NjsVM& vm, bool remove_top) {

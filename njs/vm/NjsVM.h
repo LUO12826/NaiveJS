@@ -4,9 +4,11 @@
 #include <cstdint>
 #include <memory>
 #include <deque>
+#include <vector>
 #include <functional>
 
 #include "njs/common/enums.h"
+#include "njs/common/common_def.h"
 #include "NativeFunction.h"
 #include "Instructions.h"
 #include "njs/basic_types/JSFunction.h"
@@ -22,18 +24,12 @@ namespace njs {
 
 using u32 = uint32_t;
 using std::u16string;
+using std::vector;
 using llvm::SmallVector;
 using SPRef = JSValue*&;
 
 class CodegenVisitor;
 struct JSTask;
-
-struct CallFlags {
-  bool constructor : 1 {false};
-  bool copy_args : 1 {false};
-  bool buffer_on_heap : 1 {false};
-  bool generator : 1 {false};
-};
 
 struct JSStackFrame {
   JSStackFrame *prev_frame {nullptr};
@@ -97,7 +93,7 @@ friend class NativeFunctions;
   void setup();
   void run();
 
-  std::vector<StackTraceItem> capture_stack_trace();
+  vector<StackTraceItem> capture_stack_trace();
 
   JSObject* new_object(ObjectClass cls = ObjectClass::CLS_OBJECT);
   JSFunction* new_function(const JSFunctionMeta& meta);
@@ -115,16 +111,19 @@ friend class NativeFunctions;
   }
 
  private:
-  void execute();
+  void execute_global();
   void execute_task(JSTask& task);
   void execute_single_task(JSTask& task);
   void execute_pending_task();
-  Completion call_function(JSFunction *func, JSObject *this_obj,
-                           const std::vector<JSValue>& args, CallFlags flags = CallFlags());
-  Completion call_internal(JSFunction *callee, JSValue this_obj, ArrayRef<JSValue> argv, CallFlags flags);
+  // native call js or native function
+  Completion call_function(JSFunction *func, JSValue This, JSFunction *new_target,
+                           const vector<JSValue>& args, CallFlags flags = CallFlags());
+  // js call js function
+  Completion call_internal(JSFunction *callee, JSValue This, JSFunction *new_target,
+                           ArrayRef<JSValue> argv, CallFlags flags);
   // function operation
   void exec_make_func(SPRef sp, int meta_idx, JSValue env_this);
-  CallResult exec_call(SPRef sp, int arg_count, bool has_this_object);
+  CallResult exec_call(SPRef sp, int arg_count, bool has_this_object, JSFunction *new_target);
   void exec_js_new(SPRef sp, int arg_count);
   // object operation
   void exec_add_props(SPRef sp, int props_cnt);
@@ -165,10 +164,10 @@ friend class NativeFunctions;
 
   GCHeap heap;
 
-  std::vector<JSStackFrame*> stack_frames;
+  vector<JSStackFrame*> stack_frames;
   JSStackFrame *curr_frame {nullptr};
 
-  std::vector<Instruction> bytecode;
+  vector<Instruction> bytecode;
   JSRunLoop runloop;
   std::deque<JSTask> micro_task_queue;
 
@@ -183,7 +182,7 @@ friend class NativeFunctions;
   SmallVector<CatchTableEntry, 3> global_catch_table;
 
   // for collecting all log strings.
-  std::vector<std::string> log_buffer;
+  vector<std::string> log_buffer;
 
   // object prototypes
   JSValue object_prototype;

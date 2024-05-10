@@ -47,7 +47,7 @@ class JSArray: public JSObject {
 inline JSValue JSArray::access_element(u32 index, bool create_ref) {
   if (!create_ref) {
     if (index < dense_array.size()) return dense_array[index];
-    return JSValue::undefined;
+    return undefined;
   }
   else {
     if (index < dense_array.size()) return JSValue(&dense_array[index]);

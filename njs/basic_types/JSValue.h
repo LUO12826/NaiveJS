@@ -22,17 +22,6 @@ using std::u16string;
 extern const char *js_value_tag_names[23];
 
 /// Type for values in JavaScript
-/// JSValue may point to an object that manages memory by reference counting,
-/// so be especially careful when copying and destroying.
-///
-/// Here are some basic principles: JSValues on the operand stack are temporary values,
-/// so their reference count should not be changed when they're moved or copied. But when
-/// they disappears, `set_undefined` should be called in order to clear the temporary value
-/// and avoid memory leaks.
-///
-/// When a JSValue is transferred from the operand stack to somewhere on the stack frame,
-/// or to a non-temporary storage such as object properties or array elements, `assign`
-/// must be called to handle reference counting correctly.
 struct JSValue {
 friend class NjsVM;
 
@@ -275,11 +264,9 @@ friend class NjsVM;
     return tag == val_tag;
   }
 
+  // simply an alternative for the assignment operator =.
   void assign(const JSValue& rhs) {
-    // copy
-    val.as_i64 = rhs.val.as_i64;
-    flag_bits = rhs.flag_bits;
-    tag = rhs.tag;
+    *this = rhs;
   }
 
   /// `description()` is for internal debugging.

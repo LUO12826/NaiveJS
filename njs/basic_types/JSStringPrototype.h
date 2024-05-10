@@ -21,12 +21,12 @@ class JSStringPrototype : public JSObject {
     return u"StringPrototype";
   }
 
-  static Completion char_at(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  static Completion char_at(vm_func_This_args_flags) {
     assert(args.size() > 0 && args[0].is(JSValue::NUM_FLOAT));
-    assert(func.This.is(JSValue::STRING) || func.This.is(JSValue::STRING_OBJ));
+    assert(This.is(JSValue::STRING) || This.is(JSValue::STRING_OBJ));
 
-    u16string& str = func.This.is(JSValue::STRING) ? func.This.val.as_primitive_string->str
-                                                   : func.This.val.as_string->value.str;
+    u16string& str = This.is(JSValue::STRING) ? This.val.as_primitive_string->str
+                                              : This.val.as_string->value.str;
 
     double index = args[0].val.as_f64;
     if (index < 0 || index > str.size()) {
@@ -36,13 +36,13 @@ class JSStringPrototype : public JSObject {
     return JSValue(prim_str);
   }
 
-  static Completion valueOf(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-    if (func.This.is(JSValue::STRING)) {
-      return func.This;
+  static Completion valueOf(vm_func_This_args_flags) {
+    if (This.is(JSValue::STRING)) {
+      return This;
     }
-    else if (func.This.is_object() && func.This.as_object()->obj_class == ObjectClass::CLS_STRING) {
-      assert(dynamic_cast<JSString*>(func.This.as_object()) != nullptr);
-      auto *str_obj = static_cast<JSString*>(func.This.as_object());
+    else if (This.is_object() && This.as_object()->obj_class == ObjectClass::CLS_STRING) {
+      assert(dynamic_cast<JSString*>(This.as_object()) != nullptr);
+      auto *str_obj = static_cast<JSString*>(This.as_object());
       auto prim_string = vm.heap.new_object<PrimitiveString>(str_obj->value.str);
       return JSValue(prim_string);
     }

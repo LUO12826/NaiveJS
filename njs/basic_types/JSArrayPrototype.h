@@ -4,6 +4,7 @@
 #include "JSObject.h"
 #include "njs/vm/NjsVM.h"
 #include "njs/common/ArrayRef.h"
+#include "njs/common/common_def.h"
 #include "JSFunction.h"
 #include "njs/vm/Completion.h"
 #include "njs/basic_types/JSArray.h"
@@ -24,19 +25,22 @@ class JSArrayPrototype : public JSObject {
     return u"ArrayPrototype";
   }
 
-  static Completion at(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
+  static Completion at(vm_func_This_args_flags) {
     assert(args.size() > 0 && args[0].is(JSValue::NUM_FLOAT));
-    assert(func.This.is(JSValue::ARRAY));
+    assert(This.is(JSValue::ARRAY));
 
-    JSArray *array = func.This.val.as_array;
+    JSArray *array = This.val.as_array;
     double index = args[0].val.as_f64;
-    if (index < 0 || index > array->get_length()) return JSValue::undefined;
-    return array->access_element((u32)index, false);
+    if (index < 0 || index > array->get_length()) {
+      return undefined;
+    } else {
+      return array->access_element((u32)index, false);
+    }
   }
 
-  static Completion sort(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-    assert(func.This.is(JSValue::ARRAY));
-    auto& data_array = func.This.val.as_array->dense_array;
+  static Completion sort(vm_func_This_args_flags) {
+    assert(This.is(JSValue::ARRAY));
+    auto& data_array = This.val.as_array->dense_array;
 
     // no compare function provided. Convert values to strings and do string sorting.
     if (args.size() == 0) {
@@ -55,7 +59,7 @@ class JSArrayPrototype : public JSObject {
           if (a.is_undefined()) return false;
           if (b.is_undefined()) return true;
 
-          comp = vm.call_function(args[0].val.as_function, nullptr, {a, b});
+          comp = vm.call_function(args[0].val.as_function, undefined, nullptr, {a, b});
           if (comp.is_throw()) {
             throw std::runtime_error("");
           }
@@ -70,12 +74,12 @@ class JSArrayPrototype : public JSObject {
 
     }
 
-    return JSValue::undefined;
+    return undefined;
   }
 
-  static Completion push(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-    assert(func.This.is(JSValue::ARRAY));
-    JSArray *array = func.This.val.as_array;
+  static Completion push(vm_func_This_args_flags) {
+    assert(This.is(JSValue::ARRAY));
+    JSArray *array = This.val.as_array;
 
     size_t old_size = array->dense_array.size();
     size_t new_size = old_size + args.size();

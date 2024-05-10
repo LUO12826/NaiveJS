@@ -5,6 +5,7 @@
 #include "njs/vm/Completion.h"
 #include "njs/include/SmallVector.h"
 #include "njs/common/ArrayRef.h"
+#include "njs/common/common_def.h"
 #include "njs/codegen/CatchTableEntry.h"
 
 namespace njs {
@@ -19,7 +20,7 @@ class JSFunction;
 
 // Native function type. A Native function should act like a JavaScript function,
 // accepting an array of arguments and returning a value.
-using NativeFuncType = Completion(*)(NjsVM&, JSFunction&, ArrayRef<JSValue>);
+using NativeFuncType = Completion(*)(NjsVM&, JSFunction&, JSValue, ArrayRef<JSValue>, CallFlags);
 
 struct JSFunctionMeta {
 

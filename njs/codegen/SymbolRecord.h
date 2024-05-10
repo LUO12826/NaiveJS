@@ -21,9 +21,7 @@ struct SymbolRecord {
   SymbolRecord(VarKind kind, u16str_view name, u32 index, bool is_builtin)
       : var_kind(kind), name(name), index(index), is_builtin(is_builtin) {}
 
-  u32 offset_idx(int offset = 2) { return index + offset; }
-
-  bool is_let_or_const() {
+  bool is_let_or_const() const {
     return var_kind == VarKind::DECL_LET || var_kind == VarKind::DECL_CONST;
   }
 

@@ -4,6 +4,7 @@
 #include "JSObject.h"
 #include "njs/vm/NjsVM.h"
 #include "JSNumber.h"
+#include "njs/common/common_def.h"
 
 namespace njs {
 
@@ -17,13 +18,13 @@ class JSNumberPrototype : public JSObject {
     return u"NumberPrototype";
   }
 
-  static Completion valueOf(NjsVM& vm, JSFunction& func, ArrayRef<JSValue> args) {
-    if (func.This.is(JSValue::NUM_FLOAT) || func.This.is(JSValue::NUM_INT64)) {
-      return func.This;
+  static Completion valueOf(vm_func_This_args_flags) {
+    if (This.is(JSValue::NUM_FLOAT) || This.is(JSValue::NUM_INT64)) {
+      return This;
     }
-    else if (func.This.is_object() && func.This.as_object()->obj_class == ObjectClass::CLS_NUMBER) {
-      assert(dynamic_cast<JSNumber*>(func.This.as_object()) != nullptr);
-      auto *num_obj = static_cast<JSNumber*>(func.This.as_object());
+    else if (This.is_object() && This.as_object()->obj_class == ObjectClass::CLS_NUMBER) {
+      assert(dynamic_cast<JSNumber*>(This.as_object()) != nullptr);
+      auto *num_obj = static_cast<JSNumber*>(This.as_object());
       return JSValue(num_obj->value);
     }
     else {

@@ -38,7 +38,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
 
   for (auto& [sym_name, sym_rec] : global_sym_table) {
     if (sym_rec.var_kind == VarKind::DECL_VAR || sym_rec.var_kind == VarKind::DECL_FUNCTION) {
-      global_obj->add_prop(*this, sym_name, JSValue::undefined);
+      global_obj->add_prop(*this, sym_name, undefined);
     }
   }
 
@@ -100,7 +100,7 @@ void NjsVM::run() {
     std::cout << "---------------------------------------------------\n";
   }
 
-  execute();
+  execute_global();
   execute_pending_task();
   runloop.loop();
 
@@ -118,14 +118,13 @@ void NjsVM::run() {
 
 }
 
-void NjsVM::execute() {
+void NjsVM::execute_global() {
   auto *func = heap.new_object<JSFunction>(global_meta);
-  func->This = global_object;
-  call_internal(func, global_object, ArrayRef<JSValue>(nullptr, 0), CallFlags());
+  call_internal(func, global_object, nullptr, ArrayRef<JSValue>(nullptr, 0), CallFlags());
 }
 
-Completion NjsVM::call_internal(
-    JSFunction *callee, JSValue this_obj, ArrayRef<JSValue> argv, CallFlags flags) {
+Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
+                                JSFunction *new_target, ArrayRef<JSValue> argv, CallFlags flags) {
   size_t args_buf_cnt = unlikely(flags.copy_args) ?
                         std::max(argv.size(), (size_t)callee->meta.param_count) : 0;
   size_t alloc_cnt = args_buf_cnt + frame_meta_size +
@@ -313,7 +312,7 @@ Completion NjsVM::call_internal(
       case OpType::push_func_this:
         assert(callee);
         sp += 1;
-        sp[0] = this_obj;
+        sp[0] = This;
         break;
       case OpType::push_global_this:
         sp += 1;
@@ -430,14 +429,14 @@ Completion NjsVM::call_internal(
         if (Global::show_vm_exec_steps) {
           printf("%-50s sp: %-3ld   pc: %-3u\n", inst.description().c_str(), (sp - (stack - 1)), pc);
         }
-        exec_call(sp, OPR1, bool(OPR2));
+        exec_call(sp, OPR1, bool(OPR2), nullptr);
         break;
       }
       case OpType::js_new:
         exec_js_new(sp, OPR1);
         break;
       case OpType::make_func:
-        exec_make_func(sp, OPR1, this_obj);
+        exec_make_func(sp, OPR1, This);
         break;
       case OpType::capture:
         exec_capture(OPR1, OPR2);
@@ -480,14 +479,14 @@ Completion NjsVM::call_internal(
             size_t sp_offset = sp - (curr_frame->stack - 1);
             printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp_offset, pc);
           }
-          return JSValue::undefined;
+          return undefined;
         }
         else {
           assert(false);
         }
       case OpType::halt_err:
         exec_halt_err(sp, inst);
-        return JSValue::undefined;
+        return undefined;
       case OpType::nop:
         break;
       case OpType::key_access:
@@ -527,10 +526,10 @@ void NjsVM::execute_task(JSTask& task) {
 
 void NjsVM::execute_single_task(JSTask& task) {
   CallFlags flags { .copy_args = true };
-  task.task_func.val.as_function->This = global_object;
   auto comp = call_function(
       task.task_func.val.as_function,
-      global_object.val.as_object,
+      global_object,
+      nullptr,
       task.args,
       flags
   );
@@ -547,27 +546,31 @@ void NjsVM::execute_pending_task() {
   }
 }
 
-Completion NjsVM::call_function(JSFunction *func, JSObject *this_obj,
-                                const std::vector<JSValue>& args, CallFlags flags) {
-  func->This = JSValue(this_obj);
-  JSValue this_val = this_obj != nullptr ? JSValue(this_obj) : global_object;
+Completion NjsVM::call_function(JSFunction *func, JSValue This, JSFunction *new_target,
+                                const vector<JSValue>& args, CallFlags flags) {
+  JSValue this_val = This.is_undefined() ? This : global_object;
   ArrayRef<JSValue> args_ref(const_cast<JSValue*>(args.data()), args.size());
   if (func->meta.is_native) {
-    std::vector<JSValue> args_copy;
+    vector<JSValue> args_copy;
     if (unlikely(flags.copy_args)) {
       args_copy = args;
     }
     args_ref = ArrayRef<JSValue>(args_copy.data(), args_copy.size());
-    return func->meta.native_func(*this, *func, args_ref);
+    if (unlikely(new_target != nullptr)) {
+      flags.this_is_new_target = true;
+      return func->meta.native_func(*this, *func, JSValue(new_target), args_ref, flags);
+    } else {
+      return func->meta.native_func(*this, *func, this_val, args_ref, flags);
+    }
   } else {
-    return call_internal(func, this_val, args_ref, flags);
+    return call_internal(func, this_val, new_target, args_ref, flags);
   }
 }
 
 using StackTraceItem = NjsVM::StackTraceItem;
 
-std::vector<StackTraceItem> NjsVM::capture_stack_trace() {
-  std::vector<StackTraceItem> trace;
+vector<StackTraceItem> NjsVM::capture_stack_trace() {
+  vector<StackTraceItem> trace;
 
   for (size_t i = stack_frames.size() - 1; i > 0; i--) {
     auto func = stack_frames[i]->function.val.as_function;
@@ -735,7 +738,7 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
   // where the function is created.
   if (meta.is_arrow_func) {
     func->has_this_binding = true;
-    func->This = env_this;
+    func->this_binding = env_this;
   }
 
   if (not meta.is_arrow_func) {
@@ -751,17 +754,18 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
 }
 
 
-CallResult NjsVM::exec_call(SPRef sp, int arg_count, bool has_this_object) {
-  JSValue& this_obj = has_this_object ? sp[-arg_count - 1] : global_object;
+CallResult NjsVM::exec_call(SPRef sp, int arg_count, bool has_this_object, JSFunction *new_target) {
   JSValue& func_val = sp[-arg_count];
-  JSValue *argv = &func_val + 1;
-  JSValue *args_buf_start = argv;
-
   assert(func_val.tag == JSValue::FUNCTION);
   assert(func_val.val.as_object->obj_class == ObjectClass::CLS_FUNCTION);
   JSFunction *func = func_val.val.as_function;
+
+  JSValue& this_obj = has_this_object ? sp[-arg_count - 1] : global_object;
+  JSValue *argv = &func_val + 1;
+  JSValue *args_buf_start = argv;
+
   CallFlags flags;
-  std::vector<JSValue> args_buf;
+  vector<JSValue> args_buf;
 
   u32 def_param_cnt = func->meta.param_count;
   u32 actual_arg_cnt = std::max(def_param_cnt, (u32)arg_count);
@@ -775,18 +779,19 @@ CallResult NjsVM::exec_call(SPRef sp, int arg_count, bool has_this_object) {
     args_buf_start = args_buf.data();
   }
 
-  if (!(func->meta.is_arrow_func || func->has_this_binding)) {
-    // set up the `this` for the function.
-    func->This = has_this_object ? this_obj : global_object;
-  }
-
   ArrayRef<JSValue> args_ref(args_buf_start, actual_arg_cnt);
   Completion comp;
 
   if (likely(not func->meta.is_native)) {
-    comp = call_internal(func, this_obj, args_ref, flags);
+    JSValue& actual_this = func->has_this_binding ? func->this_binding : this_obj;
+    comp = call_internal(func, actual_this, new_target, args_ref, flags);
   } else {
-    comp = func->native_func(*this, *func, args_ref);
+    if (unlikely(new_target != nullptr)) {
+      flags.this_is_new_target = true;
+      comp = func->native_func(*this, *func, JSValue(new_target), args_ref, flags);
+    } else {
+      comp = func->native_func(*this, *func, this_obj, args_ref, flags);
+    }
   }
   for (JSValue *val = argv; val < argv + arg_count; val++) {
     val->set_undefined();
@@ -822,7 +827,7 @@ void NjsVM::exec_js_new(SPRef sp, int arg_count) {
   sp += 1;
 
   // run the constructor
-  CallResult res = exec_call(sp, arg_count, true);
+  CallResult res = exec_call(sp, arg_count, true, ctor.val.as_function);
   if (res == CallResult::DONE_ERROR) {
     return;
   }
@@ -887,7 +892,7 @@ void NjsVM::exec_key_access(SPRef sp, u32 key_atom, bool get_ref, int keep_obj) 
   }
 
   sp += keep_obj;
-  if (sp[keep_obj].is_uninited()) val_obj = JSValue::undefined;
+  if (sp[keep_obj].is_uninited()) val_obj = undefined;
   return;
 error:
   error_throw(sp, u"cannot read property of " + to_u16string(val_obj.to_string(*this)));
