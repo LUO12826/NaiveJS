@@ -43,16 +43,6 @@ class JSRunLoop {
   std::vector<JSValue *> gc_gather_roots() {
     std::vector<JSValue *> roots;
 
-    for (auto& task : micro_task_queue) {
-      roots.push_back(&task.task_func);
-
-      for (auto& val : task.args) {
-        if (val.needs_gc()) {
-          roots.push_back(&val);
-        }
-      }
-    }
-
     for (auto& [task_id, task] : task_pool) {
       roots.push_back(&task.task_func);
 
@@ -77,7 +67,6 @@ class JSRunLoop {
   unordered_map<size_t, JSTask> task_pool;
   // store pointers to the tasks, which are in the task pool.
   std::deque<JSTask*> macro_task_queue;
-  std::deque<JSTask> micro_task_queue;
   std::mutex macro_queue_lock;
   std::condition_variable macro_queue_cv;
 

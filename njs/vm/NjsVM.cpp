@@ -101,6 +101,7 @@ void NjsVM::run() {
   }
 
   execute();
+  execute_pending_task();
   runloop.loop();
 
   if (Global::show_vm_state) {
@@ -519,6 +520,11 @@ Completion NjsVM::call_internal(
 }
 
 void NjsVM::execute_task(JSTask& task) {
+  execute_single_task(task);
+  execute_pending_task();
+}
+
+void NjsVM::execute_single_task(JSTask& task) {
   CallFlags flags { .copy_args = true };
   task.task_func.val.as_function->This = global_object;
   auto comp = call_function(
@@ -529,6 +535,14 @@ void NjsVM::execute_task(JSTask& task) {
   );
   if (comp.is_throw()) {
     print_unhandled_error(comp.get_value());
+  }
+}
+
+void NjsVM::execute_pending_task() {
+  while (!micro_task_queue.empty()) {
+    JSTask& micro_task = micro_task_queue.front();
+    if (!micro_task.canceled) execute_single_task(micro_task);
+    micro_task_queue.pop_front();
   }
 }
 

@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <deque>
 #include <functional>
 
 #include "njs/common/enums.h"
@@ -116,6 +117,8 @@ friend class InternalFunctions;
  private:
   void execute();
   void execute_task(JSTask& task);
+  void execute_single_task(JSTask& task);
+  void execute_pending_task();
   Completion call_function(JSFunction *func, JSObject *this_obj,
                            const std::vector<JSValue>& args, CallFlags flags = CallFlags());
   Completion call_internal(JSFunction *callee, JSValue this_obj, ArrayRef<JSValue> argv, CallFlags flags);
@@ -167,6 +170,7 @@ friend class InternalFunctions;
 
   std::vector<Instruction> bytecode;
   JSRunLoop runloop;
+  std::deque<JSTask> micro_task_queue;
 
   // for constant
   StringPool str_pool;

@@ -28,7 +28,6 @@ JSRunLoop::~JSRunLoop() {
 }
 
 void JSRunLoop::loop() {
-
   while (!task_pool.empty() || !macro_task_queue.empty()) {
     JSTask *task;
     {
@@ -43,14 +42,7 @@ void JSRunLoop::loop() {
 
     if (!task->canceled) vm.execute_task(*task);
     if (!task->repeat) task_pool.erase(task->task_id);
-
-    while (!micro_task_queue.empty()) {
-      JSTask& micro_task = micro_task_queue.front();
-      if (!micro_task.canceled) vm.execute_task(micro_task);
-      micro_task_queue.pop_front();
-    }
   }
-  
 }
 
 void JSRunLoop::post_task(JSTask *task) {

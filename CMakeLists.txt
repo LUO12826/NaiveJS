@@ -28,10 +28,14 @@ set(SOURCES
 
 # executable is named `njs`
 add_executable(njs ${SOURCES})
-
-target_compile_options(njs PRIVATE -Wno-deprecated-declarations -fsanitize=address)
-target_link_options(njs PRIVATE -fsanitize=address)
 target_include_directories(njs PRIVATE .)
+target_compile_options(njs PRIVATE -Wno-deprecated-declarations)
+
+# Conditionally add sanitizer options if not in Release mode
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_compile_options(njs PRIVATE -fsanitize=address)
+    target_link_options(njs PRIVATE -fsanitize=address)
+endif()
 
 if(DEBUG)
     target_compile_definitions(njs PRIVATE DEBUG)
@@ -39,8 +43,6 @@ endif()
 
 # executable for debug print
 add_executable(njs_dbgprint ${SOURCES})
-
-target_compile_options(njs_dbgprint PRIVATE -Wno-deprecated-declarations)
 target_include_directories(njs_dbgprint PRIVATE .)
-
+target_compile_options(njs_dbgprint PRIVATE -Wno-deprecated-declarations)
 target_compile_definitions(njs_dbgprint PRIVATE DBGPRINT)
