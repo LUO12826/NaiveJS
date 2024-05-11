@@ -21,14 +21,11 @@ Completion NativeFunctions::Object_ctor(vm_func_This_args_flags) {
     case JSValue::BOOLEAN:
       obj = vm.heap.new_object<JSBoolean>(vm, arg.val.as_bool);
       break;
-    case JSValue::NUM_INT64:
-      obj = vm.heap.new_object<JSNumber>(vm, arg.val.as_i64);
-      break;
     case JSValue::NUM_FLOAT:
       obj = vm.heap.new_object<JSNumber>(vm, arg.val.as_f64);
       break;
     case JSValue::STRING:
-      obj = vm.heap.new_object<JSString>(vm, *arg.val.as_primitive_string);
+      obj = vm.heap.new_object<JSString>(vm, *arg.val.as_prim_string);
       break;
     default:
       assert(false);
@@ -57,14 +54,14 @@ Completion NativeFunctions::Symbol(vm_func_This_args_flags) {
     return Completion::with_throw(err);
   }
 
-  JSValue desc_string;
   if (args.size() > 0 && not args[0].is_undefined()) {
     assert(args[0].tag == JSValue::STRING);
     // TODO: do a `ToString` here.
-    desc_string = args[0];
+    auto& str = args[0].val.as_prim_string->str;
+    return JSValue::Symbol(vm.str_pool.atomize_symbol_desc(str));
+  } else {
+    return JSValue::Symbol(vm.str_pool.atomize_symbol());
   }
-
-  return JSValue(vm.heap.new_object<JSSymbol>(desc_string));
 }
 
 }

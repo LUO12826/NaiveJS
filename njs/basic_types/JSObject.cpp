@@ -12,7 +12,8 @@ Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
   JSValue exotic_to_prim = get_prop(StringPool::ATOM_toPrimitive, false);
   if (exotic_to_prim.is_function()) {
     JSValue hint_arg = vm.new_primitive_string(u16string(preferred_type));
-    Completion to_prim_res = vm.call_function(exotic_to_prim.val.as_function, JSValue(this), nullptr, {hint_arg});
+    Completion to_prim_res = vm.call_function(
+        exotic_to_prim.val.as_func, JSValue(this), nullptr, {hint_arg});
     if (to_prim_res.is_throw()) {
       return to_prim_res;
     }
@@ -42,7 +43,7 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, u16string_view hint) {
     JSValue method = get_prop(method_atom, false);
     if (not method.is_function()) continue;
 
-    Completion comp = vm.call_function(method.val.as_function, JSValue(this), nullptr, {});
+    Completion comp = vm.call_function(method.val.as_func, JSValue(this), nullptr, {});
     if (comp.is_throw()) return comp;
 
     if (not comp.get_value().is_object()) {
@@ -55,29 +56,18 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, u16string_view hint) {
 }
 
 bool JSObject::add_prop(const JSValue& key, const JSValue& value, PropDesc desc) {
-  JSObjectProp *new_prop;
-  if (likely(key.tag == JSValue::JS_ATOM)) {
-    new_prop = &storage[JSObjectKey(key.val.as_i64)];
-  } else if (key.tag == JSValue::SYMBOL) {
-    new_prop = &storage[JSObjectKey(key.val.as_symbol)];
-  } else {
-    return false;
-  }
-
-  new_prop->data.value.assign(value);
-  new_prop->desc = desc;
-  return true;
-}
-
-bool JSObject::add_prop(int64_t key_atom, const JSValue& value, PropDesc desc) {
-  JSObjectProp& prop = storage[JSObjectKey(key_atom)];
+  JSObjectProp& prop = storage[JSObjectKey(key)];
   prop.data.value.assign(value);
   prop.desc = desc;
   return true;
 }
 
+bool JSObject::add_prop(u32 key_atom, const JSValue& value, PropDesc desc) {
+  return add_prop(JSValue::Atom(key_atom), value, desc);
+}
+
 bool JSObject::add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value, PropDesc desc) {
-  return add_prop(vm.sv_to_atom(key_str), value, desc);
+  return add_prop(vm.str_to_atom(key_str), value, desc);
 }
 
 JSValue JSObject::get_prop(NjsVM& vm, u16string_view name) {
@@ -85,11 +75,11 @@ JSValue JSObject::get_prop(NjsVM& vm, u16string_view name) {
 }
 
 JSValue JSObject::get_prop(NjsVM& vm, u16string_view key_str, bool get_ref) {
-  return get_prop(vm.sv_to_atom(key_str), get_ref);
+  return get_prop(vm.str_to_atom(key_str), get_ref);
 }
 
 bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl) {
-  u32 name_idx = vm.sv_to_atom(key_str);
+  u32 name_idx = vm.str_to_atom(key_str);
   JSFunctionMeta meta {
       .name_index = name_idx,
       .is_native = true,
@@ -148,10 +138,9 @@ std::string JSObject::to_string(NjsVM& vm) {
     if (not prop.desc.is_enumerable()) continue;
 
     if (key.key.tag == JSValue::JS_ATOM) {
-      u16string escaped = to_escaped_u16string(vm.atom_to_str(key.key.val.as_i64));
+      u16string escaped = to_escaped_u16string(vm.atom_to_str(key.key.val.as_atom));
       output += to_u8string(escaped);
     }
-    else assert(false);
 
     output += ": ";
     if (prop.data.value.is(JSValue::STRING)) output += '"';
@@ -177,10 +166,9 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
     
     if (key.key.tag == JSValue::JS_ATOM) {
       output += u'"';
-      output += to_escaped_u16string(vm.atom_to_str(key.key.val.as_i64));
+      output += to_escaped_u16string(vm.atom_to_str(key.key.val.as_atom));
       output += u'"';
     }
-    else assert(false);
 
     output += u':';
     prop.data.value.to_json(output, vm);

@@ -23,16 +23,13 @@ inline ErrorOr<bool> strict_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
       case JSValue::NUM_FLOAT:
         res = lhs.val.as_f64 == rhs.val.as_f64;
         break;
-      case JSValue::NUM_INT64:
-        res = lhs.val.as_i64 == rhs.val.as_i64;
-        break;
       case JSValue::UNDEFINED:
       case JSValue::JS_NULL:
         res = true;
         break;
       case JSValue::STRING: {
-        res = lhs.val.as_primitive_string->str
-              == rhs.val.as_primitive_string->str;
+        res = lhs.val.as_prim_string->str
+              == rhs.val.as_prim_string->str;
         break;
       }
       default:
@@ -55,10 +52,10 @@ inline ErrorOr<bool> abstract_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
     return strict_equals(vm, lhs, rhs);
   }
   if (lhs.is_float64() && rhs.is_primitive_string()) {
-    return lhs.val.as_f64 == u16string_to_double(rhs.val.as_primitive_string->str);
+    return lhs.val.as_f64 == u16string_to_double(rhs.val.as_prim_string->str);
   }
   else if (lhs.is_primitive_string() && rhs.is_float64()) {
-    return rhs.val.as_f64 == u16string_to_double(lhs.val.as_primitive_string->str);
+    return rhs.val.as_f64 == u16string_to_double(lhs.val.as_prim_string->str);
   }
   else if (lhs.is_undefined() && rhs.is_null()) {
     return true;

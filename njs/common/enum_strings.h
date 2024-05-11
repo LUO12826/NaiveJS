@@ -3,7 +3,7 @@
 
 namespace njs {
 
-inline const char *ast_type_names[44] = {
+inline const char *ast_type_names[] = {
     "AST_TOKEN",
 
     "BEGIN_EXPR",
@@ -67,7 +67,7 @@ inline const char *ast_type_names[44] = {
     "AST_ILLEGAL"
 };
 
-inline const char *token_type_names[74] = {
+inline const char *token_type_names[] = {
     "IDENTIFIER",
     "KEYWORD",
 
@@ -151,7 +151,7 @@ inline const char *token_type_names[74] = {
     "ILLEGAL",
 };
 
-inline const char *scope_type_names[5] = {
+inline const char *scope_type_names[] = {
     "GLOBAL_SCOPE",
     "FUNC_SCOPE",
     "FUNC_PARAM_SCOPE",
@@ -159,7 +159,7 @@ inline const char *scope_type_names[5] = {
     "CLOSURE_SCOPE"
 };
 
-inline const char *scope_type_names_alt[5] = {
+inline const char *scope_type_names_alt[] = {
     "global",
     "local",
     "arg",
@@ -167,20 +167,19 @@ inline const char *scope_type_names_alt[5] = {
     "closure"
 };
 
-inline const char *js_value_tag_names[23] = {
+inline const char *js_value_tag_names[] = {
     "UNDEFINED",
     "UNINIT",
     "JS_NULL",
     "JS_ATOM",
+    "SYMBOL",
     "BOOLEAN",
     "NUM_UINT32",
     "NUM_INT32",
-    "NUM_INT64",
     "NUM_FLOAT",
     "VALUE_HANDLE",
     "NEED_GC_BEGIN",
     "STRING",
-    "SYMBOL",
     "HEAP_VAL",
     "OBJECT_BEGIN",
     "BOOLEAN_OBJ",
@@ -190,10 +189,10 @@ inline const char *js_value_tag_names[23] = {
     "ARRAY",
     "FUNCTION",
     "NEED_GC_END",
-    "JSVALUE_TAG_CNT",
+    "JSVALUE_TAG_CNT"
 };
 
-inline const char *object_class_names[16] = {
+inline const char *object_class_names[] = {
     "CLS_OBJECT",
     "CLS_ARRAY",
     "CLS_STRING",

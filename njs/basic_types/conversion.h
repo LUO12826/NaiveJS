@@ -60,14 +60,12 @@ inline ErrorOr<double> to_number(NjsVM &vm, JSValue val) {
       return 0.0;
     case JSValue::BOOLEAN:
       return val.val.as_bool ? 1.0 : 0.0;
-    case JSValue::NUM_INT64:
-      return double(val.val.as_i64);
     case JSValue::NUM_FLOAT:
       return val.val.as_f64;
     case JSValue::SYMBOL:
       return NativeFunctions::build_error_internal(vm, u"TypeError");
     case JSValue::STRING:
-      return u16string_to_double(val.val.as_primitive_string->str);
+      return u16string_to_double(val.val.as_prim_string->str);
     default:
       if (val.is_object()) {
         Completion comp = val.as_object()->to_primitive(vm, u"number");

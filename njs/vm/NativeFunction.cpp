@@ -43,7 +43,7 @@ Completion NativeFunctions::set_timeout(vm_func_This_args_flags) {
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
-  size_t id = vm.runloop.add_timer(args[0].val.as_function, (size_t)args[1].val.as_f64, false);
+  size_t id = vm.runloop.add_timer(args[0].val.as_func, (size_t)args[1].val.as_f64, false);
   return JSValue(double(id));
 }
 
@@ -51,7 +51,7 @@ Completion NativeFunctions::set_interval(vm_func_This_args_flags) {
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
-  size_t id = vm.runloop.add_timer(args[0].val.as_function, (size_t)args[1].val.as_f64, true);
+  size_t id = vm.runloop.add_timer(args[0].val.as_func, (size_t)args[1].val.as_f64, true);
   return JSValue(double(id));
 }
 
@@ -92,8 +92,8 @@ Completion NativeFunctions::fetch(vm_func_This_args_flags) {
   assert(args[0].is(JSValue::STRING));
   assert(args[1].is(JSValue::FUNCTION));
 
-  std::string url = to_u8string(args[0].val.as_primitive_string->str);
-  JSTask *task = vm.runloop.add_task(args[1].val.as_function);
+  std::string url = to_u8string(args[0].val.as_prim_string->str);
+  JSTask *task = vm.runloop.add_task(args[1].val.as_func);
 
   vm.runloop.get_thread_pool().push_task([&vm, task] (const std::string& url) {
     std::string host, path;

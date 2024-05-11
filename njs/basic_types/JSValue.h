@@ -15,12 +15,11 @@ class JSFunction;
 class JSArray;
 class JSString;
 struct JSHeapValue;
-struct JSSymbol;
 
 using std::u16string;
 using u32 = uint32_t;
 
-extern const char *js_value_tag_names[23];
+extern const char *js_value_tag_names[];
 
 /// Type for values in JavaScript
 struct JSValue {
@@ -32,15 +31,15 @@ friend class NjsVM;
     UNDEFINED = 0,
     // Before a `let` defined variable get initialized, its tag is UNINIT.
     UNINIT,
-
     JS_NULL,
 
     JS_ATOM,
+    // symbols are always atomized.
+    SYMBOL,
     BOOLEAN,
 
     NUM_UINT32,
     NUM_INT32,
-    NUM_INT64,
     NUM_FLOAT,
 
     // A reference to another JSValue, no lifecycle considerations
@@ -51,7 +50,6 @@ friend class NjsVM;
 
     // Strings and Symbols are stored as pointers in JSValue
     STRING,
-    SYMBOL,
 
     // Used when we wrap those inline values into JSHeapValue and hold a pointer to it.
     // Currently, turning a variable into a closure variable will turn it into a JSHeapValue
@@ -74,10 +72,16 @@ friend class NjsVM;
   static JSValue uninited;
   static JSValue null;
 
-  static JSValue Atom(int64_t val) {
+  inline static JSValue Atom(u32 val) {
     JSValue atom(JS_ATOM);
-    atom.val.as_i64 = val;
+    atom.val.as_atom = val;
     return atom;
+  }
+
+  inline static JSValue Symbol(u32 val) {
+    JSValue symbol(SYMBOL);
+    symbol.val.as_symbol = val;
+    return symbol;
   }
 
   JSValue(): JSValue(JSValueTag::UNDEFINED) {}
@@ -111,10 +115,6 @@ friend class NjsVM;
     val.as_f64 = number;
   }
 
-  explicit JSValue(int64_t number): tag(NUM_INT64) {
-    val.as_i64 = number;
-  }
-
   explicit JSValue(bool boolean): tag(BOOLEAN) {
     val.as_bool = boolean;
   }
@@ -128,7 +128,7 @@ friend class NjsVM;
   }
 
   explicit JSValue(PrimitiveString *str): tag(STRING) {
-    val.as_primitive_string = str;
+    val.as_prim_string = str;
   }
 
   explicit JSValue(JSArray *array): tag(ARRAY) {
@@ -136,17 +136,12 @@ friend class NjsVM;
   }
 
   explicit JSValue(JSFunction *func): tag(FUNCTION) {
-    val.as_function = func;
+    val.as_func = func;
   }
 
   void set_val(double number) {
     tag = NUM_FLOAT;
     val.as_f64 = number;
-  }
-
-  void set_val(int64_t number) {
-    tag = NUM_INT64;
-    val.as_i64 = number;
   }
 
   void set_val(bool boolean) {
@@ -166,7 +161,7 @@ friend class NjsVM;
 
   void set_val(PrimitiveString *str) {
     tag = STRING;
-    val.as_primitive_string = str;
+    val.as_prim_string = str;
   }
 
   void set_val(JSArray *array) {
@@ -176,7 +171,7 @@ friend class NjsVM;
 
   void set_val(JSFunction *func) {
     tag = FUNCTION;
-    val.as_function = func;
+    val.as_func = func;
   }
 
   /// Use this method to destroy a temporary value (in general, a temporary value
@@ -193,7 +188,6 @@ friend class NjsVM;
   bool is_undefined() const { return tag == UNDEFINED; };
   bool is_uninited() const { return tag == UNINIT; };
   bool is_null() const { return tag == JS_NULL; };
-  bool is_int64() const { return tag == NUM_INT64; }
   bool is_float64() const { return tag == NUM_FLOAT; }
   bool is_bool() const { return tag == BOOLEAN; }
   bool is_primitive_string() const { return tag == STRING; }
@@ -210,7 +204,7 @@ friend class NjsVM;
   }
 
   bool is_string_type() const {
-    return tag == JS_ATOM || tag == STRING || tag == STRING_OBJ;
+    return tag == STRING || tag == STRING_OBJ;
   }
 
   bool is_number_type() const {
@@ -238,8 +232,6 @@ friend class NjsVM;
     switch (tag) {
       case NUM_FLOAT:
         return val.as_f64;
-      case NUM_INT64:
-        return double(val.as_i64);
       case NUM_INT32:
         return double(val.as_i32);
       case NUM_UINT32:
@@ -253,7 +245,7 @@ friend class NjsVM;
     if (tag == BOOLEAN) return !val.as_bool;
     if (tag == JS_NULL || tag == UNDEFINED) return true;
     if (tag == NUM_FLOAT) return val.as_f64 == 0 || std::isnan(val.as_f64);
-    if (tag == STRING) return val.as_primitive_string->str.empty();
+    if (tag == STRING) return val.as_prim_string->str.empty();
     return false;
   }
 
@@ -279,7 +271,8 @@ friend class NjsVM;
 
   union {
     double as_f64;
-    int64_t as_i64;
+    uint32_t as_atom;
+    uint32_t as_symbol;
     uint32_t as_u32;
     int32_t as_i32;
     bool as_bool;
@@ -287,14 +280,13 @@ friend class NjsVM;
     JSValue *as_JSValue;
     GCObject *as_GCObject;
 
-    JSSymbol *as_symbol;
-    PrimitiveString *as_primitive_string;
+    PrimitiveString *as_prim_string;
     JSHeapValue *as_heap_val;
 
     JSObject *as_object;
     JSArray *as_array;
     JSString *as_string;
-    JSFunction *as_function;
+    JSFunction *as_func;
   } val;
 
   JSValueTag tag;

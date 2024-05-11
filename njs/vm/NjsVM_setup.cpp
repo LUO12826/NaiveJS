@@ -29,7 +29,7 @@ void NjsVM::setup() {
   });
 
   add_native_func_impl(u"Symbol", NativeFunctions::Symbol, [this] (JSFunction& func) {
-    JSValue sym_iterator(heap.new_object<JSSymbol>(new_primitive_string(u"iterator")));
+    JSValue sym_iterator = JSValue::Symbol(str_pool.atomize_symbol_desc(u"iterator"));
     func.add_prop(StringPool::ATOM_iterator, sym_iterator);
   });
 
@@ -45,7 +45,7 @@ void NjsVM::setup() {
     };
     JSFunction *log_func = new_function(log_meta);
 
-    obj->add_prop((int64_t) sv_to_atom(u"log"), JSValue(log_func));
+    obj->add_prop((int64_t) str_to_atom(u"log"), JSValue(log_func));
     return obj;
   });
 
@@ -61,7 +61,7 @@ void NjsVM::setup() {
     };
     JSFunction *func = new_function(meta);
 
-    obj->add_prop((int64_t) sv_to_atom(u"stringify"), JSValue(func));
+    obj->add_prop((int64_t) str_to_atom(u"stringify"), JSValue(func));
     return obj;
   });
 }

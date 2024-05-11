@@ -19,7 +19,7 @@ class JSNumberPrototype : public JSObject {
   }
 
   static Completion valueOf(vm_func_This_args_flags) {
-    if (This.is(JSValue::NUM_FLOAT) || This.is(JSValue::NUM_INT64)) {
+    if (This.is(JSValue::NUM_FLOAT)) {
       return This;
     }
     else if (This.is_object() && This.as_object()->obj_class == ObjectClass::CLS_NUMBER) {

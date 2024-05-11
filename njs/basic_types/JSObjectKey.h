@@ -2,10 +2,7 @@
 #define NJS_JSOBJECT_KEY_H
 
 #include <string>
-
-#include "JSSymbol.h"
 #include "JSValue.h"
-#include "njs/utils/helper.h"
 #include "njs/utils/macros.h"
 
 namespace njs {
@@ -14,12 +11,10 @@ using std::u16string;
 using std::u16string_view;
 
 struct PrimitiveString;
-struct JSSymbol;
 
 struct JSObjectKey {
-
-  explicit JSObjectKey(JSSymbol *sym);
-  explicit JSObjectKey(int64_t atom);
+  explicit JSObjectKey(u32 atom);
+  explicit JSObjectKey(JSValue val);
 
   bool operator == (const JSObjectKey& other) const;
   std::string to_string() const;
@@ -27,43 +22,33 @@ struct JSObjectKey {
   JSValue key;
 };
 
-inline JSObjectKey::JSObjectKey(JSSymbol *sym): key(JSValue::SYMBOL) {
-  key.val.as_symbol = sym;
+inline JSObjectKey::JSObjectKey(u32 atom): key(JSValue::JS_ATOM) {
+  key.val.as_atom = atom;
 }
 
-inline JSObjectKey::JSObjectKey(int64_t atom): key(JSValue::JS_ATOM) {
-  key.val.as_i64 = atom;
+inline JSObjectKey::JSObjectKey(JSValue val): key(val) {
+  assert(val.is(JSValue::SYMBOL) || val.is(JSValue::JS_ATOM));
 }
 
 inline bool JSObjectKey::operator == (const JSObjectKey& other) const {
-  if (key.tag != other.key.tag) {
-    return false;
-  }
-  if (key.tag == JSValue::JS_ATOM) return key.val.as_i64 == other.key.val.as_i64;
-  if (key.tag == JSValue::SYMBOL) return *(key.val.as_symbol) == *(other.key.val.as_symbol);
-
-  __builtin_unreachable();
+  return key.val.as_atom == other.key.val.as_atom;
 }
 
 inline std::string JSObjectKey::to_string() const {
-  if (key.tag == JSValue::JS_ATOM) return "Atom(" + std::to_string(key.val.as_i64) + ")";
-  if (key.tag == JSValue::SYMBOL) return key.val.as_symbol->to_string();
-
-  __builtin_unreachable();
+  if (key.is(JSValue::JS_ATOM)) {
+    return "Atom(" + std::to_string(key.val.as_atom) + ")";
+  } else {
+    return "Symbol(" + std::to_string(key.val.as_symbol) + ")";
+  }
 }
 
 }
 
 /// @brief std::hash for JSObjectKey. Injected into std namespace.
 template <>
-struct std::hash<njs::JSObjectKey>
-{
+struct std::hash<njs::JSObjectKey> {
   std::size_t operator () (const njs::JSObjectKey& obj_key) const {
-    if (likely(obj_key.key.tag == njs::JSValue::JS_ATOM)) {
-      return obj_key.key.val.as_i64;
-    } else {
-      return njs::hash_val(njs::JSValue::SYMBOL, *(obj_key.key.val.as_symbol));
-    }
+    return obj_key.key.val.as_atom;
   }
 };
 

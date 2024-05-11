@@ -100,7 +100,8 @@ JSFunction* NjsVM::new_function(const JSFunctionMeta& meta) {
   if (meta.is_anonymous) {
     func = heap.new_object<JSFunction>(meta);
   } else {
-    func = heap.new_object<JSFunction>(atom_to_str(meta.name_index), meta);
+    u16string name(atom_to_str(meta.name_index));
+    func = heap.new_object<JSFunction>(std::move(name), meta);
   }
   func->set_prototype(function_prototype);
   return func;
@@ -224,7 +225,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
   auto exec_capture = [=, &sp, this] (int scope, int index) {
     auto var_scope = scope_type_from_int(scope);
     assert(sp[0].is(JSValue::FUNCTION));
-    JSFunction& func = *sp[0].val.as_function;
+    JSFunction& func = *sp[0].val.as_func;
 
     if (var_scope == ScopeType::CLOSURE) {
       assert(callee);
@@ -335,13 +336,13 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
       case OpType::push_str:
         sp += 1;
         sp[0].tag = JSValue::STRING;
-        sp[0].val.as_primitive_string =
-            heap.new_object<PrimitiveString>(atom_to_str(OPR1));
+        sp[0].val.as_prim_string =
+            heap.new_object<PrimitiveString>(u16string(atom_to_str(OPR1)));
         break;
       case OpType::push_atom:
         sp += 1;
         sp[0].tag = JSValue::JS_ATOM;
-        sp[0].val.as_i64 = OPR1;
+        sp[0].val.as_atom = OPR1;
         break;
       case OpType::push_bool:
         sp += 1;
@@ -565,7 +566,7 @@ void NjsVM::execute_task(JSTask& task) {
 void NjsVM::execute_single_task(JSTask& task) {
   CallFlags flags { .copy_args = true };
   auto comp = call_function(
-      task.task_func.val.as_function,
+      task.task_func.val.as_func,
       global_object,
       nullptr,
       task.args,
@@ -598,7 +599,7 @@ vector<StackTraceItem> NjsVM::capture_stack_trace() {
   vector<StackTraceItem> trace;
 
   for (size_t i = stack_frames.size() - 1; i > 0; i--) {
-    auto func = stack_frames[i]->function.val.as_function;
+    auto func = stack_frames[i]->function.val.as_func;
     trace.emplace_back(StackTraceItem {
         .func_name = func->meta.is_anonymous ? u"(anonymous)" : func->name,
         .source_line = func->meta.source_line,
@@ -627,7 +628,7 @@ void NjsVM::exec_add(SPRef sp) {
   }
   else if (sp[-1].is(JSValue::STRING) && sp[0].is(JSValue::STRING)) {
     auto *new_str = heap.new_object<PrimitiveString>(
-        sp[-1].val.as_primitive_string->str + sp[0].val.as_primitive_string->str
+        sp[-1].val.as_prim_string->str + sp[0].val.as_prim_string->str
     );
 
     sp[-1].set_undefined();
@@ -783,7 +784,7 @@ CallResult NjsVM::exec_call(SPRef sp, int arg_count, bool has_this_object, JSFun
   JSValue& func_val = sp[-arg_count];
   assert(func_val.tag == JSValue::FUNCTION);
   assert(func_val.val.as_object->obj_class == ObjectClass::CLS_FUNCTION);
-  JSFunction *func = func_val.val.as_function;
+  JSFunction *func = func_val.val.as_func;
 
   JSValue& this_obj = has_this_object ? sp[-arg_count - 1] : global_object;
   JSValue& actual_this = func->has_this_binding ? func->this_binding : this_obj;
@@ -816,7 +817,7 @@ void NjsVM::exec_js_new(SPRef sp, int arg_count) {
   JSValue& ctor = sp[-arg_count];
   assert(ctor.is(JSValue::FUNCTION));
   // prepare `this` object
-  JSValue proto = ctor.val.as_function->get_prop(StringPool::ATOM_prototype, false);
+  JSValue proto = ctor.val.as_func->get_prop(StringPool::ATOM_prototype, false);
   proto = proto.is_object() ? proto : object_prototype;
   auto *this_obj = heap.new_object<JSObject>(ObjectClass::CLS_OBJECT, proto);
 
@@ -827,7 +828,7 @@ void NjsVM::exec_js_new(SPRef sp, int arg_count) {
   sp += 1;
 
   // run the constructor
-  CallResult res = exec_call(sp, arg_count, true, ctor.val.as_function);
+  CallResult res = exec_call(sp, arg_count, true, ctor.val.as_func);
   if (res == CallResult::DONE_ERROR) {
     return;
   }
@@ -899,18 +900,17 @@ error:
   error_handle(sp);
 }
 
-bool NjsVM::key_access_on_primitive(SPRef sp, JSValue& obj, int64_t atom, int keep_obj) {
+bool NjsVM::key_access_on_primitive(SPRef sp, JSValue& obj, u32 atom, int keep_obj) {
 
   switch (obj.tag) {
     case JSValue::BOOLEAN:
-    case JSValue::NUM_INT64:
     case JSValue::NUM_FLOAT:
     case JSValue::SYMBOL:
       sp[keep_obj].set_undefined();
       break;
     case JSValue::STRING: {
       if (atom == StringPool::ATOM_length) {
-        auto len = obj.val.as_primitive_string->length();
+        auto len = obj.val.as_prim_string->length();
         sp[keep_obj].set_undefined();
         sp[keep_obj].set_val(double(len));
       }
@@ -918,7 +918,7 @@ bool NjsVM::key_access_on_primitive(SPRef sp, JSValue& obj, int64_t atom, int ke
         auto func_val = string_prototype.as_object()->get_prop(atom, false);
         assert(func_val.is(JSValue::FUNCTION));
         sp[keep_obj].set_undefined();
-        sp[keep_obj].set_val(func_val.val.as_function);
+        sp[keep_obj].set_val(func_val.val.as_func);
       }
       else {
         sp[keep_obj].set_undefined();
@@ -968,9 +968,9 @@ JSValue NjsVM::index_object(JSValue obj, JSValue index, bool get_ref) {
       res = obj.val.as_object->get_prop(atom, get_ref);
     }
     else if (index.is(JSValue::STRING) || index.is(JSValue::JS_ATOM)) {
-      auto& index_str = index.is(JSValue::STRING)
-                        ? index.val.as_primitive_string->str
-                        : atom_to_str(index.val.as_i64);
+      const u16string& index_str = index.is(JSValue::STRING)
+                                  ? index.val.as_prim_string->str
+                                  : u16string(atom_to_str(index.val.as_atom));
 
       int64_t idx_int = scan_index_literal(index_str);
       if (idx_int != -1) {
@@ -978,8 +978,8 @@ JSValue NjsVM::index_object(JSValue obj, JSValue index, bool get_ref) {
         res = obj.val.as_array->access_element(u32(idx_int), get_ref);
       } else {
         // object property
-        int64_t atom = index.is(JSValue::STRING) ? str_to_atom(index_str)
-                                                 : (u32)index.val.as_i64;
+        u32 atom = index.is(JSValue::STRING) ? str_to_atom(index_str)
+                                             : index.val.as_atom;
         res = obj.val.as_object->get_prop(atom, get_ref);
       }
     }
@@ -988,29 +988,29 @@ JSValue NjsVM::index_object(JSValue obj, JSValue index, bool get_ref) {
   else if (obj.is(JSValue::STRING)) {
     // The float value can be interpreted as string index
     if (index.is_float64() && index.is_integer() && index.is_non_negative()) {
-      u16string& str = obj.val.as_primitive_string->str;
+      u16string& str = obj.val.as_prim_string->str;
 
       if (index_int < str.size()) {
         auto new_str = heap.new_object<PrimitiveString>(u16string(1, str[index_int]));
         res.set_val(new_str);
       }
     }
-    else if (index.is(JSValue::JS_ATOM) && index.val.as_i64 == StringPool::ATOM_length) {
-      res.set_val(double(obj.val.as_primitive_string->length()));
+    else if (index.is(JSValue::JS_ATOM) && index.val.as_atom == StringPool::ATOM_length) {
+      res.set_val(double(obj.val.as_prim_string->length()));
     }
   }
   else if (obj.is(JSValue::OBJECT)) {
     if (index.is_float64()) {
       u16string num_str = to_u16string(std::to_string(index.val.as_f64));
-      int64_t atom = str_to_atom(num_str);
+      u32 atom = str_to_atom(num_str);
       res = obj.val.as_object->get_prop(atom, get_ref);
     }
     else if (index.is(JSValue::STRING)) {
-      int64_t atom = str_to_atom(index.val.as_primitive_string->str);
+      u32 atom = str_to_atom(index.val.as_prim_string->str);
       res = obj.val.as_object->get_prop(atom, get_ref);
     }
     else if (index.is(JSValue::JS_ATOM)) {
-      res = obj.val.as_object->get_prop(index.val.as_i64, get_ref);
+      res = obj.val.as_object->get_prop(index.val.as_atom, get_ref);
     }
   }
 
@@ -1069,7 +1069,7 @@ void NjsVM::exec_dynamic_get_var(SPRef sp, u32 name_atom) {
   JSValue val = global_object.as_object()->get_prop(name_atom, false);
 
   if (val.is_uninited()) {
-    auto& var_name = atom_to_str(name_atom);
+    u16string var_name(atom_to_str(name_atom));
     error_throw(sp, var_name + u" is undefined");
     error_handle(sp);
   } else {
@@ -1128,10 +1128,10 @@ void NjsVM::exec_comparison(SPRef sp, OpType type) {
   }
   else if (lhs.is(JSValue::STRING) && rhs.is(JSValue::STRING)) {
     switch (type) {
-      case OpType::lt: res = *lhs.val.as_primitive_string < *rhs.val.as_primitive_string; break;
-      case OpType::gt: res = *lhs.val.as_primitive_string > *rhs.val.as_primitive_string; break;
-      case OpType::le: res = *lhs.val.as_primitive_string <= *rhs.val.as_primitive_string; break;
-      case OpType::ge: res = *lhs.val.as_primitive_string >= *rhs.val.as_primitive_string; break;
+      case OpType::lt: res = *lhs.val.as_prim_string < *rhs.val.as_prim_string; break;
+      case OpType::gt: res = *lhs.val.as_prim_string > *rhs.val.as_prim_string; break;
+      case OpType::le: res = *lhs.val.as_prim_string <= *rhs.val.as_prim_string; break;
+      case OpType::ge: res = *lhs.val.as_prim_string >= *rhs.val.as_prim_string; break;
       default: assert(false);
     }
     lhs.set_undefined();
@@ -1152,7 +1152,7 @@ void NjsVM::error_throw(SPRef sp, const u16string& msg) {
 
 void NjsVM::error_handle(SPRef sp) {
   bool in_global = curr_frame->prev_frame == nullptr;
-  auto this_func = curr_frame->function.val.as_function;
+  auto this_func = curr_frame->function.val.as_func;
   auto frame = curr_frame;
   u32& pc = *frame->pc_ref;
 
@@ -1198,8 +1198,8 @@ void NjsVM::error_handle(SPRef sp) {
 void NjsVM::print_unhandled_error(JSValue err_val) {
   if (err_val.is_object() && err_val.as_object()->obj_class == ObjectClass::CLS_ERROR) {
     auto err_obj = err_val.as_object();
-    std::string err_msg = err_obj->get_prop(*this, u16string_view(u"message")).to_string(*this);
-    std::string stack = err_obj->get_prop(*this, u16string_view(u"stack")).to_string(*this);
+    std::string err_msg = err_obj->get_prop(*this, u"message").to_string(*this);
+    std::string stack = err_obj->get_prop(*this, u"stack").to_string(*this);
     printf("\033[31mUnhandled error: %s, at\n", err_msg.c_str());
     printf("%s\033[0m\n", stack.c_str());
   }

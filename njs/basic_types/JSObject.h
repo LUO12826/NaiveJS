@@ -128,21 +128,20 @@ class JSObject : public GCObject {
   Completion ordinary_to_primitive(NjsVM& vm, u16string_view hint);
 
   bool add_prop(const JSValue& key, const JSValue& value, PropDesc desc = PropDesc());
-  bool add_prop(int64_t key_atom, const JSValue& value, PropDesc desc = PropDesc());
+  bool add_prop(u32 key_atom, const JSValue& value, PropDesc desc = PropDesc());
   bool add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value, PropDesc desc = PropDesc());
   bool add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl);
 
   JSValue get_prop(NjsVM& vm, u16string_view name);
   JSValue get_prop(NjsVM& vm, u16string_view name, bool get_ref);
 
-  template <typename KEY>
-  JSValue get_prop(KEY&& key, bool get_ref) {
-    JSValue res = get_exist_prop(std::forward<KEY>(key), get_ref);
+  JSValue get_prop(JSValue key, bool get_ref) {
+    JSValue res = get_exist_prop(key, get_ref);
     if (res.tag != JSValue::UNINIT) {
       return res;
     }
     else if (get_ref) {
-      JSValue& new_val = storage[JSObjectKey(std::forward<KEY>(key))].data.value;
+      JSValue& new_val = storage[JSObjectKey(key)].data.value;
       return JSValue(&new_val);
     }
     else {
@@ -150,9 +149,12 @@ class JSObject : public GCObject {
     }
   }
 
+  JSValue get_prop(u32 atom, bool get_ref) {
+    return get_prop(JSValue::Atom(atom), get_ref);
+  }
+
   template <typename KEY>
   JSValue get_exist_prop(KEY&& key, bool get_ref) {
-
     auto res = storage.find(JSObjectKey(std::forward<KEY>(key)));
     if (res != storage.end()) {
       return get_ref ? JSValue(&(res->second.data.value)) : res->second.data.value;

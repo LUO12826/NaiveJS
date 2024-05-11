@@ -89,6 +89,10 @@ class String {
     return {ptr.get(), len};
   }
 
+  u16string to_std_string() const {
+    return {ptr.get(), len};
+  }
+
   char16_t operator[](size_t index) const {
     return ptr[index];
   }

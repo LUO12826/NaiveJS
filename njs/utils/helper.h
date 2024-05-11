@@ -61,7 +61,7 @@ inline string to_u8string(const u16string &str) {
   return convert.to_bytes(str);
 }
 
-inline string to_u8string(const u16string_view &u16view) {
+inline string to_u8string(const u16string_view u16view) {
   std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> converter;
   return converter.to_bytes(u16view.data(), u16view.data() + u16view.length());
 }
@@ -84,11 +84,11 @@ inline u16string str_cat(const std::vector<u16string>& vals) {
   return res;
 }
 
-inline u16string to_escaped_u16string(const u16string &str) {
+inline u16string to_escaped_u16string(u16string_view str_view) {
   u16string escaped;
   size_t escape_char_cnt = 0;
 
-  for (auto ch : str) {
+  for (auto ch : str_view) {
     switch (ch) {
       case '\"':
       case '\\':
@@ -108,12 +108,12 @@ inline u16string to_escaped_u16string(const u16string &str) {
     }
   }
 
-  if (escape_char_cnt == 0) return str;
+  if (escape_char_cnt == 0) return u16string(str_view);
 
-  escaped.resize(str.size() + escape_char_cnt);
+  escaped.resize(str_view.size() + escape_char_cnt);
 
   size_t output_ptr = 0;
-  for (auto ch : str) {
+  for (auto ch : str_view) {
     if (ch > 31 && ch != '\"' && ch != '\\') {
       escaped[output_ptr++] = ch;
     }

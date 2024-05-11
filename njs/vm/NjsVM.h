@@ -120,15 +120,11 @@ friend class NativeFunctions;
   JSValue new_primitive_string(const u16string& str);
   JSValue new_primitive_string(u16string&& str);
 
-  u32 sv_to_atom(u16string_view str_view) {
-    return str_pool.atomize_sv(str_view);
+  u32 str_to_atom(u16string_view str_view) {
+    return str_pool.atomize(str_view);
   }
 
-  u32 str_to_atom(const u16string& str) {
-    return str_pool.atomize(str);
-  }
-
-  u16string& atom_to_str(int64_t atom) {
+  u16string_view atom_to_str(u32 atom) {
     return str_pool.get_string(atom);
   }
 
@@ -168,7 +164,7 @@ friend class NativeFunctions;
 
   void exec_halt_err(SPRef sp, Instruction &inst);
 
-  bool key_access_on_primitive(SPRef sp, JSValue& obj, int64_t atom, int keep_obj);
+  bool key_access_on_primitive(SPRef sp, JSValue& obj, u32 atom, int keep_obj);
   JSValue index_object(JSValue obj, JSValue index, bool get_ref);
 
   void error_throw(SPRef sp, const u16string& msg);

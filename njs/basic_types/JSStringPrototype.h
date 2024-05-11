@@ -25,7 +25,7 @@ class JSStringPrototype : public JSObject {
     assert(args.size() > 0 && args[0].is(JSValue::NUM_FLOAT));
     assert(This.is(JSValue::STRING) || This.is(JSValue::STRING_OBJ));
 
-    u16string& str = This.is(JSValue::STRING) ? This.val.as_primitive_string->str
+    u16string& str = This.is(JSValue::STRING) ? This.val.as_prim_string->str
                                               : This.val.as_string->value.str;
 
     double index = args[0].val.as_f64;
