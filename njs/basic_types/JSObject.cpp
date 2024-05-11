@@ -11,7 +11,7 @@ namespace njs {
 Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
   JSValue exotic_to_prim = get_prop(StringPool::ATOM_toPrimitive, false);
   if (exotic_to_prim.is_function()) {
-    JSValue hint_arg(vm.heap.new_object<PrimitiveString>(u16string(preferred_type)));
+    JSValue hint_arg = vm.new_primitive_string(u16string(preferred_type));
     Completion to_prim_res = vm.call_function(exotic_to_prim.val.as_function, JSValue(this), nullptr, {hint_arg});
     if (to_prim_res.is_throw()) {
       return to_prim_res;

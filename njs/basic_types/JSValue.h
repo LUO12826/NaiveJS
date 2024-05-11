@@ -18,6 +18,7 @@ struct JSHeapValue;
 struct JSSymbol;
 
 using std::u16string;
+using u32 = uint32_t;
 
 extern const char *js_value_tag_names[23];
 

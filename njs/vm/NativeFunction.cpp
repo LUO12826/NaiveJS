@@ -120,11 +120,7 @@ Completion NativeFunctions::json_stringify(vm_func_This_args_flags) {
   assert(args.size() >= 1);
   u16string json_string;
   args[0].to_json(json_string, vm);
-  return JSValue(vm.heap.new_object<PrimitiveString>(std::move(json_string)));
-}
-
-Completion NativeFunctions::Symbol(vm_func_This_args_flags) {
-  return undefined;
+  return vm.new_primitive_string(std::move(json_string));
 }
 
 u16string NativeFunctions::build_trace_str(NjsVM& vm, bool remove_top) {
@@ -152,13 +148,15 @@ u16string NativeFunctions::build_trace_str(NjsVM& vm, bool remove_top) {
 }
 
 JSValue NativeFunctions::build_error_internal(NjsVM& vm, const u16string& msg) {
-  auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR);
-  auto prim_msg = vm.heap.new_object<PrimitiveString>(msg);
-  err_obj->add_prop(vm, u"message", JSValue(prim_msg));
+  return build_error_internal(vm, JS_ERROR, msg);
+}
+
+JSValue NativeFunctions::build_error_internal(NjsVM& vm, JSErrorType type, const u16string& msg) {
+  auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR, vm.native_error_protos[type]);
+  err_obj->add_prop(vm, u"message", vm.new_primitive_string(msg));
 
   u16string trace_str = build_trace_str(vm);
-  auto prim_stack = vm.heap.new_object<PrimitiveString>(std::move(trace_str));
-  err_obj->add_prop(vm, u"stack", JSValue(prim_stack));
+  err_obj->add_prop(vm, u"stack", vm.new_primitive_string(std::move(trace_str)));
 
   return JSValue(err_obj);
 }

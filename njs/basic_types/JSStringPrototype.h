@@ -30,10 +30,9 @@ class JSStringPrototype : public JSObject {
 
     double index = args[0].val.as_f64;
     if (index < 0 || index > str.size()) {
-      return JSValue(vm.heap.new_object<PrimitiveString>(u""));
+      return vm.new_primitive_string(u"");
     }
-    auto *prim_str = vm.heap.new_object<PrimitiveString>(u16string{str[(size_t)index]});
-    return JSValue(prim_str);
+    return vm.new_primitive_string(u16string{str[(size_t)index]});
   }
 
   static Completion valueOf(vm_func_This_args_flags) {
@@ -43,8 +42,7 @@ class JSStringPrototype : public JSObject {
     else if (This.is_object() && This.as_object()->obj_class == ObjectClass::CLS_STRING) {
       assert(dynamic_cast<JSString*>(This.as_object()) != nullptr);
       auto *str_obj = static_cast<JSString*>(This.as_object());
-      auto prim_string = vm.heap.new_object<PrimitiveString>(str_obj->value.str);
-      return JSValue(prim_string);
+      return vm.new_primitive_string(str_obj->value.str);
     }
     else {
       JSValue err = NativeFunctions::build_error_internal(vm, u"String.prototype.valueOf can only accept argument "

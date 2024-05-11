@@ -5,6 +5,7 @@
 #include "njs/vm/Completion.h"
 #include "njs/common/ArrayRef.h"
 #include "njs/common/common_def.h"
+#include "njs/basic_types/JSErrorPrototype.h"
 namespace njs {
 
 class NjsVM;
@@ -22,12 +23,13 @@ class NativeFunctions {
   static Completion json_stringify(JS_NATIVE_FUNC_PARAMS);
 
   static Completion Object_ctor(JS_NATIVE_FUNC_PARAMS);
-  static Completion Error_ctor(JS_NATIVE_FUNC_PARAMS);
+  static Completion error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type);
 
   static Completion Symbol(JS_NATIVE_FUNC_PARAMS);
 
   static u16string build_trace_str(NjsVM& vm, bool remove_top = false);
   static JSValue build_error_internal(NjsVM& vm, const u16string& msg);
+  static JSValue build_error_internal(NjsVM& vm, JSErrorType type, const u16string& msg);
 
 };
 

@@ -24,6 +24,7 @@ set(SOURCES
     njs/basic_types/JSObjectPrototype.cpp
     njs/basic_types/JSArrayPrototype.cpp
     njs/basic_types/JSFunctionPrototype.cpp
+    njs/basic_types/JSErrorPrototype.cpp
 )
 
 # executable is named `njs`

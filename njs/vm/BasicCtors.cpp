@@ -37,19 +37,34 @@ Completion NativeFunctions::Object_ctor(vm_func_This_args_flags) {
   return JSValue(obj);
 }
 
-Completion NativeFunctions::Error_ctor(vm_func_This_args_flags) {
-  auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR);
+Completion NativeFunctions::error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type) {
+  auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR, vm.native_error_protos[type]);
   if (args.size() > 0 && args[0].is_string_type()) {
     // only supports primitive string now.
     assert(args[0].is(JSValue::STRING));
-    err_obj->add_prop(vm, u"message", JSValue(args[0].val.as_primitive_string));
+    err_obj->add_prop(vm, u"message", args[0]);
   }
 
-  u16string trace_str = NativeFunctions::build_trace_str(vm);
-  auto prim_trace = vm.heap.new_object<PrimitiveString>(std::move(trace_str));
-  err_obj->add_prop(vm, u"stack", JSValue(prim_trace));
+  u16string trace_str = NativeFunctions::build_trace_str(vm, true);
+  err_obj->add_prop(vm, u"stack", vm.new_primitive_string(std::move(trace_str)));
 
   return JSValue(err_obj);
+}
+
+Completion NativeFunctions::Symbol(vm_func_This_args_flags) {
+  if (flags.this_is_new_target && !This.is_undefined()) {
+    JSValue err = NativeFunctions::build_error_internal(vm, JS_TYPE_ERROR, u"Symbol() is not a constructor.");
+    return Completion::with_throw(err);
+  }
+
+  JSValue desc_string;
+  if (args.size() > 0 && not args[0].is_undefined()) {
+    assert(args[0].tag == JSValue::STRING);
+    // TODO: do a `ToString` here.
+    desc_string = args[0];
+  }
+
+  return JSValue(vm.heap.new_object<JSSymbol>(desc_string));
 }
 
 }

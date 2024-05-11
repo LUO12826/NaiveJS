@@ -1,9 +1,10 @@
 #ifndef NJS_JS_SYMBOL_H
 #define NJS_JS_SYMBOL_H
 
+#include <string>
+#include "njs/basic_types/JSValue.h"
 #include "njs/gc/GCObject.h"
 #include "njs/utils/helper.h"
-#include <string>
 
 namespace njs {
 
@@ -13,13 +14,13 @@ struct JSSymbol: public GCObject {
   inline static size_t global_count {0};
 
   JSSymbol() = default;
-  explicit JSSymbol(std::u16string name): name(std::move(name)) {
+  explicit JSSymbol(JSValue desc): desc(desc) {
     seq = JSSymbol::global_count;
     JSSymbol::global_count += 1;
   }
 
   bool operator == (const JSSymbol& other) const {
-    return name == other.name && seq == other.seq;
+    return seq == other.seq;
   }
 
   void gc_scan_children(njs::GCHeap &heap) override {}
@@ -29,10 +30,11 @@ struct JSSymbol: public GCObject {
   }
 
   std::string to_string() {
-    return "JSSymbol(" + to_u8string(name) + ")";
+    if (desc.is_undefined()) return "JSSymbol";
+    else return "JSSymbol(" + to_u8string(desc.val.as_primitive_string->str) + ")";
   }
 
-  std::u16string name;
+  JSValue desc;
   size_t seq;
 };
 
@@ -43,7 +45,7 @@ template <>
 struct std::hash<njs::JSSymbol>
 {
   std::size_t operator () (const njs::JSSymbol& symbol) const {
-    return njs::hash_val(symbol.name, symbol.seq);
+    return njs::hash_val(symbol.seq);
   }
 };
 

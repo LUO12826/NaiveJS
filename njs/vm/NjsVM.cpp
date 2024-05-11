@@ -16,6 +16,7 @@
 #include "njs/basic_types/JSObjectPrototype.h"
 #include "njs/basic_types/JSArrayPrototype.h"
 #include "njs/basic_types/JSFunctionPrototype.h"
+#include "njs/basic_types/JSErrorPrototype.h"
 
 
 namespace njs {
@@ -76,10 +77,22 @@ void NjsVM::init_prototypes() {
 
   function_prototype.set_val(heap.new_object<JSFunctionPrototype>(*this));
   function_prototype.as_object()->set_prototype(object_prototype);
+
+  native_error_protos.reserve(JSErrorType::JS_NATIVE_ERROR_COUNT);
+  for (int i = 0; i < JSErrorType::JS_NATIVE_ERROR_COUNT; i++) {
+    JSObject *proto = heap.new_object<JSErrorPrototype>(*this, (JSErrorType)i);
+    proto->set_prototype(object_prototype);
+    native_error_protos.emplace_back(proto);
+  }
+  error_prototype = native_error_protos[0];
 }
 
 JSObject* NjsVM::new_object(ObjectClass cls) {
   return heap.new_object<JSObject>(cls, object_prototype);
+}
+
+JSObject* NjsVM::new_object(ObjectClass cls, JSValue proto) {
+  return heap.new_object<JSObject>(cls, proto);
 }
 
 JSFunction* NjsVM::new_function(const JSFunctionMeta& meta) {
@@ -91,6 +104,14 @@ JSFunction* NjsVM::new_function(const JSFunctionMeta& meta) {
   }
   func->set_prototype(function_prototype);
   return func;
+}
+
+JSValue NjsVM::new_primitive_string(const u16string& str) {
+  return JSValue(heap.new_object<PrimitiveString>(str));
+}
+
+JSValue NjsVM::new_primitive_string(u16string&& str) {
+  return JSValue(heap.new_object<PrimitiveString>(std::move(str)));
 }
 
 void NjsVM::run() {
@@ -125,43 +146,60 @@ void NjsVM::execute_global() {
 
 Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
                                 JSFunction *new_target, ArrayRef<JSValue> argv, CallFlags flags) {
-  size_t args_buf_cnt = unlikely(flags.copy_args) ?
-                        std::max(argv.size(), (size_t)callee->meta.param_count) : 0;
-  size_t alloc_cnt = args_buf_cnt + frame_meta_size +
-                     callee->meta.local_var_count + callee->meta.stack_size;
-
-  JSValue *buffer = (JSValue *)alloca(sizeof(JSValue) * alloc_cnt);
-  JSValue *args_buf = unlikely(flags.copy_args) ? buffer : argv.data();
-  JSValue *local_vars = buffer + args_buf_cnt;
-  JSValue *stack = local_vars + callee->meta.local_var_count + frame_meta_size;
-
-  JSValue *sp = stack - 1;
-  u32 pc = callee->meta.code_address;
-
-  JSStackFrame frame {
-      .prev_frame = curr_frame,
-      .function = JSValue(callee),
-      .alloc_cnt = alloc_cnt,
-      .buffer = buffer,
-      .args_buf = args_buf,
-      .local_vars = local_vars,
-      .stack = stack,
-      .pc_ref = &pc,
-  };
+  // setup call stack
+  JSStackFrame frame;
+  frame.prev_frame = curr_frame;
+  frame.function = JSValue(callee);
 
   stack_frames.push_back(&frame);
   curr_frame = &frame;
 
-  if (unlikely(flags.copy_args)) {
+  bool copy_argv = (argv.size() < callee->meta.param_count) | flags.copy_args;
+  size_t actual_arg_cnt = std::max(argv.size(), (size_t)callee->meta.param_count);
+  size_t args_buf_cnt = unlikely(copy_argv) ? actual_arg_cnt : 0;
+  size_t alloc_cnt = args_buf_cnt + frame_meta_size +
+                     callee->meta.local_var_count + callee->meta.stack_size;
+
+  JSValue *buffer = (JSValue *)alloca(sizeof(JSValue) * alloc_cnt);
+  JSValue *args_buf = unlikely(copy_argv) ? buffer : argv.data();
+
+  if (unlikely(copy_argv)) {
     memcpy(args_buf, argv.data(), sizeof(JSValue) * argv.size());
     for (JSValue *val = args_buf + argv.size(); val < args_buf + args_buf_cnt; val++) {
       val->set_undefined();
     }
   }
 
+  if (callee->meta.is_native) {
+    Completion comp;
+    ArrayRef<JSValue> args_ref(args_buf, actual_arg_cnt);
+    if (unlikely(new_target != nullptr)) {
+      flags.this_is_new_target = true;
+      comp = callee->native_func(*this, *callee, JSValue(new_target), args_ref, flags);
+    } else {
+      comp = callee->native_func(*this, *callee, This, args_ref, flags);
+    }
+    curr_frame = curr_frame->prev_frame;
+    stack_frames.pop_back();
+    return comp;
+  }
+
+  JSValue *local_vars = buffer + args_buf_cnt;
+  JSValue *stack = local_vars + callee->meta.local_var_count + frame_meta_size;
+  // Initialize local variables and operation stack to undefined
   for (JSValue *val = local_vars; val < buffer + alloc_cnt; val++) {
     val->set_undefined();
   }
+
+  JSValue *sp = stack - 1;
+  u32 pc = callee->meta.code_address;
+
+  frame.alloc_cnt = alloc_cnt;
+  frame.buffer = buffer;
+  frame.args_buf = args_buf;
+  frame.local_vars = local_vars;
+  frame.stack = stack;
+  frame.pc_ref = &pc;
 
   auto get_value = [=, this] (ScopeType scope, int index) -> JSValue& {
     if (scope == ScopeType::FUNC) {
@@ -548,23 +586,10 @@ void NjsVM::execute_pending_task() {
 
 Completion NjsVM::call_function(JSFunction *func, JSValue This, JSFunction *new_target,
                                 const vector<JSValue>& args, CallFlags flags) {
-  JSValue this_val = This.is_undefined() ? This : global_object;
+  JSValue& this_obj = This.is_undefined() ? global_object : This;
+  JSValue& actual_this = func->has_this_binding ? func->this_binding : this_obj;
   ArrayRef<JSValue> args_ref(const_cast<JSValue*>(args.data()), args.size());
-  if (func->meta.is_native) {
-    vector<JSValue> args_copy;
-    if (unlikely(flags.copy_args)) {
-      args_copy = args;
-    }
-    args_ref = ArrayRef<JSValue>(args_copy.data(), args_copy.size());
-    if (unlikely(new_target != nullptr)) {
-      flags.this_is_new_target = true;
-      return func->meta.native_func(*this, *func, JSValue(new_target), args_ref, flags);
-    } else {
-      return func->meta.native_func(*this, *func, this_val, args_ref, flags);
-    }
-  } else {
-    return call_internal(func, this_val, new_target, args_ref, flags);
-  }
+  return call_internal(func, actual_this, new_target, args_ref, flags);
 }
 
 using StackTraceItem = NjsVM::StackTraceItem;
@@ -761,41 +786,16 @@ CallResult NjsVM::exec_call(SPRef sp, int arg_count, bool has_this_object, JSFun
   JSFunction *func = func_val.val.as_function;
 
   JSValue& this_obj = has_this_object ? sp[-arg_count - 1] : global_object;
+  JSValue& actual_this = func->has_this_binding ? func->this_binding : this_obj;
   JSValue *argv = &func_val + 1;
-  JSValue *args_buf_start = argv;
-
-  CallFlags flags;
-  vector<JSValue> args_buf;
-
-  u32 def_param_cnt = func->meta.param_count;
-  u32 actual_arg_cnt = std::max(def_param_cnt, (u32)arg_count);
-  // If the actually passed arguments are fewer than the formal parameters,
-  // fill the vacancy with `undefined`.
-  if (unlikely(def_param_cnt > arg_count)) {
-    args_buf.resize(def_param_cnt);
-    for (int i = 0; i < arg_count; i++) {
-      args_buf[i] = argv[i];
-    }
-    args_buf_start = args_buf.data();
-  }
-
-  ArrayRef<JSValue> args_ref(args_buf_start, actual_arg_cnt);
-  Completion comp;
-
-  if (likely(not func->meta.is_native)) {
-    JSValue& actual_this = func->has_this_binding ? func->this_binding : this_obj;
-    comp = call_internal(func, actual_this, new_target, args_ref, flags);
-  } else {
-    if (unlikely(new_target != nullptr)) {
-      flags.this_is_new_target = true;
-      comp = func->native_func(*this, *func, JSValue(new_target), args_ref, flags);
-    } else {
-      comp = func->native_func(*this, *func, this_obj, args_ref, flags);
-    }
-  }
+  ArrayRef<JSValue> args_ref(argv, arg_count);
+  // call the function
+  Completion comp = call_internal(func, actual_this, new_target, args_ref, CallFlags());
+  // clear the arguments
   for (JSValue *val = argv; val < argv + arg_count; val++) {
     val->set_undefined();
   }
+  // put the return value to the correct place
   if (has_this_object) {
     this_obj = comp.get_value();
     func_val.set_undefined();

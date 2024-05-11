@@ -7,18 +7,18 @@
 #include <vector>
 #include <functional>
 
-#include "njs/common/enums.h"
-#include "njs/common/common_def.h"
-#include "NativeFunction.h"
-#include "Instructions.h"
-#include "njs/basic_types/JSFunction.h"
-#include "njs/basic_types/JSValue.h"
-#include "njs/gc/GCHeap.h"
-#include "njs/include/SmallVector.h"
-#include "njs/common/StringPool.h"
 #include "JSRunLoop.h"
 #include "Runtime.h"
-#include "ErrorOr.h"
+#include "NativeFunction.h"
+#include "Instructions.h"
+#include "njs/gc/GCHeap.h"
+#include "njs/common/enums.h"
+#include "njs/common/common_def.h"
+#include "njs/common/StringPool.h"
+#include "njs/basic_types/JSFunction.h"
+#include "njs/basic_types/JSErrorPrototype.h"
+#include "njs/basic_types/JSValue.h"
+#include "njs/include/SmallVector.h"
 
 namespace njs {
 
@@ -32,16 +32,16 @@ class CodegenVisitor;
 struct JSTask;
 
 struct JSStackFrame {
-  JSStackFrame *prev_frame {nullptr};
+  JSStackFrame *prev_frame;
   JSValue function;
   size_t alloc_cnt {0};
-  JSValue *buffer {nullptr};
-  JSValue *args_buf {nullptr};
-  JSValue *local_vars {nullptr};
-  JSValue *stack {nullptr};
-  JSValue *sp {nullptr};
+  JSValue *buffer;
+  JSValue *args_buf;
+  JSValue *local_vars;
+  JSValue *stack;
+  JSValue *sp;
   u32 pc {0};
-  u32 *pc_ref {nullptr};
+  u32 *pc_ref;
 
   JSStackFrame *move_to_heap() {
     JSStackFrame& frame = *new JSStackFrame(*this);
@@ -71,6 +71,7 @@ friend class JSObjectPrototype;
 friend class JSArrayPrototype;
 friend class JSFunctionPrototype;
 friend class JSStringPrototype;
+friend class JSErrorPrototype;
 friend class NativeFunctions;
 
  public:
@@ -90,13 +91,34 @@ friend class NativeFunctions;
                             const std::function<void(JSFunction&)>& builder);
   void add_builtin_object(const u16string& name,
                           const std::function<JSObject*()>& builder);
+
+  template<JSErrorType type>
+  void add_error_ctor() {
+    add_native_func_impl(
+        // name
+        native_error_name[type],
+        // function
+        [] (vm_func_This_args_flags) {
+          return NativeFunctions::error_ctor_internal(vm, args, type);
+        },
+        // builder
+        [this] (JSFunction& func) {
+          native_error_protos[type].as_object()->add_prop(StringPool::ATOM_constructor, JSValue(&func));
+          func.add_prop(StringPool::ATOM_prototype, error_prototype);
+        }
+    );
+  }
+
   void setup();
   void run();
 
   vector<StackTraceItem> capture_stack_trace();
 
   JSObject* new_object(ObjectClass cls = ObjectClass::CLS_OBJECT);
+  JSObject* new_object(ObjectClass cls, JSValue proto);
   JSFunction* new_function(const JSFunctionMeta& meta);
+  JSValue new_primitive_string(const u16string& str);
+  JSValue new_primitive_string(u16string&& str);
 
   u32 sv_to_atom(u16string_view str_view) {
     return str_pool.atomize_sv(str_view);
@@ -115,10 +137,9 @@ friend class NativeFunctions;
   void execute_task(JSTask& task);
   void execute_single_task(JSTask& task);
   void execute_pending_task();
-  // native call js or native function
+
   Completion call_function(JSFunction *func, JSValue This, JSFunction *new_target,
                            const vector<JSValue>& args, CallFlags flags = CallFlags());
-  // js call js function
   Completion call_internal(JSFunction *callee, JSValue This, JSFunction *new_target,
                            ArrayRef<JSValue> argv, CallFlags flags);
   // function operation
@@ -191,6 +212,8 @@ friend class NativeFunctions;
   JSValue boolean_prototype;
   JSValue string_prototype;
   JSValue function_prototype;
+  JSValue error_prototype;
+  vector<JSValue> native_error_protos;
 };
 
 } // namespace njs

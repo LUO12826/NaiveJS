@@ -41,6 +41,7 @@ enum class ObjectClass {
   CLS_BOOLEAN_PROTO,
   CLS_STRING_PROTO,
   CLS_FUNCTION_PROTO,
+  CLS_ERROR_PROTO,
 };
 
 struct PropDesc {

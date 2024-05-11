@@ -1,4 +1,6 @@
 #include "NjsVM.h"
+#include "njs/common/common_def.h"
+#include "njs/basic_types/JSErrorPrototype.h"
 
 namespace njs {
 
@@ -11,17 +13,25 @@ void NjsVM::setup() {
   add_native_func_impl(u"clearInterval", NativeFunctions::clear_interval, [] (auto& f) {});
   add_native_func_impl(u"fetch", NativeFunctions::fetch, [] (auto& f) {});
 
-  add_native_func_impl(u"Object", NativeFunctions::Object_ctor, [this] (JSFunction& func) {
+  add_error_ctor<JS_ERROR>();
+  add_error_ctor<JS_EVAL_ERROR>();
+  add_error_ctor<JS_RANGE_ERROR>();
+  add_error_ctor<JS_REFERENCE_ERROR>();
+  add_error_ctor<JS_SYNTAX_ERROR>();
+  add_error_ctor<JS_TYPE_ERROR>();
+  add_error_ctor<JS_URI_ERROR>();
+  add_error_ctor<JS_INTERNAL_ERROR>();
+  add_error_ctor<JS_AGGREGATE_ERROR>();
+
+  add_native_func_impl(u"Object", NativeFunctions::Object_ctor, [this] (auto& func) {
     object_prototype.as_object()->add_prop(StringPool::ATOM_constructor, JSValue(&func));
     func.add_prop(StringPool::ATOM_prototype, object_prototype);
   });
 
   add_native_func_impl(u"Symbol", NativeFunctions::Symbol, [this] (JSFunction& func) {
-    JSValue sym_iterator(heap.new_object<JSSymbol>(u"iterator"));
+    JSValue sym_iterator(heap.new_object<JSSymbol>(new_primitive_string(u"iterator")));
     func.add_prop(StringPool::ATOM_iterator, sym_iterator);
   });
-
-  add_native_func_impl(u"Error", NativeFunctions::Error_ctor, [] (auto& f) {});
 
   add_builtin_object(u"console", [this] () {
     JSObject *obj = new_object();

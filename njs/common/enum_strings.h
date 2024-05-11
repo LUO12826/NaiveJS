@@ -193,7 +193,7 @@ inline const char *js_value_tag_names[23] = {
     "JSVALUE_TAG_CNT",
 };
 
-inline const char *object_class_names[15] = {
+inline const char *object_class_names[16] = {
     "CLS_OBJECT",
     "CLS_ARRAY",
     "CLS_STRING",
@@ -210,6 +210,7 @@ inline const char *object_class_names[15] = {
     "CLS_BOOLEAN_PROTO",
     "CLS_STRING_PROTO",
     "CLS_FUNCTION_PROTO",
+    "CLS_ERROR_PROTO",
 };
 
 

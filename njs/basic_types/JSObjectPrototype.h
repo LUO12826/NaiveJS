@@ -28,12 +28,12 @@ class JSObjectPrototype : public JSObject {
   }
 
   static Completion toString(vm_func_This_args_flags) {
-    return JSValue(vm.heap.new_object<PrimitiveString>(u"[object Object]"));
+    return vm.new_primitive_string(u"[object Object]");
   }
 
   static Completion toLocaleString(vm_func_This_args_flags) {
     // TODO
-    return JSValue(vm.heap.new_object<PrimitiveString>(u"[object Object]"));
+    return vm.new_primitive_string(u"[object Object]");
   }
 
   static Completion hasOwnProperty(vm_func_This_args_flags) {
