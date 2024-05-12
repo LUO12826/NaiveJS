@@ -15,7 +15,7 @@ class NjsVM;
 
 class JSArrayPrototype : public JSObject {
  public:
-  JSArrayPrototype(NjsVM& vm) : JSObject(ObjectClass::CLS_ARRAY_PROTO) {
+  JSArrayPrototype(NjsVM& vm) : JSObject(ObjClass::CLS_ARRAY_PROTO) {
     add_method(vm, u"at", JSArrayPrototype::at);
     add_method(vm, u"push", JSArrayPrototype::push);
     add_method(vm, u"sort", JSArrayPrototype::sort);

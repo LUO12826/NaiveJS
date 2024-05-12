@@ -14,11 +14,11 @@ class JSArray: public JSObject {
  public:
   JSArray(): JSArray(0) {}
 
-  explicit JSArray(int length): JSObject(ObjectClass::CLS_ARRAY) {
+  explicit JSArray(int length): JSObject(ObjClass::CLS_ARRAY) {
     add_prop(AtomPool::ATOM_length, JSValue((double)length));
   }
 
-  JSArray(NjsVM& vm, int length): JSObject(ObjectClass::CLS_ARRAY, vm.array_prototype) {
+  JSArray(NjsVM& vm, int length): JSObject(ObjClass::CLS_ARRAY, vm.array_prototype) {
     add_prop(AtomPool::ATOM_length, JSValue((double)length));
   }
 
@@ -28,7 +28,7 @@ class JSArray: public JSObject {
     return u"Array";
   }
   std::string description() override;
-  std::string to_string(NjsVM& vm) override;
+  std::string to_string(NjsVM& vm) const override;
   void to_json(u16string& output, NjsVM& vm) const override;
 
   JSValue access_element(u32 index, bool create_ref) {

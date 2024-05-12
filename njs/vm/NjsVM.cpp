@@ -88,11 +88,11 @@ void NjsVM::init_prototypes() {
   error_prototype = native_error_protos[0];
 }
 
-JSObject* NjsVM::new_object(ObjectClass cls) {
+JSObject* NjsVM::new_object(ObjClass cls) {
   return heap.new_object<JSObject>(cls, object_prototype);
 }
 
-JSObject* NjsVM::new_object(ObjectClass cls, JSValue proto) {
+JSObject* NjsVM::new_object(ObjClass cls, JSValue proto) {
   return heap.new_object<JSObject>(cls, proto);
 }
 
@@ -647,7 +647,7 @@ JSValue NjsVM::build_error_internal(const u16string& msg) {
 }
 
 JSValue NjsVM::build_error_internal(JSErrorType type, const u16string& msg) {
-  auto *err_obj = new_object(ObjectClass::CLS_ERROR, native_error_protos[type]);
+  auto *err_obj = new_object(ObjClass::CLS_ERROR, native_error_protos[type]);
   err_obj->add_prop(*this, u"message", new_primitive_string(msg));
 
   u16string trace_str = build_trace_str();
@@ -805,7 +805,7 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
   }
 
   if (not meta.is_arrow_func) {
-    JSObject *new_prototype = new_object(ObjectClass::CLS_OBJECT);
+    JSObject *new_prototype = new_object(ObjClass::CLS_OBJECT);
     new_prototype->add_prop(AtomPool::ATOM_constructor, JSValue(func), PropDesc::C | PropDesc::W);
     func->add_prop(AtomPool::ATOM_prototype, JSValue(new_prototype), PropDesc::C | PropDesc::W);
   }
@@ -820,7 +820,7 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
 CallResult NjsVM::exec_call(SPRef sp, int arg_count, bool has_this_object, JSFunction *new_target) {
   JSValue& func_val = sp[-arg_count];
   assert(func_val.tag == JSValue::FUNCTION);
-  assert(func_val.val.as_object->obj_class == ObjectClass::CLS_FUNCTION);
+  assert(func_val.val.as_object->get_class() == ObjClass::CLS_FUNCTION);
   JSFunction *func = func_val.val.as_func;
 
   JSValue& this_obj = has_this_object ? sp[-arg_count - 1] : global_object;
@@ -856,7 +856,7 @@ void NjsVM::exec_js_new(SPRef sp, int arg_count) {
   // prepare `this` object
   JSValue proto = ctor.val.as_func->get_prop(AtomPool::ATOM_prototype, false);
   proto = proto.is_object() ? proto : object_prototype;
-  auto *this_obj = heap.new_object<JSObject>(ObjectClass::CLS_OBJECT, proto);
+  auto *this_obj = heap.new_object<JSObject>(ObjClass::CLS_OBJECT, proto);
 
   for (int i = 1; i > -arg_count; i--) {
     sp[i] = sp[i - 1];
@@ -1232,7 +1232,7 @@ void NjsVM::error_handle(SPRef sp) {
 }
 
 void NjsVM::print_unhandled_error(JSValue err_val) {
-  if (err_val.is_object() && err_val.as_object()->obj_class == ObjectClass::CLS_ERROR) {
+  if (err_val.is_object() && err_val.as_object()->get_class() == ObjClass::CLS_ERROR) {
     auto err_obj = err_val.as_object();
     std::string err_msg = err_obj->get_prop(*this, u"message").to_string(*this);
     std::string stack = err_obj->get_prop(*this, u"stack").to_string(*this);

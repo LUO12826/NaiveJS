@@ -11,7 +11,7 @@ namespace njs {
 
 class JSBooleanPrototype : public JSObject {
  public:
-  explicit JSBooleanPrototype(NjsVM &vm) : JSObject(ObjectClass::CLS_NUMBER_PROTO) {
+  explicit JSBooleanPrototype(NjsVM &vm) : JSObject(ObjClass::CLS_NUMBER_PROTO) {
     add_method(vm, u"valueOf", JSBooleanPrototype::valueOf);
   }
 
@@ -23,7 +23,7 @@ class JSBooleanPrototype : public JSObject {
     if (This.is(JSValue::BOOLEAN)) {
       return This;
     }
-    else if (This.is_object() && This.as_object()->obj_class == ObjectClass::CLS_BOOLEAN) {
+    else if (This.is_object() && This.as_object()->get_class() == ObjClass::CLS_BOOLEAN) {
       assert(dynamic_cast<JSBoolean*>(This.as_object()) != nullptr);
       auto *bool_obj = static_cast<JSBoolean*>(This.as_object());
       return JSValue(bool_obj->value);

@@ -131,7 +131,7 @@ std::string JSObject::description() {
   return stream.str();
 }
 
-std::string JSObject::to_string(NjsVM& vm) {
+std::string JSObject::to_string(NjsVM& vm) const {
   std::string output = "{ ";
 
   for (auto& [key, prop] : storage) {

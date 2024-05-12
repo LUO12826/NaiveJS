@@ -10,7 +10,7 @@ namespace njs {
 
 class JSNumberPrototype : public JSObject {
  public:
-  explicit JSNumberPrototype(NjsVM &vm) : JSObject(ObjectClass::CLS_NUMBER_PROTO) {
+  explicit JSNumberPrototype(NjsVM &vm) : JSObject(ObjClass::CLS_NUMBER_PROTO) {
     add_method(vm, u"valueOf", JSNumberPrototype::valueOf);
   }
 
@@ -22,7 +22,7 @@ class JSNumberPrototype : public JSObject {
     if (This.is(JSValue::NUM_FLOAT)) {
       return This;
     }
-    else if (This.is_object() && This.as_object()->obj_class == ObjectClass::CLS_NUMBER) {
+    else if (This.is_object() && This.as_object()->get_class() == ObjClass::CLS_NUMBER) {
       assert(dynamic_cast<JSNumber*>(This.as_object()) != nullptr);
       auto *num_obj = static_cast<JSNumber*>(This.as_object());
       return JSValue(num_obj->value);

@@ -3,7 +3,6 @@
 
 #include <cstdint>
 #include <string>
-#include <unordered_map>
 #include <utility>
 
 #include "JSObjectKey.h"
@@ -24,7 +23,7 @@ using robin_hood::unordered_flat_map;
 class GCHeap;
 
 // has corresponding string representation, note to modify when adding
-enum class ObjectClass {
+enum class ObjClass {
   CLS_OBJECT = 0,
   CLS_ARRAY,
   CLS_STRING,
@@ -101,19 +100,18 @@ class JSObject : public GCObject {
 
   };
 
-  JSObject(): obj_class(ObjectClass::CLS_OBJECT) {}
-  explicit JSObject(ObjectClass cls): obj_class(cls) {}
-  explicit JSObject(ObjectClass cls, JSValue proto): obj_class(cls), _proto_(proto) {}
+  JSObject(): obj_class(ObjClass::CLS_OBJECT) {}
+  explicit JSObject(ObjClass cls): obj_class(cls) {}
+  explicit JSObject(ObjClass cls, JSValue proto): obj_class(cls), _proto_(proto) {}
 
   void gc_scan_children(GCHeap& heap) override;
-
-  virtual u16string_view get_class_name() {
-    return u"Object";
-  }
-
   std::string description() override;
-  virtual std::string to_string(NjsVM& vm);
+  virtual std::string to_string(NjsVM& vm) const;
   virtual void to_json(u16string& output, NjsVM& vm) const;
+
+  virtual u16string_view get_class_name() { return u"Object"; }
+  ObjClass get_class() { return obj_class; }
+
 
   void set_prototype(JSValue proto) {
     _proto_ = proto;
@@ -134,6 +132,10 @@ class JSObject : public GCObject {
 
   JSValue get_prop(NjsVM& vm, u16string_view name);
   JSValue get_prop(NjsVM& vm, u16string_view name, bool get_ref);
+  
+  JSValue get_prop(u32 atom, bool get_ref) {
+    return get_prop(JSValue::Atom(atom), get_ref);
+  }
 
   JSValue get_prop(JSValue key, bool get_ref) {
     JSValue res = get_exist_prop(key, get_ref);
@@ -147,10 +149,6 @@ class JSObject : public GCObject {
     else {
       return JSValue::uninited;
     }
-  }
-
-  JSValue get_prop(u32 atom, bool get_ref) {
-    return get_prop(JSValue::Atom(atom), get_ref);
   }
 
   template <typename KEY>
@@ -173,7 +171,8 @@ class JSObject : public GCObject {
     return res != storage.end();
   }
 
-  ObjectClass obj_class;
+ private:
+  ObjClass obj_class;
   unordered_flat_map<JSObjectKey, JSObjectProp> storage;
   JSValue _proto_;
 };

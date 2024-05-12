@@ -12,7 +12,7 @@ namespace njs {
 
 class JSStringPrototype : public JSObject {
  public:
-  explicit JSStringPrototype(NjsVM &vm) : JSObject(ObjectClass::CLS_STRING_PROTO) {
+  explicit JSStringPrototype(NjsVM &vm) : JSObject(ObjClass::CLS_STRING_PROTO) {
     add_method(vm, u"charAt", JSStringPrototype::char_at);
     add_method(vm, u"valueOf", JSStringPrototype::valueOf);
   }
@@ -39,7 +39,7 @@ class JSStringPrototype : public JSObject {
     if (This.is(JSValue::STRING)) {
       return This;
     }
-    else if (This.is_object() && This.as_object()->obj_class == ObjectClass::CLS_STRING) {
+    else if (This.is_object() && This.as_object()->get_class() == ObjClass::CLS_STRING) {
       assert(dynamic_cast<JSString*>(This.as_object()) != nullptr);
       auto *str_obj = static_cast<JSString*>(This.as_object());
       return vm.new_primitive_string(str_obj->value.str);

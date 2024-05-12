@@ -6,13 +6,13 @@
 
 namespace njs {
 
-JSFunction::JSFunction() : JSObject(ObjectClass::CLS_FUNCTION) {}
+JSFunction::JSFunction() : JSObject(ObjClass::CLS_FUNCTION) {}
 
 JSFunction::JSFunction(u16string name, const JSFunctionMeta& meta) : JSFunction(meta) {
   this->name = std::move(name);
 }
 
-JSFunction::JSFunction(const JSFunctionMeta& meta): JSObject(ObjectClass::CLS_FUNCTION) {
+JSFunction::JSFunction(const JSFunctionMeta& meta): JSObject(ObjClass::CLS_FUNCTION) {
   this->meta = meta;
   native_func = meta.native_func;
 }

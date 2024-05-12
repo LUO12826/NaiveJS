@@ -29,7 +29,7 @@ std::string JSArray::description() {
   return desc;
 }
 
-std::string JSArray::to_string(NjsVM& vm) {
+std::string JSArray::to_string(NjsVM& vm) const {
   std::string output = "[ ";
 
   for (auto& val : dense_array) {

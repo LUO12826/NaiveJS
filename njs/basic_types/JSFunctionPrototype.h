@@ -7,7 +7,7 @@ namespace njs {
 
 class JSFunctionPrototype : public JSObject {
  public:
-  JSFunctionPrototype(NjsVM& vm) : JSObject(ObjectClass::CLS_FUNCTION_PROTO) {}
+  JSFunctionPrototype(NjsVM& vm) : JSObject(ObjClass::CLS_FUNCTION_PROTO) {}
 
   u16string_view get_class_name() override {
     return u"FunctionPrototype";

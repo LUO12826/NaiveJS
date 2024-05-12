@@ -12,7 +12,7 @@ namespace njs {
 
 class JSObjectPrototype : public JSObject {
  public:
-  JSObjectPrototype(NjsVM& vm) : JSObject(ObjectClass::CLS_OBJECT_PROTO, JSValue::null) {
+  JSObjectPrototype(NjsVM& vm) : JSObject(ObjClass::CLS_OBJECT_PROTO, JSValue::null) {
     add_method(vm, u"valueOf", JSObjectPrototype::valueOf);
     add_method(vm, u"toString", JSObjectPrototype::toString);
     add_method(vm, u"toLocaleString", JSObjectPrototype::toLocaleString);
