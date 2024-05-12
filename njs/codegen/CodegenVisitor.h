@@ -7,7 +7,7 @@
 #include <string>
 #include "Scope.h"
 #include "njs/basic_types/JSFunction.h"
-#include "njs/common/StringPool.h"
+#include "njs/common/AtomPool.h"
 #include "njs/common/enums.h"
 #include "njs/common/common_def.h"
 #include "njs/include/SmallVector.h"
@@ -58,7 +58,7 @@ class CodegenVisitor {
     std::cout << '\n';
 
 //    std::cout << ">>> string pool:\n";
-//    std::vector<u16string>& str_list = str_pool.get_string_list();
+//    std::vector<u16string>& str_list = atom_pool.get_string_list();
 //
 //    for (int i = 0; i < str_list.size(); i++) {
 //      std::cout << std::setw(3) << i << " " << to_u8string(str_list[i]) << '\n';
@@ -75,7 +75,7 @@ class CodegenVisitor {
     for (int i = 0; i < func_meta.size(); i++) {
       auto& meta = func_meta[i];
       std::string func_name = meta.is_anonymous ? "(anonymous)"
-                                                : to_u8string(str_pool.get_string(meta.name_index));
+                                                : to_u8string(atom_pool.get_string(meta.name_index));
       std::cout << "index: " << std::setw(3) << i
                 << " name: " << std::setw(20) << func_name
                 << " num_local_var: " << std::setw(4) << meta.local_var_count
@@ -320,7 +320,7 @@ class CodegenVisitor {
 
         auto symbol = scope().resolve_symbol(func.name.text);
         if (scope().get_scope_type() == ScopeType::GLOBAL) {
-          emit(OpType::set_prop_atom, str_pool.atomize(func.name.text));
+          emit(OpType::set_prop_atom, atom_pool.atomize(func.name.text));
           emit(OpType::pop_drop);
         } else {
           assert(!symbol.not_found());
@@ -653,7 +653,7 @@ class CodegenVisitor {
       } else {
         emit(OpType::push_global_this);
         visit(expr.rhs);
-        u32 atom = str_pool.atomize(expr.lhs->get_source());
+        u32 atom = atom_pool.atomize(expr.lhs->get_source());
         emit(OpType::set_prop_atom, int(atom));
         if (!need_value) emit(OpType::pop_drop);
       }
@@ -778,7 +778,7 @@ class CodegenVisitor {
         emit(OpType::push, scope_type_int(symbol.storage_scope), symbol.get_index());
       }
     } else {
-      u32 atom = str_pool.atomize(id.get_source());
+      u32 atom = atom_pool.atomize(id.get_source());
       emit(OpType::dyn_get_var, atom);
     }
   }
@@ -1265,7 +1265,7 @@ class CodegenVisitor {
   }
 
   u32 add_const(u16string_view str_view) {
-    auto idx = str_pool.atomize(str_view);
+    auto idx = atom_pool.atomize(str_view);
     return idx;
   }
 
@@ -1299,7 +1299,7 @@ class CodegenVisitor {
   SmallVector<CodegenError, 10> errors;
 
   // for constant
-  StringPool str_pool;
+  AtomPool atom_pool;
   SmallVector<double, 10> num_list;
   SmallVector<JSFunctionMeta, 10> func_meta;
 };

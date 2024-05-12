@@ -57,9 +57,9 @@ Completion NativeFunctions::Symbol(vm_func_This_args_flags) {
     assert(args[0].tag == JSValue::STRING);
     // TODO: do a `ToString` here.
     auto& str = args[0].val.as_prim_string->str;
-    return JSValue::Symbol(vm.str_pool.atomize_symbol_desc(str));
+    return JSValue::Symbol(vm.atom_pool.atomize_symbol_desc(str));
   } else {
-    return JSValue::Symbol(vm.str_pool.atomize_symbol());
+    return JSValue::Symbol(vm.atom_pool.atomize_symbol());
   }
 }
 

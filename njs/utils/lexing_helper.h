@@ -9,6 +9,7 @@
 namespace njs {
 
 using std::u16string;
+using std::u16string_view;
 using std::optional;
 using u32 = uint32_t;
 
@@ -29,24 +30,22 @@ inline char16_t escape_to_real_char(char16_t c) {
   }
 }
 
-// Scan index literal. Can only be decimal natural numbers
-inline int64_t scan_index_literal(const u16string& str) {
+// Scan index literal. Can only be decimal natural numbers in range [0, 4294967295].
+// return -1 if failed.
+inline int64_t scan_index_literal(u16string_view str) {
+  if (str.empty() || str.size() > 10) return -1;
   u32 idx = 0;
   const char16_t *raw_str = str.data();
-
   char16_t ch = raw_str[idx];
-  if (ch == u'0') return str.size() == 1 ? 0 : -1;
 
-  if (!character::is_decimal_digit(ch)) {
-    return -1;
-  }
+  if (ch == u'0') return str.size() == 1 ? 0 : -1;
 
   int64_t int_val = 0;
   while (idx < str.size()) {
     ch = raw_str[idx];
     if (!character::is_decimal_digit(ch)) break;
 
-    int_val = int_val * 10 + character::u16_char_to_digit(ch);
+    int_val = int_val * 10 + (ch - u'0');
     idx += 1;
   }
   return idx == str.size() ? int_val : -1;

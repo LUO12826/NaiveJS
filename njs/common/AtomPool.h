@@ -1,12 +1,14 @@
-#ifndef NJS_STRING_POOL_H
-#define NJS_STRING_POOL_H
+#ifndef NJS_ATOM_POOL_H
+#define NJS_ATOM_POOL_H
 
 #include <string>
 #include <cassert>
 #include <unordered_map>
+#include "njs/basic_types/atom.h"
 #include "njs/include/robin_hood.h"
 #include "njs/include/SmallVector.h"
 #include "njs/basic_types/String.h"
+#include "njs/utils/lexing_helper.h"
 
 namespace njs {
 
@@ -18,9 +20,9 @@ using std::vector;
 using std::u16string_view;
 using std::optional;
 
-class StringPool {
+class AtomPool {
  public:
-  StringPool() {
+  AtomPool() {
     ATOM_length = atomize(u"length");              // 0
     ATOM_prototype = atomize(u"prototype");        // 1
     ATOM_charAt = atomize(u"charAt");              // 2
@@ -36,8 +38,8 @@ class StringPool {
   u32 atomize_u32(u32 num);
   u32 atomize_symbol();
   u32 atomize_symbol_desc(u16string_view str_view);
-  u16string_view get_string(size_t index);
-  optional<u16string_view> get_symbol_desc(size_t index);
+  u16string_view get_string(u32 atom);
+  optional<u16string_view> get_symbol_desc(u32 symbol);
   bool has_string(u16string_view str_view);
   void record_static_atom_count();
 
@@ -69,38 +71,43 @@ class StringPool {
   vector<Slot> string_list;
 };
 
-inline u32 StringPool::atomize(u16string_view str_view) {
+inline u32 AtomPool::atomize(u16string_view str_view) {
   if (pool.contains(str_view)) {
     return pool[str_view];
   }
   else {
-    // copy this string and put it in the list.
-    string_list.emplace_back(str_view);
-    // now the string_view in the pool is viewing the string in the list.
-    pool.emplace(string_list.back().str.view(), next_id);
-    next_id += 1;
-    // TODO: in this case, throw an error (although this is not likely to happen)
-    assert(next_id <= (UINT32_MAX >> 1));
-    return next_id - 1;
+    uint64_t idx = scan_index_literal(str_view);
+    if (unlikely(idx != -1 && idx <= ATOM_INT_MAX)) {
+      return ATOM_INT_TAG | (u32)idx;
+    } else {
+      // copy this string and put it in the list.
+      string_list.emplace_back(str_view);
+      // now the string_view in the pool is viewing the string in the list.
+      pool.emplace(string_list.back().str.view(), next_id);
+      next_id += 1;
+      // TODO: in this case, throw an error (although this is not likely to happen)
+      assert(next_id <= ATOM_STR_SYM_MAX);
+      return next_id - 1;
+    }
   }
 }
 
-inline u32 StringPool::atomize_u32(njs::u32 num) {
-  if (likely(num < (1u << 31))) {
-    return (1 << 31) | num;
+inline u32 AtomPool::atomize_u32(njs::u32 num) {
+  if (likely(num <= ATOM_INT_MAX)) {
+    return ATOM_INT_TAG | num;
   } else {
-    auto str = to_u16string(std::to_string(num));
+    auto str = to_u16string(num);
     return atomize(str);
   }
 }
 
-inline u32 StringPool::atomize_symbol() {
+inline u32 AtomPool::atomize_symbol() {
   string_list.emplace_back();
   next_id += 1;
   return next_id - 1;
 }
 
-inline u32 StringPool::atomize_symbol_desc(u16string_view str_view) {
+inline u32 AtomPool::atomize_symbol_desc(u16string_view str_view) {
   auto& new_slot = string_list.emplace_back();
   new_slot.is_symbol = true;
   new_slot.symbol_has_desc = true;
@@ -109,13 +116,15 @@ inline u32 StringPool::atomize_symbol_desc(u16string_view str_view) {
   return next_id - 1;
 }
 
-inline u16string_view StringPool::get_string(size_t index) {
-  assert(!string_list[index].is_symbol);
-  return string_list[index].str.view();
+inline u16string_view AtomPool::get_string(u32 atom) {
+  assert(atom_is_str_sym(atom));
+  assert(!string_list[atom].is_symbol);
+  return string_list[atom].str.view();
 }
 
-inline optional<u16string_view> StringPool::get_symbol_desc(size_t index) {
-  auto& slot = string_list[index];
+inline optional<u16string_view> AtomPool::get_symbol_desc(u32 symbol) {
+  assert(atom_is_str_sym(symbol));
+  auto& slot = string_list[symbol];
   assert(slot.is_symbol);
   if (slot.symbol_has_desc) {
     return slot.str.view();
@@ -124,14 +133,21 @@ inline optional<u16string_view> StringPool::get_symbol_desc(size_t index) {
   }
 }
 
-inline bool StringPool::has_string(u16string_view str_view) {
-  return pool.contains(str_view);
+inline bool AtomPool::has_string(u16string_view str_view) {
+  if (pool.contains(str_view)) {
+    return true;
+  } else if (auto idx = scan_index_literal(str_view);
+              idx != -1 && idx <= ATOM_INT_MAX) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
-inline void StringPool::record_static_atom_count() {
+inline void AtomPool::record_static_atom_count() {
   static_atom_count = string_list.size();
 }
 
 } // namespace njs
 
-#endif // NJS_STRING_POOL_H
+#endif // NJS_ATOM_POOL_H

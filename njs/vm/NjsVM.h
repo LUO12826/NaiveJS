@@ -14,7 +14,7 @@
 #include "njs/gc/GCHeap.h"
 #include "njs/common/enums.h"
 #include "njs/common/common_def.h"
-#include "njs/common/StringPool.h"
+#include "njs/common/AtomPool.h"
 #include "njs/basic_types/JSFunction.h"
 #include "njs/basic_types/JSErrorPrototype.h"
 #include "njs/basic_types/JSValue.h"
@@ -103,8 +103,8 @@ friend class NativeFunctions;
         },
         // builder
         [this] (JSFunction& func) {
-          native_error_protos[type].as_object()->add_prop(StringPool::ATOM_constructor, JSValue(&func));
-          func.add_prop(StringPool::ATOM_prototype, error_prototype);
+          native_error_protos[type].as_object()->add_prop(AtomPool::ATOM_constructor, JSValue(&func));
+          func.add_prop(AtomPool::ATOM_prototype, error_prototype);
         }
     );
   }
@@ -124,11 +124,15 @@ friend class NativeFunctions;
   JSValue new_primitive_string(u16string&& str);
 
   u32 str_to_atom(u16string_view str_view) {
-    return str_pool.atomize(str_view);
+    return atom_pool.atomize(str_view);
   }
 
-  u16string_view atom_to_str(u32 atom) {
-    return str_pool.get_string(atom);
+  u16string atom_to_str(u32 atom) {
+    if (unlikely(atom_is_int(atom))) {
+      return to_u16string(atom);
+    } else {
+      return u16string(atom_pool.get_string(atom));
+    }
   }
 
  private:
@@ -192,7 +196,7 @@ friend class NativeFunctions;
   std::deque<JSTask> micro_task_queue;
 
   // for constant
-  StringPool str_pool;
+  AtomPool atom_pool;
   SmallVector<double, 10> num_list;
   SmallVector<JSFunctionMeta, 10> func_meta;
 

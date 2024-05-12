@@ -56,6 +56,21 @@ inline u16string to_u16string(const string& str) {
   return converter.from_bytes(str);
 }
 
+inline u16string to_u16string(u32 value) {
+  if (value == 0) return u"0";
+
+  char16_t buffer[10];
+  int digit_count = 0;
+
+  while (value != 0) {
+      buffer[digit_count++] = static_cast<char16_t>(u'0' + (value % 10));
+      value /= 10;
+  }
+
+  std::reverse(buffer, buffer + digit_count);
+  return u16string(buffer, digit_count);
+}
+
 inline string to_u8string(const u16string &str) {
   static std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
   return convert.to_bytes(str);

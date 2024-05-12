@@ -24,13 +24,13 @@ void NjsVM::setup() {
   add_error_ctor<JS_AGGREGATE_ERROR>();
 
   add_native_func_impl(u"Object", NativeFunctions::Object_ctor, [this] (auto& func) {
-    object_prototype.as_object()->add_prop(StringPool::ATOM_constructor, JSValue(&func));
-    func.add_prop(StringPool::ATOM_prototype, object_prototype);
+    object_prototype.as_object()->add_prop(AtomPool::ATOM_constructor, JSValue(&func));
+    func.add_prop(AtomPool::ATOM_prototype, object_prototype);
   });
 
   add_native_func_impl(u"Symbol", NativeFunctions::Symbol, [this] (JSFunction& func) {
-    JSValue sym_iterator = JSValue::Symbol(str_pool.atomize_symbol_desc(u"iterator"));
-    func.add_prop(StringPool::ATOM_iterator, sym_iterator);
+    JSValue sym_iterator = JSValue::Symbol(atom_pool.atomize_symbol_desc(u"iterator"));
+    func.add_prop(AtomPool::ATOM_iterator, sym_iterator);
   });
 
   add_builtin_object(u"console", [this] () {

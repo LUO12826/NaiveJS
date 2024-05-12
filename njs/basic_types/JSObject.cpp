@@ -9,7 +9,7 @@
 namespace njs {
 
 Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
-  JSValue exotic_to_prim = get_prop(StringPool::ATOM_toPrimitive, false);
+  JSValue exotic_to_prim = get_prop(AtomPool::ATOM_toPrimitive, false);
   if (exotic_to_prim.is_function()) {
     JSValue hint_arg = vm.new_primitive_string(u16string(preferred_type));
     Completion to_prim_res = vm.call_function(
@@ -34,9 +34,9 @@ Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
 Completion JSObject::ordinary_to_primitive(NjsVM& vm, u16string_view hint) {
   std::array<int64_t, 2> method_names_atom;
   if (hint == u"string") {
-    method_names_atom = {StringPool::ATOM_toString, StringPool::ATOM_valueOf};
+    method_names_atom = {AtomPool::ATOM_toString, AtomPool::ATOM_valueOf};
   } else if (hint == u"number") {
-    method_names_atom = {StringPool::ATOM_valueOf, StringPool::ATOM_toString};
+    method_names_atom = {AtomPool::ATOM_valueOf, AtomPool::ATOM_toString};
   }
 
   for (int64_t method_atom : method_names_atom) {

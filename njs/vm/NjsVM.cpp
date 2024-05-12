@@ -25,7 +25,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   : heap(600, *this)
   , bytecode(std::move(visitor.bytecode))
   , runloop(*this)
-  , str_pool(std::move(visitor.str_pool))
+  , atom_pool(std::move(visitor.atom_pool))
   , num_list(std::move(visitor.num_list))
   , func_meta(std::move(visitor.func_meta))
   , global_catch_table(std::move(visitor.scope_chain[0]->catch_table))
@@ -43,14 +43,14 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
     }
   }
 
-  global_meta.name_index = str_pool.atomize(u"(global)");
+  global_meta.name_index = atom_pool.atomize(u"(global)");
   global_meta.local_var_count = global_scope.get_var_count();
   global_meta.stack_size = global_scope.get_max_stack_size();
   global_meta.param_count = 0;
   global_meta.code_address = 0;
   global_meta.source_line = 0;
 
-  str_pool.record_static_atom_count();
+  atom_pool.record_static_atom_count();
 }
 
 NjsVM::~NjsVM() {
@@ -100,8 +100,7 @@ JSFunction* NjsVM::new_function(const JSFunctionMeta& meta) {
   if (meta.is_anonymous) {
     func = heap.new_object<JSFunction>(meta);
   } else {
-    u16string name(atom_to_str(meta.name_index));
-    func = heap.new_object<JSFunction>(std::move(name), meta);
+    func = heap.new_object<JSFunction>(atom_to_str(meta.name_index), meta);
   }
   func->set_prototype(function_prototype);
   return func;
@@ -337,7 +336,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         sp += 1;
         sp[0].tag = JSValue::STRING;
         sp[0].val.as_prim_string =
-            heap.new_object<PrimitiveString>(u16string(atom_to_str(OPR1)));
+            heap.new_object<PrimitiveString>(atom_to_str(OPR1));
         break;
       case OpType::push_atom:
         sp += 1;
@@ -632,7 +631,7 @@ u16string NjsVM::build_trace_str(bool remove_top) {
     trace_str += tr.func_name;
     if (not tr.is_native) {
       trace_str += u"  @ line ";
-      trace_str += to_u16string(std::to_string(tr.source_line));
+      trace_str += to_u16string(tr.source_line);
     }
     else {
       trace_str += u"  (native)";
@@ -806,8 +805,8 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
 
   if (not meta.is_arrow_func) {
     JSObject *new_prototype = new_object(ObjectClass::CLS_OBJECT);
-    new_prototype->add_prop(StringPool::ATOM_constructor, JSValue(func), PropDesc::C | PropDesc::W);
-    func->add_prop(StringPool::ATOM_prototype, JSValue(new_prototype), PropDesc::C | PropDesc::W);
+    new_prototype->add_prop(AtomPool::ATOM_constructor, JSValue(func), PropDesc::C | PropDesc::W);
+    func->add_prop(AtomPool::ATOM_prototype, JSValue(new_prototype), PropDesc::C | PropDesc::W);
   }
 
   assert(!meta.is_native);
@@ -854,7 +853,7 @@ void NjsVM::exec_js_new(SPRef sp, int arg_count) {
   JSValue& ctor = sp[-arg_count];
   assert(ctor.is(JSValue::FUNCTION));
   // prepare `this` object
-  JSValue proto = ctor.val.as_func->get_prop(StringPool::ATOM_prototype, false);
+  JSValue proto = ctor.val.as_func->get_prop(AtomPool::ATOM_prototype, false);
   proto = proto.is_object() ? proto : object_prototype;
   auto *this_obj = heap.new_object<JSObject>(ObjectClass::CLS_OBJECT, proto);
 
@@ -916,7 +915,7 @@ void NjsVM::exec_key_access(SPRef sp, u32 key_atom, bool get_ref, int keep_obj) 
     std::cout << "...visit key " << to_u8string(atom_to_str(key_atom)) << '\n';
   }
   if(val_obj.is_object()) {
-    if (int64_t(key_atom) == StringPool::ATOM___proto__) {
+    if (int64_t(key_atom) == AtomPool::ATOM___proto__) {
       sp[keep_obj] = val_obj.val.as_object->get_prototype();
     } else {
       sp[keep_obj] = val_obj.val.as_object->get_prop(key_atom, get_ref);
@@ -946,7 +945,7 @@ bool NjsVM::key_access_on_primitive(SPRef sp, JSValue& obj, u32 atom, int keep_o
       sp[keep_obj].set_undefined();
       break;
     case JSValue::STRING: {
-      if (atom == StringPool::ATOM_length) {
+      if (atom == AtomPool::ATOM_length) {
         auto len = obj.val.as_prim_string->length();
         sp[keep_obj].set_undefined();
         sp[keep_obj].set_val(double(len));
@@ -987,7 +986,6 @@ JSValue NjsVM::index_object(JSValue obj, JSValue index, bool get_ref) {
   assert(index.tag == JSValue::STRING
          || index.tag == JSValue::JS_ATOM
          || index.tag == JSValue::NUM_FLOAT);
-  assert(obj.is_object());
 
   JSValue res;
   u32 index_int = u32(index.val.as_f64);
@@ -1007,7 +1005,7 @@ JSValue NjsVM::index_object(JSValue obj, JSValue index, bool get_ref) {
     else if (index.is(JSValue::STRING) || index.is(JSValue::JS_ATOM)) {
       const u16string& index_str = index.is(JSValue::STRING)
                                   ? index.val.as_prim_string->str
-                                  : u16string(atom_to_str(index.val.as_atom));
+                                  : atom_to_str(index.val.as_atom);
 
       int64_t idx_int = scan_index_literal(index_str);
       if (idx_int != -1) {
@@ -1032,7 +1030,7 @@ JSValue NjsVM::index_object(JSValue obj, JSValue index, bool get_ref) {
         res.set_val(new_str);
       }
     }
-    else if (index.is(JSValue::JS_ATOM) && index.val.as_atom == StringPool::ATOM_length) {
+    else if (index.is(JSValue::JS_ATOM) && index.val.as_atom == AtomPool::ATOM_length) {
       res.set_val(double(obj.val.as_prim_string->length()));
     }
   }
@@ -1063,7 +1061,7 @@ void NjsVM::exec_set_prop_atom(SPRef sp, u32 key_atom) {
     std::cout << "...visit key " << to_u8string(atom_to_str(key_atom)) << '\n';
   }
   if (obj.is_object()) {
-    if (unlikely(int64_t(key_atom) == StringPool::ATOM___proto__)) {
+    if (unlikely(int64_t(key_atom) == AtomPool::ATOM___proto__)) {
       obj.val.as_object->set_prototype(val);
     } else {
       obj.val.as_object->get_prop(key_atom, true).val.as_JSValue->assign(val);
@@ -1106,7 +1104,7 @@ void NjsVM::exec_dynamic_get_var(SPRef sp, u32 name_atom) {
   JSValue val = global_object.as_object()->get_prop(name_atom, false);
 
   if (val.is_uninited()) {
-    u16string var_name(atom_to_str(name_atom));
+    u16string var_name = atom_to_str(name_atom);
     error_throw(sp, var_name + u" is undefined");
     error_handle(sp);
   } else {
