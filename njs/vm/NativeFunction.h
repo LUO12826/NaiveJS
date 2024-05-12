@@ -27,10 +27,6 @@ class NativeFunctions {
 
   static Completion Symbol(JS_NATIVE_FUNC_PARAMS);
 
-  static u16string build_trace_str(NjsVM& vm, bool remove_top = false);
-  static JSValue build_error_internal(NjsVM& vm, const u16string& msg);
-  static JSValue build_error_internal(NjsVM& vm, JSErrorType type, const u16string& msg);
-
 };
 
 }

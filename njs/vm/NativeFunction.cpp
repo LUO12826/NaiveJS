@@ -123,42 +123,4 @@ Completion NativeFunctions::json_stringify(vm_func_This_args_flags) {
   return vm.new_primitive_string(std::move(json_string));
 }
 
-u16string NativeFunctions::build_trace_str(NjsVM& vm, bool remove_top) {
-  std::vector<NjsVM::StackTraceItem> trace = vm.capture_stack_trace();
-  u16string trace_str;
-  bool first = true;
-
-  for (auto& tr : trace) {
-    if (first) {
-      first = false;
-      if (remove_top) continue;
-    }
-    trace_str += u"  ";
-    trace_str += tr.func_name;
-    if (not tr.is_native) {
-      trace_str += u"  @ line ";
-      trace_str += to_u16string(std::to_string(tr.source_line));
-    }
-    else {
-      trace_str += u"  (native)";
-    }
-    trace_str += u"\n";
-  }
-  return trace_str;
-}
-
-JSValue NativeFunctions::build_error_internal(NjsVM& vm, const u16string& msg) {
-  return build_error_internal(vm, JS_ERROR, msg);
-}
-
-JSValue NativeFunctions::build_error_internal(NjsVM& vm, JSErrorType type, const u16string& msg) {
-  auto *err_obj = vm.new_object(ObjectClass::CLS_ERROR, vm.native_error_protos[type]);
-  err_obj->add_prop(vm, u"message", vm.new_primitive_string(msg));
-
-  u16string trace_str = build_trace_str(vm);
-  err_obj->add_prop(vm, u"stack", vm.new_primitive_string(std::move(trace_str)));
-
-  return JSValue(err_obj);
-}
-
 }

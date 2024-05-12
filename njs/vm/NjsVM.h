@@ -113,6 +113,9 @@ friend class NativeFunctions;
   void run();
 
   vector<StackTraceItem> capture_stack_trace();
+  u16string build_trace_str(bool remove_top = false);
+  JSValue build_error_internal(const u16string& msg);
+  JSValue build_error_internal(JSErrorType type, const u16string& msg);
 
   JSObject* new_object(ObjectClass cls = ObjectClass::CLS_OBJECT);
   JSObject* new_object(ObjectClass cls, JSValue proto);

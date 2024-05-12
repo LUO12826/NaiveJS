@@ -618,6 +618,43 @@ vector<StackTraceItem> NjsVM::capture_stack_trace() {
   return trace;
 }
 
+u16string NjsVM::build_trace_str(bool remove_top) {
+  std::vector<NjsVM::StackTraceItem> trace = capture_stack_trace();
+  u16string trace_str;
+  bool first = true;
+
+  for (auto& tr : trace) {
+    if (first) {
+      first = false;
+      if (remove_top) continue;
+    }
+    trace_str += u"  ";
+    trace_str += tr.func_name;
+    if (not tr.is_native) {
+      trace_str += u"  @ line ";
+      trace_str += to_u16string(std::to_string(tr.source_line));
+    }
+    else {
+      trace_str += u"  (native)";
+    }
+    trace_str += u"\n";
+  }
+  return trace_str;
+}
+
+JSValue NjsVM::build_error_internal(const u16string& msg) {
+  return build_error_internal(JS_ERROR, msg);
+}
+
+JSValue NjsVM::build_error_internal(JSErrorType type, const u16string& msg) {
+  auto *err_obj = new_object(ObjectClass::CLS_ERROR, native_error_protos[type]);
+  err_obj->add_prop(*this, u"message", new_primitive_string(msg));
+
+  u16string trace_str = build_trace_str();
+  err_obj->add_prop(*this, u"stack", new_primitive_string(std::move(trace_str)));
+
+  return JSValue(err_obj);
+}
 
 void NjsVM::exec_add(SPRef sp) {
   if (sp[-1].is_float64() && sp[0].is_float64()) {
@@ -1145,7 +1182,7 @@ void NjsVM::exec_comparison(SPRef sp, OpType type) {
 }
 
 void NjsVM::error_throw(SPRef sp, const u16string& msg) {
-  JSValue err_obj = NativeFunctions::build_error_internal(*this, msg);
+  JSValue err_obj = build_error_internal(msg);
   sp += 1;
   sp[0] = err_obj;
 }

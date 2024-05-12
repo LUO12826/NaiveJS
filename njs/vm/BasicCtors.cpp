@@ -1,4 +1,3 @@
-
 #include "NativeFunction.h"
 #include "njs/vm/NjsVM.h"
 #include "njs/basic_types/JSBoolean.h"
@@ -42,7 +41,7 @@ Completion NativeFunctions::error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> arg
     err_obj->add_prop(vm, u"message", args[0]);
   }
 
-  u16string trace_str = NativeFunctions::build_trace_str(vm, true);
+  u16string trace_str = vm.build_trace_str(true);
   err_obj->add_prop(vm, u"stack", vm.new_primitive_string(std::move(trace_str)));
 
   return JSValue(err_obj);
@@ -50,7 +49,7 @@ Completion NativeFunctions::error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> arg
 
 Completion NativeFunctions::Symbol(vm_func_This_args_flags) {
   if (flags.this_is_new_target && !This.is_undefined()) {
-    JSValue err = NativeFunctions::build_error_internal(vm, JS_TYPE_ERROR, u"Symbol() is not a constructor.");
+    JSValue err = vm.build_error_internal(JS_TYPE_ERROR, u"Symbol() is not a constructor.");
     return Completion::with_throw(err);
   }
 
