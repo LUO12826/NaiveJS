@@ -28,6 +28,7 @@ struct JSFunctionMeta {
   bool is_anonymous {false};
   bool is_arrow_func {false};
   bool is_native {false};
+  bool is_strict {false};
 
   u16 param_count;
   u16 local_var_count;

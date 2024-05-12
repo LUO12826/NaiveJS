@@ -274,6 +274,7 @@ class CodegenVisitor {
   }
 
   void visit_program_or_function_body(ProgramOrFunctionBody& program) {
+    scope().is_strict = program.strict;
 
     // First, allocate space for the variables (defined by `let` and `const`) in this scope
     int deinit_begin = int(scope().get_var_next_index() + frame_meta_size);
@@ -391,6 +392,7 @@ class CodegenVisitor {
         .name_index = func.has_name() ? add_const(func.name.text) : 0,
         .is_anonymous = !func.has_name() || func.is_arrow_func,
         .is_arrow_func = func.is_arrow_func,
+        .is_strict = body->strict,
         .param_count = (u16)scope().get_param_count(),
         .local_var_count = (u16)scope().get_var_count(),
         .stack_size = (u16)scope().get_max_stack_size(),

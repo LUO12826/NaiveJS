@@ -131,6 +131,11 @@ class ASTNode {
   Block *as_block();
   Function *as_function();
 
+  template<typename T>
+  T *as() {
+    return static_cast<T*>(this);
+  }
+
   bool is(Type t) const { return this->type == t; }
   bool is_illegal();
   bool is_expression();

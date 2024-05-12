@@ -44,6 +44,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   }
 
   global_meta.name_index = atom_pool.atomize(u"(global)");
+  global_meta.is_strict = global_scope.is_strict;
   global_meta.local_var_count = global_scope.get_var_count();
   global_meta.stack_size = global_scope.get_max_stack_size();
   global_meta.param_count = 0;

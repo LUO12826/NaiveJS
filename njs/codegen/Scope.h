@@ -315,6 +315,7 @@ class Scope {
   bool can_break {false};
   bool can_continue {false};
   bool has_try {false};
+  bool is_strict {false};
   SmallVector<u32, 3> break_list;
   SmallVector<u32, 3> continue_list;
   SmallVector<u32, 3> throw_list;
