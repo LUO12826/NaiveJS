@@ -62,27 +62,29 @@ NjsVM::~NjsVM() {
 }
 
 void NjsVM::init_prototypes() {
+  auto *func_proto = heap.new_object<JSFunctionPrototype>(*this);
+  function_prototype.set_val(func_proto);
+  func_proto->add_methods(*this);
+
   object_prototype.set_val(heap.new_object<JSObjectPrototype>(*this));
+  function_prototype.as_object()->set_proto(object_prototype);
 
   number_prototype.set_val(heap.new_object<JSNumberPrototype>(*this));
-  number_prototype.as_object()->set_prototype(object_prototype);
+  number_prototype.as_object()->set_proto(object_prototype);
 
   boolean_prototype.set_val(heap.new_object<JSBooleanPrototype>(*this));
-  boolean_prototype.as_object()->set_prototype(object_prototype);
+  boolean_prototype.as_object()->set_proto(object_prototype);
 
   string_prototype.set_val(heap.new_object<JSStringPrototype>(*this));
-  string_prototype.as_object()->set_prototype(object_prototype);
+  string_prototype.as_object()->set_proto(object_prototype);
 
   array_prototype.set_val(heap.new_object<JSArrayPrototype>(*this));
-  array_prototype.as_object()->set_prototype(object_prototype);
-
-  function_prototype.set_val(heap.new_object<JSFunctionPrototype>(*this));
-  function_prototype.as_object()->set_prototype(object_prototype);
+  array_prototype.as_object()->set_proto(object_prototype);
 
   native_error_protos.reserve(JSErrorType::JS_NATIVE_ERROR_COUNT);
   for (int i = 0; i < JSErrorType::JS_NATIVE_ERROR_COUNT; i++) {
     JSObject *proto = heap.new_object<JSErrorPrototype>(*this, (JSErrorType)i);
-    proto->set_prototype(object_prototype);
+    proto->set_proto(object_prototype);
     native_error_protos.emplace_back(proto);
   }
   error_prototype = native_error_protos[0];
@@ -103,7 +105,7 @@ JSFunction* NjsVM::new_function(const JSFunctionMeta& meta) {
   } else {
     func = heap.new_object<JSFunction>(atom_to_str(meta.name_index), meta);
   }
-  func->set_prototype(function_prototype);
+  func->set_proto(function_prototype);
   return func;
 }
 
@@ -806,8 +808,8 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
 
   if (not meta.is_arrow_func) {
     JSObject *new_prototype = new_object(ObjClass::CLS_OBJECT);
-    new_prototype->add_prop(AtomPool::ATOM_constructor, JSValue(func), PropDesc::C | PropDesc::W);
-    func->add_prop(AtomPool::ATOM_prototype, JSValue(new_prototype), PropDesc::C | PropDesc::W);
+    new_prototype->add_prop(AtomPool::ATOM_constructor, JSValue(func), PropFlag::C | PropFlag::W);
+    func->add_prop(AtomPool::ATOM_prototype, JSValue(new_prototype), PropFlag::C | PropFlag::W);
   }
 
   assert(!meta.is_native);
@@ -917,7 +919,7 @@ void NjsVM::exec_key_access(SPRef sp, u32 key_atom, bool get_ref, int keep_obj) 
   }
   if(val_obj.is_object()) {
     if (int64_t(key_atom) == AtomPool::ATOM___proto__) {
-      sp[keep_obj] = val_obj.val.as_object->get_prototype();
+      sp[keep_obj] = val_obj.val.as_object->get_proto();
     } else {
       sp[keep_obj] = val_obj.val.as_object->get_prop(key_atom, get_ref);
     }
@@ -1063,7 +1065,7 @@ void NjsVM::exec_set_prop_atom(SPRef sp, u32 key_atom) {
   }
   if (obj.is_object()) {
     if (unlikely(int64_t(key_atom) == AtomPool::ATOM___proto__)) {
-      obj.val.as_object->set_prototype(val);
+      obj.val.as_object->set_proto(val);
     } else {
       obj.val.as_object->get_prop(key_atom, true).val.as_JSValue->assign(val);
     }

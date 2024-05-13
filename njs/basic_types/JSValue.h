@@ -190,6 +190,7 @@ friend class NjsVM;
   bool is_null() const { return tag == JS_NULL; };
   bool is_float64() const { return tag == NUM_FLOAT; }
   bool is_bool() const { return tag == BOOLEAN; }
+  bool is_symbol() const { return tag == SYMBOL; }
   bool is_primitive_string() const { return tag == STRING; }
   bool is_inline() const { return tag >= JS_ATOM && tag <= NUM_FLOAT; }
 
@@ -226,6 +227,9 @@ friend class NjsVM;
   GCObject *as_GCObject() const;
   JSObject *as_object() const {
     return val.as_object;
+  }
+  JSObject *as_object_or_null() const {
+    return is_object() ? val.as_object : nullptr;
   }
 
   double as_f64() const {

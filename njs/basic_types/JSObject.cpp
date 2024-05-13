@@ -1,12 +1,29 @@
 #include "JSObject.h"
 
-#include "njs/gc/GCHeap.h"
-#include "JSValue.h"
-#include "njs/vm/NjsVM.h"
-#include <sstream>
 #include <array>
+#include <sstream>
+#include "JSValue.h"
+#include "njs/gc/GCHeap.h"
+#include "njs/vm/NjsVM.h"
+#include "njs/basic_types/testing_and_comparison.h"
 
 namespace njs {
+
+PropFlag PropFlag::empty = PropFlag();
+PropFlag PropFlag::VECW = PropFlag(PropFlag::has_value | PropFlag::ECW);
+
+
+bool JSObjectProp::operator==(const JSObjectProp& other) const {
+  if (desc != other.desc) return false;
+  if (desc.is_value()) {
+    return same_value(data.value, other.data.value);
+  } else if (desc.is_getset()) {
+    return same_value(data.getset.getter, other.data.getset.getter)
+            && same_value(data.getset.setter, other.data.getset.setter);
+  } else {
+    return true;
+  }
+}
 
 Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
   JSValue exotic_to_prim = get_prop(AtomPool::ATOM_toPrimitive, false);
@@ -55,18 +72,18 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, u16string_view hint) {
   return Completion::with_throw(err);
 }
 
-bool JSObject::add_prop(const JSValue& key, const JSValue& value, PropDesc desc) {
+bool JSObject::add_prop(const JSValue& key, const JSValue& value, PropFlag desc) {
   JSObjectProp& prop = storage[JSObjectKey(key)];
   prop.data.value.assign(value);
   prop.desc = desc;
   return true;
 }
 
-bool JSObject::add_prop(u32 key_atom, const JSValue& value, PropDesc desc) {
+bool JSObject::add_prop(u32 key_atom, const JSValue& value, PropFlag desc) {
   return add_prop(JSValue::Atom(key_atom), value, desc);
 }
 
-bool JSObject::add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value, PropDesc desc) {
+bool JSObject::add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value, PropFlag desc) {
   return add_prop(vm.str_to_atom(key_str), value, desc);
 }
 

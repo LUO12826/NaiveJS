@@ -2,12 +2,17 @@
 #define NJS_JSFUNCTION_PROTOTYPE_H
 
 #include "JSObject.h"
+#include "njs/vm/NativeFunction.h"
 
 namespace njs {
 
 class JSFunctionPrototype : public JSObject {
  public:
   JSFunctionPrototype(NjsVM& vm) : JSObject(ObjClass::CLS_FUNCTION_PROTO) {}
+
+  void add_methods(NjsVM& vm) {
+    add_method(vm, u"valueOf", NativeFunctions::clear_interval);
+  }
 
   u16string_view get_class_name() override {
     return u"FunctionPrototype";

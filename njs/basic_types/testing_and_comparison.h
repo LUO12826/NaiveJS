@@ -1,9 +1,9 @@
 #ifndef NJS_TESTING_AND_COMPARISON_H
 #define NJS_TESTING_AND_COMPARISON_H
 
+#include <cmath>
 #include "njs/vm/ErrorOr.h"
 #include "njs/vm/Completion.h"
-#include "njs/vm/NjsVM.h"
 #include "njs/basic_types/JSValue.h"
 #include "njs/basic_types/conversion.h"
 #include "njs/basic_types/JSObject.h"
@@ -88,6 +88,32 @@ inline ErrorOr<bool> abstract_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
   }
 
   return false;
+}
+
+inline bool same_number_value(double lhs, double rhs) {
+  if (lhs != rhs) {
+    return std::isnan(lhs) && std::isnan(rhs);
+  } else {
+    return std::signbit(lhs) == std::signbit(rhs);
+  }
+}
+
+inline bool same_value(JSValue lhs, JSValue rhs) {
+  if (lhs.tag != rhs.tag) return false;
+  if (lhs.is_undefined() || lhs.is_null()) return true;
+  switch (lhs.tag) {
+    case JSValue::NUM_FLOAT:
+      return same_number_value(lhs.val.as_f64, lhs.val.as_f64);
+    case JSValue::BOOLEAN:
+      return lhs.val.as_bool == rhs.val.as_bool;
+    case JSValue::STRING:
+      return lhs.val.as_prim_string->str == rhs.val.as_prim_string->str;
+    case JSValue::SYMBOL:
+      return lhs.val.as_symbol == rhs.val.as_symbol;
+    default:
+      assert(lhs.is(JSValue::OBJECT));
+      return lhs.as_object() == rhs.as_object();
+  }
 }
 
 }
