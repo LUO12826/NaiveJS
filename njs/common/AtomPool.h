@@ -77,7 +77,7 @@ inline u32 AtomPool::atomize(u16string_view str_view) {
   }
   else {
     uint64_t idx = scan_index_literal(str_view);
-    if (unlikely(idx != -1 && idx <= ATOM_INT_MAX)) {
+    if (idx != -1 && idx <= ATOM_INT_MAX) [[unlikely]] {
       return ATOM_INT_TAG | (u32)idx;
     } else {
       // copy this string and put it in the list.
@@ -93,7 +93,7 @@ inline u32 AtomPool::atomize(u16string_view str_view) {
 }
 
 inline u32 AtomPool::atomize_u32(njs::u32 num) {
-  if (likely(num <= ATOM_INT_MAX)) {
+  if (num <= ATOM_INT_MAX) [[likely]] {
     return ATOM_INT_TAG | num;
   } else {
     auto str = to_u16string(num);

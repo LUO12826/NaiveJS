@@ -85,10 +85,10 @@ enum class OpType {
   make_array,
   add_props,
   add_elements,
-  key_access,
-  key_access2,
-  index_access,
-  index_access2,
+  get_prop_atom,
+  get_prop_atom2,
+  get_prop_index,
+  get_prop_index2,
   set_prop_atom,
   set_prop_index,
 
@@ -216,13 +216,13 @@ struct Instruction {
       case OpType::add_props:     // need special handling
       case OpType::add_elements:  // need special handling
         return 0;
-      case OpType::key_access:
+      case OpType::get_prop_atom:
         return 0;
-      case OpType::key_access2:
+      case OpType::get_prop_atom2:
         return 1;
-      case OpType::index_access:
+      case OpType::get_prop_index:
         return -1;
-      case OpType::index_access2:
+      case OpType::get_prop_index2:
         return 0;
       case OpType::set_prop_atom:
         return -1;

@@ -113,7 +113,7 @@ std::string Instruction::description() const {
       sprintf(buffer, "push_bool  %d", operand.two.opr1);
       break;
     case OpType::push_atom:
-      sprintf(buffer, "push_atom  %d", operand.two.opr1);
+      sprintf(buffer, "push_atom  %u", (u32)operand.two.opr1);
       break;
     case OpType::push_func_this:
       sprintf(buffer, "push_this");
@@ -202,17 +202,17 @@ std::string Instruction::description() const {
     case OpType::add_elements:
       sprintf(buffer, "add_elements  %d", operand.two.opr1);
       break;
-    case OpType::key_access:
-      sprintf(buffer, "key_access  %d %s", operand.two.opr1, operand.two.opr2 ? "REF" : "");
+    case OpType::get_prop_atom:
+      sprintf(buffer, "get_prop_atom  %d", operand.two.opr1);
       break;
-    case OpType::key_access2:
-      sprintf(buffer, "key_access2  %d %s", operand.two.opr1, operand.two.opr2 ? "REF" : "");
+    case OpType::get_prop_atom2:
+      sprintf(buffer, "get_prop_atom2  %d", operand.two.opr1);
       break;
-    case OpType::index_access:
-      sprintf(buffer, "index_access  %s", operand.two.opr1 ? "REF" : "");
+    case OpType::get_prop_index:
+      sprintf(buffer, "get_prop_index");
       break;
-    case OpType::index_access2:
-      sprintf(buffer, "index_access2  %s", operand.two.opr1 ? "REF" : "");
+    case OpType::get_prop_index2:
+      sprintf(buffer, "get_prop_index2");
       break;
     case OpType::set_prop_atom:
       sprintf(buffer, "set_prop_atom  %d", operand.two.opr1);

@@ -9,8 +9,9 @@
 
 namespace njs {
 
-PropFlag PropFlag::empty = PropFlag();
-PropFlag PropFlag::VECW = PropFlag(PropFlag::has_value | PropFlag::ECW);
+PropFlag PropFlag::empty {};
+PropFlag PropFlag::VECW {.has_value = true, .enumerable = true,
+                          .configurable = true, .writable = true};
 
 
 bool JSObjectProp::operator==(const JSObjectProp& other) const {
@@ -26,7 +27,7 @@ bool JSObjectProp::operator==(const JSObjectProp& other) const {
 }
 
 Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
-  JSValue exotic_to_prim = get_prop(AtomPool::ATOM_toPrimitive, false);
+  JSValue exotic_to_prim = get_prop(vm, AtomPool::ATOM_toPrimitive).get_value();
   if (exotic_to_prim.is_function()) {
     JSValue hint_arg = vm.new_primitive_string(u16string(preferred_type));
     Completion to_prim_res = vm.call_function(
@@ -49,15 +50,15 @@ Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
 }
 
 Completion JSObject::ordinary_to_primitive(NjsVM& vm, u16string_view hint) {
-  std::array<int64_t, 2> method_names_atom;
+  std::array<u32, 2> method_names_atom;
   if (hint == u"string") {
     method_names_atom = {AtomPool::ATOM_toString, AtomPool::ATOM_valueOf};
   } else if (hint == u"number") {
     method_names_atom = {AtomPool::ATOM_valueOf, AtomPool::ATOM_toString};
   }
 
-  for (int64_t method_atom : method_names_atom) {
-    JSValue method = get_prop(method_atom, false);
+  for (u32 method_atom : method_names_atom) {
+    JSValue method = get_prop(vm, method_atom).get_value();
     if (not method.is_function()) continue;
 
     Completion comp = vm.call_function(method.val.as_func, JSValue(this), nullptr, {});
@@ -72,27 +73,69 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, u16string_view hint) {
   return Completion::with_throw(err);
 }
 
-bool JSObject::add_prop(const JSValue& key, const JSValue& value, PropFlag desc) {
-  JSObjectProp& prop = storage[JSObjectKey(key)];
-  prop.data.value.assign(value);
-  prop.desc = desc;
+ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value, PropFlag flag) {
+  // prop can come from this object or its prototype
+  JSObjectProp *desc = get_exist_prop(key);
+  if (desc == nullptr) {
+    if (extensible) {
+      desc = &storage[JSObjectKey(key)];
+      desc->desc = flag;
+      desc->data.value = value;
+      return true;
+    } else {
+      return false;
+    }
+  } else {
+    PropFlag prop_flag = desc->desc;
+    if (desc->is_data_descriptor()) {
+      if (not prop_flag.writable) return false;
+      desc->data.value = value;
+      return true;
+    } else {
+      assert(desc->is_accessor_descriptor());
+      JSValue setter = desc->data.getset.setter;
+      if (setter.is_undefined()) return false;
+
+      auto comp = vm.call_function(setter.val.as_func, JSValue(this), nullptr, {value});
+      return likely(comp.is_normal()) ? ErrorOr<bool>(true) : comp.get_value();
+    }
+  }
+}
+
+bool JSObject::add_prop_trivial(u32 key_atom, JSValue value) {
+  JSObjectProp& prop = storage[JSObjectKey(key_atom)];
+  prop.desc = PropFlag::VECW;
+  prop.data.value = value;
   return true;
 }
 
-bool JSObject::add_prop(u32 key_atom, const JSValue& value, PropFlag desc) {
-  return add_prop(JSValue::Atom(key_atom), value, desc);
+ErrorOr<bool> JSObject::set_prop(NjsVM& vm, u32 key_atom, JSValue value, PropFlag flag) {
+  return set_prop(vm, JSValue::Atom(key_atom), value, flag);
 }
 
-bool JSObject::add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value, PropFlag desc) {
-  return add_prop(vm.str_to_atom(key_str), value, desc);
+ErrorOr<bool> JSObject::set_prop(NjsVM& vm, u16string_view key_str, JSValue value, PropFlag flag) {
+  return set_prop(vm, vm.str_to_atom(key_str), value, flag);
 }
 
-JSValue JSObject::get_prop(NjsVM& vm, u16string_view name) {
-  return get_prop(vm, name, false);
+Completion JSObject::get_prop(NjsVM& vm, u16string_view name) {
+  return get_prop(vm, JSValue::Atom(vm.str_to_atom(name)));
 }
 
-JSValue JSObject::get_prop(NjsVM& vm, u16string_view key_str, bool get_ref) {
-  return get_prop(vm.str_to_atom(key_str), get_ref);
+Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
+  JSObjectProp *prop = get_exist_prop(key);
+  if (prop == nullptr) [[unlikely]] {
+    return JSValue::uninited;
+  } else {
+    if (prop->desc.is_value()) [[unlikely]] {
+      return prop->data.value;
+    } else if (prop->desc.has_getter) {
+      JSValue getter = prop->data.getset.getter;
+      assert(not getter.is_undefined());
+      return vm.call_function(getter.val.as_func, JSValue(this), nullptr, {});
+    } else {
+      return JSValue::uninited;
+    }
+  }
 }
 
 bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl) {
@@ -105,7 +148,7 @@ bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType func
       .native_func = funcImpl,
   };
 
-  return add_prop((int64_t)name_idx, JSValue(vm.new_function(meta)));
+  return add_prop_trivial(name_idx, JSValue(vm.new_function(meta)));
 }
 
 void JSObject::gc_scan_children(GCHeap& heap) {
@@ -135,7 +178,7 @@ std::string JSObject::description() {
   u32 print_prop_num = std::min((u32)4, (u32)storage.size());
   u32 i = 0;
   for (auto& [key, prop] : storage) {
-    if (not prop.desc.is_enumerable()) continue;
+    if (not prop.desc.enumerable) continue;
 
     stream << key.to_string() << ": ";
     stream << prop.data.value.description() << ", ";
@@ -152,7 +195,7 @@ std::string JSObject::to_string(NjsVM& vm) const {
   std::string output = "{ ";
 
   for (auto& [key, prop] : storage) {
-    if (not prop.desc.is_enumerable()) continue;
+    if (not prop.desc.enumerable) continue;
 
     if (key.key.tag == JSValue::JS_ATOM) {
       u16string escaped = to_escaped_u16string(vm.atom_to_str(key.key.val.as_atom));
@@ -175,7 +218,7 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
 
   bool first = true;
   for (auto& [key, prop] : storage) {
-    if (not prop.desc.is_enumerable()) continue;
+    if (not prop.desc.enumerable) continue;
     if (prop.data.value.is_undefined()) continue;
 
     if (first) first = false;

@@ -26,16 +26,11 @@ class JSArrayPrototype : public JSObject {
   }
 
   static Completion at(vm_func_This_args_flags) {
-    assert(args.size() > 0 && args[0].is(JSValue::NUM_FLOAT));
+    assert(args.size() > 0);
     assert(This.is(JSValue::ARRAY));
 
     JSArray *array = This.val.as_array;
-    double index = args[0].val.as_f64;
-    if (index < 0 || index > array->get_length()) {
-      return undefined;
-    } else {
-      return array->access_element((u32)index, false);
-    }
+    return array->get_element(vm, args[0]);
   }
 
   static Completion sort(vm_func_This_args_flags) {

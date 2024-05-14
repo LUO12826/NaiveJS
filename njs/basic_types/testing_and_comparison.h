@@ -51,10 +51,10 @@ inline ErrorOr<bool> abstract_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
   if (lhs.tag == rhs.tag) {
     return strict_equals(vm, lhs, rhs);
   }
-  if (lhs.is_float64() && rhs.is_primitive_string()) {
+  if (lhs.is_float64() && rhs.is_prim_string()) {
     return lhs.val.as_f64 == u16string_to_double(rhs.val.as_prim_string->str);
   }
-  else if (lhs.is_primitive_string() && rhs.is_float64()) {
+  else if (lhs.is_prim_string() && rhs.is_float64()) {
     return rhs.val.as_f64 == u16string_to_double(lhs.val.as_prim_string->str);
   }
   else if (lhs.is_undefined() && rhs.is_null()) {
@@ -70,7 +70,7 @@ inline ErrorOr<bool> abstract_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
   else if (rhs.is_bool()) {
     double num_val = rhs.val.as_bool ? 1 : 0;
     return abstract_equals(vm, lhs, JSValue(num_val));
-  } else if ((lhs.is_float64() || lhs.is_primitive_string()) && rhs.is_object()) {
+  } else if ((lhs.is_float64() || lhs.is_prim_string()) && rhs.is_object()) {
     Completion to_prim_res = rhs.as_object()->to_primitive(vm);
 
     if (to_prim_res.is_throw()) {
@@ -78,7 +78,7 @@ inline ErrorOr<bool> abstract_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
     } else {
       return abstract_equals(vm, lhs, to_prim_res.get_value());
     }
-  } else if (lhs.is_object() && (rhs.is_float64() || rhs.is_primitive_string())) {
+  } else if (lhs.is_object() && (rhs.is_float64() || rhs.is_prim_string())) {
     Completion to_prim_res = lhs.as_object()->to_primitive(vm);
     if (to_prim_res.is_throw()) {
       return to_prim_res.get_value();
@@ -111,7 +111,7 @@ inline bool same_value(JSValue lhs, JSValue rhs) {
     case JSValue::SYMBOL:
       return lhs.val.as_symbol == rhs.val.as_symbol;
     default:
-      assert(lhs.is(JSValue::OBJECT));
+      assert(lhs.is_object());
       return lhs.as_object() == rhs.as_object();
   }
 }

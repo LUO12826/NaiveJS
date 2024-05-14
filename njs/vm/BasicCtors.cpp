@@ -37,12 +37,12 @@ Completion NativeFunctions::error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> arg
   auto *err_obj = vm.new_object(ObjClass::CLS_ERROR, vm.native_error_protos[type]);
   if (args.size() > 0 && args[0].is_string_type()) {
     // only supports primitive string now.
-    assert(args[0].is(JSValue::STRING));
-    err_obj->add_prop(vm, u"message", args[0]);
+    assert(args[0].is_prim_string());
+    err_obj->set_prop(vm, u"message", args[0]);
   }
 
   u16string trace_str = vm.build_trace_str(true);
-  err_obj->add_prop(vm, u"stack", vm.new_primitive_string(std::move(trace_str)));
+  err_obj->set_prop(vm, u"stack", vm.new_primitive_string(std::move(trace_str)));
 
   return JSValue(err_obj);
 }

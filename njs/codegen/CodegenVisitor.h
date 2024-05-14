@@ -728,7 +728,7 @@ class CodegenVisitor {
         bool has_this = i > 0 && postfixs[i - 1].type != LHS::CALL;
         int arg_count = postfix.subtree.args_expr->arg_count();
 
-        if (unlikely(in_new_ctx && i == postfix_size - 1)) {
+        if (in_new_ctx && i == postfix_size - 1) [[unlikely]] {
           // if in new context, `visit_new_expr` will emit a js_new instruction.
         } else {
           emit(OpType::call, arg_count, int(has_this));
@@ -738,13 +738,13 @@ class CodegenVisitor {
       // obj.prop
       else if (postfix.type == LHS::PROP) {
         int key_id = (int)add_const(postfixs[i].subtree.prop_name);
-        if (unlikely(create_ref && i == postfix_size - 1)) {
+        if (create_ref && i == postfix_size - 1) [[unlikely]] {
           inst_set_prop = Instruction(OpType::set_prop_atom, key_id);
         } else {
           if (CALL_AHEAD && !NEW_CTX_LAST_CALL) {
-            emit(OpType::key_access2, key_id, 0);
+            emit(OpType::get_prop_atom2, key_id);
           } else {
-            emit(OpType::key_access, key_id, 0);
+            emit(OpType::get_prop_atom, key_id);
           }
         }
       }
@@ -752,15 +752,32 @@ class CodegenVisitor {
       else if (postfix.type == LHS::INDEX) {
         // evaluate the index expression
         assert(postfix.subtree.index_expr->is_expression());
-        visit(postfix.subtree.index_expr);
+        auto index_expr = postfix.subtree.index_expr;
+        if (index_expr->is(ASTNode::AST_EXPR_NUMBER)) [[likely]] {
+          double num = index_expr->as_number_literal()->num_val;
+          int64_t num_int = (int64_t)num;
 
-        if (unlikely(create_ref && i == postfix_size - 1)) {
+          if (num >= 0 && double(num_int) == num && num_int < UINT32_MAX) {
+            u32 atom = atom_pool.atomize_u32(num_int);
+            emit(OpType::push_atom, atom);
+          } else {
+            emit(OpType::pushi, num);
+          }
+        } else if (index_expr->is(ASTNode::AST_EXPR_STRING)) {
+          auto& str = index_expr->as<StringLiteral>()->str_val;
+          u32 atom = atom_pool.atomize(str);
+          emit(OpType::push_atom, atom);
+        } else {
+          visit(postfix.subtree.index_expr);
+        }
+
+        if (create_ref && i == postfix_size - 1) [[unlikely]] {
           inst_set_prop = Instruction(OpType::set_prop_index);
         } else {
           if (CALL_AHEAD && !NEW_CTX_LAST_CALL) {
-            emit(OpType::index_access2, int(false));
+            emit(OpType::get_prop_index2);
           } else {
-            emit(OpType::index_access, int(false));
+            emit(OpType::get_prop_index);
           }
         }
       }

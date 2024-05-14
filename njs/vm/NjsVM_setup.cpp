@@ -24,13 +24,13 @@ void NjsVM::setup() {
   add_error_ctor<JS_AGGREGATE_ERROR>();
 
   add_native_func_impl(u"Object", NativeFunctions::Object_ctor, [this] (auto& func) {
-    object_prototype.as_object()->add_prop(AtomPool::ATOM_constructor, JSValue(&func));
-    func.add_prop(AtomPool::ATOM_prototype, object_prototype);
+    object_prototype.as_object()->add_prop_trivial(AtomPool::ATOM_constructor, JSValue(&func));
+    func.add_prop_trivial(AtomPool::ATOM_prototype, object_prototype);
   });
 
   add_native_func_impl(u"Symbol", NativeFunctions::Symbol, [this] (JSFunction& func) {
     JSValue sym_iterator = JSValue::Symbol(atom_pool.atomize_symbol_desc(u"iterator"));
-    func.add_prop(AtomPool::ATOM_iterator, sym_iterator);
+    func.add_prop_trivial(AtomPool::ATOM_iterator, sym_iterator);
   });
 
   add_builtin_object(u"console", [this] () {
@@ -45,7 +45,7 @@ void NjsVM::setup() {
     };
     JSFunction *log_func = new_function(log_meta);
 
-    obj->add_prop((int64_t) str_to_atom(u"log"), JSValue(log_func));
+    obj->add_prop_trivial(str_to_atom(u"log"), JSValue(log_func));
     return obj;
   });
 
@@ -61,7 +61,7 @@ void NjsVM::setup() {
     };
     JSFunction *func = new_function(meta);
 
-    obj->add_prop((int64_t) str_to_atom(u"stringify"), JSValue(func));
+    obj->add_prop_trivial(str_to_atom(u"stringify"), JSValue(func));
     return obj;
   });
 }
@@ -81,12 +81,13 @@ void NjsVM::add_native_func_impl(const u16string& name,
   func->set_proto(function_prototype);
 
   builder(*func);
-  global_object.as_object()->add_prop(meta.name_index, JSValue(func));
+  global_object.as_object()->add_prop_trivial(meta.name_index, JSValue(func));
 }
 
 void NjsVM::add_builtin_object(const u16string& name,
                                const std::function<JSObject*()>& builder) {
-  global_object.as_object()->add_prop(*this, name, JSValue(builder()));
+  u32 atom = str_to_atom(name);
+  global_object.as_object()->add_prop_trivial(atom, JSValue(builder()));
 }
 
 

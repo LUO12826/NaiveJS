@@ -103,8 +103,9 @@ friend class NativeFunctions;
         },
         // builder
         [this] (JSFunction& func) {
-          native_error_protos[type].as_object()->add_prop(AtomPool::ATOM_constructor, JSValue(&func));
-          func.add_prop(AtomPool::ATOM_prototype, error_prototype);
+          native_error_protos[type].as_object()
+            ->add_prop_trivial(AtomPool::ATOM_constructor, JSValue(&func));
+          func.add_prop_trivial(AtomPool::ATOM_prototype, error_prototype);
         }
     );
   }
@@ -128,7 +129,7 @@ friend class NativeFunctions;
   }
 
   u16string atom_to_str(u32 atom) {
-    if (unlikely(atom_is_int(atom))) {
+    if (atom_is_int(atom)) [[unlikely]] {
       return to_u16string(atom);
     } else {
       return u16string(atom_pool.get_string(atom));
@@ -151,8 +152,8 @@ friend class NativeFunctions;
   void exec_js_new(SPRef sp, int arg_count);
   // object operation
   void exec_add_props(SPRef sp, int props_cnt);
-  void exec_key_access(SPRef sp, u32 key_atom, bool get_ref, int keep_obj);
-  void exec_index_access(SPRef sp, bool get_ref, int keep_obj);
+  void exec_get_prop_atom(SPRef sp, u32 key_atom, int keep_obj);
+  void exec_get_prop_index(SPRef sp, int keep_obj);
   void exec_set_prop_atom(SPRef sp, u32 key_atom);
   void exec_set_prop_index(SPRef sp);
   void exec_dynamic_get_var(SPRef sp, u32 name_atom);
@@ -171,12 +172,13 @@ friend class NativeFunctions;
 
   void exec_halt_err(SPRef sp, Instruction &inst);
 
-  bool key_access_on_primitive(SPRef sp, JSValue& obj, u32 atom, int keep_obj);
-  JSValue index_object(JSValue obj, JSValue index, bool get_ref);
+  Completion get_prop_on_primitive(JSValue& obj, u32 atom);
+  Completion get_at_index(JSValue obj, JSValue index);
+  Completion set_at_index(JSValue obj, JSValue index, JSValue val);
 
   void error_throw(SPRef sp, const u16string& msg);
   void error_handle(SPRef sp);
-  void print_unhandled_error(JSValue err_val);
+  void print_unhandled_error(JSValue err);
 
   void init_prototypes();
 

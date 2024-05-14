@@ -174,11 +174,8 @@ friend class NjsVM;
     val.as_func = func;
   }
 
-  /// Use this method to destroy a temporary value (in general, a temporary value
-  /// is a value on the operand stack)
-  void set_undefined() {
-    tag = UNDEFINED;
-  }
+  void set_undefined() { tag = UNDEFINED; }
+  void set_uninited() { tag = UNINIT; }
 
   JSValue& deref() const;
   JSValue& deref_heap() const;
@@ -190,8 +187,9 @@ friend class NjsVM;
   bool is_null() const { return tag == JS_NULL; };
   bool is_float64() const { return tag == NUM_FLOAT; }
   bool is_bool() const { return tag == BOOLEAN; }
+  bool is_atom() const { return tag == JS_ATOM; }
   bool is_symbol() const { return tag == SYMBOL; }
-  bool is_primitive_string() const { return tag == STRING; }
+  bool is_prim_string() const { return tag == STRING; }
   bool is_inline() const { return tag >= JS_ATOM && tag <= NUM_FLOAT; }
 
   /// @brief NOTE: this method does not check the tag.

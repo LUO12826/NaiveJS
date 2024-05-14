@@ -12,6 +12,7 @@
 #include "njs/utils/helper.h"
 #include "njs/utils/macros.h"
 #include "njs/vm/Completion.h"
+#include "njs/vm/ErrorOr.h"
 
 namespace njs {
 
@@ -45,41 +46,36 @@ enum class ObjClass {
 };
 
 struct PropFlag {
-  static constexpr u8 enumerable {1 << 0};
-  static constexpr u8 E {1 << 0};
-  static constexpr u8 configurable {1 << 1};
-  static constexpr u8 C {1 << 1};
-  static constexpr u8 writable {1 << 2};
-  static constexpr u8 W {1 << 2};
+  bool in_def_mode: 1 {false};
 
-  static constexpr u8 ECW {E | C | W};
+  bool enumerable: 1 {false};
+  bool has_enum: 1 {false};
+  bool configurable: 1 {false};
+  bool has_config: 1 {false};
+  bool writable: 1 {false};
+  bool has_write: 1 {false};
 
-  static constexpr u8 has_value {1 << 3};
-  static constexpr u8 V {1 << 3};
-  static constexpr u8 has_getter {1 << 4};
-  static constexpr u8 G {1 << 4};
-  static constexpr u8 has_setter {1 << 5};
-  static constexpr u8 S {1 << 5};
-
-  u8 flags {0};
+  bool has_value: 1 {false};
+  bool has_getter: 1 {false};
+  bool has_setter: 1 {false};
 
   static PropFlag empty;
   static PropFlag VECW;
 
-  PropFlag(u8 flags = 0) : flags(flags) {}
+  // PropFlag() {}
+  // PropFlag(bool e, bool c, bool w, bool v, bool g, bool s) :
+  //   enumerable(e), configurable(c), writable(w),
+  //   has_value(v), has_getter(g), has_setter(s) {}
 
-  void set_ECW() { flags |= PropFlag::ECW; }
+  void set_ECW() {
+    enumerable = configurable = writable = true;
+  }
 
-  bool is_value() const { return flags & has_value; }
-  bool is_getset() const { return flags & (has_getter | has_setter); }
-  bool has_get() const { return flags & has_getter; };
-  bool has_set() const { return flags & has_setter; };
-  bool is_enumerable() const { return flags & enumerable; }
-  bool is_configurable() const { return flags & configurable; }
-  bool is_writable() const { return flags & writable; }
+  bool is_value() const { return has_value; }
+  bool is_getset() const { return has_getter | has_setter; }
 
-  bool operator==(const PropFlag& other) const { return flags == other.flags; }
-  bool operator!=(const PropFlag& other) const { return flags != other.flags; }
+  bool operator==(const PropFlag& other) const = default;
+  bool operator!=(const PropFlag& other) const = default;
 };
 
 struct JSObjectKey {
@@ -88,7 +84,7 @@ struct JSObjectKey {
   }
 
   explicit JSObjectKey(JSValue val) : key(val) {
-    assert(val.is(JSValue::SYMBOL) || val.is(JSValue::JS_ATOM));
+    assert(val.is_symbol() || val.is_atom());
   }
 
   bool operator==(const JSObjectKey& other) const {
@@ -96,7 +92,7 @@ struct JSObjectKey {
   }
 
   std::string to_string() const {
-    if (key.is(JSValue::JS_ATOM)) {
+    if (key.is_atom()) {
       return "Atom(" + std::to_string(key.val.as_atom) + ")";
     } else {
       return "Symbol(" + std::to_string(key.val.as_symbol) + ")";
@@ -141,6 +137,12 @@ struct JSObjectProp {
   } data;
 
   bool operator==(const JSObjectProp& other) const;
+  
+  bool is_data_descriptor() { return desc.is_value(); }
+  bool is_accessor_descriptor() {return desc.has_getter || desc.has_setter; }
+  bool is_generic_descriptor() {
+    return !is_data_descriptor() && !is_accessor_descriptor();
+  }
 };
 
 class JSObject : public GCObject {
@@ -167,7 +169,6 @@ class JSObject : public GCObject {
       return true;
     }
     if (not extensible) return false;
-
     JSObject *p = proto.as_object_or_null();
 
     // check if there is a circular prototype chain
@@ -185,8 +186,9 @@ class JSObject : public GCObject {
   bool is_extensible() { return extensible; }
   void prevent_extensions() { extensible = false; }
 
-  JSObjectProp *get_own_prop(u32 key_atom) {
-    auto res = storage.find(JSObjectKey(key_atom));
+  JSObjectProp *get_own_prop(JSValue key) {
+    assert(key.is_atom() || key.is_symbol());
+    auto res = storage.find(JSObjectKey(key));
     return likely(res != storage.end()) ? &res->second : nullptr;
   }
 
@@ -212,44 +214,38 @@ class JSObject : public GCObject {
   Completion to_primitive(NjsVM& vm, u16string_view preferred_type = u"default");
   Completion ordinary_to_primitive(NjsVM& vm, u16string_view hint);
 
-  bool add_prop(const JSValue& key, const JSValue& value, PropFlag desc = PropFlag::VECW);
-  bool add_prop(u32 key_atom, const JSValue& value, PropFlag desc = PropFlag::VECW);
-  bool add_prop(NjsVM& vm, u16string_view key_str, const JSValue& value,
-                PropFlag desc = PropFlag::VECW);
+  ErrorOr<bool> set_prop(NjsVM& vm, JSValue key, JSValue value, PropFlag flag = PropFlag::VECW);
+  ErrorOr<bool> set_prop(NjsVM& vm, u32 key_atom, JSValue value, PropFlag flag = PropFlag::VECW);
+  ErrorOr<bool> set_prop(NjsVM& vm, u16string_view key_str, JSValue value, PropFlag flag = PropFlag::VECW);
+  bool add_prop_trivial(u32 key_atom, JSValue value);
   bool add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl);
 
-  JSValue get_prop(NjsVM& vm, u16string_view name);
-  JSValue get_prop(NjsVM& vm, u16string_view name, bool get_ref);
-
-  JSValue get_prop(u32 atom, bool get_ref) {
-    return get_prop(JSValue::Atom(atom), get_ref);
+  Completion get_prop(NjsVM& vm, u16string_view name);
+  Completion get_prop(NjsVM& vm, JSValue key);
+  Completion get_prop(NjsVM& vm, u32 atom) {
+    return get_prop(vm, JSValue::Atom(atom));
   }
 
-  JSValue get_prop(JSValue key, bool get_ref) {
-    JSValue res = get_exist_prop(key, get_ref);
-    if (res.tag != JSValue::UNINIT) {
-      return res;
-    }
-    else if (get_ref) {
-      JSValue& new_val = storage[JSObjectKey(key)].data.value;
-      return JSValue(&new_val);
-    }
-    else {
+  JSValue get_prop_trivial(u32 atom) {
+    JSObjectProp *prop = get_own_prop(JSValue::Atom(atom));
+    if (prop == nullptr) [[unlikely]] {
       return JSValue::uninited;
+    } else {
+      assert(prop->is_data_descriptor());
+      return prop->data.value;
     }
+    
   }
 
   template <typename KEY>
-  JSValue get_exist_prop(KEY&& key, bool get_ref) {
+  JSObjectProp *get_exist_prop(KEY&& key) {
     auto res = storage.find(JSObjectKey(std::forward<KEY>(key)));
     if (res != storage.end()) {
-      return get_ref ? JSValue(&(res->second.data.value)) : res->second.data.value;
-    }
-    else if (_proto_.is_object()) {
-      return _proto_.as_object()->get_exist_prop(std::forward<KEY>(key), get_ref);
-    }
-    else {
-      return JSValue::uninited;
+      return &res->second;
+    } else if (_proto_.is_object()) {
+      return _proto_.as_object()->get_exist_prop(std::forward<KEY>(key));
+    } else {
+      return nullptr;
     }
   }
 

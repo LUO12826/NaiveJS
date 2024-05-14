@@ -39,7 +39,7 @@ class JSObjectPrototype : public JSObject {
   static Completion hasOwnProperty(vm_func_This_args_flags) {
     JSObject *obj = This.as_object();
     JSValue prop_name = args[0];
-    assert(prop_name.is_primitive_string());
+    assert(prop_name.is_prim_string());
 
     bool has = vm.atom_pool.has_string(prop_name.val.as_prim_string->str);
     if (!has) return JSValue(false);
