@@ -187,6 +187,7 @@ friend class NjsVM;
   JSValue& deref_heap() const;
 
   void move_to_heap(NjsVM& vm);
+  void move_to_stack();
 
   bool is_undefined() const { return tag == UNDEFINED; };
   bool is_uninited() const { return tag == UNINIT; };

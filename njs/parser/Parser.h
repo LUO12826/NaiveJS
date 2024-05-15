@@ -168,6 +168,7 @@ error:
       goto error;
     }
     function = new Function(name, params, body, SOURCE_PARSED_EXPR);
+    function->is_stmt = is_stmt;
     scope().register_function(function);
     return function;
 error:
@@ -376,7 +377,7 @@ error:
         // implicitly return
         body->add_statement(
           new ReturnStatement(expr, expr->get_source(), expr->start_pos(),
-                              expr->end_pos(), expr->get_line_start())
+                              expr->end_pos(), expr->start_line_num())
         );
         body->scope = pop_scope();
       }
@@ -649,7 +650,7 @@ error:
         return stmt;
       }
 
-      if (stmt->type == ASTNode::AST_FUNC && !stmt->as_function()->is_arrow_func) {
+      if (stmt->type == ASTNode::AST_FUNC && stmt->as_function()->has_name()) {
         prog->add_function_decl(stmt);
       } else {
         prog->add_statement(stmt);
@@ -689,9 +690,6 @@ error:
         else if (token.text == u"try") return parse_try_statement();
         else if (token.text == u"function") {
           auto func = parse_function(true, true, true);
-          if (func->type == ASTNode::AST_FUNC) {
-            static_cast<Function*>(func)->is_stmt = true;
-          }
           return func;
         }
         else if (token.text == u"debugger") {
@@ -819,7 +817,7 @@ error:
   ASTNode* parse_if_statement() {
     START_POS;
     ASTNode* cond;
-    ASTNode* if_block;
+    ASTNode* then_block;
 
     assert(token_match(u"if"));
     lexer.next();
@@ -832,10 +830,10 @@ error:
       goto error;
     }
     lexer.next();
-    if_block = parse_statement();
-    if (if_block->is_illegal()) {
+    then_block = parse_statement();
+    if (then_block->is_illegal()) {
       delete cond;
-      return if_block;
+      return then_block;
     }
     
     if (lexer.peek().text == u"else") {
@@ -844,13 +842,13 @@ error:
       ASTNode* else_block = parse_statement();
       if (else_block->is_illegal()) {
         delete cond;
-        delete if_block;
+        delete then_block;
         return else_block;
       }
-      return new IfStatement(cond, if_block, else_block, SOURCE_PARSED_EXPR);
+      return new IfStatement(cond, then_block, else_block, SOURCE_PARSED_EXPR);
     }
 
-    return new IfStatement(cond, if_block, SOURCE_PARSED_EXPR);
+    return new IfStatement(cond, then_block, SOURCE_PARSED_EXPR);
     
 error:
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
@@ -939,46 +937,48 @@ error:
     assert(token_match(u"for"));
 
     ASTNode* init_expr;
+//    VarStatement *var_stmt = nullptr;
     if (lexer.next().type != TokenType::LEFT_PAREN) goto error;
 
     lexer.next();
     if (lexer.current().is_semicolon()) {
-      return parse_for_statement({}, start, line_start);  // for (; expr; expr)
+      return parse_for_statement(nullptr, start, line_start);  // for (; expr; expr)
     }
     else if (token_match(u"var") || token_match(u"let") || token_match(u"const")) {
       VarKind var_kind = get_var_kind_from_str(lexer.current().text);
       lexer.next();  // skip var/let/const
-      std::vector<ASTNode*> init_expressions;
-
       if (!lexer.current().is_identifier()) goto error;
+
+      auto var_stmt = new VarStatement(var_kind);
+      Defer defer([&var_stmt] { delete var_stmt; });
 
       init_expr = parse_variable_declaration(true, var_kind);
       if (init_expr->is_illegal()) return init_expr;
 
-      // expect `in` or `,`
-      // the `in` case, that is, var VariableDeclarationNoIn in
-      if (lexer.next().text == u"in") {
+      // expect `in`, `of` or `,`
+      // the `in` and `of` cases, that is, var VariableDeclarationNoIn in
+      lexer.next();
+      if (lexer.current().text == u"in" || lexer.current().text == u"of") {
         return parse_for_in_statement(init_expr, start, line_start);
       }
 
       // the `,` case
-      init_expressions.push_back(init_expr);
+      var_stmt->add_decl(init_expr);
       while (!lexer.current().is_semicolon()) {
         if (!token_match(TokenType::COMMA) || !lexer.next().is_identifier()) {
-          for (auto expr : init_expressions) { delete expr; }
           goto error;
         }
 
         init_expr = parse_variable_declaration(true, var_kind);
         if (init_expr->is_illegal()) {
-          for (auto expr : init_expressions) { delete expr; }
           return init_expr;
         }
-        init_expressions.push_back(init_expr);
+        var_stmt->add_decl(init_expr);
         lexer.next();
       }
       // for (var VariableDeclarationListNoIn; ...)
-      return parse_for_statement(std::move(init_expressions), start, line_start);
+      defer.dismiss();
+      return parse_for_statement(var_stmt, start, line_start);
     }
     else {
       init_expr = parse_expression(true);
@@ -987,7 +987,7 @@ error:
       }
       lexer.next();
       if (lexer.current().is_semicolon()) {
-        return parse_for_statement({init_expr}, start, line_start);  // for ( ExpressionNoIn;
+        return parse_for_statement(init_expr, start, line_start);  // for ( ExpressionNoIn;
       }
       // for ( LeftHandSideExpression in
       else if (token_match(u"in") && (init_expr->is_lhs_expr() || init_expr->is_identifier())) {
@@ -1002,11 +1002,11 @@ error:
     return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_for_statement(std::vector<ASTNode*> init_expressions, u32 start, u32 line_start) {
+  ASTNode* parse_for_statement(ASTNode* init_expr, u32 start, u32 line_start) {
     assert(lexer.current().is_semicolon());
 
-    Defer defer([&init_expressions] {
-      for (auto expr : init_expressions) { delete expr; }
+    Defer defer([&init_expr] {
+      delete init_expr;
     });
 
     ASTNode* expr1 = nullptr;
@@ -1045,8 +1045,8 @@ error:
       delete expr2;
       return stmt;
     }
-
-    return new ForStatement(std::move(init_expressions), expr1, expr2, stmt, SOURCE_PARSED_EXPR);
+    defer.dismiss();
+    return new ForStatement(init_expr, expr1, expr2, stmt, SOURCE_PARSED_EXPR);
 error:
     delete expr1;
     delete expr2;
@@ -1054,7 +1054,9 @@ error:
   }
 
   ASTNode* parse_for_in_statement(ASTNode* expr0, u32 start, u32 line_start) {
-    assert(token_match(u"in"));
+    assert(token_match(u"in") || token_match(u"of"));
+    auto type = lexer.current().text == u"in" ? ForInStatement::FOR_IN
+                                              : ForInStatement::FOR_OF;
     lexer.next();
     ASTNode* expr1 = parse_expression(false);  // for ( xxx in Expression
     ASTNode* stmt;
@@ -1074,7 +1076,7 @@ error:
       delete expr1;
       return stmt;
     }
-    return new ForInStatement(expr0, expr1, stmt, SOURCE_PARSED_EXPR);
+    return new ForInStatement(type, expr0, expr1, stmt, SOURCE_PARSED_EXPR);
 error:
     delete expr0;
     delete expr1;
@@ -1284,15 +1286,15 @@ error:
       goto error;
     }
     else if (finally_block == nullptr) {
-      assert(catch_block != nullptr);
+      assert(catch_block);
       return new TryStatement(try_block, catch_id, catch_block, SOURCE_PARSED_EXPR);
     }
     else if (catch_block == nullptr) {
-      assert(finally_block != nullptr);
+      assert(finally_block);
       return new TryStatement(try_block, finally_block, SOURCE_PARSED_EXPR);
     }
-    assert(catch_block != nullptr);
-    assert(finally_block != nullptr);
+    assert(catch_block);
+    assert(finally_block);
     return new TryStatement(try_block, catch_id, catch_block, finally_block, SOURCE_PARSED_EXPR);
   error:
     delete try_block;

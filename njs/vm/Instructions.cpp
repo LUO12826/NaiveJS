@@ -154,6 +154,9 @@ std::string Instruction::description() const {
     case OpType::var_undef:
       sprintf(buffer, "var_undef %d", operand.two.opr1);
       break;
+    case OpType::loop_var_renew:
+      sprintf(buffer, "loop_var_renew %d", operand.two.opr1);
+      break;
     case OpType::var_dispose:
       sprintf(buffer, "var_dispose  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
       break;

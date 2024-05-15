@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <functional>
 #include "Scope.h"
 #include "njs/basic_types/JSFunction.h"
 #include "njs/common/AtomPool.h"
@@ -23,6 +24,7 @@ using robin_hood::unordered_map;
 using std::u16string;
 using std::unique_ptr;
 using std::vector;
+using std::function;
 using u32 = uint32_t;
 
 struct CodegenError {
@@ -30,7 +32,7 @@ struct CodegenError {
   ASTNode *ast_node;
 
   void describe() {
-    printf("At line %u: %s\n", ast_node->get_line_start(), message.c_str());
+    printf("At line %u: %s\n", ast_node->start_line_num(), message.c_str());
   }
 };
 
@@ -74,8 +76,8 @@ class CodegenVisitor {
     std::cout << ">>> function metadata:\n";
     for (int i = 0; i < func_meta.size(); i++) {
       auto& meta = func_meta[i];
-      std::string func_name = meta.is_anonymous ? "(anonymous)"
-                                                : to_u8string(atom_pool.get_string(meta.name_index));
+      auto func_name = meta.is_anonymous ? "(anonymous)"
+                                         : to_u8string(atom_pool.get_string(meta.name_index));
       std::cout << "index: " << std::setw(3) << i
                 << " name: " << std::setw(20) << func_name
                 << " num_local_var: " << std::setw(4) << meta.local_var_count
@@ -217,7 +219,7 @@ class CodegenVisitor {
         emit(OpType::push_bool, u32(node->get_source() == u"true"));
         break;
       case ASTNode::AST_STMT_VAR:
-        visit_variable_statement(*static_cast<VarStatement *>(node));
+        visit_variable_statement(*static_cast<VarStatement *>(node), true);
         break;
       case ASTNode::AST_STMT_VAR_DECL:
         assert(false);
@@ -235,7 +237,7 @@ class CodegenVisitor {
         visit_continue_break_statement(*static_cast<ContinueOrBreak *>(node));
         break;
       case ASTNode::AST_STMT_BLOCK:
-        visit_block_statement(*static_cast<Block *>(node), {});
+        visit_block_statement(*static_cast<Block *>(node), {}, true, _, _, _);
         break;
       case ASTNode::AST_STMT_THROW:
         visit_throw_statement(*static_cast<ThrowStatement *>(node));
@@ -246,10 +248,12 @@ class CodegenVisitor {
       case ASTNode::AST_EXPR_NEW:
         visit_new_expr(*static_cast<NewExpr *>(node));
         break;
-//      case ASTNode::AST_STMT_FOR:
-//        break;
-//      case ASTNode::AST_STMT_FOR_IN:
-//        break;
+      case ASTNode::AST_STMT_FOR:
+        visit_for_statement(*static_cast<ForStatement *>(node));
+        break;
+      case ASTNode::AST_STMT_FOR_IN:
+        visit_for_in_statement(*static_cast<ForInStatement *>(node));
+        break;
 //      case ASTNode::AST_STMT_SWITCH:
 //        break;
       case ASTNode::AST_EXPR_TRIPLE:
@@ -317,6 +321,7 @@ class CodegenVisitor {
           emit(OpType::push_global_this);
         }
         auto& func = *static_cast<Function *>(node);
+        assert(func.has_name());
         visit_function(func);
 
         auto symbol = scope().resolve_symbol(func.name.text);
@@ -338,7 +343,7 @@ class CodegenVisitor {
       if (not stmt->is(ASTNode::AST_EXPR_ASSIGN)) {
         visit(stmt);
         // pop drop unused result #2
-        if (stmt->is_expression() || stmt->is(ASTNode::AST_FUNC) && stmt->as_function()->is_arrow_func) {
+        if (stmt->is_expression() || stmt->is(ASTNode::AST_FUNC)) {
           emit(OpType::pop_drop);
         }
       } else {
@@ -397,7 +402,7 @@ class CodegenVisitor {
         .local_var_count = (u16)scope().get_var_count(),
         .stack_size = (u16)scope().get_max_stack_size(),
         .code_address = func_start_pos,
-        .source_line = func.get_line_start(),
+        .source_line = func.start_line_num(),
         .catch_table = std::move(scope().catch_table)
     });
     // The rest of the work is done in the scope of the outer function, so pop scope here.
@@ -420,7 +425,8 @@ class CodegenVisitor {
       emit(OpType::pop_drop);
     }
 
-    bytecode.pop_back(); // don't pop the result of the last element. It's the result of the comma expression.
+    // don't pop the result of the last element. It's the result of the comma expression.
+    bytecode.pop_back();
     scope().update_stack_usage(1);
   }
 
@@ -431,7 +437,8 @@ class CodegenVisitor {
     }
   }
 
-  void visit_unary_expr(UnaryExpr& expr) {
+  // note: `need_value` now only works for inc and dec.
+  void visit_unary_expr(UnaryExpr& expr, bool need_value = true) {
 
     switch (expr.op.type) {
       case Token::LOGICAL_NOT:
@@ -442,8 +449,7 @@ class CodegenVisitor {
             visit(expr.operand);
             emit(OpType::logi_not);
           }
-        }
-        else {
+        } else {
           assert(false);
         }
         break;
@@ -451,8 +457,7 @@ class CodegenVisitor {
         if (expr.is_prefix_op) {
           visit(expr.operand);
           emit(OpType::bits_not);
-        }
-        else {
+        } else {
           assert(false);
         }
         break;
@@ -464,13 +469,30 @@ class CodegenVisitor {
             visit(expr.operand);
             emit(OpType::neg);
           }
-        }
-        else {
+        } else {
           assert(false);
         }
         break;
-      default:
+      case Token::INC:
+      case Token::DEC: {
+        if (not expr.is_prefix_op && need_value) {
+          visit(expr.operand);
+        }
+
+        auto *num_1 = new NumberLiteral(1.0, u"1", 0, 0, 0);
+        auto assign_type = expr.op.type == Token::INC ? Token::ADD_ASSIGN : Token::SUB_ASSIGN;
+        auto *assign = new AssignmentExpr(assign_type, expr.operand, num_1, expr.get_source(),
+                                          expr.start_pos(), expr.end_pos(), expr.start_line_num());
+        // if it's a prefix op, we need the value produced by this assignment,
+        // beacuse prefix increment means "increase the value before get its value".
+        // Otherwise we need the old value instead of the value after assignment.
+        visit_assignment_expr(*assign, expr.is_prefix_op && need_value);
+        delete assign;              // will also delete `num_1`
+        expr.operand = nullptr;     // avoid double free
         break;
+      }
+      default:
+        assert(false);
     }
   }
 
@@ -578,10 +600,10 @@ class CodegenVisitor {
   }
 
   void visit_assignment_expr(AssignmentExpr& expr, bool need_value = true) {
-    auto assign_type = expr.assign_type;
+    auto assign_op = expr.assign_type;
 
     auto codegen_rhs = [&] () {
-      if (assign_type != TokenType::ASSIGN) {
+      if (assign_op != TokenType::ASSIGN) {
         if (expr.lhs->is_identifier()) {
           visit_identifier(*expr.lhs);
         } else {
@@ -589,13 +611,14 @@ class CodegenVisitor {
         }
 
         visit(expr.rhs);
-        switch (assign_type) {
+        switch (assign_op) {
           case Token::ADD_ASSIGN:
           case Token::SUB_ASSIGN:
           case Token::MUL_ASSIGN:
           case Token::DIV_ASSIGN:
           case Token::MOD_ASSIGN: {
-            OpType op = static_cast<OpType>(static_cast<int>(OpType::add) + (assign_type - Token::ADD_ASSIGN));
+            auto diff = assign_op - Token::ADD_ASSIGN;
+            auto op = static_cast<OpType>(static_cast<int>(OpType::add) + diff);
             emit(op);
             break;
           }
@@ -623,6 +646,8 @@ class CodegenVisitor {
           case Token::LOGI_OR_ASSIGN:
             emit(OpType::logi_or);
             break;
+          default:
+            assert(false);
         }
       } else {
         visit(expr.rhs);
@@ -631,12 +656,12 @@ class CodegenVisitor {
 
     if (expr.lhs_is_id()) {
       auto lhs_sym = scope().resolve_symbol(expr.lhs->get_source());
-      bool use_dynamic =
-          lhs_sym.not_found() || (lhs_sym.def_scope == ScopeType::GLOBAL && not lhs_sym.is_let_or_const());
+      bool use_dynamic = lhs_sym.not_found()
+                         || (lhs_sym.def_scope == ScopeType::GLOBAL && !lhs_sym.is_let_or_const());
 
       if (not use_dynamic) {
-        if (expr.rhs_is_1() && (assign_type == TokenType::ADD_ASSIGN || assign_type == TokenType::SUB_ASSIGN)) {
-          OpType op = assign_type == TokenType::ADD_ASSIGN  ? OpType::inc : OpType::dec;
+        if (expr.rhs_is_1() && (assign_op == TokenType::ADD_ASSIGN || assign_op == TokenType::SUB_ASSIGN)) {
+          OpType op = assign_op == TokenType::ADD_ASSIGN  ? OpType::inc : OpType::dec;
           emit(op, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
           if (need_value) {
             emit(OpType::push, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
@@ -653,9 +678,9 @@ class CodegenVisitor {
         }
         emit(op, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
       } else {
-        emit(OpType::push_global_this);
-        visit(expr.rhs);
         u32 atom = atom_pool.atomize(expr.lhs->get_source());
+        emit(OpType::push_global_this);
+        codegen_rhs();
         emit(OpType::set_prop_atom, int(atom));
         if (!need_value) emit(OpType::pop_drop);
       }
@@ -664,7 +689,7 @@ class CodegenVisitor {
       // check if left hand side is LeftHandSide Expression
       Instruction inst_set_prop;
       if (expr.lhs->type == ASTNode::AST_EXPR_LHS) {
-        inst_set_prop = visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(expr.lhs), true, false);
+        inst_set_prop = visit_left_hand_side_expr(*expr.lhs->as_lhs_expr(), true, false);
       }
       if (inst_set_prop.op_type == OpType::nop) {
         assert(false);
@@ -696,7 +721,7 @@ class CodegenVisitor {
     emit(OpType::make_array, (int)array_lit.len);
 
     for (auto& [idx, element] : array_lit.elements) {
-      if (element != nullptr) {
+      if (element) {
         visit(element);
       } else {
         emit(OpType::push_uninit);
@@ -789,7 +814,7 @@ class CodegenVisitor {
   void visit_identifier(ASTNode& id) {
     auto symbol = scope().resolve_symbol(id.get_source());
     bool use_dynamic =
-        symbol.not_found() || (symbol.def_scope == ScopeType::GLOBAL && not symbol.is_let_or_const());
+        symbol.not_found() || (symbol.def_scope == ScopeType::GLOBAL && !symbol.is_let_or_const());
     if (not use_dynamic) {
       if (symbol.is_let_or_const()) {
         emit(OpType::push_check, scope_type_int(symbol.storage_scope), symbol.get_index());
@@ -817,20 +842,16 @@ class CodegenVisitor {
     emit(OpType::push_str, (int)add_const(str));
   }
 
-  void visit_variable_statement(VarStatement& var_stmt) {
+  void visit_variable_statement(VarStatement& var_stmt, bool need_undef) {
     for (VarDecl *decl : var_stmt.declarations) {
-      visit_variable_declaration(var_stmt.kind, *decl);
-    }
-  }
-
-  void visit_variable_declaration(VarKind var_kind, VarDecl& var_decl) {
-    auto sym = scope().resolve_symbol(var_decl.id.text);
-    if (sym.is_let_or_const()) {
-      emit(OpType::var_undef, int(sym.get_index()));
-    }
-    if (var_decl.var_init) {
-      assert(var_decl.var_init->is(ASTNode::AST_EXPR_ASSIGN));
-      visit_assignment_expr(*static_cast<AssignmentExpr *>(var_decl.var_init), false);
+      auto sym = scope().resolve_symbol(decl->id.text);
+      if (need_undef && sym.is_let_or_const()) {
+        emit(OpType::var_undef, int(sym.get_index()));
+      }
+      if (decl->var_init) {
+        assert(decl->var_init->is(ASTNode::AST_EXPR_ASSIGN));
+        visit_assignment_expr(*decl->var_init->as<AssignmentExpr>(), false);
+      }
     }
   }
 
@@ -853,31 +874,33 @@ class CodegenVisitor {
     }
     emit(OpType::pop_drop);
 
-    if (is_stmt_valid_in_single_stmt_ctx(stmt.if_block)) {
-      visit(stmt.if_block);
-      if (stmt.if_block->is_expression() && !stmt.if_block->is(ASTNode::AST_EXPR_ASSIGN)) {
+    if (stmt.then_block->is_valid_in_single_stmt_ctx()) {
+      visit(stmt.then_block);
+      if (stmt.then_block->is_expression() && !stmt.then_block->is(ASTNode::AST_EXPR_ASSIGN)) {
         emit(OpType::pop_drop);
       }
     }
     else {
       report_error(CodegenError {
           .message = "SyntaxError: Lexical declaration cannot appear in a single-statement context",
-          .ast_node = stmt.if_block,
+          .ast_node = stmt.then_block,
       });
     }
 
-    u32 if_end_jmp = emit(OpType::jmp);
+    u32 if_end_jmp;
+    if (stmt.else_block) if_end_jmp = emit(OpType::jmp);
 
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
 
-    // we don't really `pop_drop` twice, we just `pop_drop` in each branch. to compensate here 1 is added.
+    // we don't really `pop_drop` twice, we just `pop_drop` in each branch.
+    // To compensate, here 1 is added back.
     scope().update_stack_usage(1);
     emit(OpType::pop_drop);
 
     if (stmt.else_block) {
-      if (is_stmt_valid_in_single_stmt_ctx(stmt.else_block)) {
+      if (stmt.else_block->is_valid_in_single_stmt_ctx()) {
         visit(stmt.else_block);
       }
       else {
@@ -887,8 +910,8 @@ class CodegenVisitor {
             .ast_node = stmt.else_block,
         });
       }
+      bytecode[if_end_jmp].operand.two.opr1 = bytecode_pos();
     }
-    bytecode[if_end_jmp].operand.two.opr1 = bytecode_pos();
   }
 
   void visit_ternary_expr(TernaryExpr& expr) {
@@ -908,7 +931,6 @@ class CodegenVisitor {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
 
-    // we don't really `pop_drop` twice, we just `pop_drop` in each branch. to compensate here 1 is added.
     scope().update_stack_usage(1);
     emit(OpType::pop_drop);
 
@@ -930,10 +952,15 @@ class CodegenVisitor {
     }
     emit(OpType::pop_drop);
 
-    if (is_stmt_valid_in_single_stmt_ctx(stmt.body_stmt)) {
-      visit(stmt.body_stmt);
-    }
-    else {
+    bool body_is_block = false;
+    if (stmt.body_stmt->is_valid_in_single_stmt_ctx()) {
+      if (stmt.body_stmt->is(ASTNode::AST_STMT_BLOCK)) {
+        body_is_block = true;
+        visit_block_statement(*stmt.body_stmt->as<Block>(), {}, false, _, _, _);
+      } else {
+        visit(stmt.body_stmt);
+      }
+    } else {
       report_error(CodegenError {
           .message = "SyntaxError: Lexical declaration cannot appear in a single-statement context",
           .ast_node = stmt.body_stmt,
@@ -945,7 +972,6 @@ class CodegenVisitor {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
 
-    // we don't really `pop_drop` twice, we just `pop_drop` in each branch. to compensate here 1 is added.
     scope().update_stack_usage(1);
     emit(OpType::pop_drop);
 
@@ -953,11 +979,14 @@ class CodegenVisitor {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
     scope().break_list.clear();
+    // dispose the variables in the loop body
+    if (body_is_block) {
+      gen_var_dispose_code(*stmt.body_stmt->as<Block>()->scope);
+    }
 
     scope().can_break = false;
     scope().can_continue = false;
     scope().continue_pos = -1;
-
   }
 
   void visit_do_while_statement(DoWhileStatement& stmt) {
@@ -970,7 +999,7 @@ class CodegenVisitor {
     scope().update_stack_usage(1);
     emit(OpType::pop_drop);
 
-    if (is_stmt_valid_in_single_stmt_ctx(stmt.body_stmt)) {
+    if (stmt.body_stmt->is_valid_in_single_stmt_ctx()) {
       visit(stmt.body_stmt);
     }
     else {
@@ -1000,15 +1029,129 @@ class CodegenVisitor {
     for (u32 idx : scope().break_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
-
+    scope().break_list.clear();
+    // dispose the variables in the loop body
+    gen_var_dispose_code(*stmt.body_stmt->as<Block>()->scope);
     scope().can_break = false;
     scope().can_continue = false;
+  }
+
+  void visit_for_statement(ForStatement& stmt) {
+    Scope& outer_scope = scope();
+    outer_scope.can_break = true;
+    outer_scope.can_continue = true;
+    outer_scope.continue_pos = -1;
+
+    vector<pair<u16string_view, VarKind>> extra_var;
+    if (stmt.init_expr && stmt.init_expr->is(ASTNode::AST_STMT_VAR)
+        && stmt.init_expr->as<VarStatement>()->kind != VarKind::DECL_VAR) {
+
+      auto *var_stmt = stmt.init_expr->as<VarStatement>();
+      for (auto *decl : var_stmt->declarations) {
+        extra_var.emplace_back(decl->id.text, var_stmt->kind);
+      }
+    }
+
+    auto init = [&, this] () {
+      auto init_expr = stmt.init_expr;
+      if (init_expr) {
+        if (init_expr->is(ASTNode::AST_STMT_VAR)) {
+          visit_variable_statement(*init_expr->as<VarStatement>(), false);
+        } else {
+          visit(init_expr);
+          assert(init_expr->is_expression() || init_expr->is(ASTNode::AST_FUNC));
+          emit(OpType::pop_drop);
+        }
+      }
+    };
+
+    vector<u32> true_list, false_list;
+    u32 loop_start_pos;
+
+    auto prolog = [&, this] {
+      loop_start_pos = bytecode_pos();
+      if (!stmt.condition_expr) return;
+      visit_expr_in_logical_expr(*stmt.condition_expr, true_list, false_list, false);
+      for (u32 idx : true_list) {
+        bytecode[idx].operand.two.opr1 = bytecode_pos();
+      }
+      emit(OpType::pop_drop);
+    };
+
+    auto epilog = [&, this] {
+      for (u32 idx : outer_scope.continue_list) {
+        bytecode[idx].operand.two.opr1 = bytecode_pos();
+      }
+      outer_scope.continue_list.clear();
+
+      for (auto [var_name, kind] : extra_var) {
+        auto sym = scope().resolve_symbol(var_name);
+        if (sym.original_symbol->is_captured) {
+          emit(OpType::loop_var_renew, sym.get_index());
+        }
+      }
+      auto *inc = stmt.increment_expr;
+      if (inc) {
+        if (inc->is(ASTNode::AST_EXPR_ASSIGN)) {
+          visit_assignment_expr(*inc->as<AssignmentExpr>(), false);
+        } else if (inc->is(ASTNode::AST_EXPR_UNARY) && inc->as<UnaryExpr>()->is_inc_or_dec()) {
+          visit_unary_expr(*inc->as<UnaryExpr>(), false);
+        } else {
+          visit(inc);
+          emit(OpType::pop_drop);
+        }
+      }
+      emit(OpType::jmp, (int)loop_start_pos);
+    };
+
+    bool body_is_block = false;
+    if (stmt.body_stmt->is_valid_in_single_stmt_ctx()) {
+      if (stmt.body_stmt->is(ASTNode::AST_STMT_BLOCK)) {
+        body_is_block = true;
+        visit_block_statement(*stmt.body_stmt->as<Block>(), extra_var, false, init, prolog, epilog);
+      } else {
+        // TODO: fix this
+        assert(false);
+      }
+    } else {
+      report_error(CodegenError {
+          .message = "SyntaxError: Lexical declaration cannot appear in a single-statement context",
+          .ast_node = stmt.body_stmt,
+      });
+    }
+
+    for (u32 idx : false_list) {
+      bytecode[idx].operand.two.opr2 = bytecode_pos();
+    }
+
+    outer_scope.update_stack_usage(1);
+    emit(OpType::pop_drop);
+
+    for (u32 idx : outer_scope.break_list) {
+      bytecode[idx].operand.two.opr1 = bytecode_pos();
+    }
+    outer_scope.break_list.clear();
+
+    if (body_is_block) {
+      gen_var_dispose_code(*stmt.body_stmt->as<Block>()->scope);
+    }
+
+    outer_scope.can_break = false;
+    outer_scope.can_continue = false;
+    outer_scope.continue_pos = -1;
+  }
+
+  void visit_for_in_statement(ForInStatement& stmt) {
   }
 
   void visit_continue_break_statement(ContinueOrBreak& stmt) {
     if (stmt.type == ASTNode::AST_STMT_CONTINUE) {
       Scope *continue_scope = scope().resolve_continue_scope();
-      assert(continue_scope != nullptr);
+      assert(continue_scope);
+
+      gen_var_dispose_code_recursive(&scope(), [] (Scope *s) {
+        return !s->is_continue_target && !s->can_continue;
+      });
       if (continue_scope->continue_pos != -1) {
         emit(OpType::jmp, u32(continue_scope->continue_pos));
       } else {
@@ -1016,14 +1159,22 @@ class CodegenVisitor {
       }
     }
     else {
-      scope().resolve_break_list()->push_back(bytecode_pos());
-      emit(OpType::jmp);
+      auto break_list = scope().resolve_break_list();
+      assert(break_list);
+
+      gen_var_dispose_code_recursive(&scope(), [] (Scope *s) {
+        return !s->is_break_target && !s->can_break;
+      });
+      break_list->push_back(emit(OpType::jmp));
     }
   }
 
   // If `extra_var` is not empty, it means that the external wants to define some variables
   // in advance in this block.
-  void visit_block_statement(Block& block, const vector<pair<u16string_view, VarKind>>& extra_var) {
+  template <typename F1,typename F2,typename F3>
+  requires std::invocable<F1> && std::invocable<F2> && std::invocable<F3>
+  void visit_block_statement(Block& block, const vector<pair<u16string_view,VarKind>>& extra_var,
+                             bool dispose_var, const F1& init, const F2& prolog, const F3& epilog) {
     push_scope(block.scope.get());
 
     // First, allocate space for the variables in this scope
@@ -1032,6 +1183,10 @@ class CodegenVisitor {
       bool res = scope().define_symbol(kind, name);
       if (!res) std::cout << "!!!!define symbol " << to_u8string(name) << " failed\n";
     }
+
+    // as for now, the only usage of extra vars is for the catch variables. and they don't need
+    // to be deinited.
+    u32 deinit_begin = scope().get_var_next_index();
 
     for (ASTNode *node : block.statements) {
       if (node->type != ASTNode::AST_STMT_VAR) continue;
@@ -1044,11 +1199,11 @@ class CodegenVisitor {
         }
       }
     }
+    u32 deinit_end = scope().get_var_next_index();
 
-    int deinit_begin = int(scope().get_var_start_index() + frame_meta_size);
-    // as for now, the only usage of extra vars is for the catch variables. and they don't need
-    // to be deinit.
-    int deinit_end = int(scope().get_var_next_index() + frame_meta_size - extra_var.size());
+    init();
+    prolog();
+
     if (deinit_end - deinit_begin != 0) {
       emit(OpType::var_deinit_range, deinit_begin, deinit_end);
     }
@@ -1066,6 +1221,7 @@ class CodegenVisitor {
 
       for (ASTNode *node : block.statements) {
         if (node->type != ASTNode::AST_FUNC) continue;
+        if (not node->as_function()->has_name()) continue;
 
         auto& func = *static_cast<Function *>(node);
         visit_function(func);
@@ -1080,20 +1236,36 @@ class CodegenVisitor {
       if (not stmt->is(ASTNode::AST_EXPR_ASSIGN)) {
         visit(stmt);
         // pop drop unused result #1
-        if (stmt->is_expression() || stmt->is(ASTNode::AST_FUNC) && stmt->as_function()->is_arrow_func) {
+        if (stmt->is_expression() || stmt->is(ASTNode::AST_FUNC)) {
           emit(OpType::pop_drop);
         }
       } else {
-        visit_assignment_expr(*static_cast<AssignmentExpr *>(stmt), false);
+        visit_assignment_expr(*stmt->as<AssignmentExpr>(), false);
       }
     }
 
+    epilog();
     // dispose the scope variables after leaving the block scope
-    gen_scope_var_dispose_code(scope());
+    if (dispose_var) gen_var_dispose_code(scope());
     pop_scope();
   }
 
-  void gen_scope_var_dispose_code(Scope& scope) {
+  template <typename Func>
+  requires std::invocable<Func, Scope*> && std::same_as<std::invoke_result_t<Func, Scope*>, bool>
+  void gen_var_dispose_code_recursive(Scope *scope, Func predicate) {
+    while (true) {
+      auto scope_type = scope->get_scope_type();
+      bool should_clean = scope_type != ScopeType::GLOBAL
+                          && scope_type != ScopeType::FUNC
+                          && predicate(scope);
+      if (!should_clean) break;
+
+      gen_var_dispose_code(*scope);
+      scope = scope->get_outer();
+    }
+  }
+
+  void gen_var_dispose_code(Scope& scope) {
 //    auto& sym_table = scope.get_symbol_table();
 //    for (auto& [name, sym_rec] : sym_table) {
 //      if (sym_rec.var_kind == VarKind::DECL_VAR || sym_rec.var_kind == VarKind::DECL_FUNC_PARAM ||
@@ -1121,7 +1293,7 @@ class CodegenVisitor {
     u32 try_start = bytecode_pos();
     // reserve a stack element for exception
     scope().update_stack_usage(1);
-    visit_block_statement(*stmt.try_block->as_block(), {});
+    visit_block_statement(*stmt.try_block->as_block(), {}, true, _, _, _);
     u32 try_end = bytecode_pos() - 1;
 
     // We are going to record the address of the variables in the try block.
@@ -1166,7 +1338,7 @@ class CodegenVisitor {
       u32 catch_start = bytecode_pos();
       var_dispose_start = scope().get_var_next_index() + frame_meta_size;
 
-      visit_block_statement(*static_cast<Block *>(stmt.catch_block), catch_id);
+      visit_block_statement(*stmt.catch_block->as<Block>(), catch_id, true, _, _, _);
 
       var_dispose_end = stmt.catch_block->as_block()->scope->get_var_count() + frame_meta_size;
       u32 catch_end = bytecode_pos() - 1;
@@ -1188,12 +1360,12 @@ class CodegenVisitor {
 
     if (has_finally) {
       // finally1. If there is error in the try block (without catch) or in the catch block, go here.
-      visit_block_statement(*static_cast<Block *>(stmt.finally_block), {});
+      visit_block_statement(*stmt.finally_block->as<Block>(), {}, true, _, _, _);
       scope().throw_list.push_back(emit(OpType::jmp));
 
       bytecode[try_end_jmp].operand.two.opr1 = bytecode_pos();
       // finally2
-      visit_block_statement(*static_cast<Block *>(stmt.finally_block), {});
+      visit_block_statement(*stmt.finally_block->as<Block>(), {}, true, _, _, _);
     } else {
       bytecode[try_end_jmp].operand.two.opr1 = bytecode_pos();
     }
@@ -1203,16 +1375,20 @@ class CodegenVisitor {
     assert(stmt.expr->is_expression());
     visit(stmt.expr);
 
-    Scope *scope_to_clean = &scope();
-    while (true) {
-      bool should_clean = scope_to_clean->get_scope_type() != ScopeType::GLOBAL &&
-                          scope_to_clean->get_scope_type() != ScopeType::FUNC &&
-                          !scope_to_clean->has_try;
-      if (!should_clean) break;
-
-      gen_scope_var_dispose_code(*scope_to_clean);
-      scope_to_clean = scope_to_clean->get_outer();
-    }
+//    Scope *scope_to_clean = &scope();
+//    while (true) {
+//      auto scope_type = scope_to_clean->get_scope_type();
+//      bool should_clean = scope_type != ScopeType::GLOBAL
+//                          && scope_type != ScopeType::FUNC
+//                          && !scope_to_clean->has_try;
+//      if (!should_clean) break;
+//
+//      gen_var_dispose_code(*scope_to_clean);
+//      scope_to_clean = scope_to_clean->get_outer();
+//    }
+    gen_var_dispose_code_recursive(&scope(), [] (Scope *s) {
+      return !s->has_try;
+    });
 
     scope().resolve_throw_list()->push_back(bytecode_pos());
     emit(OpType::jmp);
@@ -1304,16 +1480,6 @@ class CodegenVisitor {
 
   u32 bytecode_pos() { return bytecode.size(); }
 
-  // single statement context is, for example, if (cond) followed by a statement without `{}`.
-  // in single statement context, `let` and `const` are not allowed.
-  static bool is_stmt_valid_in_single_stmt_ctx(ASTNode *stmt) {
-    if (stmt->is(ASTNode::AST_STMT_VAR)
-        && static_cast<VarStatement *>(stmt)->kind != VarKind::DECL_VAR) {
-      return false;
-    }
-    return true;
-  }
-
   size_t global_var_count {0};
   std::vector<Scope *> scope_chain;
   std::vector<Instruction> bytecode;
@@ -1323,6 +1489,8 @@ class CodegenVisitor {
   AtomPool atom_pool;
   SmallVector<double, 10> num_list;
   SmallVector<JSFunctionMeta, 10> func_meta;
+
+  inline static auto _ = [] {};
 };
 
 } // namespace njs

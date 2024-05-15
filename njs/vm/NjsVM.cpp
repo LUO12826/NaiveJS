@@ -426,6 +426,13 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         assert(get_value(ScopeType::FUNC, OPR1).tag == JSValue::UNINIT);
         get_value(ScopeType::FUNC, OPR1).tag = JSValue::UNDEFINED;
         break;
+      case OpType::loop_var_renew: {
+        JSValue &val = local_vars[OPR1];
+        if (val.is(JSValue::HEAP_VAL)) {
+          val.move_to_stack();
+        }
+        break;
+      }
       case OpType::var_dispose: {
         auto var_scope = GET_SCOPE;
         auto index = OPR2;
@@ -565,7 +572,12 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         assert(false);
     }
     if (Global::show_vm_exec_steps && inst.op_type != OpType::call) {
-      printf("%-50s sp: %-3ld   pc: %-3u\n", inst.description().c_str(), (sp - (stack - 1)), pc);
+      auto desc = inst.description();
+      if (inst.op_type == OpType::get_prop_atom || inst.op_type == OpType::get_prop_atom2) {
+        desc += " (" + to_u8string(atom_to_str(OPR1)) + ")";
+      }
+      printf("%-50s sp: %-3ld   pc: %-3u\n", desc.c_str(), (sp - (stack - 1)), pc);
+
     }
   }
 }
@@ -925,11 +937,8 @@ void NjsVM::exec_add_elements(SPRef sp, int elements_cnt) {
 
 void NjsVM::exec_get_prop_atom(SPRef sp, u32 key_atom, int keep_obj) {
   JSValue& val_obj = sp[0];
-
-  if (Global::show_vm_exec_steps) {
-    std::cout << "...visit key " << to_u8string(atom_to_str(key_atom)) << '\n';
-  }
   bool is_throw = false;
+
   if(val_obj.is_object()) {
     if (key_atom == AtomPool::k___proto__) [[unlikely]] {
       sp[keep_obj] = val_obj.val.as_object->get_proto();
@@ -1042,9 +1051,6 @@ void NjsVM::exec_set_prop_atom(SPRef sp, u32 key_atom) {
   JSValue &val = sp[0];
   JSValue &obj = sp[-1];
 
-  if (Global::show_vm_exec_steps) {
-    std::cout << "...visit key " << to_u8string(atom_to_str(key_atom)) << '\n';
-  }
   if (obj.is_object()) {
     if (key_atom == AtomPool::k___proto__) [[unlikely]] {
       obj.val.as_object->set_proto(val);

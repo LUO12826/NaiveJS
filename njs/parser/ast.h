@@ -115,7 +115,7 @@ class ASTNode {
 
   u32 start_pos();
   u32 end_pos();
-  u32 get_line_start();
+  u32 start_line_num();
 
   // for printing the AST
   void add_child(ASTNode *node);
@@ -145,6 +145,7 @@ class ASTNode {
   bool is_not_expr();
   bool is_identifier();
   bool is_lhs_expr();
+  bool is_valid_in_single_stmt_ctx();
 
   Type type;
  private:
@@ -266,6 +267,10 @@ class UnaryExpr : public ASTNode {
     desc += "  op: " + op.get_text_utf8();
     desc += is_prefix_op ? " (prefix)" : " (suffix)";
     return desc;
+  }
+
+  bool is_inc_or_dec() {
+    return op.type == Token::INC || op.type == Token::DEC;
   }
 
   ASTNode *operand;
@@ -617,8 +622,8 @@ class ThrowStatement : public ASTNode {
 class VarStatement : public ASTNode {
  public:
 
-  VarStatement(VarKind var_kind) : ASTNode(AST_STMT_VAR), kind(var_kind) {}
-  ~VarStatement() {
+  explicit VarStatement(VarKind var_kind) : ASTNode(AST_STMT_VAR), kind(var_kind) {}
+  ~VarStatement() override {
     for (auto decl : declarations) delete decl;
   }
 
@@ -690,28 +695,28 @@ class TryStatement : public ASTNode {
 
 class IfStatement : public ASTNode {
  public:
-  IfStatement(ASTNode *cond, ASTNode *if_block, u16string_view source, u32 start, u32 end,
+  IfStatement(ASTNode *cond, ASTNode *then_block, u16string_view source, u32 start, u32 end,
               u32 line_start)
-      : IfStatement(cond, if_block, nullptr, source, start, end, line_start) {}
+      : IfStatement(cond, then_block, nullptr, source, start, end, line_start) {}
 
-  IfStatement(ASTNode *cond, ASTNode *if_block, ASTNode *else_block, u16string_view source,
+  IfStatement(ASTNode *cond, ASTNode *then_block, ASTNode *else_block, u16string_view source,
               u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_STMT_IF, source, start, end, line_start), condition_expr(cond), if_block(if_block),
+      : ASTNode(AST_STMT_IF, source, start, end, line_start), condition_expr(cond), then_block(then_block),
         else_block(else_block) {
 
     add_child(cond);
-    add_child(if_block);
+    add_child(then_block);
     add_child(else_block);
   }
 
   ~IfStatement() {
     delete condition_expr;
-    delete if_block;
+    delete then_block;
     delete else_block;
   }
 
   ASTNode *condition_expr;
-  ASTNode *if_block;
+  ASTNode *then_block;
   ASTNode *else_block;
 };
 
@@ -810,24 +815,24 @@ class SwitchStatement : public ASTNode {
 
 class ForStatement : public ASTNode {
  public:
-  ForStatement(vector<ASTNode *> init_expr, ASTNode *condition_expr, ASTNode *increment_expr,
+  ForStatement(ASTNode * init_expr, ASTNode *condition_expr, ASTNode *increment_expr,
                ASTNode *body_stmt, u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_STMT_FOR, source, start, end, line_start), init_expr(init_expr),
         condition_expr(condition_expr), increment_expr(increment_expr), body_stmt(body_stmt) {
-    for (auto expr : init_expr) add_child(expr);
+    add_child(init_expr);
     add_child(condition_expr);
     add_child(increment_expr);
     add_child(body_stmt);
   }
 
   ~ForStatement() {
-    for (auto expr : init_expr) delete expr;
+    delete init_expr;
     delete condition_expr;
     delete increment_expr;
     delete body_stmt;
   }
 
-  vector<ASTNode *> init_expr;
+  ASTNode * init_expr;
   ASTNode *condition_expr;
   ASTNode *increment_expr;
   ASTNode *body_stmt;
@@ -835,10 +840,18 @@ class ForStatement : public ASTNode {
 
 class ForInStatement : public ASTNode {
  public:
-  ForInStatement(ASTNode *element_expr, ASTNode *collection_expr, ASTNode *body_stmt,
-                 u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_STMT_FOR_IN, source, start, end, line_start), element_expr(element_expr),
-        collection_expr(collection_expr), body_stmt(body_stmt) {
+  enum Type {
+    FOR_IN,
+    FOR_OF
+  } iter_type;
+
+  ForInStatement(ForInStatement::Type type, ASTNode *element_expr, ASTNode *collection_expr,
+                 ASTNode *body_stmt, u16string_view source, u32 start, u32 end, u32 line_start)
+      : ASTNode(AST_STMT_FOR_IN, source, start, end, line_start),
+        iter_type(type),
+        element_expr(element_expr),
+        collection_expr(collection_expr),
+        body_stmt(body_stmt) {
     add_child(element_expr);
     add_child(collection_expr);
     add_child(body_stmt);

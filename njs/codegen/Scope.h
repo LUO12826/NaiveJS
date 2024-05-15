@@ -128,13 +128,16 @@ class Scope {
 
       curr_stack_size = outer->curr_stack_size;
       max_stack_size = outer->max_stack_size;
+
+      outer_func = outer->outer_func;
+      is_continue_target = outer->can_continue;
+      is_break_target = outer->can_break;
     }
-    if (scope_type == ScopeType::FUNC || scope_type == ScopeType::GLOBAL) {
+    else if (scope_type == ScopeType::FUNC || scope_type == ScopeType::GLOBAL) {
       outer_func = this;
     }
     else {
-      assert(outer);
-      outer_func = outer->outer_func;
+      assert(false);
     }
   }
 
@@ -161,7 +164,7 @@ class Scope {
   Scope *resolve_continue_scope() {
     if (can_continue) {
       return this;
-    } else if (scope_type != ScopeType::FUNC && scope_type != ScopeType::GLOBAL && outer_scope) {
+    } else if (scope_type == ScopeType::BLOCK && outer_scope) {
       return outer_scope->resolve_continue_scope();
     } else {
       return nullptr;
@@ -171,8 +174,18 @@ class Scope {
   SmallVector<u32, 3> *resolve_break_list() {
     if (can_break) {
       return &break_list;
-    } else if (scope_type != ScopeType::FUNC && scope_type != ScopeType::GLOBAL && outer_scope) {
+    } else if (scope_type == ScopeType::BLOCK && outer_scope) {
       return outer_scope->resolve_break_list();
+    } else {
+      return nullptr;
+    }
+  }
+
+  Scope *resolve_break_scope() {
+    if (can_break) {
+      return this;
+    } else if (scope_type == ScopeType::BLOCK && outer_scope) {
+      return outer_scope->resolve_break_scope();
     } else {
       return nullptr;
     }
@@ -312,8 +325,13 @@ class Scope {
 
  public:
   int64_t continue_pos {-1};
+  // If this is set to true, that means this scope is the scope that directly contains a
+  // `while`, `for` or `do-while` and we are currently dealing with the loop statement.
   bool can_break {false};
   bool can_continue {false};
+  // If this scope is the one that `continue`s inside will come to, set it to true.
+  bool is_continue_target {false};
+  bool is_break_target {false};
   bool has_try {false};
   bool is_strict {false};
   SmallVector<u32, 3> break_list;

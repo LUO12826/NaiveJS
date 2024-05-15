@@ -23,6 +23,12 @@ void JSValue::move_to_heap(NjsVM& vm) {
   this->tag = HEAP_VAL;
 }
 
+void JSValue::move_to_stack() {
+  assert(tag == HEAP_VAL);
+  JSValue the_val = val.as_heap_val->wrapped_val;
+  *this = the_val;
+}
+
 JSValue& JSValue::deref_heap() const {
   assert(tag == HEAP_VAL);
   return val.as_heap_val->wrapped_val;

@@ -66,6 +66,7 @@ enum class OpType {
   prop_assign,
   var_deinit_range,
   var_undef,
+  loop_var_renew,
   var_dispose,
   var_dispose_range,
 
@@ -193,6 +194,7 @@ struct Instruction {
         return -2;
       case OpType::var_deinit_range:
       case OpType::var_undef:
+      case OpType::loop_var_renew:
       case OpType::var_dispose:
       case OpType::var_dispose_range:
         return 0;

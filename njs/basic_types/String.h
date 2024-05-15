@@ -137,7 +137,7 @@ class String {
 
 namespace std {
 
-template<>
+template <>
 struct hash<njs::String> {
   size_t operator()(const njs::String& s) const noexcept {
     uint64_t output[2];

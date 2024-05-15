@@ -11,7 +11,7 @@ ASTNode::~ASTNode() = default;
 
 u32 ASTNode::start_pos() { return start; }
 u32 ASTNode::end_pos() { return end; }
-u32 ASTNode::get_line_start() { return line_start; }
+u32 ASTNode::start_line_num() { return line_start; }
 
 const std::u16string_view &ASTNode::get_source() { return text; }
 void ASTNode::set_source(const std::u16string_view &source, u32 start, u32 end, u32 line_start) {
@@ -109,6 +109,15 @@ bool ASTNode::is_identifier() {
 
 bool ASTNode::is_lhs_expr() {
   return type == AST_EXPR_LHS;
+}
+
+// single statement context is, for example, if (cond) followed by a statement without `{}`.
+// in single statement context, `let` and `const` are not allowed.
+bool ASTNode::is_valid_in_single_stmt_ctx() {
+  if (is(ASTNode::AST_STMT_VAR) && as<VarStatement>()->kind != VarKind::DECL_VAR) {
+    return false;
+  }
+  return true;
 }
 
 } // end namespace njs

@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 
     if (ast->is_illegal()) {
       std::cout << "illegal program at: " << to_u8string(ast->get_source())
-                << ", line: " << ast->get_line_start() << ", start: " << ast->start_pos()
+                << ", line: " << ast->start_line_num() << ", start: " << ast->start_pos()
                 << ", end: " << ast->end_pos() << '\n';
       return 1;
     }
