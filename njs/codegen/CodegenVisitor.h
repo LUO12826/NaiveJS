@@ -761,7 +761,7 @@ class CodegenVisitor {
             u32 atom = atom_pool.atomize_u32(num_int);
             emit(OpType::push_atom, atom);
           } else {
-            emit(OpType::pushi, num);
+            emit(Instruction::num_imm(num));
           }
         } else if (index_expr->is(ASTNode::AST_EXPR_STRING)) {
           auto& str = index_expr->as<StringLiteral>()->str_val;
@@ -808,7 +808,9 @@ class CodegenVisitor {
     }
   }
 
-  void visit_number_literal(NumberLiteral& node) { emit(Instruction::num_imm(node.num_val)); }
+  void visit_number_literal(NumberLiteral& node) {
+    emit(Instruction::num_imm(node.num_val));
+  }
 
   void visit_string_literal(StringLiteral& node) {
     auto& str = node.str_val;

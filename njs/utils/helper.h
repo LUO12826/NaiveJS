@@ -1,15 +1,15 @@
 #ifndef NJS_UTILS_HELPER_H
 #define NJS_UTILS_HELPER_H
 
-#include <string>
-#include <string_view>
+#include <algorithm>
+#include <cctype>
 #include <codecvt>
-#include <sstream>
-#include <iostream>
 #include <cstdarg>
 #include <cstdlib>
-#include <cctype>
-#include <algorithm>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <string_view>
 
 namespace njs {
 
@@ -37,12 +37,14 @@ inline bool definitely_less_than(double a, double b) {
   return (b - a) > ((fabs(a) < fabs(b) ? fabs(b) : fabs(a)) * EPS);
 }
 
-inline void debug_printf(const char* format, ...) {
+inline void debug_printf(const char *format, ...) {
 
 #ifdef DBGPRINT
 #define DEBUG_PRINT(...) printf(__VA_ARGS__)
 #else
-#define DEBUG_PRINT(...) do {} while (0)
+#define DEBUG_PRINT(...)                                                                           \
+  do {                                                                                             \
+  } while (0)
 #endif
 
   va_list args;
@@ -57,21 +59,50 @@ inline u16string to_u16string(const string& str) {
 }
 
 inline u16string to_u16string(u32 value) {
-  if (value == 0) return u"0";
-
   char16_t buffer[10];
-  int digit_count = 0;
+  char16_t *pos = buffer + 10;
 
-  while (value != 0) {
-      buffer[digit_count++] = static_cast<char16_t>(u'0' + (value % 10));
-      value /= 10;
-  }
+  do {
+    *--pos = static_cast<char16_t>(u'0' + (value % 10));
+    value /= 10;
+  } while (value != 0);
 
-  std::reverse(buffer, buffer + digit_count);
-  return u16string(buffer, digit_count);
+  return u16string(pos, buffer + 10 - pos);
 }
 
-inline string to_u8string(const u16string &str) {
+inline u16string to_u16string(int32_t value) {
+  char16_t buffer[11];
+  char16_t *pos = buffer + 11;
+  int neg = value < 0;
+  if (neg) value = -value;
+
+  do {
+    *--pos = static_cast<char16_t>(u'0' + ((u32)value % 10));
+    value = (u32)value / 10;
+  } while (value != 0);
+
+  if (neg) { *--pos = u'-'; }
+
+  return u16string(pos, buffer + 11 - pos);
+}
+
+inline u16string to_u16string(int64_t value) {
+  char16_t buffer[20];
+  char16_t *pos = buffer + 20;
+  int neg = value < 0;
+  if (neg) value = -value;
+
+  do {
+    *--pos = static_cast<char16_t>(u'0' + ((uint64_t)value % 10));
+    value = (uint64_t)value / 10;
+  } while (value != 0);
+
+  if (neg) { *--pos = u'-'; }
+
+  return u16string(pos, buffer + 20 - pos);
+}
+
+inline string to_u8string(const u16string& str) {
   static std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
   return convert.to_bytes(str);
 }
@@ -93,7 +124,7 @@ inline u16string str_cat(const std::vector<u16string>& vals) {
   u16string res(size, 0);
   u32 offset = 0;
   for (auto val : vals) {
-    memcpy((void*)(res.c_str() + offset), (void*)(val.data()), val.size() * 2);
+    memcpy((void *)(res.c_str() + offset), (void *)(val.data()), val.size() * 2);
     offset += val.size();
   }
   return res;
@@ -129,9 +160,7 @@ inline u16string to_escaped_u16string(u16string_view str_view) {
 
   size_t output_ptr = 0;
   for (auto ch : str_view) {
-    if (ch > 31 && ch != '\"' && ch != '\\') {
-      escaped[output_ptr++] = ch;
-    }
+    if (ch > 31 && ch != '\"' && ch != '\\') { escaped[output_ptr++] = ch; }
     else {
       escaped[output_ptr++] = '\\';
       switch (ch) {
@@ -175,9 +204,7 @@ inline int print_double_string(double val, char *str) {
   double test_val;
   int length;
 
-  if (std::isnan(val) || std::isinf(val)) {
-    length = sprintf(str, "null");
-  }
+  if (std::isnan(val) || std::isinf(val)) { length = sprintf(str, "null"); }
   else {
     /* Try 15 decimal places of precision to avoid nonsignificant nonzero digits */
     length = sprintf(str, "%1.15g", val);
@@ -212,20 +239,16 @@ inline void print_red_line(const string& text) {
 }
 
 inline u16string trim(const u16string& str) {
-  auto start = std::find_if_not(str.begin(), str.end(), [](char16_t ch) {
-    return std::isspace(ch);
-  });
+  auto start =
+      std::find_if_not(str.begin(), str.end(), [](char16_t ch) { return std::isspace(ch); });
   auto end = std::find_if_not(str.rbegin(), str.rend(), [](char16_t ch) {
-    return std::isspace(ch);
-  }).base();
+               return std::isspace(ch);
+             }).base();
 
-  if (start >= end) {
-    return u"";
-  }
+  if (start >= end) { return u""; }
 
   return u16string(start, end);
 }
-
 
 template <typename T>
 inline void hash_combine(size_t& seed, const T& val) {
@@ -238,20 +261,18 @@ inline void hash_val(size_t& seed, const T& val) {
 }
 
 template <typename T, typename... Types>
-inline void hash_val(size_t& seed, const T& val, const Types&... args) {
+inline void hash_val(size_t& seed, const T& val, const Types&...args) {
   hash_combine(seed, val);
   hash_val(seed, args...);
 }
 
 template <typename... Types>
-inline size_t hash_val(const Types&... args) {
+inline size_t hash_val(const Types&...args) {
   size_t seed = 0;
   hash_val(seed, args...);
   return seed;
 }
 
-}  // namespace njs
+} // namespace njs
 
-
-
-#endif  // NJS_UTILS_HELPER_H
+#endif // NJS_UTILS_HELPER_H

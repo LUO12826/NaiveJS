@@ -84,6 +84,12 @@ friend class NjsVM;
     return symbol;
   }
 
+  inline static JSValue U32(u32 val) {
+    JSValue num(NUM_UINT32);
+    num.val.as_u32 = val;
+    return num;
+  }
+
   JSValue(): JSValue(JSValueTag::UNDEFINED) {}
   explicit JSValue(JSValueTag tag): tag(tag) {}
 

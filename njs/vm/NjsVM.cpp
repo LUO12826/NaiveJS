@@ -819,8 +819,8 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
   if (not meta.is_arrow_func) {
     JSObject *new_prototype = new_object(ObjClass::CLS_OBJECT);
     PropFlag flag {.configurable = true, .writable = true, .has_value = true};
-    new_prototype->set_prop(*this, AtomPool::ATOM_constructor, JSValue(func), flag);
-    func->set_prop(*this, AtomPool::ATOM_prototype, JSValue(new_prototype), flag);
+    new_prototype->set_prop(*this, AtomPool::k_constructor, JSValue(func), flag);
+    func->set_prop(*this, AtomPool::k_prototype, JSValue(new_prototype), flag);
   }
 
   assert(!meta.is_native);
@@ -867,7 +867,7 @@ void NjsVM::exec_js_new(SPRef sp, int arg_count) {
   JSValue& ctor = sp[-arg_count];
   assert(ctor.is(JSValue::FUNCTION));
   // prepare `this` object
-  JSValue proto = ctor.val.as_func->get_prop_trivial(AtomPool::ATOM_prototype);
+  JSValue proto = ctor.val.as_func->get_prop_trivial(AtomPool::k_prototype);
   proto = proto.is_object() ? proto : object_prototype;
   auto *this_obj = heap.new_object<JSObject>(ObjClass::CLS_OBJECT, proto);
 
@@ -931,7 +931,7 @@ void NjsVM::exec_get_prop_atom(SPRef sp, u32 key_atom, int keep_obj) {
   }
   bool is_throw = false;
   if(val_obj.is_object()) {
-    if (key_atom == AtomPool::ATOM___proto__) [[unlikely]] {
+    if (key_atom == AtomPool::k___proto__) [[unlikely]] {
       sp[keep_obj] = val_obj.val.as_object->get_proto();
     } else {
       auto comp = val_obj.val.as_object->get_prop(*this, key_atom);
@@ -964,7 +964,7 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, u32 atom) {
       return undefined;
       break;
     case JSValue::STRING:
-      if (atom == AtomPool::ATOM_length) {
+      if (atom == AtomPool::k_length) {
         auto len = obj.val.as_prim_string->length();
         return JSValue(double(len));
       } else {
@@ -987,79 +987,52 @@ void NjsVM::exec_get_prop_index(SPRef sp, int keep_obj) {
   sp[res_index] = comp.get_value();
   sp += res_index;
 
-  if (comp.is_throw()) [[unlikely]] error_handle(sp);
+  if (comp.is_throw()) [[unlikely]] {
+    error_handle(sp);
+  }
 }
 
 Completion NjsVM::get_at_index(JSValue obj, JSValue index) {
-  assert(index.tag == JSValue::STRING
-         || index.tag == JSValue::JS_ATOM
-         || index.tag == JSValue::NUM_FLOAT);
-
   // Index an array
   if (obj.is(JSValue::ARRAY)) {
     return obj.val.as_array->get_element(*this, index);
   }
   // Index a string
   else if (obj.is_prim_string()) {
-    // The float value can be interpreted as string index
-    if (index.is_float64() && index.is_integer() && index.is_non_negative()) {
-      u16string& str = obj.val.as_prim_string->str;
-      u32 index_int = u32(index.val.as_f64);
-      if (index_int < str.size()) {
-        auto new_str
-            = heap.new_object<PrimitiveString>(u16string(1, str[index_int]));
-        return JSValue(new_str);
+    auto *str = obj.val.as_prim_string;
+    Completion comp = to_property_key(*this, index);
+    if (comp.is_throw()) return comp;
+    u32 atom = comp.get_value().val.as_atom;
+    if (atom_is_int(atom)) {
+      u32 idx = atom_get_int(atom);
+      if (idx < str->length()) {
+        return JSValue(new_primitive_string(u16string(1, str->str[idx])));
+      } else {
+        return undefined;
       }
-    } else if (index.is_atom()) {
-      if (index.val.as_atom == AtomPool::ATOM_length) {
-        return JSValue(double(obj.val.as_prim_string->length()));
-      }
+    } else {
+      return string_prototype.as_object()->get_prop(*this, atom);
     }
   }
   else if (obj.is_object()) {
-    if (index.is_float64()) {
-      u16string num_str = to_u16string(std::to_string(index.val.as_f64));
-      u32 atom = str_to_atom(num_str);
-      return obj.val.as_object->get_prop(*this, atom);
-    }
-    else if (index.is_prim_string()) {
-      u32 atom = str_to_atom(index.val.as_prim_string->str);
-      return obj.val.as_object->get_prop(*this, atom);
-    }
-    else if (index.is_atom()) {
-      return obj.val.as_object->get_prop(*this, index.val.as_atom);
-    }
+    Completion comp = to_property_key(*this, index);
+    if (comp.is_throw()) return comp;
+    return obj.as_object()->get_prop(*this, comp.get_value());
   }
   assert(false);
 }
 
 Completion NjsVM::set_at_index(JSValue obj, JSValue index, JSValue val) {
-  assert(index.tag == JSValue::STRING
-         || index.tag == JSValue::JS_ATOM
-         || index.tag == JSValue::NUM_FLOAT);
-
 #define RET_ERR_OR_UNDEF { if (res.is_error()) { return Completion::with_throw(res.get_error()); } return undefined; }
-  // Index an array
+
   if (obj.is(JSValue::ARRAY)) {
     return obj.val.as_array->set_element(*this, index, val);
   }
   else if (obj.is_object()) {
-    if (index.is_float64()) {
-      // TODO: get a real `ToString` here.
-      u16string num_str = to_u16string(std::to_string(index.val.as_f64));
-      u32 atom = str_to_atom(num_str);
-      auto res = obj.val.as_object->set_prop(*this, atom, val);
-      RET_ERR_OR_UNDEF
-    }
-    else if (index.is_prim_string()) {
-      u32 atom = str_to_atom(index.val.as_prim_string->str);
-      auto res = obj.val.as_object->set_prop(*this, atom, val);
-      RET_ERR_OR_UNDEF
-    }
-    else if (index.is_atom()) {
-      auto res = obj.val.as_object->set_prop(*this, index.val.as_atom, val);
-      RET_ERR_OR_UNDEF
-    }
+    Completion comp = to_property_key(*this, index);
+    if (comp.is_throw()) return comp;
+    auto res = obj.val.as_object->set_prop(*this, comp.get_value(), val);
+    RET_ERR_OR_UNDEF
   }
   assert(false);
 }
@@ -1073,7 +1046,7 @@ void NjsVM::exec_set_prop_atom(SPRef sp, u32 key_atom) {
     std::cout << "...visit key " << to_u8string(atom_to_str(key_atom)) << '\n';
   }
   if (obj.is_object()) {
-    if (key_atom == AtomPool::ATOM___proto__) [[unlikely]] {
+    if (key_atom == AtomPool::k___proto__) [[unlikely]] {
       obj.val.as_object->set_proto(val);
     } else {
       auto res = obj.val.as_object->set_prop(*this, key_atom, val);

@@ -79,27 +79,27 @@ struct PropFlag {
 };
 
 struct JSObjectKey {
-  explicit JSObjectKey(u32 atom) : key(JSValue::JS_ATOM) {
-    key.val.as_atom = atom;
-  }
 
-  explicit JSObjectKey(JSValue val) : key(val) {
+  explicit JSObjectKey(u32 atom) : type(JSValue::STRING), atom(atom) {}
+
+  explicit JSObjectKey(JSValue val) : type(val.tag), atom(val.val.as_atom) {
     assert(val.is_symbol() || val.is_atom());
   }
 
   bool operator==(const JSObjectKey& other) const {
-    return key.val.as_atom == other.key.val.as_atom;
+    return atom == other.atom;
   }
 
   std::string to_string() const {
-    if (key.is_atom()) {
-      return "Atom(" + std::to_string(key.val.as_atom) + ")";
+    if (type == JSValue::JS_ATOM) {
+      return "Atom(" + std::to_string(atom) + ")";
     } else {
-      return "Symbol(" + std::to_string(key.val.as_symbol) + ")";
+      return "Symbol(" + std::to_string(atom) + ")";
     }
   }
 
-  JSValue key;
+  u32 atom;
+  JSValue::JSValueTag type;
 };
 
 }
@@ -110,7 +110,7 @@ namespace std {
 template <>
 struct std::hash<njs::JSObjectKey> {
   std::size_t operator()(const njs::JSObjectKey& obj_key) const {
-    return obj_key.key.val.as_atom;
+    return obj_key.atom;
   }
 };
 
@@ -210,24 +210,27 @@ class JSObject : public GCObject {
   //   }
   // }
 
-  // 7.1.1
   Completion to_primitive(NjsVM& vm, u16string_view preferred_type = u"default");
   Completion ordinary_to_primitive(NjsVM& vm, u16string_view hint);
 
+  /*
+   * The following methods only accept atom or symbol as the key
+   * if the key type is JSValue.
+   */
   ErrorOr<bool> set_prop(NjsVM& vm, JSValue key, JSValue value, PropFlag flag = PropFlag::VECW);
   ErrorOr<bool> set_prop(NjsVM& vm, u32 key_atom, JSValue value, PropFlag flag = PropFlag::VECW);
   ErrorOr<bool> set_prop(NjsVM& vm, u16string_view key_str, JSValue value, PropFlag flag = PropFlag::VECW);
   bool add_prop_trivial(u32 key_atom, JSValue value);
   bool add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl);
 
-  Completion get_prop(NjsVM& vm, u16string_view name);
+  Completion get_prop(NjsVM& vm, u16string_view key_str);
   Completion get_prop(NjsVM& vm, JSValue key);
-  Completion get_prop(NjsVM& vm, u32 atom) {
-    return get_prop(vm, JSValue::Atom(atom));
+  Completion get_prop(NjsVM& vm, u32 key_atom) {
+    return get_prop(vm, JSValue::Atom(key_atom));
   }
 
-  JSValue get_prop_trivial(u32 atom) {
-    JSObjectProp *prop = get_own_prop(JSValue::Atom(atom));
+  JSValue get_prop_trivial(u32 key_atom) {
+    JSObjectProp *prop = get_own_prop(JSValue::Atom(key_atom));
     if (prop == nullptr) [[unlikely]] {
       return JSValue::uninited;
     } else {

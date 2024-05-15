@@ -18,11 +18,11 @@ class JSArray: public JSObject {
   JSArray(): JSArray(0) {}
 
   explicit JSArray(int length): JSObject(ObjClass::CLS_ARRAY) {
-    add_prop_trivial(AtomPool::ATOM_length, JSValue((double)length));
+    add_prop_trivial(AtomPool::k_length, JSValue((double)length));
   }
 
   JSArray(NjsVM& vm, int length): JSObject(ObjClass::CLS_ARRAY, vm.array_prototype) {
-    add_prop_trivial(AtomPool::ATOM_length, JSValue((double)length));
+    add_prop_trivial(AtomPool::k_length, JSValue((double)length));
   }
 
   void gc_scan_children(GCHeap& heap) override;
@@ -56,21 +56,22 @@ class JSArray: public JSObject {
     }
   }
 
-  Completion get_element(NjsVM& vm, JSValue key) {
+  Completion get_index_or_atom(NjsVM& vm, JSValue key) {
     // The float value can be interpreted as array index
     if (key.is_float64() && key.is_non_negative() && key.is_integer()) {
-      auto int_idx = int64_t(key.as_f64());
+      auto int_idx = int64_t(key.val.as_f64);
       if (int_idx < UINT32_MAX) {
-        return get_element_fast(int_idx);
+        return JSValue::U32(int_idx);
       } else {
-        return get_prop(vm, to_u16string(std::to_string(int_idx)));
+        u32 atom = vm.str_to_atom_no_uint(to_u16string(int_idx));
+        return JSValue::Atom(atom);
       }
     }
     // in this case, the float value is interpreted as an ordinary property key
     else if (key.is_float64()) {
-      // TODO: change this to the real `ToString`
-      u16string num_str = to_u16string(std::to_string(key.val.as_f64));
-      return get_prop(vm, num_str);
+      u16string num_str = double_to_string(key.val.as_f64);
+      u32 atom = vm.str_to_atom_no_uint(num_str);
+      return JSValue::Atom(atom);
     }
     else if (key.is_atom() || key.is_prim_string()) {
       u32 atom;
@@ -79,66 +80,63 @@ class JSArray: public JSObject {
       } else {
         atom = vm.str_to_atom(key.val.as_prim_string->str);
       }
+      return JSValue::Atom(atom);
+    }
+    else {
+      return to_property_key(vm, key);
+    }
+  }
+
+  Completion get_element(NjsVM& vm, JSValue key) {
+    auto comp = get_index_or_atom(vm, key);
+    if (comp.is_throw()) return comp;
+
+    JSValue res = comp.get_value();
+    if (res.is(JSValue::NUM_UINT32)) {
+      return get_element_fast(res.val.as_u32);
+    } else {
+      assert(res.is_atom() || res.is_symbol());
+      u32 atom = res.val.as_atom;
       if (atom_is_int(atom)) {
         return get_element_fast(atom_get_int(atom));
       } else {
         return get_prop(vm, atom);
       }
     }
-    else {
-      // TODO: ToString part
-      assert(false);
-    }
   }
 
   Completion set_element(NjsVM& vm, JSValue key, JSValue val) {
-#define RET_ERR_OR_UNDEF { if (res.is_error()) { return Completion::with_throw(res.get_error()); } return undefined; }
-    // The float value can be interpreted as array index
-    if (key.is_atom() || key.is_prim_string()) {
-      u32 atom;
-      if (key.is_atom()) {
-        atom = key.val.as_atom;
-      } else {
-        atom = vm.str_to_atom(key.val.as_prim_string->str);
-      }
+    auto comp = get_index_or_atom(vm, key);
+    if (comp.is_throw()) return comp;
+
+    JSValue res = comp.get_value();
+    if (res.is(JSValue::NUM_UINT32)) {
+      set_element_fast(res.val.as_u32, val);
+      return undefined;
+    } else {
+      assert(res.is_atom() || res.is_symbol());
+      u32 atom = res.val.as_atom;
       if (atom_is_int(atom)) {
         set_element_fast(atom_get_int(atom), val);
         return undefined;
-      } else {
-        auto res = set_prop(vm, atom, val);
-        RET_ERR_OR_UNDEF
+      }else {
+        auto set_res = set_prop(vm, atom, val);
+        if (set_res.is_error()) {
+          return Completion::with_throw(set_res.get_error());
+        } else {
+          return undefined;
+        }
       }
-    }
-    else if (key.is_float64() && key.is_non_negative() && key.is_integer()) {
-      auto int_idx = int64_t(key.as_f64());
-      if (int_idx < UINT32_MAX) {
-        set_element_fast(int_idx, val);
-        return undefined;
-      } else {
-        auto res = set_prop(vm, to_u16string(std::to_string(int_idx)), val);
-        RET_ERR_OR_UNDEF
-      }
-    }
-    // in this case, the float value is interpreted as an ordinary property key
-    else if (key.is_float64()) {
-      // TODO: change this to the real `ToString`
-      u16string num_str = to_u16string(std::to_string(key.val.as_f64));
-      auto res = set_prop(vm, num_str, val);
-      RET_ERR_OR_UNDEF
-    }
-    else {
-      // TODO: ToString part
-      assert(false);
     }
   }
 
   u32 get_length() {
-    assert(has_own_property(AtomPool::ATOM_length));
-    return (u32)get_prop_trivial(AtomPool::ATOM_length).val.as_f64;
+    assert(has_own_property(AtomPool::k_length));
+    return (u32)get_prop_trivial(AtomPool::k_length).val.as_f64;
   }
 
   void set_length(u32 length) {
-    add_prop_trivial(AtomPool::ATOM_length, JSValue(double(length)));
+    add_prop_trivial(AtomPool::k_length, JSValue(double(length)));
   }
 
   std::vector<JSValue> dense_array;

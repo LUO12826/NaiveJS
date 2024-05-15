@@ -10,9 +10,8 @@
 namespace njs {
 
 PropFlag PropFlag::empty {};
-PropFlag PropFlag::VECW {.has_value = true, .enumerable = true,
-                          .configurable = true, .writable = true};
-
+PropFlag PropFlag::VECW { .enumerable = true, .configurable = true,
+                          .writable = true, .has_value = true };
 
 bool JSObjectProp::operator==(const JSObjectProp& other) const {
   if (desc != other.desc) return false;
@@ -27,7 +26,7 @@ bool JSObjectProp::operator==(const JSObjectProp& other) const {
 }
 
 Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
-  JSValue exotic_to_prim = get_prop(vm, AtomPool::ATOM_toPrimitive).get_value();
+  JSValue exotic_to_prim = get_prop(vm, AtomPool::k_toPrimitive).get_value();
   if (exotic_to_prim.is_function()) {
     JSValue hint_arg = vm.new_primitive_string(u16string(preferred_type));
     Completion to_prim_res = vm.call_function(
@@ -52,9 +51,9 @@ Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
 Completion JSObject::ordinary_to_primitive(NjsVM& vm, u16string_view hint) {
   std::array<u32, 2> method_names_atom;
   if (hint == u"string") {
-    method_names_atom = {AtomPool::ATOM_toString, AtomPool::ATOM_valueOf};
+    method_names_atom = {AtomPool::k_toString, AtomPool::k_valueOf};
   } else if (hint == u"number") {
-    method_names_atom = {AtomPool::ATOM_valueOf, AtomPool::ATOM_toString};
+    method_names_atom = {AtomPool::k_valueOf, AtomPool::k_toString};
   }
 
   for (u32 method_atom : method_names_atom) {
@@ -117,8 +116,8 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, u16string_view key_str, JSValue valu
   return set_prop(vm, vm.str_to_atom(key_str), value, flag);
 }
 
-Completion JSObject::get_prop(NjsVM& vm, u16string_view name) {
-  return get_prop(vm, JSValue::Atom(vm.str_to_atom(name)));
+Completion JSObject::get_prop(NjsVM& vm, u16string_view key_atom) {
+  return get_prop(vm, JSValue::Atom(vm.str_to_atom(key_atom)));
 }
 
 Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
@@ -197,8 +196,8 @@ std::string JSObject::to_string(NjsVM& vm) const {
   for (auto& [key, prop] : storage) {
     if (not prop.desc.enumerable) continue;
 
-    if (key.key.tag == JSValue::JS_ATOM) {
-      u16string escaped = to_escaped_u16string(vm.atom_to_str(key.key.val.as_atom));
+    if (key.type == JSValue::JS_ATOM) {
+      u16string escaped = to_escaped_u16string(vm.atom_to_str(key.atom));
       output += to_u8string(escaped);
     }
 
@@ -224,9 +223,9 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
     if (first) first = false;
     else output += u',';
     
-    if (key.key.tag == JSValue::JS_ATOM) {
+    if (key.type == JSValue::JS_ATOM) {
       output += u'"';
-      output += to_escaped_u16string(vm.atom_to_str(key.key.val.as_atom));
+      output += to_escaped_u16string(vm.atom_to_str(key.atom));
       output += u'"';
     }
 

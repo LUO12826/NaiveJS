@@ -4,14 +4,25 @@
 
 namespace njs {
 
+inline JSFunctionMeta build_func_meta(NativeFuncType func) {
+  return JSFunctionMeta {
+      .is_anonymous = true,
+      .is_native = true,
+      .param_count = 0,
+      .local_var_count = 0,
+      .native_func = func,
+  };
+}
+
 void NjsVM::setup() {
-  add_native_func_impl(u"log", NativeFunctions::debug_log, [] (auto& f) {});
-  add_native_func_impl(u"$gc", NativeFunctions::js_gc, [] (auto& f) {});
-  add_native_func_impl(u"setTimeout", NativeFunctions::set_timeout, [] (auto& f) {});
-  add_native_func_impl(u"setInterval", NativeFunctions::set_interval, [] (auto& f) {});
-  add_native_func_impl(u"clearTimeout", NativeFunctions::clear_timeout, [] (auto& f) {});
-  add_native_func_impl(u"clearInterval", NativeFunctions::clear_interval, [] (auto& f) {});
-  add_native_func_impl(u"fetch", NativeFunctions::fetch, [] (auto& f) {});
+  auto empty_func = [] (auto& f) {};
+  add_native_func_impl(u"log", NativeFunctions::debug_log, empty_func);
+  add_native_func_impl(u"$gc", NativeFunctions::js_gc, empty_func);
+  add_native_func_impl(u"setTimeout", NativeFunctions::set_timeout, empty_func);
+  add_native_func_impl(u"setInterval", NativeFunctions::set_interval, empty_func);
+  add_native_func_impl(u"clearTimeout", NativeFunctions::clear_timeout, empty_func);
+  add_native_func_impl(u"clearInterval", NativeFunctions::clear_interval, empty_func);
+  add_native_func_impl(u"fetch", NativeFunctions::fetch, empty_func);
 
   add_error_ctor<JS_ERROR>();
   add_error_ctor<JS_EVAL_ERROR>();
@@ -24,26 +35,18 @@ void NjsVM::setup() {
   add_error_ctor<JS_AGGREGATE_ERROR>();
 
   add_native_func_impl(u"Object", NativeFunctions::Object_ctor, [this] (auto& func) {
-    object_prototype.as_object()->add_prop_trivial(AtomPool::ATOM_constructor, JSValue(&func));
-    func.add_prop_trivial(AtomPool::ATOM_prototype, object_prototype);
+    object_prototype.as_object()->add_prop_trivial(AtomPool::k_constructor, JSValue(&func));
+    func.add_prop_trivial(AtomPool::k_prototype, object_prototype);
   });
 
   add_native_func_impl(u"Symbol", NativeFunctions::Symbol, [this] (JSFunction& func) {
     JSValue sym_iterator = JSValue::Symbol(atom_pool.atomize_symbol_desc(u"iterator"));
-    func.add_prop_trivial(AtomPool::ATOM_iterator, sym_iterator);
+    func.add_prop_trivial(AtomPool::k_iterator, sym_iterator);
   });
 
   add_builtin_object(u"console", [this] () {
     JSObject *obj = new_object();
-
-    JSFunctionMeta log_meta {
-        .is_anonymous = true,
-        .is_native = true,
-        .param_count = 0,
-        .local_var_count = 0,
-        .native_func = NativeFunctions::log,
-    };
-    JSFunction *log_func = new_function(log_meta);
+    JSFunction *log_func = new_function(build_func_meta(NativeFunctions::log));
 
     obj->add_prop_trivial(str_to_atom(u"log"), JSValue(log_func));
     return obj;
@@ -51,19 +54,17 @@ void NjsVM::setup() {
 
   add_builtin_object(u"JSON", [this] () {
     JSObject *obj = new_object();
-
-    JSFunctionMeta meta {
-        .is_anonymous = true,
-        .is_native = true,
-        .param_count = 1,
-        .local_var_count = 0,
-        .native_func = NativeFunctions::json_stringify,
-    };
-    JSFunction *func = new_function(meta);
+    JSFunction *func = new_function(build_func_meta(NativeFunctions::json_stringify));
 
     obj->add_prop_trivial(str_to_atom(u"stringify"), JSValue(func));
     return obj;
   });
+
+  string_const.resize(4);
+  string_const[AtomPool::k_undefined] = new_primitive_string(u"undefined");
+  string_const[AtomPool::k_null] = new_primitive_string(u"null");
+  string_const[AtomPool::k_true] = new_primitive_string(u"true");
+  string_const[AtomPool::k_false] = new_primitive_string(u"false");
 }
 
 void NjsVM::add_native_func_impl(const u16string& name,
@@ -79,7 +80,6 @@ void NjsVM::add_native_func_impl(const u16string& name,
 
   auto *func = heap.new_object<JSFunction>(name, meta);
   func->set_proto(function_prototype);
-
   builder(*func);
   global_object.as_object()->add_prop_trivial(meta.name_index, JSValue(func));
 }

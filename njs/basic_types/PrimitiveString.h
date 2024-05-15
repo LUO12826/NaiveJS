@@ -1,9 +1,9 @@
 #ifndef NJS_PRIMITIVE_STRING_H
 #define NJS_PRIMITIVE_STRING_H
 
+#include <string>
 #include "njs/gc/GCObject.h"
 #include "njs/utils/helper.h"
-#include <string>
 
 namespace njs {
 

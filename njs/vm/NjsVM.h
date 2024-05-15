@@ -104,8 +104,8 @@ friend class NativeFunctions;
         // builder
         [this] (JSFunction& func) {
           native_error_protos[type].as_object()
-            ->add_prop_trivial(AtomPool::ATOM_constructor, JSValue(&func));
-          func.add_prop_trivial(AtomPool::ATOM_prototype, error_prototype);
+            ->add_prop_trivial(AtomPool::k_constructor, JSValue(&func));
+          func.add_prop_trivial(AtomPool::k_prototype, error_prototype);
         }
     );
   }
@@ -128,12 +128,32 @@ friend class NativeFunctions;
     return atom_pool.atomize(str_view);
   }
 
+  u32 str_to_atom_no_uint(u16string_view str_view) {
+    return atom_pool.atomize_no_uint(str_view);
+  }
+
+  u32 u32_to_atom(u32 num) {
+    return atom_pool.atomize_u32(num);
+  }
+
+  u32 new_symbol() {
+    return atom_pool.atomize_symbol();
+  }
+
+  u32 new_symbol_desc(u16string_view desc) {
+    return atom_pool.atomize_symbol_desc(desc);
+  }
+
   u16string atom_to_str(u32 atom) {
     if (atom_is_int(atom)) [[unlikely]] {
       return to_u16string(atom);
     } else {
       return u16string(atom_pool.get_string(atom));
     }
+  }
+
+  JSValue get_string_const(size_t index) {
+    return string_const[index];
   }
 
  private:
@@ -219,6 +239,7 @@ friend class NativeFunctions;
   JSValue function_prototype;
   JSValue error_prototype;
   vector<JSValue> native_error_protos;
+  vector<JSValue> string_const;
 };
 
 } // namespace njs
