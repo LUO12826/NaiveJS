@@ -1,6 +1,8 @@
 #ifndef NJS_SCOPE_H
 #define NJS_SCOPE_H
 
+#include <memory>
+#include <optional>
 #include "SymbolRecord.h"
 #include "njs/common/enum_strings.h"
 #include "njs/common/enums.h"
@@ -8,8 +10,6 @@
 #include "njs/include/robin_hood.h"
 #include "njs/vm/Instruction.h"
 #include "njs/codegen/CatchTableEntry.h"
-#include <memory>
-#include <optional>
 
 namespace njs {
 

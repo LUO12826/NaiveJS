@@ -1,10 +1,10 @@
 #ifndef NJS_SYMBOL_TABLE_H
 #define NJS_SYMBOL_TABLE_H
 
-#include "njs/common/enums.h"
-#include "njs/include/SmallVector.h"
 #include <cstdint>
 #include <string>
+#include "njs/common/enums.h"
+#include "njs/include/SmallVector.h"
 
 namespace njs {
 

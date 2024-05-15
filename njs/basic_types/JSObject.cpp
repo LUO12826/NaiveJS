@@ -14,10 +14,10 @@ PropFlag PropFlag::VECW { .enumerable = true, .configurable = true,
                           .writable = true, .has_value = true };
 
 bool JSObjectProp::operator==(const JSObjectProp& other) const {
-  if (desc != other.desc) return false;
-  if (desc.is_value()) {
+  if (flag != other.flag) return false;
+  if (flag.is_value()) {
     return same_value(data.value, other.data.value);
-  } else if (desc.is_getset()) {
+  } else if (flag.is_getset()) {
     return same_value(data.getset.getter, other.data.getset.getter)
             && same_value(data.getset.setter, other.data.getset.setter);
   } else {
@@ -78,14 +78,14 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value, PropFlag
   if (desc == nullptr) {
     if (extensible) {
       desc = &storage[JSObjectKey(key)];
-      desc->desc = flag;
+      desc->flag = flag;
       desc->data.value = value;
       return true;
     } else {
       return false;
     }
   } else {
-    PropFlag prop_flag = desc->desc;
+    PropFlag prop_flag = desc->flag;
     if (desc->is_data_descriptor()) {
       if (not prop_flag.writable) return false;
       desc->data.value = value;
@@ -103,7 +103,7 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value, PropFlag
 
 bool JSObject::add_prop_trivial(u32 key_atom, JSValue value) {
   JSObjectProp& prop = storage[JSObjectKey(key_atom)];
-  prop.desc = PropFlag::VECW;
+  prop.flag = PropFlag::VECW;
   prop.data.value = value;
   return true;
 }
@@ -125,9 +125,9 @@ Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
   if (prop == nullptr) [[unlikely]] {
     return JSValue::uninited;
   } else {
-    if (prop->desc.is_value()) [[unlikely]] {
+    if (prop->flag.is_value()) [[unlikely]] {
       return prop->data.value;
-    } else if (prop->desc.has_getter) {
+    } else if (prop->flag.has_getter) {
       JSValue getter = prop->data.getset.getter;
       assert(not getter.is_undefined());
       return vm.call_function(getter.val.as_func, JSValue(this), nullptr, {});
@@ -152,10 +152,10 @@ bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType func
 
 void JSObject::gc_scan_children(GCHeap& heap) {
   for (auto& [key, prop]: storage) {
-    if (prop.desc.is_value() && prop.data.value.needs_gc()) {
+    if (prop.flag.is_value() && prop.data.value.needs_gc()) {
       heap.gc_visit_object(prop.data.value, prop.data.value.as_GCObject());
     }
-    if (prop.desc.is_getset()) {
+    if (prop.flag.is_getset()) {
       if (prop.data.getset.getter.needs_gc()) {
         heap.gc_visit_object(prop.data.getset.getter, prop.data.getset.getter.as_GCObject());
       }
@@ -177,7 +177,7 @@ std::string JSObject::description() {
   u32 print_prop_num = std::min((u32)4, (u32)storage.size());
   u32 i = 0;
   for (auto& [key, prop] : storage) {
-    if (not prop.desc.enumerable) continue;
+    if (not prop.flag.enumerable) continue;
 
     stream << key.to_string() << ": ";
     stream << prop.data.value.description() << ", ";
@@ -194,7 +194,7 @@ std::string JSObject::to_string(NjsVM& vm) const {
   std::string output = "{ ";
 
   for (auto& [key, prop] : storage) {
-    if (not prop.desc.enumerable) continue;
+    if (not prop.flag.enumerable) continue;
 
     if (key.type == JSValue::JS_ATOM) {
       u16string escaped = to_escaped_u16string(vm.atom_to_str(key.atom));
@@ -217,7 +217,7 @@ void JSObject::to_json(u16string& output, NjsVM& vm) const {
 
   bool first = true;
   for (auto& [key, prop] : storage) {
-    if (not prop.desc.enumerable) continue;
+    if (not prop.flag.enumerable) continue;
     if (prop.data.value.is_undefined()) continue;
 
     if (first) first = false;

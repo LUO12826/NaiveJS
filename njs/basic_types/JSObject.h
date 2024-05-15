@@ -24,7 +24,7 @@ using std::u16string_view;
 class GCHeap;
 
 
-enum class ObjClass {
+enum ObjClass {
   // has corresponding string representation, note to modify when adding
   CLS_OBJECT = 0,
   CLS_ARRAY,
@@ -118,7 +118,7 @@ struct std::hash<njs::JSObjectKey> {
 namespace njs {
 
 struct JSObjectProp {
-  PropFlag desc;
+  PropFlag flag;
   union Data {
     JSValue value;
     struct {
@@ -138,8 +138,8 @@ struct JSObjectProp {
 
   bool operator==(const JSObjectProp& other) const;
   
-  bool is_data_descriptor() { return desc.is_value(); }
-  bool is_accessor_descriptor() {return desc.has_getter || desc.has_setter; }
+  bool is_data_descriptor() { return flag.is_value(); }
+  bool is_accessor_descriptor() {return flag.has_getter || flag.has_setter; }
   bool is_generic_descriptor() {
     return !is_data_descriptor() && !is_accessor_descriptor();
   }
