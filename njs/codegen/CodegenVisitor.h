@@ -16,7 +16,7 @@
 #include "njs/parser/ast.h"
 #include "njs/utils/Timer.h"
 #include "njs/utils/helper.h"
-#include "njs/vm/Instructions.h"
+#include "njs/vm/Instruction.h"
 
 namespace njs {
 

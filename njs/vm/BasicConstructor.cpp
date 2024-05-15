@@ -7,7 +7,7 @@
 
 namespace njs {
 
-Completion NativeFunctions::Object_ctor(vm_func_This_args_flags) {
+Completion NativeFunction::Object_ctor(vm_func_This_args_flags) {
   if (args.size() == 0 || args[0].is_null() || args[0].is_undefined()) {
     return JSValue(vm.new_object());
   }
@@ -33,7 +33,7 @@ Completion NativeFunctions::Object_ctor(vm_func_This_args_flags) {
   return JSValue(obj);
 }
 
-Completion NativeFunctions::error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type) {
+Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type) {
   auto *err_obj = vm.new_object(ObjClass::CLS_ERROR, vm.native_error_protos[type]);
   if (args.size() > 0 && args[0].is_string_type()) {
     // only supports primitive string now.
@@ -47,7 +47,7 @@ Completion NativeFunctions::error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> arg
   return JSValue(err_obj);
 }
 
-Completion NativeFunctions::Symbol(vm_func_This_args_flags) {
+Completion NativeFunction::Symbol(vm_func_This_args_flags) {
   if (flags.this_is_new_target && !This.is_undefined()) {
     JSValue err = vm.build_error_internal(JS_TYPE_ERROR, u"Symbol() is not a constructor.");
     return Completion::with_throw(err);

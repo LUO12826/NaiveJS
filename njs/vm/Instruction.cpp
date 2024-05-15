@@ -1,4 +1,4 @@
-#include "Instructions.h"
+#include "Instruction.h"
 
 #include "njs/common/enum_strings.h"
 #include <cstdio>

@@ -10,7 +10,7 @@ namespace njs {
 
 class NjsVM;
 
-class NativeFunctions {
+class NativeFunction {
  public:
   static Completion log(JS_NATIVE_FUNC_PARAMS);
   static Completion debug_log(JS_NATIVE_FUNC_PARAMS);

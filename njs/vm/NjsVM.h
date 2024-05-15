@@ -10,7 +10,7 @@
 #include "JSRunLoop.h"
 #include "Runtime.h"
 #include "NativeFunction.h"
-#include "Instructions.h"
+#include "Instruction.h"
 #include "njs/gc/GCHeap.h"
 #include "njs/common/enums.h"
 #include "njs/common/common_def.h"
@@ -72,7 +72,7 @@ friend class JSArrayPrototype;
 friend class JSFunctionPrototype;
 friend class JSStringPrototype;
 friend class JSErrorPrototype;
-friend class NativeFunctions;
+friend class NativeFunction;
 
  public:
 
@@ -99,7 +99,7 @@ friend class NativeFunctions;
         native_error_name[type],
         // function
         [] (vm_func_This_args_flags) {
-          return NativeFunctions::error_ctor_internal(vm, args, type);
+          return NativeFunction::error_ctor_internal(vm, args, type);
         },
         // builder
         [this] (JSFunction& func) {

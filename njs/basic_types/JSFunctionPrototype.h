@@ -11,7 +11,7 @@ class JSFunctionPrototype : public JSObject {
   JSFunctionPrototype(NjsVM& vm) : JSObject(ObjClass::CLS_FUNCTION_PROTO) {}
 
   void add_methods(NjsVM& vm) {
-    add_method(vm, u"valueOf", NativeFunctions::clear_interval);
+    add_method(vm, u"valueOf", NativeFunction::clear_interval);
   }
 
   u16string_view get_class_name() override {

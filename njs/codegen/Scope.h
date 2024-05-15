@@ -6,7 +6,7 @@
 #include "njs/common/enums.h"
 #include "njs/common/common_def.h"
 #include "njs/include/robin_hood.h"
-#include "njs/vm/Instructions.h"
+#include "njs/vm/Instruction.h"
 #include "njs/codegen/CatchTableEntry.h"
 #include <memory>
 #include <optional>

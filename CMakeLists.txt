@@ -10,7 +10,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(SOURCES
     njs/vm/NjsVM.cpp
     njs/vm/NjsVM_setup.cpp
-    njs/vm/Instructions.cpp
+    njs/vm/Instruction.cpp
     njs/basic_types/JSFunction.cpp
     njs/basic_types/JSObject.cpp
     njs/basic_types/JSValue.cpp
@@ -19,7 +19,7 @@ set(SOURCES
     njs/parser/ast.cpp
     njs/basic_types/JSArray.cpp
     njs/vm/NativeFunction.cpp
-    njs/vm/BasicCtors.cpp
+    njs/vm/BasicConstructor.cpp
     njs/vm/JSRunLoop.cpp
     njs/basic_types/JSObjectPrototype.cpp
     njs/basic_types/JSArrayPrototype.cpp

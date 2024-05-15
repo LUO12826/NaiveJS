@@ -16,13 +16,13 @@ inline JSFunctionMeta build_func_meta(NativeFuncType func) {
 
 void NjsVM::setup() {
   auto empty_func = [] (auto& f) {};
-  add_native_func_impl(u"log", NativeFunctions::debug_log, empty_func);
-  add_native_func_impl(u"$gc", NativeFunctions::js_gc, empty_func);
-  add_native_func_impl(u"setTimeout", NativeFunctions::set_timeout, empty_func);
-  add_native_func_impl(u"setInterval", NativeFunctions::set_interval, empty_func);
-  add_native_func_impl(u"clearTimeout", NativeFunctions::clear_timeout, empty_func);
-  add_native_func_impl(u"clearInterval", NativeFunctions::clear_interval, empty_func);
-  add_native_func_impl(u"fetch", NativeFunctions::fetch, empty_func);
+  add_native_func_impl(u"log", NativeFunction::debug_log, empty_func);
+  add_native_func_impl(u"$gc", NativeFunction::js_gc, empty_func);
+  add_native_func_impl(u"setTimeout", NativeFunction::set_timeout, empty_func);
+  add_native_func_impl(u"setInterval", NativeFunction::set_interval, empty_func);
+  add_native_func_impl(u"clearTimeout", NativeFunction::clear_timeout, empty_func);
+  add_native_func_impl(u"clearInterval", NativeFunction::clear_interval, empty_func);
+  add_native_func_impl(u"fetch", NativeFunction::fetch, empty_func);
 
   add_error_ctor<JS_ERROR>();
   add_error_ctor<JS_EVAL_ERROR>();
@@ -34,19 +34,19 @@ void NjsVM::setup() {
   add_error_ctor<JS_INTERNAL_ERROR>();
   add_error_ctor<JS_AGGREGATE_ERROR>();
 
-  add_native_func_impl(u"Object", NativeFunctions::Object_ctor, [this] (auto& func) {
+  add_native_func_impl(u"Object", NativeFunction::Object_ctor, [this] (auto& func) {
     object_prototype.as_object()->add_prop_trivial(AtomPool::k_constructor, JSValue(&func));
     func.add_prop_trivial(AtomPool::k_prototype, object_prototype);
   });
 
-  add_native_func_impl(u"Symbol", NativeFunctions::Symbol, [this] (JSFunction& func) {
+  add_native_func_impl(u"Symbol", NativeFunction::Symbol, [this] (JSFunction& func) {
     JSValue sym_iterator = JSValue::Symbol(atom_pool.atomize_symbol_desc(u"iterator"));
     func.add_prop_trivial(AtomPool::k_iterator, sym_iterator);
   });
 
   add_builtin_object(u"console", [this] () {
     JSObject *obj = new_object();
-    JSFunction *log_func = new_function(build_func_meta(NativeFunctions::log));
+    JSFunction *log_func = new_function(build_func_meta(NativeFunction::log));
 
     obj->add_prop_trivial(str_to_atom(u"log"), JSValue(log_func));
     return obj;
@@ -54,7 +54,7 @@ void NjsVM::setup() {
 
   add_builtin_object(u"JSON", [this] () {
     JSObject *obj = new_object();
-    JSFunction *func = new_function(build_func_meta(NativeFunctions::json_stringify));
+    JSFunction *func = new_function(build_func_meta(NativeFunction::json_stringify));
 
     obj->add_prop_trivial(str_to_atom(u"stringify"), JSValue(func));
     return obj;

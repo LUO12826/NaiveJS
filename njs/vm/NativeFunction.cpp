@@ -5,7 +5,7 @@
 
 namespace njs {
 
-Completion NativeFunctions::log(vm_func_This_args_flags) {
+Completion NativeFunction::log(vm_func_This_args_flags) {
   std::string output = "\033[32m[LOG] ";
 
   for (int i = 0; i < args.size(); i++) {
@@ -20,7 +20,7 @@ Completion NativeFunctions::log(vm_func_This_args_flags) {
   return undefined;
 }
 
-Completion NativeFunctions::debug_log(vm_func_This_args_flags) {
+Completion NativeFunction::debug_log(vm_func_This_args_flags) {
   std::string output = "\033[32m[LOG] ";
 
   for (int i = 0; i < args.size(); i++) {
@@ -34,12 +34,12 @@ Completion NativeFunctions::debug_log(vm_func_This_args_flags) {
   return undefined;
 }
 
-Completion NativeFunctions::js_gc(vm_func_This_args_flags) {
+Completion NativeFunction::js_gc(vm_func_This_args_flags) {
   vm.heap.gc();
   return undefined;
 }
 
-Completion NativeFunctions::set_timeout(vm_func_This_args_flags) {
+Completion NativeFunction::set_timeout(vm_func_This_args_flags) {
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
@@ -47,7 +47,7 @@ Completion NativeFunctions::set_timeout(vm_func_This_args_flags) {
   return JSValue(double(id));
 }
 
-Completion NativeFunctions::set_interval(vm_func_This_args_flags) {
+Completion NativeFunction::set_interval(vm_func_This_args_flags) {
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
@@ -55,14 +55,14 @@ Completion NativeFunctions::set_interval(vm_func_This_args_flags) {
   return JSValue(double(id));
 }
 
-Completion NativeFunctions::clear_interval(vm_func_This_args_flags) {
+Completion NativeFunction::clear_interval(vm_func_This_args_flags) {
   assert(args.size() >= 1);
   assert(args[0].is(JSValue::NUM_FLOAT));
   vm.runloop.remove_timer(size_t(args[0].val.as_f64));
   return undefined;
 }
 
-Completion NativeFunctions::clear_timeout(vm_func_This_args_flags) {
+Completion NativeFunction::clear_timeout(vm_func_This_args_flags) {
   assert(args.size() >= 1);
   assert(args[0].is(JSValue::NUM_FLOAT));
   vm.runloop.remove_timer(size_t(args[0].val.as_f64));
@@ -87,7 +87,7 @@ void separate_host_and_path(const std::string& url, std::string& host, std::stri
   }
 }
 
-Completion NativeFunctions::fetch(vm_func_This_args_flags) {
+Completion NativeFunction::fetch(vm_func_This_args_flags) {
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::STRING));
   assert(args[1].is(JSValue::FUNCTION));
@@ -116,7 +116,7 @@ Completion NativeFunctions::fetch(vm_func_This_args_flags) {
   return undefined;
 }
 
-Completion NativeFunctions::json_stringify(vm_func_This_args_flags) {
+Completion NativeFunction::json_stringify(vm_func_This_args_flags) {
   assert(args.size() >= 1);
   u16string json_string;
   args[0].to_json(json_string, vm);
