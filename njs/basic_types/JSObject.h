@@ -34,6 +34,7 @@ enum ObjClass {
   CLS_ERROR,
   CLS_DATE,
   CLS_FUNCTION,
+  CLS_FOR_IN_ITERATOR,
   CLS_CUSTOM,
 
   CLS_OBJECT_PROTO,
@@ -43,6 +44,7 @@ enum ObjClass {
   CLS_STRING_PROTO,
   CLS_FUNCTION_PROTO,
   CLS_ERROR_PROTO,
+  CLS_ITERATOR_PROTO,
 };
 
 struct PropFlag {
@@ -61,6 +63,7 @@ struct PropFlag {
 
   static PropFlag empty;
   static PropFlag VECW;
+  static PropFlag VCW;
 
   // PropFlag() {}
   // PropFlag(bool e, bool c, bool w, bool v, bool g, bool s) :
@@ -146,10 +149,18 @@ struct JSObjectProp {
 };
 
 class JSObject : public GCObject {
+
+friend class JSForInIterator;
+
  public:
   JSObject() : obj_class(ObjClass::CLS_OBJECT) {}
   explicit JSObject(ObjClass cls) : obj_class(cls) {}
   explicit JSObject(ObjClass cls, JSValue proto) : obj_class(cls), _proto_(proto) {}
+
+  template <typename T>
+  T *as() {
+    return static_cast<T*>(this);
+  }
 
   void gc_scan_children(GCHeap& heap) override;
   std::string description() override;
@@ -218,10 +229,13 @@ class JSObject : public GCObject {
    * if the key type is JSValue.
    */
   ErrorOr<bool> set_prop(NjsVM& vm, JSValue key, JSValue value, PropFlag flag = PropFlag::VECW);
-  ErrorOr<bool> set_prop(NjsVM& vm, u32 key_atom, JSValue value, PropFlag flag = PropFlag::VECW);
   ErrorOr<bool> set_prop(NjsVM& vm, u16string_view key_str, JSValue value, PropFlag flag = PropFlag::VECW);
-  bool add_prop_trivial(u32 key_atom, JSValue value);
-  bool add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl);
+
+  bool add_prop_trivial(u32 key_atom, JSValue value, PropFlag flag = PropFlag::VCW);
+ bool add_prop_trivial(JSValue key, JSValue value, PropFlag flag = PropFlag::VCW);
+
+  bool add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl, PropFlag flag = PropFlag::VCW);
+  bool add_symbol_method(NjsVM& vm, u32 symbol, NativeFuncType funcImpl);
 
   Completion get_prop(NjsVM& vm, u16string_view key_str);
   Completion get_prop(NjsVM& vm, JSValue key);

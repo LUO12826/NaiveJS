@@ -1142,6 +1142,115 @@ class CodegenVisitor {
   }
 
   void visit_for_in_statement(ForInStatement& stmt) {
+    Scope& outer_scope = scope();
+    outer_scope.can_break = true;
+    outer_scope.can_continue = true;
+    outer_scope.continue_pos = -1;
+
+    vector<pair<u16string_view, VarKind>> extra_var;
+    if (stmt.element_expr->is(ASTNode::AST_STMT_VAR)
+        && stmt.element_expr->as<VarStatement>()->kind != VarKind::DECL_VAR) {
+
+      auto *var_stmt = stmt.element_expr->as<VarStatement>();
+      for (auto *decl : var_stmt->declarations) {
+        extra_var.emplace_back(decl->id.text, var_stmt->kind);
+      }
+    }
+
+    visit(stmt.collection_expr);
+    emit(OpType::for_in_init);
+
+    auto init = [&, this] () {
+      auto init_expr = stmt.element_expr;
+      if (init_expr->is(ASTNode::AST_STMT_VAR)) {
+        visit_variable_statement(*init_expr->as<VarStatement>(), false);
+      }
+    };
+
+    u32 loop_start;
+    u32 exit_jump;
+    auto prolog = [&, this] {
+      loop_start = emit(OpType::for_in_next);
+      exit_jump = emit(OpType::iter_end_jmp);
+
+      if (stmt.element_is_id()) {
+        u16str_view id = stmt.get_element_id();
+        auto sym = scope().resolve_symbol(id);
+        bool dynamic = (sym.def_scope == ScopeType::GLOBAL && !sym.is_let_or_const())
+                       || sym.not_found();
+
+        if (not dynamic) {
+          OpType op = sym.is_let_or_const() ? OpType::pop_check : OpType::pop;
+          emit(op, scope_type_int(sym.storage_scope), sym.get_index());
+        } else {
+          u32 atom = atom_pool.atomize(id);
+          emit(OpType::dyn_set_var, int(atom));
+          emit(OpType::pop_drop);
+        }
+      }
+      else { // LeftHandSide Expression
+        Instruction inst_set_prop;
+        if (stmt.element_expr->type == ASTNode::AST_EXPR_LHS) {
+          inst_set_prop = visit_left_hand_side_expr(*stmt.element_expr->as_lhs_expr(), true, false);
+        }
+
+        if (inst_set_prop.op_type == OpType::set_prop_atom) {
+          emit(OpType::move_to_top1);
+        } else if (inst_set_prop.op_type == OpType::set_prop_index) {
+          emit(OpType::move_to_top2);
+        } else {
+          assert(false);
+        }
+        emit(inst_set_prop);
+        emit(OpType::pop_drop);
+      }
+    };
+
+    auto epilog = [&, this] {
+      for (u32 idx : outer_scope.continue_list) {
+        bytecode[idx].operand.two.opr1 = bytecode_pos();
+      }
+      outer_scope.continue_list.clear();
+
+      for (auto [var_name, kind] : extra_var) {
+        auto sym = scope().resolve_symbol(var_name);
+        if (sym.original_symbol->is_captured) {
+          emit(OpType::loop_var_renew, sym.get_index());
+        }
+      }
+      emit(OpType::jmp, (int)loop_start);
+    };
+
+    bool body_is_block = false;
+    if (stmt.body_stmt->is_valid_in_single_stmt_ctx()) {
+      if (stmt.body_stmt->is(ASTNode::AST_STMT_BLOCK)) {
+        body_is_block = true;
+        visit_block_statement(*stmt.body_stmt->as<Block>(), extra_var, false, init, prolog, epilog);
+      } else {
+        // TODO: fix this
+        assert(false);
+      }
+    } else {
+      report_error(CodegenError {
+          .message = "SyntaxError: Lexical declaration cannot appear in a single-statement context",
+          .ast_node = stmt.body_stmt,
+      });
+    }
+    u32 loop_end = bytecode_pos();
+    bytecode[exit_jump].operand.two.opr1 = loop_end;
+    for (u32 idx : outer_scope.break_list) {
+      bytecode[idx].operand.two.opr1 = loop_end;
+    }
+    outer_scope.break_list.clear();
+
+    if (body_is_block) {
+      gen_var_dispose_code(*stmt.body_stmt->as<Block>()->scope);
+    }
+    // drop the ForInIterator
+    emit(OpType::pop_drop);
+
+    outer_scope.can_break = false;
+    outer_scope.can_continue = false;
   }
 
   void visit_continue_break_statement(ContinueOrBreak& stmt) {

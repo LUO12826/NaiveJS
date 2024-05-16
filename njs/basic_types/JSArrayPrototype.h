@@ -82,13 +82,13 @@ class JSArrayPrototype : public JSObject {
     array->dense_array.resize(new_size);
 
     for (size_t i = 0; i < args.size(); i++) {
-      array->dense_array[old_size + i].assign(args[i]);
+      array->dense_array[old_size + i] = args[i];
     }
 
-    array->set_length(u32(new_size));
+    JSValue new_length {double(new_size)};
+    array->set_prop(vm, JSValue::Atom(AtomPool::k_length), new_length);
 
-    // return the length after push
-    return JSValue(double(new_size));
+    return new_length;
   }
 };
 

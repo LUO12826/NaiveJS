@@ -18,6 +18,7 @@ ErrorOr<double> to_number(NjsVM &vm, JSValue val);
 ErrorOr<u32> to_uint32(NjsVM &vm, JSValue val);
 ErrorOr<int32_t> to_int32(NjsVM &vm, JSValue val);
 Completion to_string(NjsVM &vm, JSValue val, bool to_prop_key = false);
+Completion to_object(NjsVM &vm, JSValue val);
 /// return atom or symbol
 Completion to_property_key(NjsVM &vm, JSValue val);
 u16string double_to_string(double n);

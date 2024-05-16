@@ -6,6 +6,7 @@
 #include "JSObject.h"
 #include "njs/vm/NjsVM.h"
 #include "njs/common/AtomPool.h"
+#include "njs/utils/macros.h"
 #include "njs/basic_types/atom.h"
 #include "njs/basic_types/conversion.h"
 
@@ -109,23 +110,32 @@ class JSArray: public JSObject {
     auto comp = get_index_or_atom(vm, key);
     if (comp.is_throw()) return comp;
 
-    JSValue res = comp.get_value();
-    if (res.is(JSValue::NUM_UINT32)) {
-      set_element_fast(res.val.as_u32, val);
+    JSValue idx = comp.get_value();
+    if (idx.is(JSValue::NUM_UINT32)) {
+      set_element_fast(idx.val.as_u32, val);
       return undefined;
     } else {
-      assert(res.is_atom() || res.is_symbol());
-      u32 atom = res.val.as_atom;
+      assert(idx.is_atom() || idx.is_symbol());
+      u32 atom = idx.val.as_atom;
       if (atom_is_int(atom)) {
         set_element_fast(atom_get_int(atom), val);
         return undefined;
-      }else {
-        auto set_res = set_prop(vm, atom, val);
-        if (set_res.is_error()) {
-          return Completion::with_throw(set_res.get_error());
-        } else {
-          return undefined;
+      }
+      else {
+        if (atom == AtomPool::k_length) {
+          double len = TRY(to_number(vm, val));
+          int64_t len_int = int64_t(len);
+          if (len >= 0 && double() == len && (double)len_int == len && len_int <= UINT32_MAX) {
+            dense_array.resize(len_int);
+            set_prop(vm, idx, JSValue(len));
+            return undefined;
+          } else {
+            return Completion::with_throw(vm.build_error_internal(JS_RANGE_ERROR, u"Invalid array length"));
+          }
         }
+
+        TRY(set_prop(vm, idx, val));
+        return undefined;
       }
     }
   }
@@ -133,10 +143,6 @@ class JSArray: public JSObject {
   u32 get_length() {
     assert(has_own_property(AtomPool::k_length));
     return (u32)get_prop_trivial(AtomPool::k_length).val.as_f64;
-  }
-
-  void set_length(u32 length) {
-    add_prop_trivial(AtomPool::k_length, JSValue(double(length)));
   }
 
   std::vector<JSValue> dense_array;

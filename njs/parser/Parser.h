@@ -954,25 +954,24 @@ error:
 
       init_expr = parse_variable_declaration(true, var_kind);
       if (init_expr->is_illegal()) return init_expr;
+      var_stmt->add_decl(init_expr);
 
       // expect `in`, `of` or `,`
       // the `in` and `of` cases, that is, var VariableDeclarationNoIn in
       lexer.next();
       if (lexer.current().text == u"in" || lexer.current().text == u"of") {
-        return parse_for_in_statement(init_expr, start, line_start);
+        defer.dismiss();
+        return parse_for_in_statement(var_stmt, start, line_start);
       }
 
       // the `,` case
-      var_stmt->add_decl(init_expr);
       while (!lexer.current().is_semicolon()) {
         if (!token_match(TokenType::COMMA) || !lexer.next().is_identifier()) {
           goto error;
         }
-
         init_expr = parse_variable_declaration(true, var_kind);
-        if (init_expr->is_illegal()) {
-          return init_expr;
-        }
+        
+        if (init_expr->is_illegal()) return init_expr;
         var_stmt->add_decl(init_expr);
         lexer.next();
       }

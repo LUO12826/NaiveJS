@@ -12,6 +12,8 @@ namespace njs {
 PropFlag PropFlag::empty {};
 PropFlag PropFlag::VECW { .enumerable = true, .configurable = true,
                           .writable = true, .has_value = true };
+PropFlag PropFlag::VCW {  .configurable = true,
+                          .writable = true, .has_value = true };
 
 bool JSObjectProp::operator==(const JSObjectProp& other) const {
   if (flag != other.flag) return false;
@@ -75,7 +77,7 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, u16string_view hint) {
 ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value, PropFlag flag) {
   // prop can come from this object or its prototype
   JSObjectProp *desc = get_exist_prop(key);
-  if (desc == nullptr) {
+  if (desc == nullptr) [[unlikely]] {
     if (extensible) {
       desc = &storage[JSObjectKey(key)];
       desc->flag = flag;
@@ -101,19 +103,19 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value, PropFlag
   }
 }
 
-bool JSObject::add_prop_trivial(u32 key_atom, JSValue value) {
-  JSObjectProp& prop = storage[JSObjectKey(key_atom)];
-  prop.flag = PropFlag::VECW;
+bool JSObject::add_prop_trivial(u32 key_atom, JSValue value, PropFlag flag) {
+  return add_prop_trivial(JSValue::Atom(key_atom), value, flag);
+}
+
+bool JSObject::add_prop_trivial(JSValue key, JSValue value, PropFlag flag) {
+  JSObjectProp& prop = storage[JSObjectKey(key)];
+  prop.flag = flag;
   prop.data.value = value;
   return true;
 }
 
-ErrorOr<bool> JSObject::set_prop(NjsVM& vm, u32 key_atom, JSValue value, PropFlag flag) {
-  return set_prop(vm, JSValue::Atom(key_atom), value, flag);
-}
-
 ErrorOr<bool> JSObject::set_prop(NjsVM& vm, u16string_view key_str, JSValue value, PropFlag flag) {
-  return set_prop(vm, vm.str_to_atom(key_str), value, flag);
+  return set_prop(vm, JSValue::Atom(vm.str_to_atom(key_str)), value, flag);
 }
 
 Completion JSObject::get_prop(NjsVM& vm, u16string_view key_atom) {
@@ -137,7 +139,7 @@ Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
   }
 }
 
-bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl) {
+bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl, PropFlag flag) {
   u32 name_idx = vm.str_to_atom(key_str);
   JSFunctionMeta meta {
       .name_index = name_idx,
@@ -148,6 +150,18 @@ bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType func
   };
 
   return add_prop_trivial(name_idx, JSValue(vm.new_function(meta)));
+}
+
+bool JSObject::add_symbol_method(NjsVM& vm, u32 symbol, NativeFuncType funcImpl) {
+  JSFunctionMeta meta {
+      .is_anonymous = true,
+      .is_native = true,
+      .param_count = 0,
+      .local_var_count = 0,
+      .native_func = funcImpl,
+  };
+
+  return add_prop_trivial(JSValue::Symbol(symbol), JSValue(vm.new_function(meta)));
 }
 
 void JSObject::gc_scan_children(GCHeap& heap) {

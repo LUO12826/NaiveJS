@@ -252,7 +252,7 @@ friend class NjsVM;
 
   bool is_falsy() const {
     if (tag == BOOLEAN) return !val.as_bool;
-    if (tag == JS_NULL || tag == UNDEFINED) return true;
+    if (tag == JS_NULL || tag == UNDEFINED || tag == UNINIT) return true;
     if (tag == NUM_FLOAT) return val.as_f64 == 0 || std::isnan(val.as_f64);
     if (tag == STRING) return val.as_prim_string->str.empty();
     return false;

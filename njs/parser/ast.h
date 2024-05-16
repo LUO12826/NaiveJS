@@ -857,6 +857,23 @@ class ForInStatement : public ASTNode {
     add_child(body_stmt);
   }
 
+  bool element_is_id() {
+    if (element_expr->is(AST_STMT_VAR)) return true;
+    if (element_expr->is(AST_EXPR_ID)) return true;
+    assert(element_expr->is(AST_EXPR_LHS));
+    return static_cast<LeftHandSideExpr *>(element_expr)->is_id();
+  }
+
+  u16str_view get_element_id() {
+    if (element_expr->is(AST_STMT_VAR)) {
+      VarDecl *decl = element_expr->as<VarStatement>()->declarations[0];
+      return decl->id.text;
+    } else {
+      assert(element_expr->is(AST_EXPR_LHS) || element_expr->is(AST_EXPR_ID));
+      return element_expr->get_source();
+    }
+  }
+
   ~ForInStatement() {
     delete element_expr;
     delete collection_expr;

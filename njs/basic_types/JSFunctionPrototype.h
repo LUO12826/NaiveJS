@@ -10,6 +10,8 @@ class JSFunctionPrototype : public JSObject {
  public:
   JSFunctionPrototype(NjsVM& vm) : JSObject(ObjClass::CLS_FUNCTION_PROTO) {}
 
+  // We need this to solve the chicken or egg question.
+  // see also NjsVM::init_prototypes
   void add_methods(NjsVM& vm) {
     add_method(vm, u"valueOf", NativeFunction::clear_interval);
   }
@@ -23,4 +25,4 @@ class JSFunctionPrototype : public JSObject {
 
 
 
-#endif //NJS_JSFUNCTION_PROTOTYPE_H
+#endif // NJS_JSFUNCTION_PROTOTYPE_H

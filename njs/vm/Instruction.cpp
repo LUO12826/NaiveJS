@@ -226,6 +226,24 @@ std::string Instruction::description() const {
     case OpType::dyn_get_var:
       sprintf(buffer, "dyn_get_var  %d", operand.two.opr1);
       break;
+    case OpType::dyn_set_var:
+      sprintf(buffer, "dyn_set_var  %d", operand.two.opr1);
+      break;
+    case OpType::move_to_top1:
+      sprintf(buffer, "move_to_top1");
+      break;
+    case OpType::move_to_top2:
+      sprintf(buffer, "move_to_top2");
+      break;
+    case OpType::for_in_init:
+      sprintf(buffer, "for_in_init");
+      break;
+    case OpType::for_in_next:
+      sprintf(buffer, "for_in_next");
+      break;
+    case OpType::iter_end_jmp:
+      sprintf(buffer, "iter_end_jmp  %d", operand.two.opr1);
+      break;
     case OpType::call:
       sprintf(buffer, "call  %d %d", operand.two.opr1, operand.two.opr2);
       break;

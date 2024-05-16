@@ -6,6 +6,9 @@
 #include "njs/utils/lexing_helper.h"
 #include "njs/utils/helper.h"
 #include "njs/vm/NjsVM.h"
+#include "njs/basic_types/JSString.h"
+#include "njs/basic_types/JSBoolean.h"
+#include "njs/basic_types/JSNumber.h"
 
 namespace njs {
 
@@ -60,6 +63,29 @@ Completion to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
         assert(false);
       }
   }
+}
+
+Completion to_object(NjsVM &vm, JSValue arg) {
+  if (arg.is_undefined() || arg.is_null()) [[unlikely]] {
+    return Completion::with_throw(vm.build_error_internal(JS_TYPE_ERROR, u""));
+  }
+  JSObject *obj;
+  switch (arg.tag) {
+    case JSValue::BOOLEAN:
+      obj = vm.heap.new_object<JSBoolean>(vm, arg.val.as_bool);
+      break;
+    case JSValue::NUM_FLOAT:
+      obj = vm.heap.new_object<JSNumber>(vm, arg.val.as_f64);
+      break;
+    case JSValue::STRING:
+      obj = vm.heap.new_object<JSString>(vm, *arg.val.as_prim_string);
+      break;
+    default:
+      if (arg.is_object()) return arg;
+      else assert(false);
+  }
+
+  return JSValue(obj);
 }
 
 Completion to_property_key(NjsVM &vm, JSValue val) {

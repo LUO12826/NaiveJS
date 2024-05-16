@@ -67,6 +67,7 @@ friend class JSString;
 friend class JSObject;
 friend class JSFunction;
 friend class JSArray;
+friend class JSForInIterator;
 friend class JSObjectPrototype;
 friend class JSArrayPrototype;
 friend class JSFunctionPrototype;
@@ -124,6 +125,10 @@ friend class NativeFunction;
   JSValue new_primitive_string(const u16string& str);
   JSValue new_primitive_string(u16string&& str);
 
+  bool has_atom_str(u16string_view str_view) {
+    return atom_pool.has_string(str_view);
+  }
+
   u32 str_to_atom(u16string_view str_view) {
     return atom_pool.atomize(str_view);
   }
@@ -146,7 +151,7 @@ friend class NativeFunction;
 
   u16string atom_to_str(u32 atom) {
     if (atom_is_int(atom)) [[unlikely]] {
-      return to_u16string(atom);
+      return to_u16string(atom_get_int(atom));
     } else {
       return u16string(atom_pool.get_string(atom));
     }
@@ -156,6 +161,8 @@ friend class NativeFunction;
     return string_const[index];
   }
 
+  GCHeap heap;
+  
  private:
   void execute_global();
   void execute_task(JSTask& task);
@@ -177,6 +184,7 @@ friend class NativeFunction;
   void exec_set_prop_atom(SPRef sp, u32 key_atom);
   void exec_set_prop_index(SPRef sp);
   void exec_dynamic_get_var(SPRef sp, u32 name_atom);
+  void exec_dynamic_set_var(SPRef sp, u32 name_atom);
   // array operation
   void exec_add_elements(SPRef sp, int elements_cnt);
   // binary operation
@@ -208,8 +216,6 @@ friend class NativeFunction;
   // true if the code in the global scope is executed
   bool global_end {false};
 
-  GCHeap heap;
-
   vector<JSStackFrame*> stack_frames;
   JSStackFrame *curr_frame {nullptr};
 
@@ -238,6 +244,7 @@ friend class NativeFunction;
   JSValue string_prototype;
   JSValue function_prototype;
   JSValue error_prototype;
+  JSValue iterator_prototype;
   vector<JSValue> native_error_protos;
   vector<JSValue> string_const;
 };

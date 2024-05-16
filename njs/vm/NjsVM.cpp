@@ -17,8 +17,10 @@
 #include "njs/basic_types/JSArrayPrototype.h"
 #include "njs/basic_types/JSFunctionPrototype.h"
 #include "njs/basic_types/JSErrorPrototype.h"
+#include "njs/basic_types/JSIteratorPrototype.h"
+#include "njs/basic_types/JSForInIterator.h"
 
-#define TRY(expression)                                                                       \
+#define TRY_AND_HANDLE(expression)                                                            \
     ({                                                                                        \
         Completion _temp_result = (expression);                                               \
         if (_temp_result.is_throw()) [[unlikely]] {                                           \
@@ -98,6 +100,9 @@ void NjsVM::init_prototypes() {
     native_error_protos.emplace_back(proto);
   }
   error_prototype = native_error_protos[0];
+
+  iterator_prototype.set_val(heap.new_object<JSIteratorPrototype>(*this));
+  iterator_prototype.as_object()->set_proto(object_prototype);
 }
 
 JSObject* NjsVM::new_object(ObjClass cls) {
@@ -568,6 +573,46 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
       case OpType::dyn_get_var:
         exec_dynamic_get_var(sp, OPR1);
         break;
+      case OpType::dyn_set_var:
+        exec_dynamic_set_var(sp, OPR1);
+        break;
+      case OpType::move_to_top1: {
+        JSValue tmp = sp[-1];
+        sp[-1] = sp[0];
+        sp[0] = tmp;
+        break;
+      }
+      case OpType::move_to_top2: {
+        JSValue tmp = sp[-2];
+        sp[-2] = sp[-1];
+        sp[-1] = sp[0];
+        sp[0] = tmp;
+        break;
+      }
+      case OpType::for_in_init: {
+        if (!sp[0].is_null() && !sp[0].is_undefined()) {
+          sp[0] = to_object(*this, sp[0]).get_value();
+        }
+        sp[0] = JSForInIterator::build_for_object(*this, sp[0]);
+        break;
+      }
+      case OpType::for_in_next: {
+        assert(sp[0].is_object());
+        assert(sp[0].as_object()->get_class() == ObjClass::CLS_FOR_IN_ITERATOR);
+        
+        auto *iter = sp[0].as_object()->as<JSForInIterator>();
+        sp[1] = iter->next(*this);
+        sp += 1;
+        break;
+      }
+      case OpType::iter_end_jmp:
+        if (sp[0].is_uninited()) {
+          pc = OPR1;
+          // this instruction drops the `uninited` value produced by the iterator
+          // when the iteration ends.
+          sp -= 1;
+        }
+        break;
       default:
         assert(false);
     }
@@ -831,8 +876,8 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
   if (not meta.is_arrow_func) {
     JSObject *new_prototype = new_object(ObjClass::CLS_OBJECT);
     PropFlag flag {.configurable = true, .writable = true, .has_value = true};
-    new_prototype->set_prop(*this, AtomPool::k_constructor, JSValue(func), flag);
-    func->set_prop(*this, AtomPool::k_prototype, JSValue(new_prototype), flag);
+    new_prototype->set_prop(*this, JSValue::Atom(AtomPool::k_constructor), JSValue(func), flag);
+    func->set_prop(*this, JSValue::Atom(AtomPool::k_prototype), JSValue(new_prototype), flag);
   }
 
   assert(!meta.is_native);
@@ -910,7 +955,7 @@ void NjsVM::exec_add_props(SPRef sp, int props_cnt) {
 
   for (JSValue *key = sp - props_cnt * 2 + 1; key <= sp; key += 2) {
     assert(key[0].is_atom());
-    object->add_prop_trivial(key[0].val.as_atom, key[1]);
+    object->add_prop_trivial(key[0].val.as_atom, key[1], PropFlag::VECW);
     key[0].set_undefined();
     key[1].set_undefined();
   }
@@ -927,7 +972,7 @@ void NjsVM::exec_add_elements(SPRef sp, int elements_cnt) {
 
   u32 ele_idx = 0;
   for (JSValue *val = sp - elements_cnt + 1; val <= sp; val++, ele_idx++) {
-    array->dense_array[ele_idx].assign(*val);
+    array->dense_array[ele_idx] = *val;
     val[0].set_undefined();
   }
 
@@ -1055,7 +1100,7 @@ void NjsVM::exec_set_prop_atom(SPRef sp, u32 key_atom) {
     if (key_atom == AtomPool::k___proto__) [[unlikely]] {
       obj.val.as_object->set_proto(val);
     } else {
-      auto res = obj.val.as_object->set_prop(*this, key_atom, val);
+      auto res = obj.val.as_object->set_prop(*this, JSValue::Atom(key_atom), val);
       if (res.is_error()) {
         sp += 1;
         sp[0] = res.get_error();
@@ -1112,6 +1157,11 @@ void NjsVM::exec_dynamic_get_var(SPRef sp, u32 name_atom) {
     sp += 1;
     sp[0] = val;
   }
+}
+
+void NjsVM::exec_dynamic_set_var(SPRef sp, u32 name_atom) {
+  auto comp = global_object.as_object()->set_prop(*this, JSValue::Atom(name_atom), sp[0]);
+  assert(comp.is_value());
 }
 
 

@@ -94,6 +94,14 @@ enum class OpType {
   set_prop_index,
 
   dyn_get_var,
+  dyn_set_var,
+
+  move_to_top1,
+  move_to_top2,
+
+  for_in_init,
+  for_in_next,
+  iter_end_jmp,
 
   call,
   js_new,
@@ -232,6 +240,10 @@ struct Instruction {
         return -2;
       case OpType::dyn_get_var:
         return 1;
+      case OpType::for_in_init:
+        return 0;
+      case OpType::for_in_next:
+        return 1;
       case OpType::call:    // need special handling
       case OpType::js_new:  // need special handling
       case OpType::ret:
@@ -239,6 +251,8 @@ struct Instruction {
       case OpType::halt:
       case OpType::halt_err:
       case OpType::nop:
+        return 0;
+      default:
         return 0;
     }
   }

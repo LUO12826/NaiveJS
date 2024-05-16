@@ -1,10 +1,11 @@
 #ifndef NJS_JSOBJECT_PROTOTYPE_H
 #define NJS_JSOBJECT_PROTOTYPE_H
 
-#include <njs/vm/NjsVM.h>
 
 #include "JSFunction.h"
 #include "JSObject.h"
+#include "conversion.h"
+#include <njs/vm/NjsVM.h>
 #include "njs/vm/Completion.h"
 #include "njs/common/common_def.h"
 
@@ -37,16 +38,13 @@ class JSObjectPrototype : public JSObject {
   }
 
   static Completion hasOwnProperty(vm_func_This_args_flags) {
+    assert(args.size() > 0);
     JSObject *obj = This.as_object();
     JSValue prop_name = args[0];
-    assert(prop_name.is_prim_string());
+    Completion comp = to_property_key(vm, prop_name);
+    if (comp.is_throw()) return comp;
 
-    bool has = vm.atom_pool.has_string(prop_name.val.as_prim_string->str);
-    if (!has) return JSValue(false);
-
-    u32 str_atom = vm.str_to_atom(prop_name.val.as_prim_string->str);
-    has = obj->has_own_property(str_atom);
-
+    bool has = obj->has_own_property(comp.get_value());
     return JSValue(has);
   }
 
