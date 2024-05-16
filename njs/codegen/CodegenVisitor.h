@@ -872,7 +872,6 @@ class CodegenVisitor {
     for (u32 idx : true_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
-    emit(OpType::pop_drop);
 
     if (stmt.then_block->is_valid_in_single_stmt_ctx()) {
       visit(stmt.then_block);
@@ -894,11 +893,6 @@ class CodegenVisitor {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
 
-    // we don't really `pop_drop` twice, we just `pop_drop` in each branch.
-    // To compensate, here 1 is added back.
-    scope().update_stack_usage(1);
-    emit(OpType::pop_drop);
-
     if (stmt.else_block) {
       if (stmt.else_block->is_valid_in_single_stmt_ctx()) {
         visit(stmt.else_block);
@@ -912,6 +906,8 @@ class CodegenVisitor {
       }
       bytecode[if_end_jmp].operand.two.opr1 = bytecode_pos();
     }
+
+    emit(OpType::pop_drop);
   }
 
   void visit_ternary_expr(TernaryExpr& expr) {
