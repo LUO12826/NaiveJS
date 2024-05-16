@@ -33,7 +33,11 @@ std::string JSArray::to_string(NjsVM& vm) const {
   std::string output = "[ ";
 
   for (auto& val : dense_array) {
-    output += val.to_string(vm);
+    if (val.is_uninited()) {
+      output += "<empty item>";
+    } else {
+      output += val.to_string(vm);
+    }
     output += ", ";
   }
 

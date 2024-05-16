@@ -315,7 +315,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         exec_bits(sp, inst.op_type);
         break;
       case OpType::bits_not: {
-        auto res = to_int32(*this, sp[0]);
+        auto res = js_to_int32(*this, sp[0]);
         sp[0].set_undefined();
         if (res.is_value()) {
           int v = ~res.get_value();
@@ -591,7 +591,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
       }
       case OpType::for_in_init: {
         if (!sp[0].is_null() && !sp[0].is_undefined()) {
-          sp[0] = to_object(*this, sp[0]).get_value();
+          sp[0] = js_to_object(*this, sp[0]).get_value();
         }
         sp[0] = JSForInIterator::build_for_object(*this, sp[0]);
         break;
@@ -787,10 +787,10 @@ void NjsVM::exec_bits(SPRef sp, OpType op_type) {
 
   ErrorOr<uint32_t> lhs, rhs;
 
-  lhs = to_uint32(*this, sp[-1]);
+  lhs = js_to_uint32(*this, sp[-1]);
   if (lhs.is_error()) goto error;
 
-  rhs = to_uint32(*this, sp[0]);
+  rhs = js_to_uint32(*this, sp[0]);
   if (rhs.is_error()) goto error;
 
   sp[-1].set_undefined();
@@ -826,10 +826,10 @@ void NjsVM::exec_shift(SPRef sp, OpType op_type) {
   ErrorOr<uint32_t> rhs;
   uint32_t shift_len;
 
-  lhs = to_int32(*this, sp[-1]);
+  lhs = js_to_int32(*this, sp[-1]);
   if (lhs.is_error()) goto error;
 
-  rhs = to_uint32(*this, sp[0]);
+  rhs = js_to_uint32(*this, sp[0]);
   if (rhs.is_error()) goto error;
 
   sp[-1].set_undefined();
@@ -979,53 +979,65 @@ void NjsVM::exec_add_elements(SPRef sp, int elements_cnt) {
   sp = sp - elements_cnt;
 }
 
-
-void NjsVM::exec_get_prop_atom(SPRef sp, u32 key_atom, int keep_obj) {
-  JSValue& val_obj = sp[0];
-  bool is_throw = false;
-
-  if(val_obj.is_object()) {
-    if (key_atom == AtomPool::k___proto__) [[unlikely]] {
-      sp[keep_obj] = val_obj.val.as_object->get_proto();
-    } else {
-      auto comp = val_obj.val.as_object->get_prop(*this, key_atom);
-      is_throw = comp.is_throw();
-      sp[keep_obj] = comp.get_value();
-    }
-  } else if (not (val_obj.is_uninited() || val_obj.is_undefined() || val_obj.is_null())) {
-    auto comp = get_prop_on_primitive(val_obj, key_atom);
-    is_throw = comp.is_throw();
-    sp[keep_obj] = comp.get_value();
-  } else {
-    error_throw(sp, u"cannot read property of " + to_u16string(val_obj.to_string(*this)));
-    error_handle(sp);
-    return;
-  }
-
-  sp += keep_obj;
-  if (is_throw) [[unlikely]] {
-    error_handle(sp);
-  } else {
-    if (sp[keep_obj].is_uninited()) val_obj = undefined;
-  }
-}
-
-Completion NjsVM::get_prop_on_primitive(JSValue& obj, u32 atom) {
+Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
   switch (obj.tag) {
     case JSValue::BOOLEAN:
     case JSValue::NUM_FLOAT:
     case JSValue::SYMBOL:
       return undefined;
       break;
-    case JSValue::STRING:
-      if (atom == AtomPool::k_length) {
-        auto len = obj.val.as_prim_string->length();
-        return JSValue(double(len));
-      } else {
-        return string_prototype.as_object()->get_prop(*this, atom);
+    case JSValue::STRING: {
+      auto *str = obj.val.as_prim_string;
+      Completion comp = js_to_property_key(*this, key);
+      if (comp.is_throw()) return comp;
+
+      u32 atom = comp.get_value().val.as_atom;
+      if (atom_is_int(atom)) {
+        u32 idx = atom_get_int(atom);
+        if (idx < str->length()) {
+          return JSValue(new_primitive_string(u16string(1, str->str[idx])));
+        } else {
+          return undefined; 
+        }
       }
+      else {
+        if (atom == AtomPool::k_length) {
+          auto len = obj.val.as_prim_string->length();
+          return JSValue(double(len));
+        } else {
+          return string_prototype.as_object()->get_prop(*this, atom);
+        }
+      }
+      break;
+    }
     default:
       assert(false);
+  }
+}
+
+Completion NjsVM::get_prop_common(JSValue obj, JSValue key) {
+  if(obj.is_object()) {
+    return obj.as_object()->get_property(*this, key);
+  }
+  else if (not (obj.is_uninited() || obj.is_undefined() || obj.is_null())) {
+    return get_prop_on_primitive(obj, key);
+  }
+  else {
+    u16string msg = u"cannot read property of " + to_u16string(obj.to_string(*this));
+    return Completion::with_throw(build_error_internal(msg));
+  }
+}
+
+void NjsVM::exec_get_prop_atom(SPRef sp, u32 key_atom, int keep_obj) {
+  auto comp = get_prop_common(sp[0], JSValue::Atom(key_atom));
+  JSValue& res_pos = sp[keep_obj];
+  res_pos = comp.get_value();
+
+  sp += keep_obj;
+  if (comp.is_throw()) [[unlikely]] {
+    error_handle(sp);
+  } else {
+    if (res_pos.is_uninited()) res_pos = undefined;
   }
 }
 
@@ -1034,90 +1046,47 @@ void NjsVM::exec_get_prop_index(SPRef sp, int keep_obj) {
   JSValue& index = sp[0];
   JSValue& obj = sp[-1];
 
-  Completion comp = get_at_index(obj, index);
+  Completion comp = get_prop_common(obj, index);
+  JSValue& res_pos = sp[res_index];
 
-  sp[res_index].set_undefined();
   index.set_undefined();
-  sp[res_index] = comp.get_value();
+  res_pos = comp.get_value();
   sp += res_index;
 
   if (comp.is_throw()) [[unlikely]] {
-    error_handle(sp);
+    error_handle(sp); 
+  } else {
+    if (res_pos.is_uninited()) res_pos = undefined;
   }
 }
 
-Completion NjsVM::get_at_index(JSValue obj, JSValue index) {
-  // Index an array
-  if (obj.is(JSValue::ARRAY)) {
-    return obj.val.as_array->get_element(*this, index);
+Completion NjsVM::set_prop_common(JSValue obj, JSValue key, JSValue value) {
+  if (obj.is_object()) {
+    auto res = TRY(obj.as_object()->set_property(*this, key, value));
+    return undefined;
   }
-  // Index a string
-  else if (obj.is_prim_string()) {
-    auto *str = obj.val.as_prim_string;
-    Completion comp = to_property_key(*this, index);
-    if (comp.is_throw()) return comp;
-    u32 atom = comp.get_value().val.as_atom;
-    if (atom_is_int(atom)) {
-      u32 idx = atom_get_int(atom);
-      if (idx < str->length()) {
-        return JSValue(new_primitive_string(u16string(1, str->str[idx])));
-      } else {
-        return undefined;
-      }
-    } else {
-      return string_prototype.as_object()->get_prop(*this, atom);
-    }
+  else if (obj.is_uninited() || obj.is_undefined() || obj.is_null()) {
+    u16string msg = u"cannot set property of " + to_u16string(obj.to_string(*this));
+    return Completion::with_throw(build_error_internal(msg));
   }
-  else if (obj.is_object()) {
-    Completion comp = to_property_key(*this, index);
-    if (comp.is_throw()) return comp;
-    return obj.as_object()->get_prop(*this, comp.get_value());
-  }
-  assert(false);
-}
-
-Completion NjsVM::set_at_index(JSValue obj, JSValue index, JSValue val) {
-#define RET_ERR_OR_UNDEF { if (res.is_error()) { return Completion::with_throw(res.get_error()); } return undefined; }
-
-  if (obj.is(JSValue::ARRAY)) {
-    return obj.val.as_array->set_element(*this, index, val);
-  }
-  else if (obj.is_object()) {
-    Completion comp = to_property_key(*this, index);
-    if (comp.is_throw()) return comp;
-    auto res = obj.val.as_object->set_prop(*this, comp.get_value(), val);
-    RET_ERR_OR_UNDEF
-  }
-  assert(false);
+  // else the obj is a primitive type. do nothing.
+  return undefined;
 }
 
 // top of stack: value, obj
 void NjsVM::exec_set_prop_atom(SPRef sp, u32 key_atom) {
-  JSValue &val = sp[0];
-  JSValue &obj = sp[-1];
+  JSValue& val = sp[0];
+  JSValue& obj = sp[-1];
 
-  if (obj.is_object()) {
-    if (key_atom == AtomPool::k___proto__) [[unlikely]] {
-      obj.val.as_object->set_proto(val);
-    } else {
-      auto res = obj.val.as_object->set_prop(*this, JSValue::Atom(key_atom), val);
-      if (res.is_error()) {
-        sp += 1;
-        sp[0] = res.get_error();
-        error_handle(sp);
-        return;
-      }
-    }
-  } else if (obj.is_uninited() || obj.is_undefined() || obj.is_null()) {
-    error_throw(sp, u"cannot read property of " + to_u16string(obj.to_string(*this)));
+  auto comp = set_prop_common(obj, JSValue::Atom(key_atom), val);
+  if (comp.is_throw()) {
+    val = comp.get_value();
     error_handle(sp);
-    return;
+  } else {
+    // keep the value on the stack
+    obj = std::move(val);
+    sp -= 1;
   }
-  // else the obj is a primitive type. do nothing.
-
-  obj.set_undefined();
-  obj = std::move(val);
-  sp -= 1;
 }
 
 // top of stack: value, index, obj
@@ -1126,24 +1095,16 @@ void NjsVM::exec_set_prop_index(SPRef sp) {
   JSValue& index = sp[-1];
   JSValue& obj = sp[-2];
 
-  if (obj.is_object()) {
-    Completion comp = set_at_index(obj, index, val);
-    if (comp.is_throw()) [[unlikely]] {
-      *++sp = comp.get_value();
-      error_handle(sp);
-      return;
-    }
-  } else if (obj.is_uninited() || obj.is_undefined() || obj.is_null()) {
-    error_throw(sp, u"cannot set property of " + to_u16string(obj.to_string(*this)));
+  auto comp = set_prop_common(obj, index, val);
+  if (comp.is_throw()) {
+    val = comp.get_value();
     error_handle(sp);
-    return;
+  } else {
+    // keep the value on the stack
+    index.set_undefined();
+    obj = std::move(val);
+    sp -= 2;
   }
-  // else the obj is a primitive type. do nothing.
-
-  obj.set_undefined();
-  index.set_undefined();
-  obj = std::move(val);
-  sp -= 2;
 }
 
 void NjsVM::exec_dynamic_get_var(SPRef sp, u32 name_atom) {
@@ -1315,5 +1276,4 @@ void NjsVM::exec_halt_err(SPRef sp, Instruction &inst) {
     printf("\033[33m%-50s sp: %-3ld\033[0m\n\n", inst.description().c_str(), 0l);
   }
 }
-
 }

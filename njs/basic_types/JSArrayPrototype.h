@@ -30,7 +30,7 @@ class JSArrayPrototype : public JSObject {
     assert(This.is(JSValue::ARRAY));
 
     JSArray *array = This.val.as_array;
-    return array->get_element(vm, args[0]);
+    return array->get_property_impl(vm, args[0]);
   }
 
   static Completion sort(vm_func_This_args_flags) {

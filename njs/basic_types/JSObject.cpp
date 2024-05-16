@@ -27,6 +27,39 @@ bool JSObjectProp::operator==(const JSObjectProp& other) const {
   }
 }
 
+Completion JSObject::get_property(NjsVM& vm, JSValue key) {
+  if (key.is_atom() && key.val.as_atom == AtomPool::k___proto__) [[unlikely]] {
+    return get_proto();
+  } else {
+    return get_property_impl(vm, key);
+  }
+}
+
+Completion JSObject::get_property_impl(NjsVM& vm, JSValue key) {
+  // fast path for atom
+  if (key.is_atom()) [[likely]] {
+    return get_prop(vm, key.val.as_atom);
+  } else {
+    auto comp = js_to_property_key(vm, key);
+    if (comp.is_throw()) return comp;
+    return get_prop(vm, comp.get_value());
+  }
+}
+
+ErrorOr<bool> JSObject::set_property(NjsVM& vm, JSValue key, JSValue value, PropFlag flag) {
+  if (key.is_atom() && key.val.as_atom == AtomPool::k___proto__) [[unlikely]] {
+    return set_proto(value);
+  } else {
+    return set_property_impl(vm, key, value, flag);
+  }
+}
+
+ErrorOr<bool> JSObject::set_property_impl(NjsVM& vm, JSValue key, JSValue value, PropFlag flag) {
+  auto comp = js_to_property_key(vm, key);
+  if (comp.is_throw()) return comp.get_value();
+  return set_prop(vm, comp.get_value(), value, flag);
+}
+
 Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
   JSValue exotic_to_prim = get_prop(vm, AtomPool::k_toPrimitive).get_value();
   if (exotic_to_prim.is_function()) {

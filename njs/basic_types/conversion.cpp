@@ -12,7 +12,7 @@
 
 namespace njs {
 
-u16string double_to_string(double n) {
+u16string double_to_u16string(double n) {
   char buf[JS_DTOA_BUF_SIZE];
   char16_t u16buf[JS_DTOA_BUF_SIZE];
   char *p_buf = buf;
@@ -26,7 +26,7 @@ u16string double_to_string(double n) {
   return u16string(u16buf, p_u16buf - u16buf);
 }
 
-Completion to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
+Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
   switch (val.tag) {
     case JSValue::UNDEFINED:
       return vm.get_string_const(AtomPool::k_undefined);
@@ -46,7 +46,7 @@ Completion to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
     case JSValue::NUM_INT32:
       return vm.new_primitive_string(to_u16string(val.val.as_i32));
     case JSValue::NUM_FLOAT: {
-      u16string str = double_to_string(val.val.as_f64);
+      u16string str = double_to_u16string(val.val.as_f64);
       return vm.new_primitive_string(std::move(str));
     }
     case JSValue::STRING:
@@ -57,7 +57,7 @@ Completion to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
         if (comp.is_throw()) {
           return comp;
         } else {
-          return to_string(vm, comp.get_value(), to_prop_key);
+          return js_to_string(vm, comp.get_value(), to_prop_key);
         }
       } else {
         assert(false);
@@ -65,7 +65,7 @@ Completion to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
   }
 }
 
-Completion to_object(NjsVM &vm, JSValue arg) {
+Completion js_to_object(NjsVM &vm, JSValue arg) {
   if (arg.is_undefined() || arg.is_null()) [[unlikely]] {
     return Completion::with_throw(vm.build_error_internal(JS_TYPE_ERROR, u""));
   }
@@ -88,7 +88,7 @@ Completion to_object(NjsVM &vm, JSValue arg) {
   return JSValue(obj);
 }
 
-Completion to_property_key(NjsVM &vm, JSValue val) {
+Completion js_to_property_key(NjsVM &vm, JSValue val) {
   switch (val.tag) {
     case JSValue::UNDEFINED:
       return JSValue::Atom(AtomPool::k_undefined);
@@ -111,16 +111,16 @@ Completion to_property_key(NjsVM &vm, JSValue val) {
           return JSValue::Atom(vm.str_to_atom_no_uint(str));
         }
       } else {
-        u16string str = double_to_string(val.val.as_f64);
+        u16string str = double_to_u16string(val.val.as_f64);
         return JSValue::Atom(vm.str_to_atom_no_uint(str));
       }
     }
     case JSValue::STRING:
       return JSValue::Atom(vm.str_to_atom(val.val.as_prim_string->str));
     default: {
-      auto comp = to_string(vm, val, true);
+      auto comp = js_to_string(vm, val, true);
       if (comp.is_throw()) return comp;
-      return to_property_key(vm, comp.get_value());
+      return js_to_property_key(vm, comp.get_value());
     }
   }
 }
@@ -163,7 +163,7 @@ double u16string_to_double(const u16string &str) {
   }
 }
 
-ErrorOr<double> to_number(NjsVM &vm, JSValue val) {
+ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {
   switch (val.tag) {
     case JSValue::UNDEFINED:
       return nan("");
@@ -182,7 +182,7 @@ ErrorOr<double> to_number(NjsVM &vm, JSValue val) {
         Completion comp = val.as_object()->to_primitive(vm, u"number");
         if (comp.is_throw()) return comp.get_value();
 
-        return to_number(vm, comp.get_value());
+        return js_to_number(vm, comp.get_value());
       } else {
         assert(false);
       }
@@ -191,8 +191,8 @@ ErrorOr<double> to_number(NjsVM &vm, JSValue val) {
 }
 
 
-ErrorOr<u32> to_uint32(NjsVM &vm, JSValue val) {
-  auto maybe_num = to_number(vm, val);
+ErrorOr<u32> js_to_uint32(NjsVM &vm, JSValue val) {
+  auto maybe_num = js_to_number(vm, val);
   if (maybe_num.is_error()) return maybe_num.get_error();
 
   double x = maybe_num.get_value();
@@ -204,8 +204,8 @@ ErrorOr<u32> to_uint32(NjsVM &vm, JSValue val) {
   return u32(int_val);
 }
 
-ErrorOr<int32_t> to_int32(NjsVM &vm, JSValue val) {
-  auto maybe_num = to_number(vm, val);
+ErrorOr<int32_t> js_to_int32(NjsVM &vm, JSValue val) {
+  auto maybe_num = js_to_number(vm, val);
   if (maybe_num.is_error()) return maybe_num.get_error();
 
   double x = maybe_num.get_value();

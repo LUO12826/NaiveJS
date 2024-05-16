@@ -108,7 +108,9 @@ inline double scan_fractional_part(const char16_t *str, u32 str_len, u32& cursor
 inline optional<double> scan_numeric_literal(const char16_t *str, u32 str_len, u32& cursor) {
   u32 pos = cursor;
   char16_t ch = str[pos];
-  assert(ch == u'.' || character::is_decimal_digit(ch));
+  if (not (ch == u'.' || character::is_decimal_digit(ch))) {
+    return std::nullopt;
+  }
 
   uint64_t int_val = 0;
   double double_val = 0;

@@ -171,6 +171,12 @@ friend class JSForInIterator;
   virtual u16string_view get_class_name() { return u"Object"; }
   ObjClass get_class() { return obj_class; }
 
+  Completion get_property(NjsVM& vm, JSValue key);
+  ErrorOr<bool> set_property(NjsVM& vm, JSValue key, JSValue value, PropFlag flag = PropFlag::VECW);
+
+  virtual Completion get_property_impl(NjsVM& vm, JSValue key);
+  virtual ErrorOr<bool> set_property_impl(NjsVM& vm, JSValue key, JSValue value, PropFlag flag);
+
   bool set_proto(JSValue proto) {
     assert(proto.is_object() || proto.is_null());
 
@@ -232,7 +238,7 @@ friend class JSForInIterator;
   ErrorOr<bool> set_prop(NjsVM& vm, u16string_view key_str, JSValue value, PropFlag flag = PropFlag::VECW);
 
   bool add_prop_trivial(u32 key_atom, JSValue value, PropFlag flag = PropFlag::VCW);
- bool add_prop_trivial(JSValue key, JSValue value, PropFlag flag = PropFlag::VCW);
+  bool add_prop_trivial(JSValue key, JSValue value, PropFlag flag = PropFlag::VCW);
 
   bool add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl, PropFlag flag = PropFlag::VCW);
   bool add_symbol_method(NjsVM& vm, u32 symbol, NativeFuncType funcImpl);

@@ -20,6 +20,15 @@ using u32 = uint32_t;
         _temp_result.get_value();                                                             \
     })
 
+#define TRY_ERR(expression)                                                                   \
+    ({                                                                                        \
+        auto _temp_result = (expression);                                                     \
+        if (_temp_result.is_error()) [[unlikely]] {                                           \
+          return _temp_result.get_error();                                                    \
+        }                                                                                     \
+        _temp_result.get_value();                                                             \
+    })
+
 #define TRY_COMP(expression)                                                                  \
     ({                                                                                        \
         auto _temp_result = (expression);                                                     \

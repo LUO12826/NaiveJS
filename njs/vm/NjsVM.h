@@ -200,9 +200,9 @@ friend class NativeFunction;
 
   void exec_halt_err(SPRef sp, Instruction &inst);
 
-  Completion get_prop_on_primitive(JSValue& obj, u32 atom);
-  Completion get_at_index(JSValue obj, JSValue index);
-  Completion set_at_index(JSValue obj, JSValue index, JSValue val);
+  Completion get_prop_on_primitive(JSValue& obj, JSValue key);
+  Completion get_prop_common(JSValue obj, JSValue key);
+  Completion set_prop_common(JSValue obj, JSValue key, JSValue value);
 
   void error_throw(SPRef sp, const u16string& msg);
   void error_handle(SPRef sp);

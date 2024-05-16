@@ -34,7 +34,7 @@ inline ErrorOr<bool> strict_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
       }
       default:
         if (lhs.is_object()) {
-          res = lhs.val.as_object == rhs.val.as_object;
+          res = lhs.as_object() == rhs.as_object();
         } else {
           assert(false);
         }

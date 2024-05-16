@@ -35,6 +35,56 @@ class JSArray: public JSObject {
   std::string to_string(NjsVM& vm) const override;
   void to_json(u16string& output, NjsVM& vm) const override;
 
+  Completion get_property_impl(NjsVM& vm, JSValue key) override {
+    auto comp = get_index_or_atom(vm, key);
+    if (comp.is_throw()) return comp;
+
+    JSValue res = comp.get_value();
+    if (res.is(JSValue::NUM_UINT32)) {
+      return get_element_fast(res.val.as_u32);
+    } else {
+      assert(res.is_atom() || res.is_symbol());
+      u32 atom = res.val.as_atom;
+      if (atom_is_int(atom)) {
+        return get_element_fast(atom_get_int(atom));
+      } else {
+        return get_prop(vm, atom);
+      }
+    }
+  }
+
+  ErrorOr<bool> set_property_impl(NjsVM& vm, JSValue key, JSValue val, PropFlag flag) override {
+    auto comp = get_index_or_atom(vm, key);
+    if (comp.is_throw()) return comp.get_value();
+
+    JSValue idx = comp.get_value();
+    if (idx.is(JSValue::NUM_UINT32)) {
+      set_element_fast(idx.val.as_u32, val);
+      return true;
+    } else {
+      assert(idx.is_atom() || idx.is_symbol());
+      u32 atom = idx.val.as_atom;
+      if (atom_is_int(atom)) {
+        set_element_fast(atom_get_int(atom), val);
+        return true;
+      }
+      else {
+        if (atom == AtomPool::k_length) {
+          double len = TRY_ERR(js_to_number(vm, val));
+          int64_t len_int = int64_t(len);
+          if (len >= 0 && (double)len_int == len && len_int <= UINT32_MAX) {
+            dense_array.resize(len_int);
+            set_prop(vm, idx, JSValue(len));
+            return true;
+          } else {
+            return vm.build_error_internal(JS_RANGE_ERROR, u"Invalid array length");
+          }
+        }
+        return set_prop(vm, idx, val);
+      }
+    }
+  }
+
   JSValue get_element_fast(u32 index) {
     if (index < dense_array.size()) return dense_array[index];
     return undefined;
@@ -45,12 +95,9 @@ class JSArray: public JSObject {
       dense_array[index] = val;
     } else {
       auto old_size = dense_array.size();
-      dense_array.resize((size_t)std::ceil(index * 1.5));
+      dense_array.resize(index + 1);
       auto new_size = dense_array.size();
       for (size_t i = old_size; i < index; i++) {
-        dense_array[i].set_uninited();
-      }
-      for (size_t i = index + 1; i < new_size; i++) {
         dense_array[i].set_uninited();
       }
       dense_array[index] = val;
@@ -70,7 +117,7 @@ class JSArray: public JSObject {
     }
     // in this case, the float value is interpreted as an ordinary property key
     else if (key.is_float64()) {
-      u16string num_str = double_to_string(key.val.as_f64);
+      u16string num_str = double_to_u16string(key.val.as_f64);
       u32 atom = vm.str_to_atom_no_uint(num_str);
       return JSValue::Atom(atom);
     }
@@ -84,59 +131,7 @@ class JSArray: public JSObject {
       return JSValue::Atom(atom);
     }
     else {
-      return to_property_key(vm, key);
-    }
-  }
-
-  Completion get_element(NjsVM& vm, JSValue key) {
-    auto comp = get_index_or_atom(vm, key);
-    if (comp.is_throw()) return comp;
-
-    JSValue res = comp.get_value();
-    if (res.is(JSValue::NUM_UINT32)) {
-      return get_element_fast(res.val.as_u32);
-    } else {
-      assert(res.is_atom() || res.is_symbol());
-      u32 atom = res.val.as_atom;
-      if (atom_is_int(atom)) {
-        return get_element_fast(atom_get_int(atom));
-      } else {
-        return get_prop(vm, atom);
-      }
-    }
-  }
-
-  Completion set_element(NjsVM& vm, JSValue key, JSValue val) {
-    auto comp = get_index_or_atom(vm, key);
-    if (comp.is_throw()) return comp;
-
-    JSValue idx = comp.get_value();
-    if (idx.is(JSValue::NUM_UINT32)) {
-      set_element_fast(idx.val.as_u32, val);
-      return undefined;
-    } else {
-      assert(idx.is_atom() || idx.is_symbol());
-      u32 atom = idx.val.as_atom;
-      if (atom_is_int(atom)) {
-        set_element_fast(atom_get_int(atom), val);
-        return undefined;
-      }
-      else {
-        if (atom == AtomPool::k_length) {
-          double len = TRY(to_number(vm, val));
-          int64_t len_int = int64_t(len);
-          if (len >= 0 && double() == len && (double)len_int == len && len_int <= UINT32_MAX) {
-            dense_array.resize(len_int);
-            set_prop(vm, idx, JSValue(len));
-            return undefined;
-          } else {
-            return Completion::with_throw(vm.build_error_internal(JS_RANGE_ERROR, u"Invalid array length"));
-          }
-        }
-
-        TRY(set_prop(vm, idx, val));
-        return undefined;
-      }
+      return js_to_property_key(vm, key);
     }
   }
 
