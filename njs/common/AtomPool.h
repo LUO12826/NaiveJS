@@ -35,6 +35,9 @@ class AtomPool {
     k_toPrimitive = atomize(u"toPrimitive");
     k_iterator = atomize(u"iterator");
     k_sym_iterator = atomize_symbol_desc(u"iterator");
+    k_next = atomize(u"next");
+    k_done = atomize(u"done");
+    k_value = atomize(u"value");
   }
 
   u32 atomize(u16string_view str_view);
@@ -61,6 +64,9 @@ class AtomPool {
   inline static u32 k_toPrimitive;
   inline static u32 k_iterator;
   inline static u32 k_sym_iterator;
+  inline static u32 k_next;
+  inline static u32 k_done;
+  inline static u32 k_value;
 
  private:
   struct Slot {

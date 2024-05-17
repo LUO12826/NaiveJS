@@ -101,6 +101,8 @@ enum class OpType {
 
   for_in_init,
   for_in_next,
+  for_of_init,
+  for_of_next,
   iter_end_jmp,
 
   call,
@@ -241,16 +243,15 @@ struct Instruction {
       case OpType::dyn_get_var:
         return 1;
       case OpType::for_in_init:
+      case OpType::for_of_init:
         return 0;
       case OpType::for_in_next:
         return 1;
+      case OpType::for_of_next:
+        return 2;
       case OpType::call:    // need special handling
       case OpType::js_new:  // need special handling
-      case OpType::ret:
-      case OpType::ret_err:
-      case OpType::halt:
-      case OpType::halt_err:
-      case OpType::nop:
+      case OpType::iter_end_jmp: // need special handling
         return 0;
       default:
         return 0;

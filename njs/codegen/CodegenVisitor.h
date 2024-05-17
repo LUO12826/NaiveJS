@@ -1138,6 +1138,7 @@ class CodegenVisitor {
   }
 
   void visit_for_in_statement(ForInStatement& stmt) {
+    auto for_in = stmt.iter_type == ForInStatement::FOR_IN;
     Scope& outer_scope = scope();
     outer_scope.can_break = true;
     outer_scope.can_continue = true;
@@ -1154,7 +1155,7 @@ class CodegenVisitor {
     }
 
     visit(stmt.collection_expr);
-    emit(OpType::for_in_init);
+    for_in ? emit(OpType::for_in_init) : emit(OpType::for_of_init);
 
     auto init = [&, this] () {
       auto init_expr = stmt.element_expr;
@@ -1166,8 +1167,9 @@ class CodegenVisitor {
     u32 loop_start;
     u32 exit_jump;
     auto prolog = [&, this] {
-      loop_start = emit(OpType::for_in_next);
+      loop_start = for_in ? emit(OpType::for_in_next) : emit(OpType::for_of_next);
       exit_jump = emit(OpType::iter_end_jmp);
+      emit(OpType::pop_drop);
 
       if (stmt.element_is_id()) {
         u16str_view id = stmt.get_element_id();

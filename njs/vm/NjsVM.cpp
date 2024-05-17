@@ -589,9 +589,10 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         break;
       }
       case OpType::for_in_init: {
-        if (!sp[0].is_null() && !sp[0].is_undefined()) {
+        if (!sp[0].is_nil()) {
           sp[0] = js_to_object(*this, sp[0]).get_value();
         }
+        // `build_for_object` can handle null and undefined.
         sp[0] = JSForInIterator::build_for_object(*this, sp[0]);
         break;
       }
@@ -601,15 +602,43 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         
         auto *iter = sp[0].as_object()->as<JSForInIterator>();
         sp[1] = iter->next(*this);
-        sp += 1;
+        sp[2] = JSValue(sp[1].is_uninited());
+        sp += 2;
+        break;
+      }
+      case OpType::for_of_init: {
+        auto comp = for_of_get_iterator(sp[0]);
+        sp[0] = comp.get_value();
+        if (comp.is_throw()) [[unlikely]] {
+          error_handle(sp);
+        }
+        break;
+      }
+      case OpType::for_of_next: {
+        assert(sp[0].is_object());
+        auto comp = for_of_call_next(sp[0]);
+        JSValue res = comp.get_value();
+        if (comp.is_throw()) {
+          sp[0] = res;
+          error_handle(sp);
+        } else {
+          // TODO: remove these assertions
+          assert(res.is_object());
+          sp[1] = res.as_object()->get_prop_trivial(AtomPool::k_value);
+          sp[2] = res.as_object()->get_prop_trivial(AtomPool::k_done);
+          assert(!sp[1].is_uninited());
+          assert(!sp[2].is_uninited());
+          sp += 2;
+        }
         break;
       }
       case OpType::iter_end_jmp:
-        if (sp[0].is_uninited()) {
+        assert(sp[0].is_bool());
+        if (sp[0].val.as_bool) {
           pc = OPR1;
-          // this instruction drops the `uninited` value produced by the iterator
+          // this instruction drops the `done` and `value` produced by the iterator
           // when the iteration ends.
-          sp -= 1;
+          sp -= 2;
         }
         break;
       default:
@@ -1018,7 +1047,7 @@ Completion NjsVM::get_prop_common(JSValue obj, JSValue key) {
   if(obj.is_object()) {
     return obj.as_object()->get_property(*this, key);
   }
-  else if (not (obj.is_uninited() || obj.is_undefined() || obj.is_null())) {
+  else if (not obj.is_nil()) {
     return get_prop_on_primitive(obj, key);
   }
   else {
@@ -1064,7 +1093,7 @@ Completion NjsVM::set_prop_common(JSValue obj, JSValue key, JSValue value) {
     auto res = TRY(obj.as_object()->set_property(*this, key, value));
     return undefined;
   }
-  else if (obj.is_uninited() || obj.is_undefined() || obj.is_null()) {
+  else if (obj.is_nil()) {
     u16string msg = u"cannot set property of " + to_u16string(obj.to_string(*this));
     return Completion::with_throw(build_error_internal(msg));
   }
@@ -1124,6 +1153,41 @@ void NjsVM::exec_dynamic_set_var(SPRef sp, u32 name_atom) {
   assert(comp.is_value());
 }
 
+Completion NjsVM::for_of_get_iterator(JSValue obj) {
+  auto build_err = [&, this] () {
+    JSValue err = build_error_internal(
+        JS_TYPE_ERROR, to_u16string(obj.to_string(*this)) + u" is not iterable");
+    return Completion::with_throw(err);
+  };
+  if (obj.is_nil()) [[unlikely]] {
+    return build_err();
+  }
+  obj = js_to_object(*this, obj).get_value();
+  assert(obj.is_object());
+  auto iter_key = JSValue::Symbol(AtomPool::k_sym_iterator);
+  JSValue iter_ctor = TRY_COMP(obj.as_object()->get_property(*this, iter_key));
+
+  if (!iter_ctor.is_object()
+      || iter_ctor.as_object()->get_class() != ObjClass::CLS_FUNCTION) [[unlikely]] {
+    return build_err();
+  }
+  return call_function(iter_ctor.val.as_func, obj, nullptr, {});
+}
+
+Completion NjsVM::for_of_call_next(JSValue iter) {
+  assert(iter.is_object());
+  auto atom_next = JSValue::Atom(AtomPool::k_next);
+  JSValue next_func = TRY_COMP(iter.as_object()->get_property(*this, atom_next));
+
+  if (!next_func.is_object()
+      || next_func.as_object()->get_class() != ObjClass::CLS_FUNCTION) {
+    JSValue err = build_error_internal(
+        JS_TYPE_ERROR, to_u16string(iter.to_string(*this)) + u" is not iterable");
+    return Completion::with_throw(err);
+  }
+
+  return call_function(next_func.val.as_func, iter, nullptr, {});
+}
 
 void NjsVM::exec_strict_equality(SPRef sp, bool flip) {
   ErrorOr<bool> res = strict_equals(*this, sp[-1], sp[0]);

@@ -38,6 +38,8 @@ void Instruction::swap_two_operands() {
 }
 
 std::string Instruction::description() const {
+#define OPR1 operand.two.opr1
+#define OPR2 operand.two.opr2
 
   static const char *assign_op_names[] = {
       "add_assign",
@@ -64,11 +66,11 @@ std::string Instruction::description() const {
     case OpType::neg: sprintf(buffer, "neg"); break;
 
     case OpType::inc:
-      sprintf(buffer, "inc  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
+      sprintf(buffer, "inc  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
 
     case OpType::dec:
-      sprintf(buffer, "dec  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
+      sprintf(buffer, "dec  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
 
     case OpType::le: sprintf(buffer, "le"); break;
@@ -91,29 +93,29 @@ std::string Instruction::description() const {
     case OpType::bits_not: sprintf(buffer, "bits_not"); break;
 
     case OpType::lsh: sprintf(buffer, "lsh"); break;
-    case OpType::lshi: sprintf(buffer, "lshi %u", (u32)operand.two.opr1); break;
+    case OpType::lshi: sprintf(buffer, "lshi %u", (u32)OPR1); break;
     case OpType::rsh: sprintf(buffer, "rsh"); break;
-    case OpType::rshi: sprintf(buffer, "rshi %u", (u32)operand.two.opr1); break;
+    case OpType::rshi: sprintf(buffer, "rshi %u", (u32)OPR1); break;
     case OpType::ursh: sprintf(buffer, "ursh"); break;
-    case OpType::urshi: sprintf(buffer, "urshi %u", (u32)operand.two.opr1); break;
+    case OpType::urshi: sprintf(buffer, "urshi %u", (u32)OPR1); break;
 
     case OpType::push:
-      sprintf(buffer, "push  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
+      sprintf(buffer, "push  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
     case OpType::push_check:
-      sprintf(buffer, "push_check  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
+      sprintf(buffer, "push_check  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
     case OpType::pushi:
       sprintf(buffer, "pushi  %lf", operand.num_float);
       break;
     case OpType::push_str:
-      sprintf(buffer, "push_str  %d", operand.two.opr1);
+      sprintf(buffer, "push_str  %d", OPR1);
       break;
     case OpType::push_bool:
-      sprintf(buffer, "push_bool  %d", operand.two.opr1);
+      sprintf(buffer, "push_bool  %d", OPR1);
       break;
     case OpType::push_atom:
-      sprintf(buffer, "push_atom  %u", (u32)operand.two.opr1);
+      sprintf(buffer, "push_atom  %u", (u32)OPR1);
       break;
     case OpType::push_func_this:
       sprintf(buffer, "push_this");
@@ -131,67 +133,67 @@ std::string Instruction::description() const {
       sprintf(buffer, "push_uninit");
       break;
     case OpType::pop:
-      sprintf(buffer, "pop  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
+      sprintf(buffer, "pop  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
     case OpType::pop_check:
-      sprintf(buffer, "pop_check  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
+      sprintf(buffer, "pop_check  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
     case OpType::pop_drop:
       sprintf(buffer, "pop_drop");
       break;
     case OpType::store:
-      sprintf(buffer, "store  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
+      sprintf(buffer, "store  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
     case OpType::store_check:
-      sprintf(buffer, "store_check  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
+      sprintf(buffer, "store_check  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
     case OpType::prop_assign:
-      sprintf(buffer, "prop_assign %s", (bool)operand.two.opr1 ? "(need value)" : "");
+      sprintf(buffer, "prop_assign %s", (bool)OPR1 ? "(need value)" : "");
       break;
     case OpType::var_deinit_range:
-      sprintf(buffer, "var_deinit_range  %d %d", operand.two.opr1, operand.two.opr2);
+      sprintf(buffer, "var_deinit_range  %d %d", OPR1, OPR2);
       break;
     case OpType::var_undef:
-      sprintf(buffer, "var_undef %d", operand.two.opr1);
+      sprintf(buffer, "var_undef %d", OPR1);
       break;
     case OpType::loop_var_renew:
-      sprintf(buffer, "loop_var_renew %d", operand.two.opr1);
+      sprintf(buffer, "loop_var_renew %d", OPR1);
       break;
     case OpType::var_dispose:
-      sprintf(buffer, "var_dispose  %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
+      sprintf(buffer, "var_dispose  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
     case OpType::var_dispose_range:
-      sprintf(buffer, "var_dispose_range  %d %d", operand.two.opr1, operand.two.opr2);
+      sprintf(buffer, "var_dispose_range  %d %d", OPR1, OPR2);
       break;
     case OpType::jmp:
-      sprintf(buffer, "jmp  %d", operand.two.opr1);
+      sprintf(buffer, "jmp  %d", OPR1);
       break;
     case OpType::jmp_true:
-      sprintf(buffer, "jmp_true  %d", operand.two.opr1);
+      sprintf(buffer, "jmp_true  %d", OPR1);
       break;
     case OpType::jmp_false:
-      sprintf(buffer, "jmp_false  %d", operand.two.opr1);
+      sprintf(buffer, "jmp_false  %d", OPR1);
       break;
     case OpType::jmp_cond:
-      sprintf(buffer, "jmp_cond  %d %d", operand.two.opr1, operand.two.opr2);
+      sprintf(buffer, "jmp_cond  %d %d", OPR1, OPR2);
       break;
     case OpType::pop_jmp:
-      sprintf(buffer, "pop_jmp  %d", operand.two.opr1);
+      sprintf(buffer, "pop_jmp  %d", OPR1);
       break;
     case OpType::pop_jmp_true:
-      sprintf(buffer, "pop_jmp_true  %d", operand.two.opr1);
+      sprintf(buffer, "pop_jmp_true  %d", OPR1);
       break;
     case OpType::pop_jmp_false:
-      sprintf(buffer, "pop_jmp_false  %d", operand.two.opr1);
+      sprintf(buffer, "pop_jmp_false  %d", OPR1);
       break;
     case OpType::pop_jmp_cond:
-      sprintf(buffer, "pop_jmp_cond  %d %d", operand.two.opr1, operand.two.opr2);
+      sprintf(buffer, "pop_jmp_cond  %d %d", OPR1, OPR2);
       break;
     case OpType::make_func:
-      sprintf(buffer, "make_func  %d", operand.two.opr1);
+      sprintf(buffer, "make_func  %d", OPR1);
       break;
     case OpType::capture:
-      sprintf(buffer, "capture %s %d", scope_type_names_alt[operand.two.opr1], operand.two.opr2);
+      sprintf(buffer, "capture %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
     case OpType::make_obj:
       sprintf(buffer, "make_obj");
@@ -200,16 +202,16 @@ std::string Instruction::description() const {
       sprintf(buffer, "make_array");
       break;
     case OpType::add_props:
-      sprintf(buffer, "add_props  %d", operand.two.opr1);
+      sprintf(buffer, "add_props  cnt:%d", OPR1);
       break;
     case OpType::add_elements:
-      sprintf(buffer, "add_elements  %d", operand.two.opr1);
+      sprintf(buffer, "add_elements  cnt:%d", OPR1);
       break;
     case OpType::get_prop_atom:
-      sprintf(buffer, "get_prop_atom  %d", operand.two.opr1);
+      sprintf(buffer, "get_prop_atom  %d", OPR1);
       break;
     case OpType::get_prop_atom2:
-      sprintf(buffer, "get_prop_atom2  %d", operand.two.opr1);
+      sprintf(buffer, "get_prop_atom2  %d", OPR1);
       break;
     case OpType::get_prop_index:
       sprintf(buffer, "get_prop_index");
@@ -218,16 +220,16 @@ std::string Instruction::description() const {
       sprintf(buffer, "get_prop_index2");
       break;
     case OpType::set_prop_atom:
-      sprintf(buffer, "set_prop_atom  %d", operand.two.opr1);
+      sprintf(buffer, "set_prop_atom  %d", OPR1);
       break;
     case OpType::set_prop_index:
       sprintf(buffer, "set_prop_index");
       break;
     case OpType::dyn_get_var:
-      sprintf(buffer, "dyn_get_var  %d", operand.two.opr1);
+      sprintf(buffer, "dyn_get_var  %d", OPR1);
       break;
     case OpType::dyn_set_var:
-      sprintf(buffer, "dyn_set_var  %d", operand.two.opr1);
+      sprintf(buffer, "dyn_set_var  %d", OPR1);
       break;
     case OpType::move_to_top1:
       sprintf(buffer, "move_to_top1");
@@ -241,14 +243,20 @@ std::string Instruction::description() const {
     case OpType::for_in_next:
       sprintf(buffer, "for_in_next");
       break;
+    case OpType::for_of_init:
+      sprintf(buffer, "for_of_init");
+      break;
+    case OpType::for_of_next:
+      sprintf(buffer, "for_of_next");
+      break;
     case OpType::iter_end_jmp:
-      sprintf(buffer, "iter_end_jmp  %d", operand.two.opr1);
+      sprintf(buffer, "iter_end_jmp  to:%d", OPR1);
       break;
     case OpType::call:
-      sprintf(buffer, "call  %d %d", operand.two.opr1, operand.two.opr2);
+      sprintf(buffer, "call  argc:%d  has_this:%d", OPR1, OPR2);
       break;
     case OpType::js_new:
-      sprintf(buffer, "js_new  %d", operand.two.opr1);
+      sprintf(buffer, "js_new  argc:%d", OPR1);
       break;
     case OpType::ret:
       sprintf(buffer, "ret");

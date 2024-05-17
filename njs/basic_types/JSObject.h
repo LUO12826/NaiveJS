@@ -35,6 +35,7 @@ enum ObjClass {
   CLS_DATE,
   CLS_FUNCTION,
   CLS_FOR_IN_ITERATOR,
+  CLS_ARRAY_ITERATOR,
   CLS_CUSTOM,
 
   CLS_OBJECT_PROTO,
@@ -257,7 +258,6 @@ friend class JSForInIterator;
       assert(prop->is_data_descriptor());
       return prop->data.value;
     }
-    
   }
 
   template <typename KEY>

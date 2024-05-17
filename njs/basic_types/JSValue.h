@@ -189,6 +189,7 @@ friend class NjsVM;
   void move_to_heap(NjsVM& vm);
   void move_to_stack();
 
+  bool is_nil() const { return tag <= JS_NULL; }
   bool is_undefined() const { return tag == UNDEFINED; };
   bool is_uninited() const { return tag == UNINIT; };
   bool is_null() const { return tag == JS_NULL; };

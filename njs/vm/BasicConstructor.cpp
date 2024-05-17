@@ -8,7 +8,7 @@
 namespace njs {
 
 Completion NativeFunction::Object_ctor(vm_func_This_args_flags) {
-  if (args.size() == 0 || args[0].is_null() || args[0].is_undefined()) {
+  if (args.size() == 0 || args[0].is_nil()) {
     return JSValue(vm.new_object());
   }
   JSValue arg = args[0];

@@ -57,10 +57,7 @@ inline ErrorOr<bool> abstract_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
   else if (lhs.is_prim_string() && rhs.is_float64()) {
     return rhs.val.as_f64 == u16string_to_double(lhs.val.as_prim_string->str);
   }
-  else if (lhs.is_undefined() && rhs.is_null()) {
-    return true;
-  }
-  else if (lhs.is_null() && rhs.is_undefined()) {
+  else if (lhs.is_nil() && rhs.is_nil()) {
     return true;
   }
   else if (lhs.is_bool()) {

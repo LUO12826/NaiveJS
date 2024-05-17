@@ -68,6 +68,11 @@ class JSForInIterator : public JSObject {
     return u"ForInIterator";
   }
 
+  void gc_scan_children(njs::GCHeap &heap) override {
+    JSObject::gc_scan_children(heap);
+    heap.gc_visit_object(object, object.as_GCObject());
+  }
+
   JSValue next(NjsVM& vm) {
     if (index < collected_keys.size()) [[likely]] {
       u16string key_str = vm.atom_to_str(collected_keys[index]);

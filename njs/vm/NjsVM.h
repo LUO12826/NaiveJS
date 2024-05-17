@@ -74,6 +74,7 @@ friend class JSFunctionPrototype;
 friend class JSStringPrototype;
 friend class JSErrorPrototype;
 friend class NativeFunction;
+friend class JSArrayIterator;
 
  public:
 
@@ -203,6 +204,9 @@ friend class NativeFunction;
   Completion get_prop_on_primitive(JSValue& obj, JSValue key);
   Completion get_prop_common(JSValue obj, JSValue key);
   Completion set_prop_common(JSValue obj, JSValue key, JSValue value);
+
+  Completion for_of_get_iterator(JSValue obj);
+  Completion for_of_call_next(JSValue iter);
 
   void error_throw(SPRef sp, const u16string& msg);
   void error_handle(SPRef sp);

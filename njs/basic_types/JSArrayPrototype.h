@@ -8,6 +8,7 @@
 #include "JSFunction.h"
 #include "njs/vm/Completion.h"
 #include "njs/basic_types/JSArray.h"
+#include "njs/basic_types/JSArrayIterator.h"
 
 namespace njs {
 
@@ -19,10 +20,20 @@ class JSArrayPrototype : public JSObject {
     add_method(vm, u"at", JSArrayPrototype::at);
     add_method(vm, u"push", JSArrayPrototype::push);
     add_method(vm, u"sort", JSArrayPrototype::sort);
+    add_symbol_method(vm, AtomPool::k_sym_iterator,  JSArrayPrototype::get_iter);
   }
 
   u16string_view get_class_name() override {
     return u"ArrayPrototype";
+  }
+
+  static Completion get_iter(vm_func_This_args_flags) {
+    assert(This.is(JSValue::ARRAY));
+    assert(This.is_object());
+    assert(This.as_object()->get_class() == ObjClass::CLS_ARRAY);
+
+    auto *iter = vm.heap.new_object<JSArrayIterator>(vm, This, JSIteratorKind::VALUE);
+    return JSValue(iter);
   }
 
   static Completion at(vm_func_This_args_flags) {

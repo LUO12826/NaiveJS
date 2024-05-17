@@ -16,7 +16,7 @@ using u32 = uint32_t;
 
 class JSArray: public JSObject {
  public:
-  JSArray(NjsVM& vm, int length): JSObject(ObjClass::CLS_ARRAY, vm.array_prototype) {
+  JSArray(NjsVM& vm, u32 length): JSObject(ObjClass::CLS_ARRAY, vm.array_prototype) {
     add_prop_trivial(AtomPool::k_length, JSValue((double)length));
   }
 
@@ -100,31 +100,26 @@ class JSArray: public JSObject {
 
   Completion get_index_or_atom(NjsVM& vm, JSValue key) {
     // The float value can be interpreted as array index
-    if (key.is_float64() && key.is_non_negative() && key.is_integer()) {
-      auto int_idx = int64_t(key.val.as_f64);
-      if (int_idx < UINT32_MAX) {
-        return JSValue::U32(int_idx);
-      } else {
-        u32 atom = vm.str_to_atom_no_uint(to_u16string(int_idx));
+    if (key.is_float64()) {
+      if (key.is_non_negative() && key.is_integer()) {
+        auto int_idx = int64_t(key.val.as_f64);
+        if (int_idx < UINT32_MAX) {
+          return JSValue::U32(int_idx);
+        } else {
+          u32 atom = vm.str_to_atom_no_uint(to_u16string(int_idx));
+          return JSValue::Atom(atom);
+        }
+      }
+      // in this case, the float value is interpreted as an ordinary property key
+      else {
+        u16string num_str = double_to_u16string(key.val.as_f64);
+        u32 atom = vm.str_to_atom_no_uint(num_str);
         return JSValue::Atom(atom);
       }
-    }
-    // in this case, the float value is interpreted as an ordinary property key
-    else if (key.is_float64()) {
-      u16string num_str = double_to_u16string(key.val.as_f64);
-      u32 atom = vm.str_to_atom_no_uint(num_str);
-      return JSValue::Atom(atom);
-    }
-    else if (key.is_atom() || key.is_prim_string()) {
-      u32 atom;
-      if (key.is_atom()) {
-        atom = key.val.as_atom;
-      } else {
-        atom = vm.str_to_atom(key.val.as_prim_string->str);
-      }
-      return JSValue::Atom(atom);
-    }
-    else {
+
+    } else if (key.is_atom()) {
+      return key;      
+    } else {
       return js_to_property_key(vm, key);
     }
   }

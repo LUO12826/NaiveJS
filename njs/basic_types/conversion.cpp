@@ -66,7 +66,7 @@ Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
 }
 
 Completion js_to_object(NjsVM &vm, JSValue arg) {
-  if (arg.is_undefined() || arg.is_null()) [[unlikely]] {
+  if (arg.is_nil()) [[unlikely]] {
     return Completion::with_throw(vm.build_error_internal(JS_TYPE_ERROR, u""));
   }
   JSObject *obj;
