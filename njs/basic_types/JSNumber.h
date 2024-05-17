@@ -7,10 +7,6 @@ namespace njs {
 
 class JSNumber : public JSObject {
   public:
-  JSNumber(): JSObject(ObjClass::CLS_NUMBER) {}
-
-  explicit JSNumber(double num): JSObject(ObjClass::CLS_NUMBER), value(num) {}
-
   JSNumber(NjsVM& vm, double num) :
       JSObject(ObjClass::CLS_NUMBER, vm.number_prototype),
       value(num) {}

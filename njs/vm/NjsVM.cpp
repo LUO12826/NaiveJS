@@ -116,11 +116,10 @@ JSObject* NjsVM::new_object(ObjClass cls, JSValue proto) {
 JSFunction* NjsVM::new_function(const JSFunctionMeta& meta) {
   JSFunction *func;
   if (meta.is_anonymous) {
-    func = heap.new_object<JSFunction>(meta);
+    func = heap.new_object<JSFunction>(*this, meta);
   } else {
-    func = heap.new_object<JSFunction>(atom_to_str(meta.name_index), meta);
+    func = heap.new_object<JSFunction>(*this, atom_to_str(meta.name_index), meta);
   }
-  func->set_proto(function_prototype);
   return func;
 }
 
@@ -158,7 +157,7 @@ void NjsVM::run() {
 }
 
 void NjsVM::execute_global() {
-  auto *func = heap.new_object<JSFunction>(global_meta);
+  auto *func = heap.new_object<JSFunction>(*this, global_meta);
   call_internal(func, global_object, nullptr, ArrayRef<JSValue>(nullptr, 0), CallFlags());
 }
 

@@ -16,12 +16,6 @@ using u32 = uint32_t;
 
 class JSArray: public JSObject {
  public:
-  JSArray(): JSArray(0) {}
-
-  explicit JSArray(int length): JSObject(ObjClass::CLS_ARRAY) {
-    add_prop_trivial(AtomPool::k_length, JSValue((double)length));
-  }
-
   JSArray(NjsVM& vm, int length): JSObject(ObjClass::CLS_ARRAY, vm.array_prototype) {
     add_prop_trivial(AtomPool::k_length, JSValue((double)length));
   }

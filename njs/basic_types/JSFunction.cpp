@@ -3,23 +3,17 @@
 #include <string>
 #include <utility>
 #include "njs/gc/GCHeap.h"
+#include "njs/vm/NjsVM.h"
 
 namespace njs {
+JSFunction::JSFunction(NjsVM& vm, u16string name, const JSFunctionMeta& meta)
+    : JSObject(ObjClass::CLS_FUNCTION, vm.function_prototype)
+    , name(std::move(name))
+    , meta(meta)
+    , native_func(meta.native_func) {}
 
-JSFunction::JSFunction() : JSObject(ObjClass::CLS_FUNCTION) {}
-
-JSFunction::JSFunction(u16string name, const JSFunctionMeta& meta) : JSFunction(meta) {
-  this->name = std::move(name);
-}
-
-JSFunction::JSFunction(const JSFunctionMeta& meta): JSObject(ObjClass::CLS_FUNCTION) {
-  this->meta = meta;
-  native_func = meta.native_func;
-}
-
-JSFunction::~JSFunction() {
-  JSObject::~JSObject();
-}
+JSFunction::JSFunction(NjsVM& vm, const JSFunctionMeta& meta)
+    : JSFunction(vm, u"", meta) {}
 
 void JSFunction::gc_scan_children(GCHeap& heap) {
   JSObject::gc_scan_children(heap);

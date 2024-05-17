@@ -153,8 +153,8 @@ class JSObject : public GCObject {
 friend class JSForInIterator;
 
  public:
-  JSObject() : obj_class(ObjClass::CLS_OBJECT) {}
-  explicit JSObject(ObjClass cls) : obj_class(cls) {}
+  JSObject() : obj_class(ObjClass::CLS_OBJECT), _proto_(JSValue::null) {}
+  explicit JSObject(ObjClass cls) : obj_class(cls), _proto_(JSValue::null) {}
   explicit JSObject(ObjClass cls, JSValue proto) : obj_class(cls), _proto_(proto) {}
 
   template <typename T>

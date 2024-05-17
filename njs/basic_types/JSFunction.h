@@ -13,13 +13,12 @@ namespace njs {
 using std::u16string;
 
 class GCHeap;
+class NjsVM;
 
 class JSFunction : public JSObject {
  public:
-  JSFunction();
-  JSFunction(u16string name, const JSFunctionMeta& meta);
-  explicit JSFunction(const JSFunctionMeta& meta);
-  ~JSFunction() override;
+  JSFunction(NjsVM& vm, u16string name, const JSFunctionMeta& meta);
+  JSFunction(NjsVM& vm, const JSFunctionMeta& meta);
 
   void gc_scan_children(GCHeap& heap) override;
 

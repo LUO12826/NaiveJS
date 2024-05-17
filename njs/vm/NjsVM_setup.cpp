@@ -78,7 +78,7 @@ void NjsVM::add_native_func_impl(const u16string& name,
       .native_func = native_func,
   };
 
-  auto *func = heap.new_object<JSFunction>(name, meta);
+  auto *func = heap.new_object<JSFunction>(*this, name, meta);
   func->set_proto(function_prototype);
   builder(*func);
   global_object.as_object()->add_prop_trivial(meta.name_index, JSValue(func));
