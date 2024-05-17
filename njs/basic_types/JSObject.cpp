@@ -137,7 +137,7 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value, PropFlag
 }
 
 bool JSObject::add_prop_trivial(u32 key_atom, JSValue value, PropFlag flag) {
-  return add_prop_trivial(JSValue::Atom(key_atom), value, flag);
+  return add_prop_trivial(JSAtom(key_atom), value, flag);
 }
 
 bool JSObject::add_prop_trivial(JSValue key, JSValue value, PropFlag flag) {
@@ -148,17 +148,17 @@ bool JSObject::add_prop_trivial(JSValue key, JSValue value, PropFlag flag) {
 }
 
 ErrorOr<bool> JSObject::set_prop(NjsVM& vm, u16string_view key_str, JSValue value, PropFlag flag) {
-  return set_prop(vm, JSValue::Atom(vm.str_to_atom(key_str)), value, flag);
+  return set_prop(vm, JSAtom(vm.str_to_atom(key_str)), value, flag);
 }
 
 Completion JSObject::get_prop(NjsVM& vm, u16string_view key_atom) {
-  return get_prop(vm, JSValue::Atom(vm.str_to_atom(key_atom)));
+  return get_prop(vm, JSAtom(vm.str_to_atom(key_atom)));
 }
 
 Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
   JSObjectProp *prop = get_exist_prop(key);
   if (prop == nullptr) [[unlikely]] {
-    return JSValue::uninited;
+    return Completion::with_throw(undefined);
   } else {
     if (prop->flag.is_value()) [[unlikely]] {
       return prop->data.value;
@@ -167,7 +167,7 @@ Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
       assert(not getter.is_undefined());
       return vm.call_function(getter.val.as_func, JSValue(this), nullptr, {});
     } else {
-      return JSValue::uninited;
+      return Completion::with_throw(undefined);
     }
   }
 }
@@ -194,7 +194,7 @@ bool JSObject::add_symbol_method(NjsVM& vm, u32 symbol, NativeFuncType funcImpl)
       .native_func = funcImpl,
   };
 
-  return add_prop_trivial(JSValue::Symbol(symbol), JSValue(vm.new_function(meta)));
+  return add_prop_trivial(JSSymbol(symbol), JSValue(vm.new_function(meta)));
 }
 
 void JSObject::gc_scan_children(GCHeap& heap) {

@@ -91,32 +91,32 @@ Completion js_to_object(NjsVM &vm, JSValue arg) {
 Completion js_to_property_key(NjsVM &vm, JSValue val) {
   switch (val.tag) {
     case JSValue::UNDEFINED:
-      return JSValue::Atom(AtomPool::k_undefined);
+      return JSAtom(AtomPool::k_undefined);
     case JSValue::JS_NULL:
-      return JSValue::Atom(AtomPool::k_null);
+      return JSAtom(AtomPool::k_null);
     case JSValue::BOOLEAN:
-      return JSValue::Atom(val.val.as_bool ? AtomPool::k_true : AtomPool::k_false);
+      return JSAtom(val.val.as_bool ? AtomPool::k_true : AtomPool::k_false);
     case JSValue::JS_ATOM:
     case JSValue::SYMBOL:
       return val;
     case JSValue::NUM_UINT32:
-      return JSValue::Atom(vm.u32_to_atom(val.val.as_u32));
+      return JSAtom(vm.u32_to_atom(val.val.as_u32));
     case JSValue::NUM_FLOAT: {
       if (val.is_non_negative() && val.is_integer()) {
         auto int_idx = int64_t(val.val.as_f64);
         if (int_idx < UINT32_MAX) {
-          return JSValue::Atom(vm.u32_to_atom(int_idx));
+          return JSAtom(vm.u32_to_atom(int_idx));
         } else {
           u16string str = to_u16string(int_idx);
-          return JSValue::Atom(vm.str_to_atom_no_uint(str));
+          return JSAtom(vm.str_to_atom_no_uint(str));
         }
       } else {
         u16string str = double_to_u16string(val.val.as_f64);
-        return JSValue::Atom(vm.str_to_atom_no_uint(str));
+        return JSAtom(vm.str_to_atom_no_uint(str));
       }
     }
     case JSValue::STRING:
-      return JSValue::Atom(vm.str_to_atom(val.val.as_prim_string->str));
+      return JSAtom(vm.str_to_atom(val.val.as_prim_string->str));
     default: {
       auto comp = js_to_string(vm, val, true);
       if (comp.is_throw()) return comp;

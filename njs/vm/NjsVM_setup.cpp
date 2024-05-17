@@ -40,7 +40,7 @@ void NjsVM::setup() {
   });
 
   add_native_func_impl(u"Symbol", NativeFunction::Symbol, [this] (JSFunction& func) {
-    JSValue sym_iterator = JSValue::Symbol(AtomPool::k_sym_iterator);
+    JSValue sym_iterator = JSSymbol(AtomPool::k_sym_iterator);
     func.add_prop_trivial(AtomPool::k_iterator, sym_iterator);
   });
 

@@ -34,7 +34,7 @@ Completion NativeFunction::Object_ctor(vm_func_This_args_flags) {
 }
 
 Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type) {
-  auto *err_obj = vm.new_object(ObjClass::CLS_ERROR, vm.native_error_protos[type]);
+  auto *err_obj = vm.new_object(CLS_ERROR, vm.native_error_protos[type]);
   if (args.size() > 0 && args[0].is_string_type()) {
     // only supports primitive string now.
     assert(args[0].is_prim_string());
@@ -57,9 +57,9 @@ Completion NativeFunction::Symbol(vm_func_This_args_flags) {
     assert(args[0].tag == JSValue::STRING);
     // TODO: do a `ToString` here.
     auto& str = args[0].val.as_prim_string->str;
-    return JSValue::Symbol(vm.atom_pool.atomize_symbol_desc(str));
+    return JSSymbol(vm.atom_pool.atomize_symbol_desc(str));
   } else {
-    return JSValue::Symbol(vm.atom_pool.atomize_symbol());
+    return JSSymbol(vm.atom_pool.atomize_symbol());
   }
 }
 

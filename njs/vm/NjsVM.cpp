@@ -598,7 +598,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
       }
       case OpType::for_in_next: {
         assert(sp[0].is_object());
-        assert(sp[0].as_object()->get_class() == ObjClass::CLS_FOR_IN_ITERATOR);
+        assert(sp[0].as_object()->get_class() == CLS_FOR_IN_ITERATOR);
         
         auto *iter = sp[0].as_object()->as<JSForInIterator>();
         sp[1] = iter->next(*this);
@@ -618,18 +618,29 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         assert(sp[0].is_object());
         auto comp = for_of_call_next(sp[0]);
         JSValue res = comp.get_value();
-        if (comp.is_throw()) {
+        if (comp.is_throw()) [[unlikely]] {
           sp[0] = res;
-          error_handle(sp);
+          goto for_of_next_err;
+        } else if (!res.is_object()) [[unlikely]] {
+          sp[0] = build_error_internal(JS_TYPE_ERROR, u"iterator result is not an object.");
+          goto for_of_next_err;
         } else {
-          // TODO: remove these assertions
-          assert(res.is_object());
-          sp[1] = res.as_object()->get_prop_trivial(AtomPool::k_value);
-          sp[2] = res.as_object()->get_prop_trivial(AtomPool::k_done);
-          assert(!sp[1].is_uninited());
-          assert(!sp[2].is_uninited());
+          auto res_val = res.as_object()->get_property_impl(*this, JSAtom(AtomPool::k_value));
+          if (res_val.is_throw()) {
+            sp[0] = res_val.get_value();
+            goto for_of_next_err;
+          }
+          auto res_done = res.as_object()->get_property_impl(*this, JSAtom(AtomPool::k_done));
+          if (res_done.is_throw()) {
+            sp[0] = res_done.get_value();
+            goto for_of_next_err;
+          }
+          sp[1] = res_val.get_value();
+          sp[2] = res_done.get_value();
           sp += 2;
         }
+        for_of_next_err:
+          error_handle(sp);
         break;
       }
       case OpType::iter_end_jmp:
@@ -744,7 +755,7 @@ JSValue NjsVM::build_error_internal(const u16string& msg) {
 }
 
 JSValue NjsVM::build_error_internal(JSErrorType type, const u16string& msg) {
-  auto *err_obj = new_object(ObjClass::CLS_ERROR, native_error_protos[type]);
+  auto *err_obj = new_object(CLS_ERROR, native_error_protos[type]);
   err_obj->set_prop(*this, u"message", new_primitive_string(msg));
 
   u16string trace_str = build_trace_str();
@@ -902,10 +913,10 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
   }
 
   if (not meta.is_arrow_func) {
-    JSObject *new_prototype = new_object(ObjClass::CLS_OBJECT);
+    JSObject *new_prototype = new_object(CLS_OBJECT);
     PropFlag flag {.configurable = true, .writable = true, .has_value = true};
-    new_prototype->set_prop(*this, JSValue::Atom(AtomPool::k_constructor), JSValue(func), flag);
-    func->set_prop(*this, JSValue::Atom(AtomPool::k_prototype), JSValue(new_prototype), flag);
+    new_prototype->set_prop(*this, JSAtom(AtomPool::k_constructor), JSValue(func), flag);
+    func->set_prop(*this, JSAtom(AtomPool::k_prototype), JSValue(new_prototype), flag);
   }
 
   assert(!meta.is_native);
@@ -918,7 +929,7 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
 CallResult NjsVM::exec_call(SPRef sp, int arg_count, bool has_this_object, JSFunction *new_target) {
   JSValue& func_val = sp[-arg_count];
   assert(func_val.tag == JSValue::FUNCTION);
-  assert(func_val.val.as_object->get_class() == ObjClass::CLS_FUNCTION);
+  assert(func_val.val.as_object->get_class() == CLS_FUNCTION);
   JSFunction *func = func_val.val.as_func;
 
   JSValue& this_obj = has_this_object ? sp[-arg_count - 1] : global_object;
@@ -954,7 +965,7 @@ void NjsVM::exec_js_new(SPRef sp, int arg_count) {
   // prepare `this` object
   JSValue proto = ctor.val.as_func->get_prop_trivial(AtomPool::k_prototype);
   proto = proto.is_object() ? proto : object_prototype;
-  auto *this_obj = heap.new_object<JSObject>(ObjClass::CLS_OBJECT, proto);
+  auto *this_obj = heap.new_object<JSObject>(CLS_OBJECT, proto);
 
   for (int i = 1; i > -arg_count; i--) {
     sp[i] = sp[i - 1];
@@ -1057,15 +1068,12 @@ Completion NjsVM::get_prop_common(JSValue obj, JSValue key) {
 }
 
 void NjsVM::exec_get_prop_atom(SPRef sp, u32 key_atom, int keep_obj) {
-  auto comp = get_prop_common(sp[0], JSValue::Atom(key_atom));
-  JSValue& res_pos = sp[keep_obj];
-  res_pos = comp.get_value();
-
+  auto comp = get_prop_common(sp[0], JSAtom(key_atom));
+  sp[keep_obj] = comp.get_value();
   sp += keep_obj;
+
   if (comp.is_throw()) [[unlikely]] {
     error_handle(sp);
-  } else {
-    if (res_pos.is_uninited()) res_pos = undefined;
   }
 }
 
@@ -1075,16 +1083,12 @@ void NjsVM::exec_get_prop_index(SPRef sp, int keep_obj) {
   JSValue& obj = sp[-1];
 
   Completion comp = get_prop_common(obj, index);
-  JSValue& res_pos = sp[res_index];
-
   index.set_undefined();
-  res_pos = comp.get_value();
+  sp[res_index] = comp.get_value();
   sp += res_index;
 
   if (comp.is_throw()) [[unlikely]] {
     error_handle(sp); 
-  } else {
-    if (res_pos.is_uninited()) res_pos = undefined;
   }
 }
 
@@ -1106,7 +1110,7 @@ void NjsVM::exec_set_prop_atom(SPRef sp, u32 key_atom) {
   JSValue& val = sp[0];
   JSValue& obj = sp[-1];
 
-  auto comp = set_prop_common(obj, JSValue::Atom(key_atom), val);
+  auto comp = set_prop_common(obj, JSAtom(key_atom), val);
   if (comp.is_throw()) {
     val = comp.get_value();
     error_handle(sp);
@@ -1136,20 +1140,20 @@ void NjsVM::exec_set_prop_index(SPRef sp) {
 }
 
 void NjsVM::exec_dynamic_get_var(SPRef sp, u32 name_atom) {
-  JSValue val = global_object.as_object()->get_prop_trivial(name_atom);
+  auto comp = global_object.as_object()->get_property_impl(*this, JSAtom(name_atom));
 
-  if (val.is_uninited()) {
+  if (comp.is_throw()) {
     u16string var_name = atom_to_str(name_atom);
     error_throw(sp, var_name + u" is undefined");
     error_handle(sp);
   } else {
     sp += 1;
-    sp[0] = val;
+    sp[0] = comp.get_value();
   }
 }
 
 void NjsVM::exec_dynamic_set_var(SPRef sp, u32 name_atom) {
-  auto comp = global_object.as_object()->set_prop(*this, JSValue::Atom(name_atom), sp[0]);
+  auto comp = global_object.as_object()->set_prop(*this, JSAtom(name_atom), sp[0]);
   assert(comp.is_value());
 }
 
@@ -1164,11 +1168,11 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
   }
   obj = js_to_object(*this, obj).get_value();
   assert(obj.is_object());
-  auto iter_key = JSValue::Symbol(AtomPool::k_sym_iterator);
+  auto iter_key = JSSymbol(AtomPool::k_sym_iterator);
   JSValue iter_ctor = TRY_COMP(obj.as_object()->get_property(*this, iter_key));
 
   if (!iter_ctor.is_object()
-      || iter_ctor.as_object()->get_class() != ObjClass::CLS_FUNCTION) [[unlikely]] {
+      || iter_ctor.as_object()->get_class() != CLS_FUNCTION) [[unlikely]] {
     return build_err();
   }
   return call_function(iter_ctor.val.as_func, obj, nullptr, {});
@@ -1176,13 +1180,13 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
 
 Completion NjsVM::for_of_call_next(JSValue iter) {
   assert(iter.is_object());
-  auto atom_next = JSValue::Atom(AtomPool::k_next);
+  auto atom_next = JSAtom(AtomPool::k_next);
   JSValue next_func = TRY_COMP(iter.as_object()->get_property(*this, atom_next));
 
   if (!next_func.is_object()
-      || next_func.as_object()->get_class() != ObjClass::CLS_FUNCTION) {
+      || next_func.as_object()->get_class() != CLS_FUNCTION) {
     JSValue err = build_error_internal(
-        JS_TYPE_ERROR, to_u16string(iter.to_string(*this)) + u" is not iterable");
+        JS_TYPE_ERROR, to_u16string(next_func.to_string(*this)) + u" is not a function.");
     return Completion::with_throw(err);
   }
 
@@ -1309,7 +1313,7 @@ void NjsVM::error_handle(SPRef sp) {
 }
 
 void NjsVM::print_unhandled_error(JSValue err) {
-  if (err.is_object() && err.as_object()->get_class() == ObjClass::CLS_ERROR) {
+  if (err.is_object() && err.as_object()->get_class() == CLS_ERROR) {
     auto err_obj = err.as_object();
     // TODO: should not use `get_prop_trivial` here
     std::string err_msg = err_obj->get_prop_trivial(str_to_atom(u"message")).to_string(*this);

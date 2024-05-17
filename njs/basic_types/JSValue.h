@@ -72,19 +72,7 @@ friend class NjsVM;
   static JSValue uninited;
   static JSValue null;
 
-  inline static JSValue Atom(u32 val) {
-    JSValue atom(JS_ATOM);
-    atom.val.as_atom = val;
-    return atom;
-  }
-
-  inline static JSValue Symbol(u32 val) {
-    JSValue symbol(SYMBOL);
-    symbol.val.as_symbol = val;
-    return symbol;
-  }
-
-  inline static JSValue U32(u32 val) {
+  static JSValue U32(u32 val) {
     JSValue num(NUM_UINT32);
     num.val.as_u32 = val;
     return num;
@@ -183,7 +171,10 @@ friend class NjsVM;
   void set_undefined() { tag = UNDEFINED; }
   void set_uninited() { tag = UNINIT; }
 
-  JSValue& deref() const;
+  JSValue& deref() const {
+    assert(tag == VALUE_HANDLE);
+    return *val.as_JSValue;
+  }
   JSValue& deref_heap() const;
 
   void move_to_heap(NjsVM& vm);
@@ -303,10 +294,18 @@ friend class NjsVM;
   u32 flag_bits {0};
 };
 
-inline JSValue& JSValue::deref() const {
-  assert(tag == VALUE_HANDLE);
-  return *val.as_JSValue;
+inline JSValue JSAtom(u32 val) {
+  JSValue atom(JSValue::JS_ATOM);
+  atom.val.as_atom = val;
+  return atom;
 }
+
+inline JSValue JSSymbol(u32 val) {
+  JSValue symbol(JSValue::SYMBOL);
+  symbol.val.as_symbol = val;
+  return symbol;
+}
+
 
 inline const JSValue undefined{JSValue::UNDEFINED};
 

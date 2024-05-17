@@ -39,7 +39,7 @@ class JSStringPrototype : public JSObject {
     if (This.is(JSValue::STRING)) {
       return This;
     }
-    else if (This.is_object() && This.as_object()->get_class() == ObjClass::CLS_STRING) {
+    else if (This.is_object() && This.as_object()->get_class() == CLS_STRING) {
       assert(dynamic_cast<JSString*>(This.as_object()) != nullptr);
       auto *str_obj = static_cast<JSString*>(This.as_object());
       return vm.new_primitive_string(str_obj->value.str);

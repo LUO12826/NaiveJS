@@ -6,16 +6,13 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <optional>
 
 #include "njs/codegen/Scope.h"
-#include "njs/codegen/SymbolRecord.h"
 #include "njs/common/enum_strings.h"
 #include "njs/common/enums.h"
-#include "njs/include/SmallVector.h"
 #include "njs/utils/macros.h"
 #include "Token.h"
 
@@ -188,7 +185,8 @@ class RegExpLiteral : public ASTNode {
  public:
   RegExpLiteral(u16string pattern, u16string flag, u16string_view source, u32 start,
                 u32 end, u32 line_start)
-      : ASTNode(AST_EXPR_REGEXP, source, start, end, line_start), pattern(pattern), flag(flag) {}
+      : ASTNode(AST_EXPR_REGEXP, source, start, end, line_start),
+        pattern(std::move(pattern)), flag(std::move(flag)) {}
 
   u16string pattern;
   u16string flag;
@@ -215,7 +213,7 @@ class ObjectLiteral : public ASTNode {
  public:
 
   struct Property {
-    enum Type {
+    enum Type : int8_t {
       NORMAL = 0,
       GETTER,
       SETTER,
@@ -234,7 +232,7 @@ class ObjectLiteral : public ASTNode {
     for (auto property : properties) { delete property.value; }
   }
 
-  void set_property(const Property &p) { properties.emplace_back(std::move(p)); }
+  void set_property(const Property &p) { properties.emplace_back(p); }
 
   vector<Property> properties;
 };
@@ -246,7 +244,7 @@ class ParenthesisExpr : public ASTNode {
     add_child(expr);
   }
 
-  ~ParenthesisExpr() { delete expr; }
+  ~ParenthesisExpr() override { delete expr; }
 
   ASTNode *expr;
 };
@@ -269,7 +267,7 @@ class UnaryExpr : public ASTNode {
     return desc;
   }
 
-  bool is_inc_or_dec() {
+  bool is_inc_or_dec() const {
     return op.type == Token::INC || op.type == Token::DEC;
   }
 
@@ -311,7 +309,8 @@ class Expression : public ASTNode {
 
 class Arguments : public ASTNode {
  public:
-  Arguments(vector<ASTNode *> args) : ASTNode(AST_EXPR_ARGS), args(args) {}
+  explicit Arguments(vector<ASTNode *> args)
+      : ASTNode(AST_EXPR_ARGS), args(std::move(args)) {}
 
   ~Arguments() override {
     for (auto arg : args) delete arg;
@@ -347,7 +346,7 @@ class NewExpr : public ASTNode {
 
 class LeftHandSideExpr : public ASTNode {
  public:
-  enum PostfixType {
+  enum PostfixType : int8_t {
     CALL,
     INDEX,
     PROP,
@@ -366,7 +365,7 @@ class LeftHandSideExpr : public ASTNode {
     Postfix(PostfixType type): type(type) {}
   };
 
-  LeftHandSideExpr(ASTNode *base) : ASTNode(AST_EXPR_LHS), base(base) {
+  explicit LeftHandSideExpr(ASTNode *base) : ASTNode(AST_EXPR_LHS), base(base) {
     add_child(base);
   }
 
@@ -539,7 +538,7 @@ class VarDecl : public ASTNode {
       : ASTNode(AST_STMT_VAR_DECL, source, start, end, line_start), id(id), var_init(var_init) {
     add_child(var_init);
   }
-  ~VarDecl() { delete var_init; }
+  ~VarDecl() override { delete var_init; }
 
   Token id;
   ASTNode *var_init;
@@ -576,7 +575,7 @@ class LabelledStatement : public ASTNode {
                     u32 line_start)
       : ASTNode(AST_STMT_LABEL, source, start, end, line_start), label(label), statement(stmt) {}
 
-  ~LabelledStatement() { delete statement; }
+  ~LabelledStatement() override { delete statement; }
 
   Token label;
   ASTNode *statement;
@@ -600,7 +599,7 @@ class ReturnStatement : public ASTNode {
     add_child(expr);
   }
 
-  ~ReturnStatement() {
+  ~ReturnStatement() override {
     delete expr;
   }
 
@@ -612,7 +611,7 @@ class ThrowStatement : public ASTNode {
   ThrowStatement(ASTNode *expr, u16string_view source, u32 start, u32 end, u32 line_start)
       : ASTNode(AST_STMT_THROW, source, start, end, line_start), expr(expr) {}
 
-  ~ThrowStatement() {
+  ~ThrowStatement() override {
     delete expr;
   }
 
@@ -645,7 +644,7 @@ class Block : public ASTNode {
  public:
   Block() : ASTNode(AST_STMT_BLOCK) {}
 
-  ~Block() {
+  ~Block() override {
     for (auto stmt : statements) { delete stmt; }
   }
 
@@ -679,7 +678,7 @@ class TryStatement : public ASTNode {
     add_child(finally_block);
   }
 
-  ~TryStatement() {
+  ~TryStatement() override {
     delete try_block;
     delete catch_block;
     delete finally_block;
@@ -709,7 +708,7 @@ class IfStatement : public ASTNode {
     add_child(else_block);
   }
 
-  ~IfStatement() {
+  ~IfStatement() override {
     delete condition_expr;
     delete then_block;
     delete else_block;
@@ -727,7 +726,7 @@ class WhileStatement : public ASTNode {
       : ASTNode(AST_STMT_WHILE, source, start, end, line_start), condition_expr(condition_expr),
         body_stmt(body_stmt) {}
 
-  ~WhileStatement() {
+  ~WhileStatement() override {
     delete condition_expr;
     delete body_stmt;
   }
@@ -742,7 +741,7 @@ class WithStatement : public ASTNode {
                 u32 line_start)
       : ASTNode(AST_STMT_WITH, source, start, end, line_start), expr(expr), stmt(stmt) {}
 
-  ~WithStatement() {
+  ~WithStatement() override {
     delete expr;
     delete stmt;
   }
@@ -753,12 +752,12 @@ class WithStatement : public ASTNode {
 
 class DoWhileStatement : public ASTNode {
  public:
-  DoWhileStatement(ASTNode *condition_expr, ASTNode *body_stmt, u16string_view source, u32 start,
-                   u32 end, u32 line_start)
-      : ASTNode(AST_STMT_DO_WHILE, source, start, end, line_start), condition_expr(condition_expr),
-        body_stmt(body_stmt) {}
+  DoWhileStatement(ASTNode *condition_expr, ASTNode *body_stmt, u16string_view source,
+                   u32 start, u32 end, u32 line_start)
+      : ASTNode(AST_STMT_DO_WHILE, source, start, end, line_start),
+        condition_expr(condition_expr), body_stmt(body_stmt) {}
 
-  ~DoWhileStatement() {
+  ~DoWhileStatement() override {
     delete condition_expr;
     delete body_stmt;
   }
@@ -774,7 +773,8 @@ class SwitchStatement : public ASTNode {
   };
 
   struct CaseClause {
-    CaseClause(ASTNode *expr, vector<ASTNode *> stmts) : expr(expr), stmts(stmts) {}
+    CaseClause(ASTNode *expr, vector<ASTNode *> stmts)
+        : expr(expr), stmts(std::move(stmts)) {}
     ASTNode *expr;
     vector<ASTNode *> stmts;
   };
@@ -783,11 +783,11 @@ class SwitchStatement : public ASTNode {
 
   ~SwitchStatement() override {
     delete condition_expr;
-    for (CaseClause clause : before_default_case_clauses) {
+    for (auto& clause : before_default_case_clauses) {
       delete clause.expr;
       for (auto stmt : clause.stmts) { delete stmt; }
     }
-    for (CaseClause clause : after_default_case_clauses) {
+    for (auto& clause : after_default_case_clauses) {
       delete clause.expr;
       for (auto stmt : clause.stmts) { delete stmt; }
     }
@@ -799,12 +799,12 @@ class SwitchStatement : public ASTNode {
   void set_default_clause(vector<ASTNode *> stmts) {
     assert(!has_default_clause);
     has_default_clause = true;
-    default_clause.stmts = stmts;
+    default_clause.stmts = std::move(stmts);
   }
 
-  void add_before_default_clause(CaseClause c) { before_default_case_clauses.emplace_back(c); }
+  void add_before_default_clause(const CaseClause& c) { before_default_case_clauses.emplace_back(c); }
 
-  void add_after_default_clause(CaseClause c) { after_default_case_clauses.emplace_back(c); }
+  void add_after_default_clause(const CaseClause& c) { after_default_case_clauses.emplace_back(c); }
 
   ASTNode *condition_expr;
   bool has_default_clause = false;
@@ -825,7 +825,7 @@ class ForStatement : public ASTNode {
     add_child(body_stmt);
   }
 
-  ~ForStatement() {
+  ~ForStatement() override {
     delete init_expr;
     delete condition_expr;
     delete increment_expr;
@@ -874,7 +874,7 @@ class ForInStatement : public ASTNode {
     }
   }
 
-  ~ForInStatement() {
+  ~ForInStatement() override {
     delete element_expr;
     delete collection_expr;
     delete body_stmt;

@@ -34,13 +34,22 @@ target_include_directories(njs PRIVATE .)
 target_compile_options(njs PRIVATE -Wno-deprecated-declarations)
 
 # Conditionally add sanitizer options if not in Release mode
-if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_options(njs PRIVATE -fsanitize=address)
     target_link_options(njs PRIVATE -fsanitize=address)
 endif()
 
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_compile_options(njs PRIVATE -flto)
+    target_link_options(njs PRIVATE -flto)
+endif()
+
 if(DEBUG)
     target_compile_definitions(njs PRIVATE DEBUG)
+endif()
+
+if(DBG_SCOPE)
+    target_compile_definitions(njs PRIVATE DBG_SCOPE)
 endif()
 
 # executable for debug print

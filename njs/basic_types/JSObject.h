@@ -16,13 +16,11 @@
 
 namespace njs {
 
-using u8 = uint8_t;
-using robin_hood::unordered_flat_map;
 using std::u16string;
 using std::u16string_view;
+using robin_hood::unordered_flat_map;
 
 class GCHeap;
-
 
 enum ObjClass {
   // has corresponding string representation, note to modify when adding
@@ -247,13 +245,13 @@ friend class JSForInIterator;
   Completion get_prop(NjsVM& vm, u16string_view key_str);
   Completion get_prop(NjsVM& vm, JSValue key);
   Completion get_prop(NjsVM& vm, u32 key_atom) {
-    return get_prop(vm, JSValue::Atom(key_atom));
+    return get_prop(vm, JSAtom(key_atom));
   }
 
   JSValue get_prop_trivial(u32 key_atom) {
-    JSObjectProp *prop = get_own_prop(JSValue::Atom(key_atom));
+    JSObjectProp *prop = get_own_prop(JSAtom(key_atom));
     if (prop == nullptr) [[unlikely]] {
-      return JSValue::uninited;
+      return undefined;
     } else {
       assert(prop->is_data_descriptor());
       return prop->data.value;

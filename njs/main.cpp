@@ -1,4 +1,3 @@
-#define DBG_SCOPE
 #include <codecvt>
 #include <cstdio>
 #include <fstream>

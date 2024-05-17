@@ -28,7 +28,7 @@ class JSForInIterator : public JSObject {
     JSObject *obj = object.as_object();
 
     while (true) {
-      if (obj->get_class() == ObjClass::CLS_ARRAY) [[unlikely]] {
+      if (obj->get_class() == CLS_ARRAY) [[unlikely]] {
         auto *arr = obj->as<JSArray>();
         if (arr->is_fast_array) {
           for (size_t i = 0; i < arr->dense_array.size(); i++) {
@@ -36,7 +36,7 @@ class JSForInIterator : public JSObject {
             keys.push_back(vm.u32_to_atom(u32(i)));
           }
         }
-      } else if (obj->get_class() == ObjClass::CLS_STRING) {
+      } else if (obj->get_class() == CLS_STRING) {
         auto *str = obj->as<JSString>();
         size_t len = str->value.length();
         for (size_t i = 0; i < len; i++) {

@@ -53,7 +53,7 @@ class CodegenVisitor {
     if (!Global::show_codegen_result) return;
     std::cout << "================ codegen result ================\n\n";
 
-    std::cout << ">>> instructions:\n";
+    std::cout << "[[instructions]]\n";
     for (int i = 0; i < bytecode.size(); i++) {
       std::cout << std::setw(6) << std::left << i << bytecode[i].description() << '\n';
     }
@@ -67,13 +67,13 @@ class CodegenVisitor {
 //    }
 //    std::cout << '\n';
 
-    std::cout << ">>> number pool:\n";
-    for (int i = 0; i < num_list.size(); i++) {
-      std::cout << std::setw(3) << i << " " << num_list[i] << '\n';
-    }
-    std::cout << '\n';
+//    std::cout << ">>> number pool:\n";
+//    for (int i = 0; i < num_list.size(); i++) {
+//      std::cout << std::setw(3) << i << " " << num_list[i] << '\n';
+//    }
+//    std::cout << '\n';
 
-    std::cout << ">>> function metadata:\n";
+    std::cout << "[[function metadata]]\n";
     for (int i = 0; i < func_meta.size(); i++) {
       auto& meta = func_meta[i];
       auto func_name = meta.is_anonymous ? "(anonymous)"
@@ -87,8 +87,9 @@ class CodegenVisitor {
       for (auto& catch_item : meta.catch_table) {
         std::cout << "  " << catch_item.description() << '\n';
       }
+      std::cout << "\n";
     }
-    std::cout << '\n';
+    std::cout << "\n";
     std::cout << "============== end codegen result ==============\n\n";
   }
 

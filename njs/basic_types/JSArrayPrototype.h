@@ -30,7 +30,7 @@ class JSArrayPrototype : public JSObject {
   static Completion get_iter(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
     assert(This.is_object());
-    assert(This.as_object()->get_class() == ObjClass::CLS_ARRAY);
+    assert(This.as_object()->get_class() == CLS_ARRAY);
 
     auto *iter = vm.heap.new_object<JSArrayIterator>(vm, This, JSIteratorKind::VALUE);
     return JSValue(iter);
@@ -97,7 +97,7 @@ class JSArrayPrototype : public JSObject {
     }
 
     JSValue new_length {double(new_size)};
-    array->set_prop(vm, JSValue::Atom(AtomPool::k_length), new_length);
+    array->set_prop(vm, JSAtom(AtomPool::k_length), new_length);
 
     return new_length;
   }

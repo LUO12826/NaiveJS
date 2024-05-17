@@ -107,14 +107,14 @@ class JSArray: public JSObject {
           return JSValue::U32(int_idx);
         } else {
           u32 atom = vm.str_to_atom_no_uint(to_u16string(int_idx));
-          return JSValue::Atom(atom);
+          return JSAtom(atom);
         }
       }
       // in this case, the float value is interpreted as an ordinary property key
       else {
         u16string num_str = double_to_u16string(key.val.as_f64);
         u32 atom = vm.str_to_atom_no_uint(num_str);
-        return JSValue::Atom(atom);
+        return JSAtom(atom);
       }
 
     } else if (key.is_atom()) {

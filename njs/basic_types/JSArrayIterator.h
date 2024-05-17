@@ -19,7 +19,7 @@ class JSArrayIterator : public JSObject {
 
   static Completion iter_next(vm_func_This_args_flags) {
     assert(This.is_object());
-    assert(This.as_object()->get_class() == ObjClass::CLS_ARRAY_ITERATOR);
+    assert(This.as_object()->get_class() == CLS_ARRAY_ITERATOR);
 
     auto *iter = This.as_object()->as<JSArrayIterator>();
     return iter->next(vm);
@@ -49,11 +49,8 @@ class JSArrayIterator : public JSObject {
     if (index < arr.get_length()) [[likely]] {
       done = false;
       if (kind == JSIteratorKind::VALUE) [[likely]] {
-        JSValue idx_atom = JSValue::Atom(vm.u32_to_atom(index));
+        JSValue idx_atom = JSAtom(vm.u32_to_atom(index));
         value = TRY_COMP(arr.get_property_impl(vm, idx_atom));
-        if (value.is_uninited()) [[unlikely]] {
-          value = undefined;
-        }
       }
       else if (kind == JSIteratorKind::KEY) {
         value = JSValue(double(index));
@@ -62,11 +59,9 @@ class JSArrayIterator : public JSObject {
         JSArray& tmp_arr = *vm.heap.new_object<JSArray>(vm, 2);
         tmp_arr.dense_array.resize(2);
 
-        JSValue idx_atom = JSValue::Atom(vm.u32_to_atom(index));
-        value = TRY_COMP(arr.get_property_impl(vm, idx_atom));
-
+        JSValue idx_atom = JSAtom(vm.u32_to_atom(index));
         tmp_arr.dense_array[0] = JSValue(double(index));
-        tmp_arr.dense_array[1] = unlikely(value.is_uninited()) ? undefined : value;
+        tmp_arr.dense_array[1] = TRY_COMP(arr.get_property_impl(vm, idx_atom));
         value = JSValue(&tmp_arr);
       }
       index += 1;
