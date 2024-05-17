@@ -230,9 +230,6 @@ friend class NativeFunction;
 
   JSValue global_object;
 
-  // for error handling in the global scope
-  SmallVector<CatchTableEntry, 3> global_catch_table;
-
   // for collecting all log strings.
   vector<std::string> log_buffer;
 

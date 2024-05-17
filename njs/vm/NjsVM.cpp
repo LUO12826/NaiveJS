@@ -40,7 +40,6 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   , atom_pool(std::move(visitor.atom_pool))
   , num_list(std::move(visitor.num_list))
   , func_meta(std::move(visitor.func_meta))
-  , global_catch_table(std::move(visitor.scope_chain[0]->catch_table))
 {
   init_prototypes();
   JSObject *global_obj = new_object();
@@ -62,6 +61,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   global_meta.param_count = 0;
   global_meta.code_address = 0;
   global_meta.source_line = 0;
+  global_meta.catch_table = std::move(global_scope.catch_table);
 
   atom_pool.record_static_atom_count();
 }
@@ -1198,16 +1198,19 @@ void NjsVM::error_throw(SPRef sp, const u16string& msg) {
 }
 
 void NjsVM::error_handle(SPRef sp) {
-  bool in_global = curr_frame->prev_frame == nullptr;
   auto this_func = curr_frame->function.val.as_func;
   auto frame = curr_frame;
   u32& pc = *frame->pc_ref;
 
   // TODO: check this
   u32 err_throw_pc = pc - 1;
-  auto& catch_table = unlikely(in_global) ? global_catch_table
-                                          : this_func->meta.catch_table;
+  auto& catch_table = this_func->meta.catch_table;
   assert(catch_table.size() >= 1);
+
+  if (catch_table.size() == 1) {
+    pc = catch_table.back().goto_pos;
+    return;
+  }
 
   CatchTableEntry *catch_entry = nullptr;
   for (auto& entry : catch_table) {
