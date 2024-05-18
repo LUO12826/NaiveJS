@@ -158,7 +158,7 @@ Completion JSObject::get_prop(NjsVM& vm, u16string_view key_atom) {
 Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
   JSObjectProp *prop = get_exist_prop(key);
   if (prop == nullptr) [[unlikely]] {
-    return Completion::with_throw(undefined);
+    return prop_not_found;
   } else {
     if (prop->flag.is_value()) [[unlikely]] {
       return prop->data.value;
@@ -167,7 +167,7 @@ Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
       assert(not getter.is_undefined());
       return vm.call_function(getter.val.as_func, JSValue(this), nullptr, {});
     } else {
-      return Completion::with_throw(undefined);
+      return prop_not_found;
     }
   }
 }

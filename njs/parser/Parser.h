@@ -111,7 +111,7 @@ error:
     // NOTE(zhuzilin) the EOS is for new Function("a,b,c", "")
     while (token.type != TokenType::RIGHT_PAREN && token.type != TokenType::EOS) {
       if (token.is_identifier()) {
-        params.emplace_back(token.text);
+        params.push_back(token.text);
       }
       else if (token.type != TokenType::COMMA) {
         return false;
@@ -601,7 +601,7 @@ error:
           for (auto arg : arguments) delete arg;
           return argument;
         }
-        arguments.emplace_back(argument);
+        arguments.push_back(argument);
       }
 
       lexer.next();
@@ -649,12 +649,7 @@ error:
         delete prog;
         return stmt;
       }
-
-      if (stmt->type == ASTNode::AST_FUNC && stmt->as_function()->has_name()) {
-        prog->add_function_decl(stmt);
-      } else {
-        prog->add_statement(stmt);
-      }
+      prog->add_statement(stmt);
       lexer.next();
     }
     assert(token_match(ending_token_type));
@@ -1147,6 +1142,7 @@ error:
   ASTNode* parse_switch_statement() {
     START_POS;
     auto* switch_stmt = new SwitchStatement();
+    push_scope(ScopeType::BLOCK);
     ASTNode* expr;
 
     assert(token_match(u"switch"));
@@ -1163,7 +1159,7 @@ error:
       delete expr;
       goto error;
     }
-    switch_stmt->set_expr(expr);
+    switch_stmt->condition_expr = expr;
     if (lexer.next().type != TokenType::LEFT_BRACE) { // skip {
       goto error;
     }
@@ -1183,7 +1179,7 @@ error:
       }
       else if (type == u"default") {
         // can only have one default.
-        if (switch_stmt->has_default_clause) goto error;
+        if (switch_stmt->has_default) goto error;
       }
       else {
         goto error;
@@ -1199,30 +1195,26 @@ error:
               !token_match(TokenType::RIGHT_BRACE)) {
         ASTNode* stmt = parse_statement();
         if (stmt->is_illegal()) {
-          for (auto s : stmts) {
-            delete s;
-          }
+          for (auto s : stmts) delete s;
           delete switch_stmt;
           return stmt;
         }
-        stmts.emplace_back(stmt);
+        stmts.push_back(stmt);
+        switch_stmt->add_statement(stmt);
         lexer.next();
       }
-      if (type == u"case") {
-        if (switch_stmt->has_default_clause) {
-          switch_stmt->add_after_default_clause(SwitchStatement::CaseClause(case_expr, stmts));
-        }
-        else {
-          switch_stmt->add_before_default_clause(SwitchStatement::CaseClause(case_expr, stmts));
-        }
-      }
-      else {
-        switch_stmt->set_default_clause(stmts);
+      if (type == u"case") [[likely]] {
+        switch_stmt->cases.emplace_back(case_expr, stmts);
+      } else {
+        switch_stmt->default_stmts = std::move(stmts);
+        switch_stmt->has_default = true;
+        switch_stmt->default_index = switch_stmt->cases.size();
       }
     }
 
     assert(token_match(TokenType::RIGHT_BRACE));
     switch_stmt->set_source(SOURCE_PARSED_EXPR);
+    switch_stmt->scope = pop_scope();
     return switch_stmt;
 error:
     delete switch_stmt;

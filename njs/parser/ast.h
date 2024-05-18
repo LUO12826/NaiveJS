@@ -553,13 +553,12 @@ class ProgramOrFunctionBody : public ASTNode {
     for (auto stmt : statements) delete stmt;
   }
 
-  void add_function_decl(ASTNode *func) {
-    assert(func->type == AST_FUNC);
-    func_decls.emplace_back(static_cast<Function *>(func));
-    add_child(func);
-  }
   void add_statement(ASTNode *stmt) {
-    statements.emplace_back(stmt);
+    if (stmt->type == ASTNode::AST_FUNC && stmt->as_function()->is_stmt) {
+      func_decls.push_back(stmt->as_function());
+    } else {
+      statements.push_back(stmt);
+    }
     add_child(stmt);
   }
 
@@ -636,6 +635,10 @@ class VarStatement : public ASTNode {
     add_child(decl);
   }
 
+  bool is_lexical() {
+    return kind == VarKind::DECL_LET || kind == VarKind::DECL_CONST;
+  }
+
   VarKind kind;
   vector<VarDecl *> declarations;
 };
@@ -646,14 +649,20 @@ class Block : public ASTNode {
 
   ~Block() override {
     for (auto stmt : statements) { delete stmt; }
+    for (auto stmt : func_decls) { delete stmt; }
   }
 
   void add_statement(ASTNode *stmt) {
-    statements.emplace_back(stmt);
+    if (stmt->type == ASTNode::AST_FUNC && stmt->as_function()->is_stmt) {
+      func_decls.push_back(stmt->as_function());
+    } else {
+      statements.push_back(stmt);
+    }
     add_child(stmt);
   }
 
   vector<ASTNode *> statements;
+  vector<Function *> func_decls;
   unique_ptr<Scope> scope;
 };
 
@@ -768,14 +777,12 @@ class DoWhileStatement : public ASTNode {
 
 class SwitchStatement : public ASTNode {
  public:
-  struct DefaultClause {
-    vector<ASTNode *> stmts;
-  };
-
   struct CaseClause {
     CaseClause(ASTNode *expr, vector<ASTNode *> stmts)
         : expr(expr), stmts(std::move(stmts)) {}
+
     ASTNode *expr;
+    u32 jump_point;
     vector<ASTNode *> stmts;
   };
 
@@ -783,34 +790,35 @@ class SwitchStatement : public ASTNode {
 
   ~SwitchStatement() override {
     delete condition_expr;
-    for (auto& clause : before_default_case_clauses) {
+    for (auto& clause : cases) {
       delete clause.expr;
       for (auto stmt : clause.stmts) { delete stmt; }
     }
-    for (auto& clause : after_default_case_clauses) {
-      delete clause.expr;
-      for (auto stmt : clause.stmts) { delete stmt; }
+    for (auto stmt : default_stmts) { delete stmt; }
+  }
+
+  void add_statement(ASTNode *stmt) {
+    if (stmt->type == ASTNode::AST_FUNC && stmt->as_function()->is_stmt) {
+      func_decls.push_back(stmt->as_function());
+    } else {
+      statements.push_back(stmt);
+      if (stmt->is(ASTNode::AST_STMT_VAR) && stmt->as<VarStatement>()->is_lexical()) {
+        lexical_var_def.push_back(stmt->as<VarStatement>());
+      }
     }
-    for (auto stmt : default_clause.stmts) { delete stmt; }
+    add_child(stmt);
   }
-
-  void set_expr(ASTNode *expr) { condition_expr = expr; }
-
-  void set_default_clause(vector<ASTNode *> stmts) {
-    assert(!has_default_clause);
-    has_default_clause = true;
-    default_clause.stmts = std::move(stmts);
-  }
-
-  void add_before_default_clause(const CaseClause& c) { before_default_case_clauses.emplace_back(c); }
-
-  void add_after_default_clause(const CaseClause& c) { after_default_case_clauses.emplace_back(c); }
 
   ASTNode *condition_expr;
-  bool has_default_clause = false;
-  DefaultClause default_clause;
-  vector<CaseClause> before_default_case_clauses;
-  vector<CaseClause> after_default_case_clauses;
+  bool has_default = false;
+  // the index of the case right after the `default` clause.
+  u32 default_index;
+  vector<ASTNode *> default_stmts;
+  vector<CaseClause> cases;
+  unique_ptr<Scope> scope;
+  vector<VarStatement *> lexical_var_def;
+  vector<ASTNode *> statements;
+  vector<Function *> func_decls;
 };
 
 class ForStatement : public ASTNode {

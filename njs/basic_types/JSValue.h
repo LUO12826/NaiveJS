@@ -19,6 +19,8 @@ struct JSHeapValue;
 using std::u16string;
 using u32 = uint32_t;
 
+constexpr u32 FLAG_NOT_FOUND = UINT32_MAX;
+
 extern const char *js_value_tag_names[];
 
 /// Type for values in JavaScript
@@ -79,6 +81,8 @@ friend class NjsVM;
   }
 
   JSValue(): JSValue(JSValueTag::UNDEFINED) {}
+  JSValue(JSValueTag tag, uint64_t data, u32 flag)
+      : tag(tag), val(data), flag_bits(flag) {}
   explicit JSValue(JSValueTag tag): tag(tag) {}
 
   ~JSValue() = default;
@@ -270,7 +274,11 @@ friend class NjsVM;
   /// `to_json(u16string&, NjsVM&)` is for JSON.stringify.
   void to_json(u16string& output, NjsVM& vm) const;
 
-  union {
+  union Val {
+    Val() {}
+    Val(uint64_t data): data(data) {}
+
+    uint64_t data;
     double as_f64;
     uint32_t as_atom;
     uint32_t as_symbol;
@@ -291,7 +299,7 @@ friend class NjsVM;
   } val;
 
   JSValueTag tag;
-  u32 flag_bits {0};
+  u32 flag_bits;
 };
 
 inline JSValue JSAtom(u32 val) {
@@ -308,6 +316,7 @@ inline JSValue JSSymbol(u32 val) {
 
 
 inline const JSValue undefined{JSValue::UNDEFINED};
+inline const JSValue prop_not_found{JSValue::UNDEFINED, 0, FLAG_NOT_FOUND};
 
 } // namespace njs
 

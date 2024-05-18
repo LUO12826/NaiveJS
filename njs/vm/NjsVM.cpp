@@ -428,7 +428,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         break;
       case OpType::var_undef:
         assert(get_value(ScopeType::FUNC, OPR1).tag == JSValue::UNINIT);
-        get_value(ScopeType::FUNC, OPR1).tag = JSValue::UNDEFINED;
+        get_value(ScopeType::FUNC, OPR1).set_undefined();
         break;
       case OpType::loop_var_renew: {
         JSValue &val = local_vars[OPR1];
@@ -468,6 +468,18 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         } else {
           pc = OPR2;
         }
+        break;
+      case OpType::pop_jmp_true:
+        if (sp[0].bool_value()) {
+          pc = OPR1;
+        }
+        sp -= 1;
+        break;
+      case OpType::pop_jmp_false:
+        if (sp[0].is_falsy()) {
+          pc = OPR1;
+        }
+        sp -= 1;
         break;
       case OpType::gt:
       case OpType::lt:
@@ -575,6 +587,10 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
       case OpType::dyn_set_var:
         exec_dynamic_set_var(sp, OPR1);
         break;
+      case OpType::dup_stack_top:
+        sp[1] = sp[0];
+        sp += 1;
+        break;
       case OpType::move_to_top1: {
         JSValue tmp = sp[-1];
         sp[-1] = sp[0];
@@ -639,6 +655,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
           sp[2] = res_done.get_value();
           sp += 2;
         }
+        break;
         for_of_next_err:
           error_handle(sp);
         break;
@@ -1141,14 +1158,14 @@ void NjsVM::exec_set_prop_index(SPRef sp) {
 
 void NjsVM::exec_dynamic_get_var(SPRef sp, u32 name_atom) {
   auto comp = global_object.as_object()->get_property_impl(*this, JSAtom(name_atom));
+  sp[1] = comp.get_value();
+  sp += 1;
 
-  if (comp.is_throw()) {
-    u16string var_name = atom_to_str(name_atom);
-    error_throw(sp, var_name + u" is undefined");
+  if (comp.is_throw()) [[unlikely]] {
     error_handle(sp);
-  } else {
-    sp += 1;
-    sp[0] = comp.get_value();
+  } else if (sp[0].flag_bits == FLAG_NOT_FOUND) [[unlikely]] {
+    error_throw(sp, atom_to_str(name_atom) + u" is undefined");
+    error_handle(sp);
   }
 }
 
