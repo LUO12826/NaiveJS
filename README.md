@@ -12,33 +12,38 @@ NaiveJS is a personal experimental JavaScript engine. My primary goal is to lear
 - [x] Logical operators (short-circuit evaluation)
 - [x] Member access expression (dot)
 - [x] Indexed access expression (subscript)
-- [x] While loop, break, continue
 - [x] If statement
+- [x] While loop, break, continue
+- [x] For loop (regular, for-in, for-of)
+- [x] Iterator
 - [x] `JSValue` and basic JavaScript data types
 - [x] Array literals, object literals
 - [x] Closures and automatic variable capture
 - [x] Copy-based GC
 - [x] Event loop and `setInterval`, `setTimeout` (using kqueue)
 - [x] Third-party libraries for HTTP requests
-- [x] Runtime exception and error handling (try-catch)
+- [x] Runtime exception and error handling (try-catch-finally)
 - [x] `new` operator
 - [x] Prototype chain
-- [x] `finally` block
-- [ ] Global scope (that works correctly)
-- [ ] For loop
+- [x] Global scope (that works like real JS)
+- [x] Object property attributes
 - [ ] Regular expression
-- [ ] Object property attributes
+- [ ] Template literals
+- [ ] Spread syntax
 
 ### Other To Do
 
+- [ ] Make eventloop work on Linux (using epoll)
 - [ ] Reorganize the parser code
 - [ ] Compactly stored bytecode
 - [ ] Eliminates redundant jump instructions
 - [ ] Improve error handling in the parser and code generator
 - [ ] Use smart pointers instead of raw pointers in AST nodes. (This was previously found to cause performance degradation on macOS with Clang)
 - [ ] GC and object system optimization: allowing GC to move objects safely
+- [ ] Atom strings GC
 - [ ] fully managed memory: all memory is allocated on the GC Heap
 - [ ] Utilizing the "label as value" technique in the VM
+- [ ] JIT
 
 ### Acknowledgement
 
