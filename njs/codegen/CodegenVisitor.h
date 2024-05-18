@@ -308,36 +308,6 @@ class CodegenVisitor {
 
     // begin codegen for inner functions
     codegen_inner_function(program.func_decls);
-//    if (!scope().get_inner_func_init_code().empty()) {
-//      u32 jmp_inst_idx = emit(OpType::jmp);
-//
-//      // generate bytecode for functions first, then record its function meta index in the map.
-//      for (auto& [func, init_code] : scope().get_inner_func_init_code()) {
-//        gen_func_bytecode(*func, init_code);
-//      }
-//      // skip function bytecode
-//      bytecode[jmp_inst_idx].operand.two.opr1 = bytecode_pos();
-//
-//      for (ASTNode *node : program.func_decls) {
-//        if (scope().get_type() == ScopeType::GLOBAL) {
-//          emit(OpType::push_global_this);
-//        }
-//        auto& func = *static_cast<Function *>(node);
-//        assert(func.has_name());
-//        visit_function(func);
-//
-//        auto symbol = scope().resolve_symbol(func.name.text);
-//        if (scope().get_type() == ScopeType::GLOBAL) {
-//          emit(OpType::set_prop_atom, atom_pool.atomize(func.name.text));
-//          emit(OpType::pop_drop);
-//        } else {
-//          assert(!symbol.not_found());
-//          emit(OpType::pop, scope_type_int(symbol.storage_scope), symbol.get_index());
-//        }
-//
-//      }
-//      // End filling function symbol initialization code
-//    }
 
     std::vector<u32> top_level_throw;
 
@@ -1070,9 +1040,7 @@ class CodegenVisitor {
         if (init_expr->is(ASTNode::AST_STMT_VAR)) {
           visit_variable_statement(*init_expr->as<VarStatement>(), false);
         } else {
-          visit(init_expr);
-          assert(init_expr->is_expression() || init_expr->is(ASTNode::AST_FUNC));
-          emit(OpType::pop_drop);
+          visit_single_statement(init_expr);
         }
       }
 
@@ -1527,15 +1495,10 @@ class CodegenVisitor {
   requires std::invocable<F1> && std::invocable<F2> && std::invocable<F3>
   void visit_block_statement(Block& block, bool dispose_var,
                              const F1& init, const F2& prolog, const F3& epilog) {
+
     if (not block.label.empty()) scope().can_break = true;
     push_scope(block.scope.get());
     init();
-    // First, allocate space for the variables in this scope
-//    for (auto& [name, kind] : extra_var) {
-//      assert(kind == VarKind::DECL_LET || kind == VarKind::DECL_CONST);
-//      bool res = scope().define_symbol(kind, name);
-//      assert(res);
-//    }
 
     // as for now, the only usage of extra vars is for the catch variables. and they don't need
     // to be deinited.
