@@ -6,7 +6,7 @@ arr[1.234] = 3
 arr[Symbol.iterator] = undefined
 
 for (let i in arr) {
-    console.log(i)
+  console.log(i)
 }
 
 

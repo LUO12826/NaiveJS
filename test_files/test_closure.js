@@ -1,24 +1,25 @@
 function inc(param) {
-    let clo_var = "clo var"
+  let clo_var = "clo var"
 
-    function inner1() {
+  function inner1() {
 
-        param = 1
-        function inner2(b) {
-            param += 2
-            return param + b
-        }
-        return inner2
+    param = 1
+
+    function inner2(b) {
+      param += 2
+      return param + b
     }
 
-    function inner3() {
-        console.log(param)
-        return [clo_var]
-    }
+    return inner2
+  }
 
-    return [inner1, inner3]
+  function inner3() {
+    console.log(param)
+    return [clo_var]
+  }
+
+  return [inner1, inner3]
 }
-
 
 
 let res = inc(10)

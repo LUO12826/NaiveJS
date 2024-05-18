@@ -1,16 +1,16 @@
 let obj = {
-    a: 1,
-    b: {
-        c: 2,
-        d: {
-            str: "this is a string",
-            num: add(2, 3)
-        }
+  a: 1,
+  b: {
+    c: 2,
+    d: {
+      str: "this is a string",
+      num: add(2, 3)
     }
+  }
 }
 
 function add(a, b) {
-    return a + b
+  return a + b
 }
 
 obj.b.d.num = "aaaa"

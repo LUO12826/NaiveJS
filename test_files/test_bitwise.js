@@ -1,9 +1,9 @@
 function testResult(actual, expected, message) {
-    if (actual === expected) {
-        console.log("test passed: " + message);
-    } else {
-        console.log("test failed: " + message + ". expected: " + expected + ", actual: " + actual);
-    }
+  if (actual === expected) {
+    console.log("test passed: " + message);
+  } else {
+    console.log("test failed: " + message + ". expected: " + expected + ", actual: " + actual);
+  }
 }
 
 // and
