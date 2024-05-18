@@ -1,6 +1,7 @@
 #ifndef NJS_PARSER_H
 #define NJS_PARSER_H
 
+#include <ranges>
 #include <stack>
 #include <iostream>
 
@@ -1300,10 +1301,25 @@ error:
     lexer.next();
     assert(token_match(TokenType::COLON));  // skip colon
     lexer.next();
+
+    auto& label_stack = scope().get_outer_func()->label_stack;
+    for (auto& rit : std::ranges::reverse_view(label_stack)) {
+      if (rit == id.text) {
+        // TODO: report error here.
+        printf("SyntaxError: Label '%s' has already been declared\n", to_u8string(id.text).c_str());
+        break;
+      }
+    }
+
+    label_stack.push_back(id.text);
     ASTNode* stmt = parse_statement();
+    label_stack.pop_back();
 
     if (stmt->is_illegal()) return stmt;
-    return new LabelledStatement(id, stmt, SOURCE_PARSED_EXPR);
+    stmt->label = id.text;
+    // TODO: check this
+    return stmt;
+//    return new LabelledStatement(id, stmt, SOURCE_PARSED_EXPR);
   }
 
  private:

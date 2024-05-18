@@ -32,6 +32,7 @@ class BinaryExpr;
 class UnaryExpr;
 class LeftHandSideExpr;
 class ParenthesisExpr;
+class Function;
 class ProgramOrFunctionBody;
 class NumberLiteral;
 class Block;
@@ -78,10 +79,10 @@ class ASTNode {
     AST_STMT_BLOCK,
     AST_STMT_IF,
     AST_STMT_WHILE,
+    AST_STMT_DO_WHILE,
     AST_STMT_FOR,
     AST_STMT_FOR_IN,
     AST_STMT_WITH,
-    AST_STMT_DO_WHILE,
     AST_STMT_TRY,
 
     AST_STMT_VAR,
@@ -143,8 +144,11 @@ class ASTNode {
   bool is_identifier();
   bool is_lhs_expr();
   bool is_valid_in_single_stmt_ctx();
+  bool is_loop();
+  bool is_block();
 
   Type type;
+  u16string_view label;
  private:
   u16string_view text;
   u32 start;
@@ -570,9 +574,12 @@ class ProgramOrFunctionBody : public ASTNode {
 
 class LabelledStatement : public ASTNode {
  public:
-  LabelledStatement(const Token& label, ASTNode *stmt, u16string_view source, u32 start, u32 end,
-                    u32 line_start)
-      : ASTNode(AST_STMT_LABEL, source, start, end, line_start), label(label), statement(stmt) {}
+  LabelledStatement(const Token& label, ASTNode *stmt, u16string_view source,
+                    u32 start, u32 end, u32 line_start)
+      : ASTNode(AST_STMT_LABEL, source, start, end, line_start),
+        label(label), statement(stmt) {
+    add_child(statement);
+  }
 
   ~LabelledStatement() override { delete statement; }
 
@@ -872,7 +879,7 @@ class ForInStatement : public ASTNode {
     return static_cast<LeftHandSideExpr *>(element_expr)->is_id();
   }
 
-  u16str_view get_element_id() {
+  u16string_view get_element_id() {
     if (element_expr->is(AST_STMT_VAR)) {
       VarDecl *decl = element_expr->as<VarStatement>()->declarations[0];
       return decl->id.text;

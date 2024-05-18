@@ -147,12 +147,13 @@ void NjsVM::run() {
     std::cout << "---------------------------------------------------\n";
   }
 
-//  if (!log_buffer.empty()) {
-//    std::cout << "------------------------------" << std::endl << "log:" << std::endl;
-//    for (auto& str: log_buffer) {
-//      std::cout << str;
-//    }
-//  }
+  if (Global::show_log_buffer && !log_buffer.empty()) {
+    std::cout << "------------------------------" << '\n';
+    std::cout << "log:" << '\n';
+    for (auto& str: log_buffer) {
+      std::cout << str;
+    }
+  }
 
 }
 

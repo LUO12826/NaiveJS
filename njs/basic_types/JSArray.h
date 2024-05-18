@@ -80,8 +80,11 @@ class JSArray: public JSObject {
   }
 
   JSValue get_element_fast(u32 index) {
-    if (index < dense_array.size()) return dense_array[index];
-    return undefined;
+    if (index < dense_array.size()) {
+      JSValue val = dense_array[index];
+      return val.is_uninited() ? prop_not_found : val;
+    }
+    return prop_not_found;
   }
 
   void set_element_fast(u32 index, JSValue val) {

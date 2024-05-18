@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
     codegen_timer.end();
 
     if (visitor.get_errors().size() > 0) {
-      printf("Terminated due to errors in program.\n");
+      printf("Njs: terminated due to codegen errors in program.\n");
       exit(EXIT_FAILURE);
     }
 
@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
 
 void read_options(int argc, char *argv[]) {
   int option;
-  while ((option = getopt(argc, argv, "bgatvf:")) != -1) {
+  while ((option = getopt(argc, argv, "bgatvlf:")) != -1) {
     switch (option) {
       case 'b':
         Global::show_codegen_result = true;
@@ -95,6 +95,9 @@ void read_options(int argc, char *argv[]) {
         break;
       case 't':
         show_tokens = true;
+        break;
+      case 'l':
+        Global::show_log_buffer = true;
         break;
       case 'f':
         file_path = string(optarg);

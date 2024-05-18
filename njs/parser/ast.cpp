@@ -120,4 +120,12 @@ bool ASTNode::is_valid_in_single_stmt_ctx() {
   return true;
 }
 
+bool ASTNode::is_loop() {
+  return type >= AST_STMT_WHILE && type <= AST_STMT_FOR_IN;
+}
+
+bool ASTNode::is_block() {
+  return type == AST_STMT_BLOCK;
+}
+
 } // end namespace njs

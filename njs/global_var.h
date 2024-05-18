@@ -9,6 +9,7 @@ class Global {
   inline static bool show_gc_statistics {false};
   inline static bool show_vm_state {false};
   inline static bool show_vm_exec_steps {false};
+  inline static bool show_log_buffer {false};
 };
 
 }

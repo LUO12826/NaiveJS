@@ -8,3 +8,12 @@ arr[Symbol.iterator] = undefined
 for (let i in arr) {
     console.log(i)
 }
+
+
+// [LOG] 0
+// [LOG] 1
+// [LOG] 2
+// [LOG] 4
+// [LOG] a
+// [LOG] b
+// [LOG] 1.234

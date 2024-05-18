@@ -23,6 +23,7 @@ using std::unique_ptr;
 using u32 = uint32_t;
 
 class Function;
+class ASTNode;
 
 class Scope {
  public:
@@ -51,12 +52,18 @@ class Scope {
     u32 index;
   };
 
+  struct LabelResolveResult {
+    bool found {false};
+    u32 stack_drop_cnt {0};
+    Scope *label_scope {nullptr};
+  };
+
   Scope(): scope_type(ScopeType::GLOBAL) {}
   Scope(ScopeType type, Scope *outer): scope_type(type) {
     set_outer(outer);
   }
 
-  ScopeType get_scope_type() { return scope_type; }
+  ScopeType get_type() { return scope_type; }
 
   BlockType get_block_type() { return block_type; }
 
@@ -166,26 +173,6 @@ class Scope {
       return this;
     } else if (scope_type == ScopeType::BLOCK && outer_scope) {
       return outer_scope->resolve_continue_scope();
-    } else {
-      return nullptr;
-    }
-  }
-
-  SmallVector<u32, 3> *resolve_break_list() {
-    if (can_break) {
-      return &break_list;
-    } else if (scope_type == ScopeType::BLOCK && outer_scope) {
-      return outer_scope->resolve_break_list();
-    } else {
-      return nullptr;
-    }
-  }
-
-  Scope *resolve_break_scope() {
-    if (can_break) {
-      return this;
-    } else if (scope_type == ScopeType::BLOCK && outer_scope) {
-      return outer_scope->resolve_break_scope();
     } else {
       return nullptr;
     }
@@ -334,10 +321,13 @@ class Scope {
   bool is_break_target {false};
   bool has_try {false};
   bool is_strict {false};
+  ASTNode *associated_node {nullptr};
   SmallVector<u32, 3> break_list;
   SmallVector<u32, 3> continue_list;
   SmallVector<u32, 3> throw_list;
   SmallVector<CatchTableEntry, 3> catch_table;
+  // only function or global has this
+  SmallVector<u16string_view, 3> label_stack;
 };
 
 inline Scope::SymbolResolveResult  Scope::SymbolResolveResult::none = SymbolResolveResult();

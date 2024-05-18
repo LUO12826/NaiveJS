@@ -389,7 +389,6 @@ int Instruction::get_stack_usage(OpType op_type) {
     case OpType::for_of_init:
       return 0;
     case OpType::for_in_next:
-      return 1;
     case OpType::for_of_next:
       return 2;
     case OpType::call:    // need special handling

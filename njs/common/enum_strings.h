@@ -5,66 +5,49 @@ namespace njs {
 
 inline const char *ast_type_names[] = {
     "AST_TOKEN",
-
     "BEGIN_EXPR",
-
     "AST_EXPR_THIS",
     "AST_EXPR_ID",
     "AST_EXPR_STRICT_FUTURE",
-
     "AST_EXPR_NULL",
     "AST_EXPR_BOOL",
     "AST_EXPR_NUMBER",
     "AST_EXPR_STRING",
     "AST_EXPR_REGEXP",
-
     "AST_EXPR_ARRAY",
     "AST_EXPR_OBJ",
-
-    "AST_EXPR_PAREN",  // ( Expression )
-
+    "AST_EXPR_PAREN",
     "AST_EXPR_BINARY",
     "AST_EXPR_ASSIGN",
     "AST_EXPR_UNARY",
     "AST_EXPR_TRIPLE",
-
     "AST_EXPR_ARGS",
     "AST_EXPR_LHS",
     "AST_EXPR_NEW",
-
     "AST_EXPR_COMMA",
-
     "END_EXPR",
-
     "AST_FUNC",
-
     "AST_STMT_EMPTY",
     "AST_STMT_BLOCK",
     "AST_STMT_IF",
     "AST_STMT_WHILE",
+    "AST_STMT_DO_WHILE",
     "AST_STMT_FOR",
     "AST_STMT_FOR_IN",
     "AST_STMT_WITH",
-    "AST_STMT_DO_WHILE",
     "AST_STMT_TRY",
-
     "AST_STMT_VAR",
     "AST_STMT_VAR_DECL",
-
     "AST_STMT_CONTINUE",
     "AST_STMT_BREAK",
     "AST_STMT_RETURN",
     "AST_STMT_THROW",
-
     "AST_STMT_SWITCH",
-
     "AST_STMT_LABEL",
     "AST_STMT_DEBUG",
-
     "AST_PROGRAM",
     "AST_FUNC_BODY",
-
-    "AST_ILLEGAL"
+    "AST_ILLEGAL",
 };
 
 inline const char *token_type_names[] = {
