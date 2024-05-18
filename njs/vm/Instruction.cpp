@@ -160,7 +160,7 @@ std::string Instruction::description() const {
       sprintf(buffer, "loop_var_renew %d", OPR1);
       break;
     case OpType::var_dispose:
-      sprintf(buffer, "var_dispose  %s %d", scope_type_names_alt[OPR1], OPR2);
+      sprintf(buffer, "var_dispose  %d", OPR1);
       break;
     case OpType::var_dispose_range:
       sprintf(buffer, "var_dispose_range  %d %d", OPR1, OPR2);

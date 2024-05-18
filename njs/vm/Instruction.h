@@ -150,6 +150,11 @@ struct Instruction {
            || op_type == OpType::pop_jmp_false;
   }
 
+  bool is_jump_two_target() {
+    return op_type == OpType::jmp_cond
+           || op_type == OpType::pop_jmp_cond;
+  }
+
   OpType op_type;
   union {
     double num_float;

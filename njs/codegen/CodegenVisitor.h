@@ -127,7 +127,7 @@ class CodegenVisitor {
         // Fix the jump target of the jmp instructions
         if (inst.is_jump_single_target()) {
           inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
-        } else if (inst.op_type == OpType::jmp_cond) {
+        } else if (inst.is_jump_two_target()) {
           inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
           inst.operand.two.opr2 += pos_moved[inst.operand.two.opr2];
         }
@@ -520,7 +520,7 @@ class CodegenVisitor {
     }
     else {
       visit(&expr);
-      u32 jmp_pos = emit(OpType::jmp_cond);
+      u32 jmp_pos = emit(need_value ? OpType::jmp_cond : OpType::pop_jmp_cond);
       true_list.push_back(jmp_pos);
       false_list.push_back(jmp_pos);
     }
@@ -540,14 +540,14 @@ class CodegenVisitor {
         bytecode[idx].operand.two.opr2 = int(bytecode_pos());
       }
       true_list.insert(true_list.end(), lhs_true_list.begin(), lhs_true_list.end());
-      emit(OpType::pop_drop);
+      if (need_value) emit(OpType::pop_drop);
     }
     else {
       for (u32 idx : lhs_true_list) {
         bytecode[idx].operand.two.opr1 = int(bytecode_pos());
       }
       false_list.insert(false_list.end(), lhs_false_list.begin(), lhs_false_list.end());
-      emit(OpType::pop_drop);
+      if (need_value) emit(OpType::pop_drop);
     }
 
     vector<u32> rhs_true_list;
@@ -819,6 +819,7 @@ class CodegenVisitor {
   }
 
   void visit_return_statement(ReturnStatement& return_stmt) {
+    // TODO: can make a `return undefined` instruction
     if (return_stmt.expr) {
       visit(return_stmt.expr);
     }
@@ -835,7 +836,7 @@ class CodegenVisitor {
     for (u32 idx : true_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
-    emit(OpType::pop_drop);
+    // emit(OpType::pop_drop);
 
     if (stmt.then_block->is_valid_in_single_stmt_ctx()) {
       visit_single_statement(stmt.then_block);
@@ -854,8 +855,8 @@ class CodegenVisitor {
 
     // we don't really `pop_drop` twice, we just `pop_drop` in each branch.
     // To compensate, here 1 is added back.
-    scope().update_stack_usage(1);
-    emit(OpType::pop_drop);
+    // scope().update_stack_usage(1);
+    // emit(OpType::pop_drop);
 
     if (stmt.else_block) {
       if (stmt.else_block->is_valid_in_single_stmt_ctx()) {
@@ -880,7 +881,7 @@ class CodegenVisitor {
     for (u32 idx : true_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
-    emit(OpType::pop_drop);
+    // emit(OpType::pop_drop);
 
     visit(expr.true_expr);
     u32 true_end_jmp = emit(OpType::jmp);
@@ -889,8 +890,8 @@ class CodegenVisitor {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
 
-    scope().update_stack_usage(1);
-    emit(OpType::pop_drop);
+    // scope().update_stack_usage(1);
+    // emit(OpType::pop_drop);
 
     visit(expr.false_expr);
     bytecode[true_end_jmp].operand.two.opr1 = bytecode_pos();
@@ -908,7 +909,7 @@ class CodegenVisitor {
     for (u32 idx : true_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
-    emit(OpType::pop_drop);
+    // emit(OpType::pop_drop);
 
     bool body_is_block = false;
     if (stmt.body_stmt->is_block()) {
@@ -931,8 +932,8 @@ class CodegenVisitor {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
 
-    scope().update_stack_usage(1);
-    emit(OpType::pop_drop);
+    // scope().update_stack_usage(1);
+    // emit(OpType::pop_drop);
 
     for (u32 idx : scope().break_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
@@ -952,11 +953,11 @@ class CodegenVisitor {
     scope().can_continue = true;
     scope().can_break = true;
 
-    emit(OpType::jmp, bytecode_pos() + 2); // jump over the `pop_drop`
+    // emit(OpType::jmp, bytecode_pos() + 2); // jump over the `pop_drop`
     u32 loop_start = bytecode_pos();
 
-    scope().update_stack_usage(1);
-    emit(OpType::pop_drop);
+    // scope().update_stack_usage(1);
+    // emit(OpType::pop_drop);
 
     if (stmt.body_stmt->is_block()) [[likely]] {
       stmt.body_stmt->as_block()->scope->associated_node = &stmt;
@@ -987,7 +988,7 @@ class CodegenVisitor {
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
-    emit(OpType::pop_drop);
+    // emit(OpType::pop_drop);
 
     for (u32 idx : scope().break_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
@@ -1006,6 +1007,7 @@ class CodegenVisitor {
     outer_scope.continue_pos = -1;
 
     vector<pair<u16string_view, VarKind>> extra_var;
+    pair<u32, u32> extra_var_range {0, 0};
 
     auto init = [&, this] () {
       auto init_expr = stmt.init_expr;
@@ -1019,6 +1021,7 @@ class CodegenVisitor {
           extra_var.emplace_back(decl->id.text, var_stmt->kind);
           scope().define_symbol(var_stmt->kind, decl->id.text);
         }
+        extra_var_range = scope().get_var_index_range();
       }
 
       if (init_expr->is(ASTNode::AST_STMT_VAR)) {
@@ -1050,7 +1053,7 @@ class CodegenVisitor {
       for (u32 idx : true_list) {
         bytecode[idx].operand.two.opr1 = bytecode_pos();
       }
-      emit(OpType::pop_drop);
+      // emit(OpType::pop_drop);
     };
 
     auto epilog = [&, this] {
@@ -1072,6 +1075,7 @@ class CodegenVisitor {
         } else if (inc->is(ASTNode::AST_EXPR_UNARY) && inc->as<UnaryExpr>()->is_inc_or_dec()) {
           visit_unary_expr(*inc->as<UnaryExpr>(), false);
         } else {
+          // no need to use `visit_single_statement` here
           visit(inc);
           emit(OpType::pop_drop);
         }
@@ -1106,8 +1110,8 @@ class CodegenVisitor {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
 
-    outer_scope.update_stack_usage(1);
-    emit(OpType::pop_drop);
+    // outer_scope.update_stack_usage(1);
+    // emit(OpType::pop_drop);
 
     for (u32 idx : outer_scope.break_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
@@ -1116,6 +1120,8 @@ class CodegenVisitor {
 
     if (body_is_block) {
       gen_var_dispose_code(*stmt.body_stmt->as<Block>()->scope);
+    } else {
+      gen_var_dispose_code(extra_var_range.first, extra_var_range.second);
     }
 
     outer_scope.can_break = false;
@@ -1144,6 +1150,7 @@ class CodegenVisitor {
     for_in ? emit(OpType::for_in_init) : emit(OpType::for_of_init);
 
     optional<pair<u16string_view, VarKind>> extra_var;
+    u32 extra_var_index;
     auto init = [&, this] {
       auto ele_expr = stmt.element_expr;
       if (not ele_expr->is(ASTNode::AST_STMT_VAR)) [[unlikely]] return;
@@ -1155,6 +1162,7 @@ class CodegenVisitor {
 
         extra_var = {decl->id.text, var_stmt->kind};
         scope().define_symbol(var_stmt->kind, decl->id.text);
+        extra_var_index = scope().get_var_start_index();
       }
     };
 
@@ -1163,7 +1171,8 @@ class CodegenVisitor {
     auto prolog = [&, this] {
       loop_start = for_in ? emit(OpType::for_in_next) : emit(OpType::for_of_next);
       exit_jump = emit(OpType::iter_end_jmp);
-      emit(OpType::pop_drop);
+      // emit(OpType::pop_drop);
+      scope().update_stack_usage(-1);
 
       if (stmt.element_is_id()) {
         u16str_view id = stmt.get_element_id();
@@ -1244,6 +1253,8 @@ class CodegenVisitor {
 
     if (body_is_block) {
       gen_var_dispose_code(*stmt.body_stmt->as<Block>()->scope);
+    } else if (extra_var.has_value()) {
+      emit(OpType::var_dispose, extra_var_index);
     }
     // drop the ForInIterator
     emit(OpType::pop_drop);
@@ -1558,19 +1569,16 @@ class CodegenVisitor {
   }
 
   void gen_var_dispose_code(Scope& scope) {
-//    auto& sym_table = scope.get_symbol_table();
-//    for (auto& [name, sym_rec] : sym_table) {
-//      if (sym_rec.var_kind == VarKind::DECL_VAR || sym_rec.var_kind == VarKind::DECL_FUNC_PARAM ||
-//          sym_rec.var_kind == VarKind::DECL_FUNCTION) {
-//        assert(false);
-//      }
-//      auto scope_type = scope.get_outer_func()->get_type();
-//      emit(OpType::var_dispose, scope_type_int(scope_type), sym_rec.offset_idx());
-//    }
-    int disp_begin = int(scope.get_var_start_index() + frame_meta_size);
-    int disp_end = int(scope.get_var_next_index() + frame_meta_size);
-    if (disp_end - disp_begin != 0) {
-      emit(OpType::var_dispose_range, disp_begin, disp_end);
+    auto [disp_begin, disp_end] = scope.get_var_index_range();
+    gen_var_dispose_code(disp_begin, disp_end);
+  }
+
+  void gen_var_dispose_code(u32 begin, u32 end) {
+    
+    if (end - begin == 1) {
+      emit(OpType::var_dispose, begin);
+    } else if (end - begin > 1) {
+      emit(OpType::var_dispose_range, begin, end);
     }
   }
 

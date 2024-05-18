@@ -439,9 +439,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         break;
       }
       case OpType::var_dispose: {
-        auto var_scope = GET_SCOPE;
-        auto index = OPR2;
-        assert(var_scope == ScopeType::FUNC || var_scope == ScopeType::GLOBAL);
+        int index = OPR1;
         local_vars[index].set_undefined();
         break;
       }
@@ -479,6 +477,14 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
       case OpType::pop_jmp_false:
         if (sp[0].is_falsy()) {
           pc = OPR1;
+        }
+        sp -= 1;
+        break;
+      case OpType::pop_jmp_cond:
+        if (sp[0].bool_value()) {
+          pc = OPR1;
+        } else {
+          pc = OPR2;
         }
         sp -= 1;
         break;
@@ -668,6 +674,8 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
           // this instruction drops the `done` and `value` produced by the iterator
           // when the iteration ends.
           sp -= 2;
+        } else {
+          sp -= 1;
         }
         break;
       default:

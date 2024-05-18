@@ -8,9 +8,111 @@ test_ignored = [
     "test_typescript.js",
     "test_string_lit.js",
     "test_number_lit.js",
+    "test_try_catch.js",
+    "test_array_exotic.js",
 ]
 
 file_and_expected = {
+
+    "test_array.js": '''
+[LOG] { b: 466, a: 233, } 
+[LOG] { c: 855, d: 939, } 
+[LOG] [ 1, 2, 3, 4, 5, ] 
+[LOG] 12345678 
+[LOG] string in an array 
+[LOG] undefined 
+[LOG] null 
+[LOG] 233 
+[LOG] 1 
+[LOG] { c: 5, b: "this is a string", d: 6, } 
+''',
+
+    "test_for_in.js": '''
+[LOG] 0
+[LOG] 1
+[LOG] 2
+[LOG] 4
+[LOG] a
+[LOG] b
+[LOG] 1.234
+''',
+
+    "test_for_of.js": '''
+[LOG] 0
+[LOG] 1
+[LOG] 2
+[LOG] undefined
+[LOG] 4
+[LOG] test
+''',
+
+    "test_label.js": '''
+[LOG] 1 
+[LOG] 2 
+[LOG] 3 
+[LOG] 4 
+[LOG] 5 
+[LOG] 6 
+[LOG] 7 
+[LOG] 8 
+[LOG] 9 
+[LOG] 10 
+[LOG] Inner loop: 
+[LOG] 0 
+[LOG] 0 
+[LOG] Inner loop: 
+[LOG] 0 
+[LOG] 1 
+[LOG] Inner loop: 
+[LOG] 0 
+[LOG] 2 
+[LOG] Inner loop: 
+[LOG] 1 
+[LOG] 0 
+[LOG] Inner loop: 
+[LOG] 2 
+[LOG] 0 
+[LOG] Inner loop: 
+[LOG] 2 
+[LOG] 1 
+[LOG] Inner loop: 
+[LOG] 2 
+[LOG] 2 
+[LOG] Inner loop: 
+[LOG] 0 
+[LOG] 0 
+[LOG] Inner loop: 
+[LOG] 0 
+[LOG] 1 
+[LOG] Inner loop: 
+[LOG] 0 
+[LOG] 2 
+[LOG] Inner loop: 
+[LOG] 1 
+[LOG] 0 
+[LOG] hello 
+[LOG] 0 
+[LOG] 1 
+[LOG] 2 
+[LOG] 1 
+[LOG] This is the start 
+[LOG] This is another block 
+[LOG] Program terminated 
+''',
+
+    "test_iterator.js": '''
+[LOG] 0
+[LOG] 1
+[LOG] 2
+''',
+
+    "test_switch.js": '''
+[LOG] 1
+[LOG] ddd
+[LOG] 111
+[LOG] 222
+[LOG] 1
+''',
 
     "test_bool_expr.js": '''
 [LOG] true true true true true true true true true true 

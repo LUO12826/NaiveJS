@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <optional>
+#include <utility>
 #include "SymbolRecord.h"
 #include "njs/common/enum_strings.h"
 #include "njs/common/enums.h"
@@ -19,6 +20,7 @@ using std::u16string_view;
 using robin_hood::unordered_set;
 using robin_hood::unordered_map;
 using std::optional;
+using std::pair;
 using std::unique_ptr;
 using u32 = uint32_t;
 
@@ -193,6 +195,10 @@ class Scope {
 
   u32 get_var_start_index() const {
     return var_idx_start;
+  }
+
+  pair<u32, u32> get_var_index_range(int offset = 0) const {
+    return {var_idx_start + offset, var_idx_next + offset};
   }
 
   u32 get_max_stack_size() {
