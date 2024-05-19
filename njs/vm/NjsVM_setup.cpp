@@ -60,11 +60,21 @@ void NjsVM::setup() {
     return obj;
   });
 
-  string_const.resize(4);
+  add_builtin_global_var(u"undefined", JSValue());
+  add_builtin_global_var(u"NaN", JSValue(nan("")));
+  add_builtin_global_var(u"Infinity", JSValue(1.0 / 0.0));
+
+  string_const.resize(20);
   string_const[AtomPool::k_undefined] = new_primitive_string(u"undefined");
   string_const[AtomPool::k_null] = new_primitive_string(u"null");
   string_const[AtomPool::k_true] = new_primitive_string(u"true");
   string_const[AtomPool::k_false] = new_primitive_string(u"false");
+  string_const[AtomPool::k_number] = new_primitive_string(u"number");
+  string_const[AtomPool::k_boolean] = new_primitive_string(u"boolean");
+  string_const[AtomPool::k_string] = new_primitive_string(u"string");
+  string_const[AtomPool::k_object] = new_primitive_string(u"object");
+  string_const[AtomPool::k_symbol] = new_primitive_string(u"symbol");
+  string_const[AtomPool::k_function] = new_primitive_string(u"function");
 }
 
 void NjsVM::add_native_func_impl(const u16string& name,
@@ -88,6 +98,11 @@ void NjsVM::add_builtin_object(const u16string& name,
                                const std::function<JSObject*()>& builder) {
   u32 atom = str_to_atom(name);
   global_object.as_object()->add_prop_trivial(atom, JSValue(builder()));
+}
+
+void NjsVM::add_builtin_global_var(const u16string& name, JSValue val) {
+  u32 atom = str_to_atom(name);
+  global_object.as_object()->add_prop_trivial(atom, val);
 }
 
 

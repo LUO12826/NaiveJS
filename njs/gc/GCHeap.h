@@ -47,6 +47,9 @@ class GCHeap {
   }
 
   void gc();
+  size_t get_heap_usage() {
+    return alloc_point - from_start;
+  }
 
   // When garbage collection is performed, this method is called to copy an object
   // to a new memory area and have the pointer in JSValue, which is the handle,
@@ -66,7 +69,7 @@ class GCHeap {
   // Copy a single object. Recursively copy its child objects.
   GCObject *copy_object(GCObject *obj);
 
-  inline bool lacking_free_memory(size_t size_byte) {
+  bool lacking_free_memory(size_t size_byte) {
     return alloc_point + size_byte > from_start + heap_size / 2;
   }
 

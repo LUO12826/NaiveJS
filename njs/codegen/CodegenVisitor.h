@@ -43,7 +43,6 @@ class CodegenVisitor {
   void codegen(ProgramOrFunctionBody *prog) {
 
     push_scope(prog->scope.get());
-    global_var_count = scope().get_var_count();
     visit_program_or_function_body(*prog);
 
     Timer timer("optimized");
@@ -101,6 +100,13 @@ class CodegenVisitor {
       //          prev_inst.op_type = OpType::store;
       //        }
       //      }
+
+      if (inst.op_type == OpType::jmp_cond
+          && inst.operand.two.opr1 == inst.operand.two.opr2
+          && inst.operand.two.opr1 == i + 1) {
+        removed_inst_cnt += 1;
+        inst.op_type = OpType::nop;
+      }
 
       if (inst.op_type == OpType::jmp_true || inst.op_type == OpType::jmp) {
         if (inst.operand.two.opr1 == i + 1) {
@@ -454,6 +460,14 @@ class CodegenVisitor {
         expr.operand = nullptr;     // avoid double free
         break;
       }
+      case Token::KEYWORD:
+        if (expr.op.text == u"typeof") {
+          visit(expr.operand);
+          emit(OpType::js_typeof);
+        } else {
+          assert(false);
+        }
+        break;
       default:
         assert(false);
     }
@@ -520,7 +534,7 @@ class CodegenVisitor {
     }
     else {
       visit(&expr);
-      u32 jmp_pos = emit(need_value ? OpType::jmp_cond : OpType::pop_jmp_cond);
+      u32 jmp_pos = emit(need_value ? OpType::jmp_cond : OpType::jmp_cond_pop);
       true_list.push_back(jmp_pos);
       false_list.push_back(jmp_pos);
     }
@@ -1136,16 +1150,6 @@ class CodegenVisitor {
     outer_scope.can_continue = true;
     outer_scope.continue_pos = -1;
 
-
-//    if (stmt.element_expr->is(ASTNode::AST_STMT_VAR)
-//        && stmt.element_expr->as<VarStatement>()->is_lexical()) {
-//
-//      auto *var_stmt = stmt.element_expr->as<VarStatement>();
-//      for (auto *decl : var_stmt->declarations) {
-//        extra_var.emplace_back(decl->id.text, var_stmt->kind);
-//      }
-//    }
-
     visit(stmt.collection_expr);
     for_in ? emit(OpType::for_in_init) : emit(OpType::for_of_init);
 
@@ -1294,7 +1298,7 @@ class CodegenVisitor {
       emit(OpType::dup_stack_top);
       visit(case_clause.expr);
       emit(OpType::eq3);
-      case_clause.jump_point = emit(OpType::pop_jmp_true);
+      case_clause.jump_point = emit(OpType::jmp_true_pop);
     }
     u32 jmp_to_default = emit(OpType::jmp);
 
@@ -1779,7 +1783,6 @@ class CodegenVisitor {
 
   u32 bytecode_pos() { return bytecode.size(); }
 
-  size_t global_var_count {0};
   std::vector<Scope *> scope_chain;
   std::vector<Instruction> bytecode;
   SmallVector<CodegenError, 10> errors;

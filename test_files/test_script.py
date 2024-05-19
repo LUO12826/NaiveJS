@@ -10,32 +10,11 @@ test_ignored = [
     "test_number_lit.js",
     "test_try_catch.js",
     "test_array_exotic.js",
+    "test_array.js",
+    "test_for_in.js",
 ]
 
 file_and_expected = {
-
-    "test_array.js": '''
-[LOG] { b: 466, a: 233, } 
-[LOG] { c: 855, d: 939, } 
-[LOG] [ 1, 2, 3, 4, 5, ] 
-[LOG] 12345678 
-[LOG] string in an array 
-[LOG] undefined 
-[LOG] null 
-[LOG] 233 
-[LOG] 1 
-[LOG] { c: 5, b: "this is a string", d: 6, } 
-''',
-
-    "test_for_in.js": '''
-[LOG] 0
-[LOG] 1
-[LOG] 2
-[LOG] 4
-[LOG] a
-[LOG] b
-[LOG] 1.234
-''',
 
     "test_for_of.js": '''
 [LOG] 0

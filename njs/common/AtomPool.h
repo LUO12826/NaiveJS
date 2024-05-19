@@ -25,6 +25,12 @@ class AtomPool {
     k_null = atomize(u"null");
     k_true = atomize(u"true");
     k_false = atomize(u"false");
+    k_number = atomize(u"number");
+    k_boolean = atomize(u"boolean");
+    k_string = atomize(u"string");
+    k_object = atomize(u"object");
+    k_symbol = atomize(u"symbol");
+    k_function = atomize(u"function");
     k_length = atomize(u"length");
     k_prototype = atomize(u"prototype");
     k_charAt = atomize(u"charAt");
@@ -54,6 +60,12 @@ class AtomPool {
   inline static u32 k_null;
   inline static u32 k_true;
   inline static u32 k_false;
+  inline static u32 k_number;
+  inline static u32 k_boolean;
+  inline static u32 k_string;
+  inline static u32 k_object;
+  inline static u32 k_symbol;
+  inline static u32 k_function;
   inline static u32 k_length;
   inline static u32 k_prototype;
   inline static u32 k_charAt;

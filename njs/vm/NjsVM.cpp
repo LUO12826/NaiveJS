@@ -1,6 +1,7 @@
 #include "NjsVM.h"
 
 #include <iostream>
+#include <format>
 #include "Completion.h"
 #include "njs/global_var.h"
 #include "njs/common/common_def.h"
@@ -146,6 +147,31 @@ void NjsVM::run() {
     std::cout << "### end of execution VM\n";
     std::cout << "---------------------------------------------------\n";
   }
+
+  auto memory_usage_readable = [] (size_t size) {
+    constexpr size_t KB = 1024;
+    constexpr size_t MB = 1024 * 1024;
+
+    double size_in_unit;
+    std::string unit;
+
+    if (size >= 10 * MB) {
+      size_in_unit = static_cast<double>(size) / MB;
+      unit = "MB";
+    } else if (size >= KB) {
+      size_in_unit = static_cast<double>(size) / KB;
+      unit = "KB";
+    } else {
+      size_in_unit = static_cast<double>(size);
+      unit = "B";
+    }
+
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(2) << size_in_unit << " " << unit;
+    return oss.str();
+  };
+
+  std::cout << "Heap usage: " << memory_usage_readable(heap.get_heap_usage()) << '\n';
 
   if (Global::show_log_buffer && !log_buffer.empty()) {
     std::cout << "------------------------------" << '\n';
@@ -468,19 +494,23 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
           pc = OPR2;
         }
         break;
-      case OpType::pop_jmp_true:
+      case OpType::jmp_pop:
+        pc = OPR1;
+        sp -= 1;
+        break;
+      case OpType::jmp_true_pop:
         if (sp[0].bool_value()) {
           pc = OPR1;
         }
         sp -= 1;
         break;
-      case OpType::pop_jmp_false:
+      case OpType::jmp_false_pop:
         if (sp[0].is_falsy()) {
           pc = OPR1;
         }
         sp -= 1;
         break;
-      case OpType::pop_jmp_cond:
+      case OpType::jmp_cond_pop:
         if (sp[0].bool_value()) {
           pc = OPR1;
         } else {
@@ -678,6 +708,15 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
           sp -= 1;
         }
         break;
+      case OpType::js_in:
+        assert(false);
+      case OpType::js_instanceof:
+        assert(false);
+      case OpType::js_typeof:
+        sp[0] = exec_typeof(sp[0]);
+        break;
+      case OpType::js_delete:
+        assert(false);
       default:
         assert(false);
     }
@@ -788,6 +827,43 @@ JSValue NjsVM::build_error_internal(JSErrorType type, const u16string& msg) {
   err_obj->set_prop(*this, u"stack", new_primitive_string(std::move(trace_str)));
 
   return JSValue(err_obj);
+}
+
+JSValue NjsVM::exec_typeof(JSValue val) {
+  switch (val.tag) {
+    case JSValue::UNDEFINED:
+    case JSValue::UNINIT:
+      return get_string_const(AtomPool::k_undefined);
+    case JSValue::JS_NULL:
+      return get_string_const(AtomPool::k_object);
+    case JSValue::JS_ATOM:
+      return get_string_const(AtomPool::k_string);
+    case JSValue::SYMBOL:
+      return get_string_const(AtomPool::k_symbol);
+    case JSValue::BOOLEAN:
+      return get_string_const(AtomPool::k_boolean);
+    case JSValue::NUM_UINT32:
+    case JSValue::NUM_INT32:
+    case JSValue::NUM_FLOAT:
+      return get_string_const(AtomPool::k_number);
+    case JSValue::STRING:
+      return get_string_const(AtomPool::k_string);
+    case JSValue::BOOLEAN_OBJ:
+    case JSValue::NUMBER_OBJ:
+    case JSValue::STRING_OBJ:
+    case JSValue::OBJECT:
+    case JSValue::ARRAY:
+      // will this happen?
+      if (val.as_object()->get_class() == ObjClass::CLS_FUNCTION) {
+        return get_string_const(AtomPool::k_function);
+      } else {
+        return get_string_const(AtomPool::k_object);
+      }
+    case JSValue::FUNCTION:
+      return get_string_const(AtomPool::k_function);
+    default:
+      assert(false);
+  }
 }
 
 void NjsVM::exec_add(SPRef sp) {

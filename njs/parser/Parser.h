@@ -621,8 +621,6 @@ error:
   ASTNode* parse_program() {
     lexer.next();
     push_scope(ScopeType::GLOBAL);
-    add_builtin_functions();
-    add_builtin_variables();
     return parse_program_or_function_body(TokenType::EOS, ASTNode::AST_PROGRAM);
   }
 
@@ -1370,24 +1368,6 @@ error:
       scope->get_outer_func()->update_var_count(scope->get_var_next_index());
     }
     return scope;
-  }
-
-  void add_builtin_functions() {
-    scope().define_symbol(VarKind::DECL_FUNCTION, u"log", true);
-    scope().define_symbol(VarKind::DECL_FUNCTION, u"$gc", true);
-    scope().define_symbol(VarKind::DECL_FUNCTION, u"setTimeout", true);
-    scope().define_symbol(VarKind::DECL_FUNCTION, u"setInterval", true);
-    scope().define_symbol(VarKind::DECL_FUNCTION, u"clearInterval", true);
-    scope().define_symbol(VarKind::DECL_FUNCTION, u"clearTimeout", true);
-    scope().define_symbol(VarKind::DECL_FUNCTION, u"fetch", true);
-    scope().define_symbol(VarKind::DECL_FUNCTION, u"Object", true);
-    scope().define_symbol(VarKind::DECL_FUNCTION, u"Error", true);
-  }
-
-  void add_builtin_variables() {
-    scope().define_symbol(VarKind::DECL_VAR, u"undefined", true);
-    scope().define_symbol(VarKind::DECL_VAR, u"console", true);
-    scope().define_symbol(VarKind::DECL_VAR, u"JSON", true);
   }
 
   void report_error(ParsingError err) {

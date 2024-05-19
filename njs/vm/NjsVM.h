@@ -93,6 +93,7 @@ friend class JSArrayIterator;
                             const std::function<void(JSFunction&)>& builder);
   void add_builtin_object(const u16string& name,
                           const std::function<JSObject*()>& builder);
+  void add_builtin_global_var(const u16string& name, JSValue val);
 
   template<JSErrorType type>
   void add_error_ctor() {
@@ -198,6 +199,8 @@ friend class JSArrayIterator;
   void exec_shift(SPRef sp, OpType op_type);
   void exec_strict_equality(SPRef sp, bool flip);
   void exec_abstract_equality(SPRef sp, bool flip);
+
+  JSValue exec_typeof(JSValue val);
 
   void exec_halt_err(SPRef sp, Instruction &inst);
 

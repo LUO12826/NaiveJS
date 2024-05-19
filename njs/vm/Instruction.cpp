@@ -177,17 +177,17 @@ std::string Instruction::description() const {
     case OpType::jmp_cond:
       sprintf(buffer, "jmp_cond  %d %d", OPR1, OPR2);
       break;
-    case OpType::pop_jmp:
-      sprintf(buffer, "pop_jmp  %d", OPR1);
+    case OpType::jmp_pop:
+      sprintf(buffer, "jmp_pop  %d", OPR1);
       break;
-    case OpType::pop_jmp_true:
-      sprintf(buffer, "pop_jmp_true  %d", OPR1);
+    case OpType::jmp_true_pop:
+      sprintf(buffer, "jmp_true_pop  %d", OPR1);
       break;
-    case OpType::pop_jmp_false:
-      sprintf(buffer, "pop_jmp_false  %d", OPR1);
+    case OpType::jmp_false_pop:
+      sprintf(buffer, "jmp_false_pop  %d", OPR1);
       break;
-    case OpType::pop_jmp_cond:
-      sprintf(buffer, "pop_jmp_cond  %d %d", OPR1, OPR2);
+    case OpType::jmp_cond_pop:
+      sprintf(buffer, "jmp_cond_pop  %d %d", OPR1, OPR2);
       break;
     case OpType::make_func:
       sprintf(buffer, "make_func  %d", OPR1);
@@ -254,6 +254,18 @@ std::string Instruction::description() const {
       break;
     case OpType::iter_end_jmp:
       sprintf(buffer, "iter_end_jmp  to:%d", OPR1);
+      break;
+    case OpType::js_in:
+      sprintf(buffer, "in");
+      break;
+    case OpType::js_instanceof:
+      sprintf(buffer, "instanceof");
+      break;
+    case OpType::js_typeof:
+      sprintf(buffer, "typeof");
+      break;
+    case OpType::js_delete:
+      sprintf(buffer, "delete");
       break;
     case OpType::call:
       sprintf(buffer, "call  argc:%d  has_this:%d", OPR1, OPR2);
@@ -354,10 +366,10 @@ int Instruction::get_stack_usage(OpType op_type) {
     case OpType::jmp_false:
     case OpType::jmp_cond:
       return 0;
-    case OpType::pop_jmp:
-    case OpType::pop_jmp_true:
-    case OpType::pop_jmp_false:
-    case OpType::pop_jmp_cond:
+    case OpType::jmp_pop:
+    case OpType::jmp_true_pop:
+    case OpType::jmp_false_pop:
+    case OpType::jmp_cond_pop:
       return -1;
     case OpType::make_func:
       return 1;
@@ -391,6 +403,13 @@ int Instruction::get_stack_usage(OpType op_type) {
     case OpType::for_in_next:
     case OpType::for_of_next:
       return 2;
+    case OpType::js_in:
+    case OpType::js_instanceof:
+      return -1;
+    case OpType::js_typeof:
+      return 0;
+    case OpType::js_delete:
+      return -1;
     case OpType::call:    // need special handling
     case OpType::js_new:  // need special handling
     case OpType::iter_end_jmp: // need special handling

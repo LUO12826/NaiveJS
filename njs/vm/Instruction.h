@@ -75,10 +75,10 @@ enum class OpType {
   jmp_false,
   jmp_cond,
 
-  pop_jmp,
-  pop_jmp_true,
-  pop_jmp_false,
-  pop_jmp_cond,
+  jmp_pop,
+  jmp_true_pop,
+  jmp_false_pop,
+  jmp_cond_pop,
 
   make_func,
   capture,
@@ -105,6 +105,11 @@ enum class OpType {
   for_of_init,
   for_of_next,
   iter_end_jmp,
+
+  js_in,
+  js_instanceof,
+  js_typeof,
+  js_delete,
 
   call,
   js_new,
@@ -145,14 +150,14 @@ struct Instruction {
     return op_type == OpType::jmp
            || op_type == OpType::jmp_true
            || op_type == OpType::jmp_false
-           || op_type == OpType::pop_jmp
-           || op_type == OpType::pop_jmp_true
-           || op_type == OpType::pop_jmp_false;
+           || op_type == OpType::jmp_pop
+           || op_type == OpType::jmp_true_pop
+           || op_type == OpType::jmp_false_pop;
   }
 
   bool is_jump_two_target() {
     return op_type == OpType::jmp_cond
-           || op_type == OpType::pop_jmp_cond;
+           || op_type == OpType::jmp_cond_pop;
   }
 
   OpType op_type;
