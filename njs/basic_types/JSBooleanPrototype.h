@@ -24,7 +24,7 @@ class JSBooleanPrototype : public JSObject {
       return This;
     }
     else if (This.is_object() && This.as_object()->get_class() == CLS_BOOLEAN) {
-      assert(dynamic_cast<JSBoolean*>(This.as_object()) != nullptr);
+      assert(dynamic_cast<JSBoolean*>(This.as_object()));
       auto *bool_obj = static_cast<JSBoolean*>(This.as_object());
       return JSValue(bool_obj->value);
     }

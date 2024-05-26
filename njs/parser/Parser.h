@@ -47,17 +47,17 @@ class Parser {
     switch (token.type) {
       case TokenType::KEYWORD:
         if (token.text == u"this") {
-          return new ASTNode(ASTNode::AST_EXPR_THIS, TOKEN_SOURCE_EXPR);
+          return new ASTNode(ASTNode::EXPR_THIS, TOKEN_SOURCE_EXPR);
         }
         goto error;
       case TokenType::STRICT_FUTURE_KW:
-        return new ASTNode(ASTNode::AST_EXPR_STRICT_FUTURE, TOKEN_SOURCE_EXPR);
+        return new ASTNode(ASTNode::EXPR_STRICT_FUTURE, TOKEN_SOURCE_EXPR);
       case TokenType::IDENTIFIER:
-        return new ASTNode(ASTNode::AST_EXPR_ID, TOKEN_SOURCE_EXPR);
+        return new ASTNode(ASTNode::EXPR_ID, TOKEN_SOURCE_EXPR);
       case TokenType::TK_NULL:
-        return new ASTNode(ASTNode::AST_EXPR_NULL, TOKEN_SOURCE_EXPR);
+        return new ASTNode(ASTNode::EXPR_NULL, TOKEN_SOURCE_EXPR);
       case TokenType::TK_BOOL:
-        return new ASTNode(ASTNode::AST_EXPR_BOOL, TOKEN_SOURCE_EXPR);
+        return new ASTNode(ASTNode::EXPR_BOOL, TOKEN_SOURCE_EXPR);
       case TokenType::NUMBER:
         return new NumberLiteral(lexer.get_number_val(), TOKEN_SOURCE_EXPR);
       case TokenType::STRING:
@@ -98,7 +98,7 @@ class Parser {
     }
 
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, TOKEN_SOURCE_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, TOKEN_SOURCE_EXPR);
   }
 
   bool parse_formal_parameter_list(std::vector<u16string_view>& params) {
@@ -177,7 +177,7 @@ error:
     scope().register_function(function);
     return function;
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_array_literal() {
@@ -194,7 +194,7 @@ error:
     while (token.type != TokenType::RIGHT_BRACK) {
       if (token.type != TokenType::COMMA) {
         ASTNode *element = parse_assign_or_arrow_function(false);
-        if (element->type == ASTNode::AST_ILLEGAL) {
+        if (element->type == ASTNode::ILLEGAL) {
           delete array;
           return element;
         }
@@ -245,7 +245,7 @@ error:
           lexer.next();
           lexer.next();
           ASTNode* value = parse_assign_or_arrow_function(false);
-          if (value->type == ASTNode::AST_ILLEGAL) {
+          if (value->type == ASTNode::ILLEGAL) {
             delete obj;
             return value;
           }
@@ -294,7 +294,7 @@ error:
 error:
     RENEW_START;
     delete obj;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_expression(bool no_in) {
@@ -335,8 +335,8 @@ error:
     // normal assign
     if (op.is_assignment_operator()) {
       // require valid lhs expression.
-      if (lhs->type != ASTNode::AST_EXPR_LHS && lhs->type != ASTNode::AST_EXPR_ID) {
-        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+      if (lhs->type != ASTNode::EXPR_LHS && lhs->type != ASTNode::EXPR_ID) {
+        return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
       }
       lexer.next();
       ASTNode* rhs = parse_assign_or_arrow_function(no_in);
@@ -351,7 +351,7 @@ error:
       // begin gather formal parameters
       bool param_legal = check_expr_is_formal_parameter(lhs);
       if (!param_legal) {
-        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+        return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
       }
 
       push_scope(ScopeType::FUNC);
@@ -363,7 +363,7 @@ error:
         params.push_back(lhs->get_source());
       }
       // a list of parameters. Parentheses have been removed before.
-      else if (lhs->type == ASTNode::AST_EXPR_COMMA) {
+      else if (lhs->type == ASTNode::EXPR_COMMA) {
         auto& expr_list = static_cast<Expression *>(lhs)->elements;
         for (auto expr : expr_list) {
           assert(expr->is_identifier());
@@ -377,7 +377,7 @@ error:
       // body with brace.
       if (token_match(TokenType::LEFT_BRACE)) {
         lexer.next();
-        func_body = parse_program_or_function_body(TokenType::RIGHT_BRACE, ASTNode::AST_FUNC_BODY);
+        func_body = parse_program_or_function_body(TokenType::RIGHT_BRACE, ASTNode::FUNC_BODY);
         if (func_body->is_illegal()) return func_body;
       }
       // body with only one expression
@@ -387,7 +387,7 @@ error:
           pop_scope();
           return expr;
         }
-        func_body = new ProgramOrFunctionBody(ASTNode::AST_FUNC_BODY, true);
+        func_body = new ProgramOrFunctionBody(ASTNode::FUNC_BODY, true);
         auto *body = static_cast<ProgramOrFunctionBody *>(func_body);
         // implicitly return
         body->add_statement(
@@ -407,12 +407,12 @@ error:
 
   bool check_expr_is_formal_parameter(ASTNode* param) {
 
-    if (param->type == ASTNode::AST_EXPR_COMMA) {
+    if (param->type == ASTNode::EXPR_COMMA) {
       auto& expr_list = static_cast<Expression *>(param)->elements;
 
       for (auto expr : expr_list) {
         if (expr->is_identifier()) continue; // legal formal parameter
-        if (expr->type == ASTNode::AST_EXPR_ASSIGN
+        if (expr->type == ASTNode::EXPR_ASSIGN
             && static_cast<AssignmentExpr *>(expr)->assign_type == TokenType::ASSIGN) {
           assert(false); // Not supported yet.
           continue; // legal formal parameter with default value
@@ -422,7 +422,7 @@ error:
       return true;
     }
     if (param->is_identifier()) return true;
-    if (param->type == ASTNode::AST_EXPR_PAREN) {
+    if (param->type == ASTNode::EXPR_PAREN) {
       return (static_cast<ParenthesisExpr *>(param)->expr == nullptr);
     }
     return false;
@@ -447,7 +447,7 @@ error:
     if (lexer.next().type != TokenType::COLON) {
       delete cond;
       delete lhs;
-      return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+      return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
     }
     lexer.next();
     ASTNode* rhs = parse_assign_or_arrow_function(no_in);
@@ -475,8 +475,8 @@ error:
 
       // prefix ++ and -- can only be applied to left-hand-side values.
       if (prefix_op.is(TokenType::INC) || prefix_op.is((TokenType::DEC))) {
-        if (!(lhs->type == ASTNode::AST_EXPR_ID || lhs->type == ASTNode::AST_EXPR_LHS)) {
-          return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+        if (!(lhs->type == ASTNode::EXPR_ID || lhs->type == ASTNode::EXPR_LHS)) {
+          return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
         }
       }
       lhs = new UnaryExpr(lhs, prefix_op, true);
@@ -493,13 +493,13 @@ error:
       if (!lexer.line_term_ahead() && postfix_op.postfix_priority() > priority) {
         lexer.next();
 
-        if (lhs->type != ASTNode::AST_EXPR_BINARY && lhs->type != ASTNode::AST_EXPR_UNARY) {
+        if (lhs->type != ASTNode::EXPR_BINARY && lhs->type != ASTNode::EXPR_UNARY) {
           lhs = new UnaryExpr(lhs, postfix_op, false);
           lhs->set_source(SOURCE_PARSED_EXPR);
         }
         else {
           delete lhs;
-          return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+          return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
         }
       }
     }
@@ -555,7 +555,7 @@ error:
             delete lhs;
             return ast;
           }
-          assert(ast->type == ASTNode::AST_EXPR_ARGS);
+          assert(ast->type == ASTNode::EXPR_ARGS);
           auto* args = static_cast<Arguments*>(ast);
           lhs->add_arguments(args);
 
@@ -600,7 +600,7 @@ error:
       }
     }
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_arguments() {
@@ -629,13 +629,13 @@ error:
   }
 
   ASTNode* parse_function_body() {
-    return parse_program_or_function_body(TokenType::RIGHT_BRACE, ASTNode::AST_FUNC_BODY);
+    return parse_program_or_function_body(TokenType::RIGHT_BRACE, ASTNode::FUNC_BODY);
   }
 
   ASTNode* parse_program() {
     lexer.next();
     push_scope(ScopeType::GLOBAL);
-    return parse_program_or_function_body(TokenType::EOS, ASTNode::AST_PROGRAM);
+    return parse_program_or_function_body(TokenType::EOS, ASTNode::PROGRAM);
   }
 
   ASTNode* parse_program_or_function_body(TokenType ending_token_type, ASTNode::Type syntax_type) {
@@ -680,7 +680,7 @@ error:
       case TokenType::LEFT_BRACE:  // {
         return parse_block_statement();
       case TokenType::SEMICOLON:  // ;
-        return new ASTNode(ASTNode::AST_STMT_EMPTY, TOKEN_SOURCE_EXPR);
+        return new ASTNode(ASTNode::STMT_EMPTY, TOKEN_SOURCE_EXPR);
       case TokenType::KEYWORD: {
         if (token.text == u"var" || token.text == u"let" || token.text == u"const") {
           return parse_variable_statement(false);
@@ -704,7 +704,7 @@ error:
           if (!lexer.try_skip_semicolon()) {
             goto error;
           }
-          return new ASTNode(ASTNode::AST_STMT_DEBUG, SOURCE_PARSED_EXPR);
+          return new ASTNode(ASTNode::STMT_DEBUG, SOURCE_PARSED_EXPR);
         }
         break;
       }
@@ -721,7 +721,7 @@ error:
     }
     return parse_expression_statement();
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_block_statement() {
@@ -761,7 +761,7 @@ error:
     if (lexer.peek().type != TokenType::ASSIGN) {
       if (kind == VarKind::DECL_CONST) {
         lexer.next();
-        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+        return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
       }
       auto* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
       return var_decl;
@@ -801,14 +801,14 @@ error:
     return var_stmt;
 error:
     delete var_stmt;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_expression_statement() {
     START_POS;
     const Token& token = lexer.current();
     if (token.text == u"function") {
-      return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+      return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
     }
     // already handled LEFT_BRACE case in caller.
     assert(token.type != TokenType::LEFT_BRACE);
@@ -817,7 +817,7 @@ error:
 
     if (!lexer.try_skip_semicolon()) {
       delete exp;
-      return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+      return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
     }
     return exp;
   }
@@ -859,7 +859,7 @@ error:
     return new IfStatement(cond, then_block, SOURCE_PARSED_EXPR);
     
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_do_while_statement() {
@@ -897,20 +897,20 @@ error:
     }
     return new DoWhileStatement(cond, loop_block, SOURCE_PARSED_EXPR);
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_while_statement() {
-    return parse_while_or_with_statement(ASTNode::AST_STMT_WHILE);
+    return parse_while_or_with_statement(ASTNode::STMT_WHILE);
   }
 
   ASTNode* parse_with_statement() {
-    return parse_while_or_with_statement(ASTNode::AST_STMT_WITH);
+    return parse_while_or_with_statement(ASTNode::STMT_WITH);
   }
 
   ASTNode* parse_while_or_with_statement(ASTNode::Type type) {
     START_POS;
-    u16string keyword = type == ASTNode::AST_STMT_WHILE ? u"while" : u"with";
+    u16string keyword = type == ASTNode::STMT_WHILE ? u"while" : u"with";
     assert(token_match(keyword));
     ASTNode* expr;
     ASTNode* stmt;
@@ -932,12 +932,12 @@ error:
       delete expr;
       return stmt;
     }
-    if (type == ASTNode::AST_STMT_WHILE) {
+    if (type == ASTNode::STMT_WHILE) {
       return new WhileStatement(expr, stmt, SOURCE_PARSED_EXPR);
     }
     return new WithStatement(expr, stmt, SOURCE_PARSED_EXPR);
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_for_statement() {
@@ -1006,7 +1006,7 @@ error:
       }
     }
 error:
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_for_statement(ASTNode* init_expr, u32 start, u32 line_start) {
@@ -1057,7 +1057,7 @@ error:
 error:
     delete expr1;
     delete expr2;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_for_in_statement(ASTNode* expr0, u32 start, u32 line_start) {
@@ -1087,28 +1087,28 @@ error:
 error:
     delete expr0;
     delete expr1;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_continue_statement() {
-    return parse_continue_or_break_statement(ASTNode::AST_STMT_CONTINUE);
+    return parse_continue_or_break_statement(ASTNode::STMT_CONTINUE);
   }
 
   ASTNode* parse_break_statement() {
-    return parse_continue_or_break_statement(ASTNode::AST_STMT_BREAK);
+    return parse_continue_or_break_statement(ASTNode::STMT_BREAK);
   }
 
   ASTNode* parse_continue_or_break_statement(ASTNode::Type type) {
     START_POS;
-    u16string_view keyword = type == ASTNode::AST_STMT_CONTINUE ? u"continue" : u"break";
+    u16string_view keyword = type == ASTNode::STMT_CONTINUE ? u"continue" : u"break";
     assert(token_match(keyword));
     if (!lexer.try_skip_semicolon()) {
       Token id = lexer.next();
       if (!id.is_identifier()) {
-        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+        return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
       }
       if (!lexer.try_skip_semicolon()) {
-        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+        return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
       }
       return new ContinueOrBreak(type, id, SOURCE_PARSED_EXPR);
     }
@@ -1128,7 +1128,7 @@ error:
       }
       if (!lexer.try_skip_semicolon()) {
         delete expr;
-        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+        return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
       }
     }
     return new ReturnStatement(expr, SOURCE_PARSED_EXPR);
@@ -1146,7 +1146,7 @@ error:
       }
       if (!lexer.try_skip_semicolon()) {
         delete expr;
-        return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+        return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
       }
     }
     return new ThrowStatement(expr, SOURCE_PARSED_EXPR);
@@ -1231,7 +1231,7 @@ error:
     return switch_stmt;
 error:
     delete switch_stmt;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_try_statement() {
@@ -1304,7 +1304,7 @@ error:
     delete try_block;
     delete catch_block;
     delete finally_block;
-    return new ASTNode(ASTNode::AST_ILLEGAL, SOURCE_PARSED_EXPR);
+    return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
   ASTNode* parse_labelled_statement() {

@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
 
 void read_options(int argc, char *argv[]) {
   int option;
-  while ((option = getopt(argc, argv, "bgatvlf:")) != -1) {
+  while ((option = getopt(argc, argv, "bgatvlof:")) != -1) {
     switch (option) {
       case 'b':
         Global::show_codegen_result = true;
@@ -98,6 +98,9 @@ void read_options(int argc, char *argv[]) {
         break;
       case 'l':
         Global::show_log_buffer = true;
+        break;
+      case 'o':
+        Global::enable_optimization = true;
         break;
       case 'f':
         file_path = string(optarg);

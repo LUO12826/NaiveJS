@@ -42,7 +42,7 @@ class Scope {
     bool not_found() { return original_symbol == nullptr; }
 
     bool is_let_or_const() {
-      assert(original_symbol != nullptr);
+      assert(original_symbol);
       return original_symbol->is_let_or_const();
     }
 

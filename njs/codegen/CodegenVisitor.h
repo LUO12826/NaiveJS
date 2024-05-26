@@ -45,9 +45,11 @@ class CodegenVisitor {
     push_scope(prog->scope.get());
     visit_program_or_function_body(*prog);
 
-    Timer timer("optimized");
-    optimize();
-    timer.end();
+    if (Global::enable_optimization) {
+      Timer timer("optimized");
+      optimize();
+      timer.end();
+    }
 
     if (!Global::show_codegen_result) return;
     std::cout << "================ codegen result ================\n\n";
@@ -176,115 +178,115 @@ class CodegenVisitor {
 
   void visit(ASTNode *node) {
     switch (node->type) {
-      case ASTNode::AST_PROGRAM:
-      case ASTNode::AST_FUNC_BODY:
+      case ASTNode::PROGRAM:
+      case ASTNode::FUNC_BODY:
         visit_program_or_function_body(*static_cast<ProgramOrFunctionBody *>(node));
         break;
-      case ASTNode::AST_FUNC:
+      case ASTNode::FUNC:
         visit_function(*static_cast<Function *>(node));
         break;
-      case ASTNode::AST_EXPR_BINARY:
+      case ASTNode::EXPR_BINARY:
         visit_binary_expr(*static_cast<BinaryExpr *>(node));
         break;
-      case ASTNode::AST_EXPR_UNARY:
+      case ASTNode::EXPR_UNARY:
         visit_unary_expr(*static_cast<UnaryExpr *>(node));
         break;
-      case ASTNode::AST_EXPR_ASSIGN:
+      case ASTNode::EXPR_ASSIGN:
         visit_assignment_expr(*static_cast<AssignmentExpr *>(node));
         break;
-      case ASTNode::AST_EXPR_LHS:
+      case ASTNode::EXPR_LHS:
         visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(node), false, false);
         break;
-      case ASTNode::AST_EXPR_ID:
+      case ASTNode::EXPR_ID:
         visit_identifier(*node);
         break;
-      case ASTNode::AST_EXPR_ARGS:
+      case ASTNode::EXPR_ARGS:
         visit_func_arguments(*static_cast<Arguments *>(node));
         break;
-      case ASTNode::AST_EXPR_NUMBER:
+      case ASTNode::EXPR_NUMBER:
         visit_number_literal(*static_cast<NumberLiteral *>(node));
         break;
-      case ASTNode::AST_EXPR_STRING:
+      case ASTNode::EXPR_STRING:
         visit_string_literal(*static_cast<StringLiteral *>(node));
         break;
-      case ASTNode::AST_EXPR_OBJ:
+      case ASTNode::EXPR_OBJ:
         visit_object_literal(*static_cast<ObjectLiteral *>(node));
         break;
-      case ASTNode::AST_EXPR_ARRAY:
+      case ASTNode::EXPR_ARRAY:
         visit_array_literal(*static_cast<ArrayLiteral *>(node));
         break;
-      case ASTNode::AST_EXPR_NULL:
+      case ASTNode::EXPR_NULL:
         emit(OpType::push_null);
         break;
-      case ASTNode::AST_EXPR_THIS:
+      case ASTNode::EXPR_THIS:
         if (scope().get_outer_func()->get_type() == ScopeType::GLOBAL) {
           emit(OpType::push_global_this);
         } else {
           emit(OpType::push_func_this);
         }
         break;
-      case ASTNode::AST_EXPR_PAREN:
+      case ASTNode::EXPR_PAREN:
         visit(static_cast<ParenthesisExpr *>(node)->expr);
         break;
-      case ASTNode::AST_EXPR_BOOL:
+      case ASTNode::EXPR_BOOL:
         emit(OpType::push_bool, u32(node->get_source() == u"true"));
         break;
-      case ASTNode::AST_STMT_VAR:
+      case ASTNode::STMT_VAR:
         visit_variable_statement(*static_cast<VarStatement *>(node), true);
         break;
-      case ASTNode::AST_STMT_VAR_DECL:
+      case ASTNode::STMT_VAR_DECL:
         assert(false);
-      case ASTNode::AST_STMT_RETURN:
+      case ASTNode::STMT_RETURN:
         visit_return_statement(*static_cast<ReturnStatement *>(node));
         break;
-      case ASTNode::AST_STMT_IF:
+      case ASTNode::STMT_IF:
         visit_if_statement(*static_cast<IfStatement *>(node));
         break;
-      case ASTNode::AST_STMT_WHILE:
+      case ASTNode::STMT_WHILE:
         visit_while_statement(*static_cast<WhileStatement *>(node));
         break;
-      case ASTNode::AST_STMT_CONTINUE:
-      case ASTNode::AST_STMT_BREAK:
+      case ASTNode::STMT_CONTINUE:
+      case ASTNode::STMT_BREAK:
         visit_continue_break_statement(*static_cast<ContinueOrBreak *>(node));
         break;
-      case ASTNode::AST_STMT_BLOCK:
+      case ASTNode::STMT_BLOCK:
         node->as_block()->scope->associated_node = node;
         node->as_block()->scope->set_block_type(BlockType::PLAIN);
         visit_block_statement(*static_cast<Block *>(node), true, _, _, _);
         break;
-      case ASTNode::AST_STMT_THROW:
+      case ASTNode::STMT_THROW:
         visit_throw_statement(*static_cast<ThrowStatement *>(node));
         break;
-      case ASTNode::AST_STMT_TRY:
+      case ASTNode::STMT_TRY:
         visit_try_statement(*static_cast<TryStatement *>(node));
         break;
-      case ASTNode::AST_EXPR_NEW:
+      case ASTNode::EXPR_NEW:
         visit_new_expr(*static_cast<NewExpr *>(node));
         break;
-      case ASTNode::AST_STMT_FOR:
+      case ASTNode::STMT_FOR:
         visit_for_statement(*static_cast<ForStatement *>(node));
         break;
-      case ASTNode::AST_STMT_FOR_IN:
+      case ASTNode::STMT_FOR_IN:
         visit_for_in_statement(*static_cast<ForInStatement *>(node));
         break;
-      case ASTNode::AST_STMT_SWITCH:
+      case ASTNode::STMT_SWITCH:
         visit_switch_statement(*static_cast<SwitchStatement *>(node));
         break;
-      case ASTNode::AST_EXPR_TRIPLE:
+      case ASTNode::EXPR_TRIPLE:
         visit_ternary_expr(*static_cast<TernaryExpr *>(node));
         break;
-//      case ASTNode::AST_EXPR_REGEXP:
+//      case ASTNode::EXPR_REGEXP:
 //        break;
-      case ASTNode::AST_EXPR_COMMA:
+      case ASTNode::EXPR_COMMA:
         visit_comma_expr(*static_cast<Expression *>(node));
         break;
-      case ASTNode::AST_STMT_DO_WHILE:
+      case ASTNode::STMT_DO_WHILE:
         visit_do_while_statement(*static_cast<DoWhileStatement *>(node));
         break;
-      case ASTNode::AST_STMT_LABEL:
+      case ASTNode::STMT_LABEL:
         visit_labelled_statement(*static_cast<LabelledStatement *>(node));
         break;
-      case ASTNode::AST_STMT_EMPTY:
+      case ASTNode::STMT_EMPTY:
         break;
       default:
         std::cout << node->description() << " not supported yet" << '\n';
@@ -293,10 +295,10 @@ class CodegenVisitor {
   }
 
   void visit_single_statement(ASTNode *stmt) {
-    if (not stmt->is(ASTNode::AST_EXPR_ASSIGN)) {
+    if (not stmt->is(ASTNode::EXPR_ASSIGN)) {
       visit(stmt);
       // pop drop unused result
-      if (stmt->is_expression() || stmt->is(ASTNode::AST_FUNC)) {
+      if (stmt->is_expression() || stmt->is(ASTNode::FUNC)) {
         emit(OpType::pop_drop);
       }
     } else {
@@ -312,7 +314,7 @@ class CodegenVisitor {
     int deinit_begin = int(scope().get_var_next_index() + frame_meta_size);
 
     for (ASTNode *node : program.statements) {
-      if (node->type != ASTNode::AST_STMT_VAR) continue;
+      if (node->type != ASTNode::STMT_VAR) continue;
       auto& var_stmt = *static_cast<VarStatement *>(node);
       if (not var_stmt.is_lexical()) continue;
 
@@ -340,7 +342,7 @@ class CodegenVisitor {
       throw_list.clear();
     }
 
-    if (program.type == ASTNode::AST_PROGRAM) {
+    if (program.type == ASTNode::PROGRAM) {
       emit(OpType::halt);
     }
     else { // function body
@@ -357,7 +359,7 @@ class CodegenVisitor {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
 
-    if (program.type == ASTNode::AST_PROGRAM) {
+    if (program.type == ASTNode::PROGRAM) {
       emit(OpType::halt_err);
     } else {
       emit(OpType::ret_err);
@@ -430,7 +432,7 @@ class CodegenVisitor {
     switch (expr.op.type) {
       case Token::LOGICAL_NOT:
         if (expr.is_prefix_op) {
-          if (expr.operand->is(ASTNode::AST_EXPR_BOOL)) {
+          if (expr.operand->is(ASTNode::EXPR_BOOL)) {
             emit(OpType::push_bool, u32(not (expr.operand->get_source() == u"true")));
           } else {
             visit(expr.operand);
@@ -450,7 +452,7 @@ class CodegenVisitor {
         break;
       case Token::SUB:
         if (expr.is_prefix_op) {
-          if (expr.operand->is(ASTNode::AST_EXPR_NUMBER)) {
+          if (expr.operand->is(ASTNode::EXPR_NUMBER)) {
             emit(Instruction::num_imm(-expr.operand->as_number_literal()->num_val));
           } else {
             visit(expr.operand);
@@ -655,7 +657,8 @@ class CodegenVisitor {
                          || (lhs_sym.def_scope == ScopeType::GLOBAL && !lhs_sym.is_let_or_const());
 
       if (not use_dynamic) {
-        if (expr.rhs_is_1() && (assign_op == TokenType::ADD_ASSIGN || assign_op == TokenType::SUB_ASSIGN)) {
+        if (expr.rhs_is_1()
+            && (assign_op == TokenType::ADD_ASSIGN || assign_op == TokenType::SUB_ASSIGN)) {
           OpType op = assign_op == TokenType::ADD_ASSIGN  ? OpType::inc : OpType::dec;
           emit(op, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
           if (need_value) {
@@ -683,7 +686,7 @@ class CodegenVisitor {
     else {
       // check if left hand side is LeftHandSide Expression
       Instruction inst_set_prop;
-      if (expr.lhs->type == ASTNode::AST_EXPR_LHS) {
+      if (expr.lhs->type == ASTNode::EXPR_LHS) {
         inst_set_prop = visit_left_hand_side_expr(*expr.lhs->as_lhs_expr(), true, false);
       }
       if (inst_set_prop.op_type == OpType::nop) {
@@ -773,7 +776,7 @@ class CodegenVisitor {
         // evaluate the index expression
         assert(postfix.subtree.index_expr->is_expression());
         auto index_expr = postfix.subtree.index_expr;
-        if (index_expr->is(ASTNode::AST_EXPR_NUMBER)) [[likely]] {
+        if (index_expr->is(ASTNode::EXPR_NUMBER)) [[likely]] {
           double num = index_expr->as_number_literal()->num_val;
           int64_t num_int = (int64_t)num;
 
@@ -783,7 +786,7 @@ class CodegenVisitor {
           } else {
             emit(Instruction::num_imm(num));
           }
-        } else if (index_expr->is(ASTNode::AST_EXPR_STRING)) {
+        } else if (index_expr->is(ASTNode::EXPR_STRING)) {
           auto& str = index_expr->as<StringLiteral>()->str_val;
           u32 atom = atom_pool.atomize(str);
           emit(OpType::push_atom, atom);
@@ -844,7 +847,7 @@ class CodegenVisitor {
         emit(OpType::var_undef, int(sym.get_index()));
       }
       if (decl->var_init) {
-        assert(decl->var_init->is(ASTNode::AST_EXPR_ASSIGN));
+        assert(decl->var_init->is(ASTNode::EXPR_ASSIGN));
         visit_assignment_expr(*decl->var_init->as<AssignmentExpr>(), false);
       }
     }
@@ -907,7 +910,6 @@ class CodegenVisitor {
     for (u32 idx : true_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
-    // emit(OpType::pop_drop);
 
     visit(expr.true_expr);
     u32 true_end_jmp = emit(OpType::jmp);
@@ -915,9 +917,6 @@ class CodegenVisitor {
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
-
-    // scope().update_stack_usage(1);
-    // emit(OpType::pop_drop);
 
     visit(expr.false_expr);
     bytecode[true_end_jmp].operand.two.opr1 = bytecode_pos();
@@ -1008,7 +1007,6 @@ class CodegenVisitor {
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
-    // emit(OpType::pop_drop);
 
     for (u32 idx : scope().break_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
@@ -1033,7 +1031,7 @@ class CodegenVisitor {
       auto init_expr = stmt.init_expr;
       if (!init_expr) return;
 
-      if (init_expr->is(ASTNode::AST_STMT_VAR)
+      if (init_expr->is(ASTNode::STMT_VAR)
           && init_expr->as<VarStatement>()->is_lexical()) {
 
         auto *var_stmt = init_expr->as<VarStatement>();
@@ -1044,7 +1042,7 @@ class CodegenVisitor {
         extra_var_range = scope().get_var_index_range(frame_meta_size);
       }
 
-      if (init_expr->is(ASTNode::AST_STMT_VAR)) {
+      if (init_expr->is(ASTNode::STMT_VAR)) {
         // TODO: may want to set the last arg to `true` to ensure that we always
         // have undefined value for new variables. Now `false` is fine because we always
         // clean the local variables when leaving a scope
@@ -1060,7 +1058,7 @@ class CodegenVisitor {
     auto prolog = [&, this] {
       auto init_expr = stmt.init_expr;
       if (init_expr) {
-        if (init_expr->is(ASTNode::AST_STMT_VAR)) {
+        if (init_expr->is(ASTNode::STMT_VAR)) {
           visit_variable_statement(*init_expr->as<VarStatement>(), false);
         } else {
           visit_single_statement(init_expr);
@@ -1089,9 +1087,9 @@ class CodegenVisitor {
       }
       auto *inc = stmt.increment_expr;
       if (inc) {
-        if (inc->is(ASTNode::AST_EXPR_ASSIGN)) {
+        if (inc->is(ASTNode::EXPR_ASSIGN)) {
           visit_assignment_expr(*inc->as<AssignmentExpr>(), false);
-        } else if (inc->is(ASTNode::AST_EXPR_UNARY) && inc->as<UnaryExpr>()->is_inc_or_dec()) {
+        } else if (inc->is(ASTNode::EXPR_UNARY) && inc->as<UnaryExpr>()->is_inc_or_dec()) {
           visit_unary_expr(*inc->as<UnaryExpr>(), false);
         } else {
           // no need to use `visit_single_statement` here
@@ -1161,7 +1159,7 @@ class CodegenVisitor {
     u32 extra_var_index;
     auto init = [&, this] {
       auto ele_expr = stmt.element_expr;
-      if (not ele_expr->is(ASTNode::AST_STMT_VAR)) [[unlikely]] return;
+      if (not ele_expr->is(ASTNode::STMT_VAR)) [[unlikely]] return;
 
       if (ele_expr->as<VarStatement>()->is_lexical()) {
         auto *var_stmt = ele_expr->as<VarStatement>();
@@ -1179,7 +1177,6 @@ class CodegenVisitor {
     auto prolog = [&, this] {
       loop_start = for_in ? emit(OpType::for_in_next) : emit(OpType::for_of_next);
       exit_jump = emit(OpType::iter_end_jmp);
-      // emit(OpType::pop_drop);
       scope().update_stack_usage(-1);
 
       if (stmt.element_is_id()) {
@@ -1199,7 +1196,7 @@ class CodegenVisitor {
       }
       else { // LeftHandSide Expression
         Instruction inst_set_prop;
-        if (stmt.element_expr->type == ASTNode::AST_EXPR_LHS) {
+        if (stmt.element_expr->type == ASTNode::EXPR_LHS) {
           inst_set_prop = visit_left_hand_side_expr(*stmt.element_expr->as_lhs_expr(), true, false);
         }
 
@@ -1309,7 +1306,7 @@ class CodegenVisitor {
     auto visit_case_stmts = [this] (SwitchStatement::CaseClause& case_clause) {
       bytecode[case_clause.jump_point].operand.two.opr1 = bytecode_pos();
       for (auto stmt : case_clause.stmts) {
-        if (stmt->is(ASTNode::AST_FUNC) && stmt->as_function()->is_stmt) continue;
+        if (stmt->is(ASTNode::FUNC) && stmt->as_function()->is_stmt) continue;
         visit_single_statement(stmt);
       }
     };
@@ -1322,7 +1319,7 @@ class CodegenVisitor {
     if (stmt.has_default) {
       bytecode[jmp_to_default].operand.two.opr1 = bytecode_pos();
       for (auto s : stmt.default_stmts) {
-        if (s->is(ASTNode::AST_FUNC) && s->as_function()->is_stmt) continue;
+        if (s->is(ASTNode::FUNC) && s->as_function()->is_stmt) continue;
         visit_single_statement(s);
       }
       // cases after the `default`
@@ -1377,8 +1374,8 @@ class CodegenVisitor {
         }
         // these two kind of statements put 1 value on the operand stack,
         // which is the iterator object.
-        if (node->is(ASTNode::AST_STMT_FOR_IN)
-            || node->is(ASTNode::AST_STMT_SWITCH)
+        if (node->is(ASTNode::STMT_FOR_IN)
+            || node->is(ASTNode::STMT_SWITCH)
             || scope->get_block_type() == BlockType::FINALLY_NORM) {
           res.stack_drop_cnt += 1;
         }
@@ -1397,7 +1394,7 @@ class CodegenVisitor {
           return res;
         } else if (scope->get_type() == ScopeType::BLOCK) {
           meet_loop_or_switch |= scope->associated_node->is_loop();
-          meet_loop_or_switch |= scope->associated_node->is(ASTNode::AST_STMT_SWITCH);
+          meet_loop_or_switch |= scope->associated_node->is(ASTNode::STMT_SWITCH);
           if (scope->get_block_type() == BlockType::FINALLY_NORM) {
             res.stack_drop_cnt += 1;
           }
@@ -1411,13 +1408,13 @@ class CodegenVisitor {
 
     auto resolve_continue_usual = [] (Scope *scope) {
       Scope::ControlRedirectResult res;
-      auto prev_node_type = ASTNode::AST_ILLEGAL;
+      auto prev_node_type = ASTNode::ILLEGAL;
       while (true) {
         if (scope->can_continue) {
           res.found = true;
           res.target_scope = scope;
           // no need to drop if we are going to continue this `for-in` loop
-          if (prev_node_type == ASTNode::AST_STMT_FOR_IN) {
+          if (prev_node_type == ASTNode::STMT_FOR_IN) {
             res.stack_drop_cnt -= 1;
           }
           return res;
@@ -1425,8 +1422,8 @@ class CodegenVisitor {
         else if (scope->get_type() == ScopeType::BLOCK) {
           auto node = scope->associated_node;
           assert(node);
-          if (node->is(ASTNode::AST_STMT_FOR_IN)
-              || node->is(ASTNode::AST_STMT_SWITCH)
+          if (node->is(ASTNode::STMT_FOR_IN)
+              || node->is(ASTNode::STMT_SWITCH)
               || scope->get_block_type() == BlockType::FINALLY_NORM) {
             res.stack_drop_cnt += 1;
           }
@@ -1441,7 +1438,7 @@ class CodegenVisitor {
     };
 
 
-    if (stmt.type == ASTNode::AST_STMT_CONTINUE) {
+    if (stmt.type == ASTNode::STMT_CONTINUE) {
       Scope *continue_scope;
       if (stmt.id.is(TokenType::NONE)) [[likely]] {
         auto resolve_res = resolve_continue_usual(&scope());
@@ -1494,7 +1491,6 @@ class CodegenVisitor {
     }
     // break
     else {
-//      SmallVector<u32, 3> *break_list;
       Scope *break_scope;
       if (stmt.id.is(TokenType::NONE)) [[likely]] {
         gen_var_dispose_code_recursive(&scope(), [] (Scope *s) {
@@ -1542,7 +1538,7 @@ class CodegenVisitor {
     auto env_scope_type = scope().get_outer_func()->get_type();
     for (Function *node : stmts) {
       auto& func = *node;
-      assert(node->type == ASTNode::AST_FUNC);
+      assert(node->type == ASTNode::FUNC);
       assert(func.has_name());
       assert(func.is_stmt);
 
@@ -1577,7 +1573,7 @@ class CodegenVisitor {
     u32 deinit_begin = scope().get_var_next_index();
 
     for (ASTNode *node : block.statements) {
-      if (node->type != ASTNode::AST_STMT_VAR) continue;
+      if (node->type != ASTNode::STMT_VAR) continue;
       auto& var_stmt = *node->as<VarStatement>();
       if (not var_stmt.is_lexical()) continue;
 
@@ -1650,7 +1646,7 @@ class CodegenVisitor {
   }
 
   void visit_try_statement(TryStatement& stmt) {
-    assert(stmt.try_block->type == ASTNode::AST_STMT_BLOCK);
+    assert(stmt.try_block->type == ASTNode::STMT_BLOCK);
 
     bool has_catch = stmt.catch_block != nullptr;
     bool has_finally = stmt.finally_block != nullptr;

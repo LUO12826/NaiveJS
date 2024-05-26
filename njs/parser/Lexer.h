@@ -560,10 +560,9 @@ error:
 
   inline void next_char(u32 step = 1) {
     cursor += step;
-    if (cursor < length) {
+    if (cursor < length) [[likely]] {
       ch = source[cursor];
-    }
-    else {
+    } else {
       cursor = length;
       ch = character::EOS;
     }
@@ -660,12 +659,11 @@ error:
 
   void skip_line_terminators() {
     assert(character::is_line_terminator(ch));
-    if (ch == character::CR && peek_char() == character::LF) {
-      next_char(); next_char();
-    } else {
+    if (ch == character::LF) [[likely]] {
       next_char();
+    } else if (ch == character::CR && peek_char() == character::LF) {
+      next_char(2);
     }
-
     curr_line += 1;
     curr_line_start_pos = cursor;
   }

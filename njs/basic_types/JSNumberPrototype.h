@@ -23,7 +23,7 @@ class JSNumberPrototype : public JSObject {
       return This;
     }
     else if (This.is_object() && This.as_object()->get_class() == CLS_NUMBER) {
-      assert(dynamic_cast<JSNumber*>(This.as_object()) != nullptr);
+      assert(dynamic_cast<JSNumber*>(This.as_object()));
       auto *num_obj = static_cast<JSNumber*>(This.as_object());
       return JSValue(num_obj->value);
     }

@@ -68,7 +68,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
 }
 
 NjsVM::~NjsVM() {
-  assert(curr_frame != nullptr);
+  assert(curr_frame);
   // this should be the buffer for the global scope, and it should be on the heap.
   free(curr_frame->buffer);
   delete curr_frame;
@@ -217,7 +217,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
   if (callee->meta.is_native) {
     Completion comp;
     ArrayRef<JSValue> args_ref(args_buf, actual_arg_cnt);
-    if (new_target != nullptr) [[unlikely]] {
+    if (new_target) [[unlikely]] {
       flags.this_is_new_target = true;
       comp = callee->native_func(*this, *callee, JSValue(new_target), args_ref, flags);
     } else {

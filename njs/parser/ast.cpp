@@ -35,7 +35,7 @@ void ASTNode::print_tree(int level) {
 std::string ASTNode::description() {
   std::string desc(ast_type_names[(int)type]);
 
-  if (type == AST_EXPR_ID || type == AST_TOKEN) {
+  if (type == EXPR_ID || type == TOKEN) {
     desc += "  \"";
     desc += to_u8string(text);
     desc += "\"";
@@ -77,14 +77,14 @@ Function *ASTNode::as_function() {
   return static_cast<Function *>(this);
 }
 
-bool ASTNode::is_illegal() { return type == AST_ILLEGAL; }
+bool ASTNode::is_illegal() { return type == ILLEGAL; }
 
 bool ASTNode::is_expression() {
   return type > BEGIN_EXPR && type < END_EXPR;
 }
 
 bool ASTNode::is_binary_expr() {
-  return type == AST_EXPR_BINARY;
+  return type == EXPR_BINARY;
 }
 
 bool ASTNode::is_binary_logical_expr() {
@@ -94,7 +94,7 @@ bool ASTNode::is_binary_logical_expr() {
 }
 
 bool ASTNode::is_unary_expr() {
-  return type == AST_EXPR_UNARY;
+  return type == EXPR_UNARY;
 }
 
 bool ASTNode::is_not_expr() {
@@ -104,28 +104,28 @@ bool ASTNode::is_not_expr() {
 }
 
 bool ASTNode::is_identifier() {
-  return type == AST_EXPR_ID;
+  return type == EXPR_ID;
 }
 
 bool ASTNode::is_lhs_expr() {
-  return type == AST_EXPR_LHS;
+  return type == EXPR_LHS;
 }
 
 // single statement context is, for example, if (cond) followed by a statement without `{}`.
 // in single statement context, `let` and `const` are not allowed.
 bool ASTNode::is_valid_in_single_stmt_ctx() {
-  if (is(ASTNode::AST_STMT_VAR) && as<VarStatement>()->kind != VarKind::DECL_VAR) {
+  if (is(ASTNode::STMT_VAR) && as<VarStatement>()->kind != VarKind::DECL_VAR) {
     return false;
   }
   return true;
 }
 
 bool ASTNode::is_loop() {
-  return type >= AST_STMT_WHILE && type <= AST_STMT_FOR_IN;
+  return type >= STMT_WHILE && type <= STMT_FOR_IN;
 }
 
 bool ASTNode::is_block() {
-  return type == AST_STMT_BLOCK;
+  return type == STMT_BLOCK;
 }
 
 } // end namespace njs

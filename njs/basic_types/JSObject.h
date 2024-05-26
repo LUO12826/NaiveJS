@@ -188,7 +188,7 @@ friend class JSForInIterator;
     JSObject *p = proto.as_object_or_null();
 
     // check if there is a circular prototype chain
-    while (p != nullptr) {
+    while (p) {
       if (p == this) return false;
       p = p->get_proto().as_object_or_null();
     }

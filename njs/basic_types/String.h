@@ -100,7 +100,7 @@ class String {
   bool operator==(const String &other) const {
     if (len != other.len) return false;
     if (len == 0) return true;
-    assert(ptr.get() != nullptr && other.ptr.get() != nullptr);
+    assert(ptr.get() && other.ptr.get());
     return std::memcmp(ptr.get(), other.ptr.get(), len * sizeof(char16_t)) == 0;
   }
 

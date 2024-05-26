@@ -41,67 +41,67 @@ class ASTNode {
  public:
   // has corresponding string representation, note to modify when adding
   enum Type {
-    AST_TOKEN = 0, // used to wrap a token
+    TOKEN = 0, // used to wrap a token
 
     BEGIN_EXPR,
 
-    AST_EXPR_THIS,
-    AST_EXPR_ID,
-    AST_EXPR_STRICT_FUTURE,
+    EXPR_THIS,
+    EXPR_ID,
+    EXPR_STRICT_FUTURE,
 
-    AST_EXPR_NULL,
-    AST_EXPR_BOOL,
-    AST_EXPR_NUMBER,
-    AST_EXPR_STRING,
-    AST_EXPR_REGEXP,
+    EXPR_NULL,
+    EXPR_BOOL,
+    EXPR_NUMBER,
+    EXPR_STRING,
+    EXPR_REGEXP,
 
-    AST_EXPR_ARRAY,
-    AST_EXPR_OBJ,
+    EXPR_ARRAY,
+    EXPR_OBJ,
 
-    AST_EXPR_PAREN, // ( Expression )
+    EXPR_PAREN, // ( Expression )
 
-    AST_EXPR_BINARY,
-    AST_EXPR_ASSIGN,
-    AST_EXPR_UNARY,
-    AST_EXPR_TRIPLE,
+    EXPR_BINARY,
+    EXPR_ASSIGN,
+    EXPR_UNARY,
+    EXPR_TRIPLE,
 
-    AST_EXPR_ARGS,
-    AST_EXPR_LHS,
-    AST_EXPR_NEW,
+    EXPR_ARGS,
+    EXPR_LHS,
+    EXPR_NEW,
 
-    AST_EXPR_COMMA, // expr, expr, expr
+    EXPR_COMMA, // expr, expr, expr
 
     END_EXPR,
 
-    AST_FUNC,
+    FUNC,
 
-    AST_STMT_EMPTY,
-    AST_STMT_BLOCK,
-    AST_STMT_IF,
-    AST_STMT_WHILE,
-    AST_STMT_DO_WHILE,
-    AST_STMT_FOR,
-    AST_STMT_FOR_IN,
-    AST_STMT_WITH,
-    AST_STMT_TRY,
+    STMT_EMPTY,
+    STMT_BLOCK,
+    STMT_IF,
+    STMT_WHILE,
+    STMT_DO_WHILE,
+    STMT_FOR,
+    STMT_FOR_IN,
+    STMT_WITH,
+    STMT_TRY,
 
-    AST_STMT_VAR,
-    AST_STMT_VAR_DECL,
+    STMT_VAR,
+    STMT_VAR_DECL,
 
-    AST_STMT_CONTINUE,
-    AST_STMT_BREAK,
-    AST_STMT_RETURN,
-    AST_STMT_THROW,
+    STMT_CONTINUE,
+    STMT_BREAK,
+    STMT_RETURN,
+    STMT_THROW,
 
-    AST_STMT_SWITCH,
+    STMT_SWITCH,
 
-    AST_STMT_LABEL,
-    AST_STMT_DEBUG,
+    STMT_LABEL,
+    STMT_DEBUG,
 
-    AST_PROGRAM,
-    AST_FUNC_BODY,
+    PROGRAM,
+    FUNC_BODY,
 
-    AST_ILLEGAL,
+    ILLEGAL,
   };
 
   explicit ASTNode(Type type);
@@ -160,7 +160,7 @@ class ASTNode {
 class NumberLiteral : public ASTNode {
  public:
   NumberLiteral(double val, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_EXPR_NUMBER, source, start, end, line_start), num_val(val) {}
+      : ASTNode(EXPR_NUMBER, source, start, end, line_start), num_val(val) {}
 
   std::string description() override {
     return ASTNode::description() + " " + std::to_string(num_val);
@@ -172,7 +172,7 @@ class NumberLiteral : public ASTNode {
 class StringLiteral : public ASTNode {
  public:
   StringLiteral(u16string str, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_EXPR_STRING, source, start, end, line_start), str_val(std::move(str)) {}
+      : ASTNode(EXPR_STRING, source, start, end, line_start), str_val(std::move(str)) {}
 
   std::string description() override {
     auto desc = ASTNode::description();
@@ -189,7 +189,7 @@ class RegExpLiteral : public ASTNode {
  public:
   RegExpLiteral(u16string pattern, u16string flag, u16string_view source, u32 start,
                 u32 end, u32 line_start)
-      : ASTNode(AST_EXPR_REGEXP, source, start, end, line_start),
+      : ASTNode(EXPR_REGEXP, source, start, end, line_start),
         pattern(std::move(pattern)), flag(std::move(flag)) {}
 
   u16string pattern;
@@ -198,7 +198,7 @@ class RegExpLiteral : public ASTNode {
 
 class ArrayLiteral : public ASTNode {
  public:
-  ArrayLiteral() : ASTNode(AST_EXPR_ARRAY) {}
+  ArrayLiteral() : ASTNode(EXPR_ARRAY) {}
 
   ~ArrayLiteral() override {
     for (auto [idx, element] : elements) { delete element; }
@@ -223,7 +223,8 @@ class ObjectLiteral : public ASTNode {
       SETTER,
     };
 
-    Property(const u16string& key, ASTNode *val, Type type) : key(key), value(val), type(type) {}
+    Property(u16string key, ASTNode *val, Type type)
+        : key(std::move(key)), value(val), type(type) {}
 
     u16string key;
     ASTNode *key_expr {nullptr};
@@ -231,10 +232,10 @@ class ObjectLiteral : public ASTNode {
     Type type;
   };
 
-  ObjectLiteral() : ASTNode(AST_EXPR_OBJ) {}
+  ObjectLiteral() : ASTNode(EXPR_OBJ) {}
 
   ~ObjectLiteral() override {
-    for (auto property : properties) { delete property.value; }
+    for (auto& property : properties) { delete property.value; }
   }
 
   void set_property(const Property &p) { properties.emplace_back(p); }
@@ -245,7 +246,7 @@ class ObjectLiteral : public ASTNode {
 class ParenthesisExpr : public ASTNode {
  public:
   ParenthesisExpr(ASTNode *expr, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_EXPR_PAREN, source, start, end, line_start), expr(expr) {
+      : ASTNode(EXPR_PAREN, source, start, end, line_start), expr(expr) {
     add_child(expr);
   }
 
@@ -258,7 +259,7 @@ class ParenthesisExpr : public ASTNode {
 class UnaryExpr : public ASTNode {
  public:
   UnaryExpr(ASTNode *node, const Token& op, bool prefix)
-      : ASTNode(AST_EXPR_UNARY), operand(node), op(op), is_prefix_op(prefix) {
+      : ASTNode(EXPR_UNARY), operand(node), op(op), is_prefix_op(prefix) {
 
     add_child(operand);
   }
@@ -284,7 +285,7 @@ class UnaryExpr : public ASTNode {
 class TernaryExpr : public ASTNode {
  public:
   TernaryExpr(ASTNode *cond, ASTNode *true_expr, ASTNode *false_expr)
-      : ASTNode(AST_EXPR_TRIPLE), cond_expr(cond), true_expr(true_expr), false_expr(false_expr) {}
+      : ASTNode(EXPR_TRIPLE), cond_expr(cond), true_expr(true_expr), false_expr(false_expr) {}
 
   ~TernaryExpr() override {
     delete cond_expr;
@@ -299,7 +300,7 @@ class TernaryExpr : public ASTNode {
 
 class Expression : public ASTNode {
  public:
-  Expression() : ASTNode(AST_EXPR_COMMA) {}
+  Expression() : ASTNode(EXPR_COMMA) {}
   ~Expression() override {
     for (auto element : elements) { delete element; }
   }
@@ -315,7 +316,7 @@ class Expression : public ASTNode {
 class Arguments : public ASTNode {
  public:
   explicit Arguments(vector<ASTNode *> args)
-      : ASTNode(AST_EXPR_ARGS), args(std::move(args)) {}
+      : ASTNode(EXPR_ARGS), args(std::move(args)) {}
 
   ~Arguments() override {
     for (auto arg : args) delete arg;
@@ -336,7 +337,7 @@ class NewExpr : public ASTNode {
  public:
   template <typename... Args>
   NewExpr(ASTNode *callee, Args &&...args)
-      : ASTNode(AST_EXPR_NEW, std::forward<Args>(args)...), callee(callee) {
+      : ASTNode(EXPR_NEW, std::forward<Args>(args)...), callee(callee) {
     add_child(callee);
   }
 
@@ -370,7 +371,7 @@ class LeftHandSideExpr : public ASTNode {
     Postfix(PostfixType type): type(type) {}
   };
 
-  explicit LeftHandSideExpr(ASTNode *base) : ASTNode(AST_EXPR_LHS), base(base) {
+  explicit LeftHandSideExpr(ASTNode *base) : ASTNode(EXPR_LHS), base(base) {
     add_child(base);
   }
 
@@ -404,11 +405,11 @@ class LeftHandSideExpr : public ASTNode {
     Postfix post(PROP);
     post.subtree.prop_name = prop.text;
     postfixs.push_back(post);
-    add_child(new ASTNode(AST_TOKEN, prop.text, prop.start, prop.end, prop.line));
+    add_child(new ASTNode(TOKEN, prop.text, prop.start, prop.end, prop.line));
   }
 
   bool is_id() {
-    return base->type == ASTNode::AST_EXPR_ID && postfixs.empty();
+    return base->type == ASTNode::EXPR_ID && postfixs.empty();
   }
 
   ASTNode *base;
@@ -420,7 +421,7 @@ class BinaryExpr : public ASTNode {
  public:
   BinaryExpr(ASTNode *lhs, ASTNode *rhs, const Token& op, u16string_view source, u32 start, u32 end,
              u32 line_start)
-      : ASTNode(AST_EXPR_BINARY, source, start, end, line_start), lhs(lhs), rhs(rhs), op(op) {
+      : ASTNode(EXPR_BINARY, source, start, end, line_start), lhs(lhs), rhs(rhs), op(op) {
     add_child(lhs);
     add_child(rhs);
   }
@@ -431,11 +432,11 @@ class BinaryExpr : public ASTNode {
   }
 
   bool is_simple_expr() {
-    bool lhs_simple = lhs->type == AST_EXPR_ID || (lhs->type == ASTNode::AST_EXPR_LHS
+    bool lhs_simple = lhs->type == EXPR_ID || (lhs->type == ASTNode::EXPR_LHS
                                                    &&
                                                    static_cast<LeftHandSideExpr *>(lhs)->is_id());
     if (!lhs_simple) return false;
-    bool rhs_simple = rhs->type == AST_EXPR_ID || (rhs->type == ASTNode::AST_EXPR_LHS
+    bool rhs_simple = rhs->type == EXPR_ID || (rhs->type == ASTNode::EXPR_LHS
                                                    &&
                                                    static_cast<LeftHandSideExpr *>(rhs)->is_id());
     return rhs_simple;
@@ -454,7 +455,7 @@ class AssignmentExpr : public ASTNode {
  public:
   AssignmentExpr(TokenType assign_type, ASTNode *lhs, ASTNode *rhs, u16string_view source,
                  u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_EXPR_ASSIGN, source, start, end, line_start),
+      : ASTNode(EXPR_ASSIGN, source, start, end, line_start),
         assign_type(assign_type), lhs(lhs), rhs(rhs) {
     add_child(lhs);
     add_child(rhs);
@@ -470,23 +471,23 @@ class AssignmentExpr : public ASTNode {
   }
 
   bool lhs_is_id() {
-    if (lhs->type == AST_EXPR_ID) return true;
-    if (lhs->type != AST_EXPR_LHS) return false;
+    if (lhs->type == EXPR_ID) return true;
+    if (lhs->type != EXPR_LHS) return false;
     return static_cast<LeftHandSideExpr *>(lhs)->is_id();
   }
 
   bool rhs_is_id() {
-    if (rhs->type == AST_EXPR_ID) return true;
-    if (rhs->type != AST_EXPR_LHS) return false;
+    if (rhs->type == EXPR_ID) return true;
+    if (rhs->type != EXPR_LHS) return false;
     return static_cast<LeftHandSideExpr *>(rhs)->is_id();
   }
 
   bool rhs_is_1() {
-    return rhs->is(ASTNode::AST_EXPR_NUMBER) && (rhs->as_number_literal()->num_val == 1.0);
+    return rhs->is(ASTNode::EXPR_NUMBER) && (rhs->as_number_literal()->num_val == 1.0);
   }
 
   optional<int8_t > rhs_as_int8() {
-    if (!rhs->is(ASTNode::AST_EXPR_NUMBER)) return false;
+    if (!rhs->is(ASTNode::EXPR_NUMBER)) return false;
     double val = rhs->as_number_literal()->num_val;
     if (val >= -128.0 && val <= 127.0 && val == (int)val) {
       return int8_t(val);
@@ -507,8 +508,8 @@ class Function : public ASTNode {
 
   Function(const Token& name, vector<u16string_view> params, ASTNode *body,
            u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_FUNC, source, start, end, line_start), name(name), params(std::move(params)) {
-    assert(body->type == ASTNode::AST_FUNC_BODY);
+      : ASTNode(FUNC, source, start, end, line_start), name(name), params(std::move(params)) {
+    assert(body->type == ASTNode::FUNC_BODY);
     this->body = body;
     add_child(body);
   }
@@ -540,7 +541,7 @@ class VarDecl : public ASTNode {
       : VarDecl(id, nullptr, source, start, end, line_start) {}
 
   VarDecl(const Token& id, ASTNode *var_init, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_STMT_VAR_DECL, source, start, end, line_start), id(id), var_init(var_init) {
+      : ASTNode(STMT_VAR_DECL, source, start, end, line_start), id(id), var_init(var_init) {
     add_child(var_init);
   }
   ~VarDecl() override { delete var_init; }
@@ -559,7 +560,7 @@ class ProgramOrFunctionBody : public ASTNode {
   }
 
   void add_statement(ASTNode *stmt) {
-    if (stmt->type == ASTNode::AST_FUNC && stmt->as_function()->is_stmt) {
+    if (stmt->type == ASTNode::FUNC && stmt->as_function()->is_stmt) {
       func_decls.push_back(stmt->as_function());
     } else {
       statements.push_back(stmt);
@@ -577,7 +578,7 @@ class LabelledStatement : public ASTNode {
  public:
   LabelledStatement(const Token& label, ASTNode *stmt, u16string_view source,
                     u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_STMT_LABEL, source, start, end, line_start),
+      : ASTNode(STMT_LABEL, source, start, end, line_start),
         label(label), statement(stmt) {
     add_child(statement);
   }
@@ -602,7 +603,7 @@ class ContinueOrBreak : public ASTNode {
 class ReturnStatement : public ASTNode {
  public:
   ReturnStatement(ASTNode *expr, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_STMT_RETURN, source, start, end, line_start), expr(expr) {
+      : ASTNode(STMT_RETURN, source, start, end, line_start), expr(expr) {
     add_child(expr);
   }
 
@@ -616,7 +617,7 @@ class ReturnStatement : public ASTNode {
 class ThrowStatement : public ASTNode {
  public:
   ThrowStatement(ASTNode *expr, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_STMT_THROW, source, start, end, line_start), expr(expr) {}
+      : ASTNode(STMT_THROW, source, start, end, line_start), expr(expr) {}
 
   ~ThrowStatement() override {
     delete expr;
@@ -628,7 +629,7 @@ class ThrowStatement : public ASTNode {
 class VarStatement : public ASTNode {
  public:
 
-  explicit VarStatement(VarKind var_kind) : ASTNode(AST_STMT_VAR), kind(var_kind) {}
+  explicit VarStatement(VarKind var_kind) : ASTNode(STMT_VAR), kind(var_kind) {}
   ~VarStatement() override {
     for (auto decl : declarations) delete decl;
   }
@@ -638,7 +639,7 @@ class VarStatement : public ASTNode {
   }
 
   void add_decl(ASTNode *decl) {
-    assert(decl->type == AST_STMT_VAR_DECL);
+    assert(decl->type == STMT_VAR_DECL);
     declarations.emplace_back(static_cast<VarDecl *>(decl));
     add_child(decl);
   }
@@ -653,7 +654,7 @@ class VarStatement : public ASTNode {
 
 class Block : public ASTNode {
  public:
-  Block() : ASTNode(AST_STMT_BLOCK) {}
+  Block() : ASTNode(STMT_BLOCK) {}
 
   ~Block() override {
     for (auto stmt : statements) { delete stmt; }
@@ -661,7 +662,7 @@ class Block : public ASTNode {
   }
 
   void add_statement(ASTNode *stmt) {
-    if (stmt->type == ASTNode::AST_FUNC && stmt->as_function()->is_stmt) {
+    if (stmt->type == ASTNode::FUNC && stmt->as_function()->is_stmt) {
       func_decls.push_back(stmt->as_function());
     } else {
       statements.push_back(stmt);
@@ -687,7 +688,7 @@ class TryStatement : public ASTNode {
 
   TryStatement(ASTNode *try_block, const Token& catch_ident, ASTNode *catch_block, ASTNode *finally_block,
                u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_STMT_TRY, source, start, end, line_start), try_block(try_block),
+      : ASTNode(STMT_TRY, source, start, end, line_start), try_block(try_block),
         catch_ident(catch_ident), catch_block(catch_block), finally_block(finally_block) {
 
     add_child(try_block);
@@ -717,7 +718,7 @@ class IfStatement : public ASTNode {
 
   IfStatement(ASTNode *cond, ASTNode *then_block, ASTNode *else_block, u16string_view source,
               u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_STMT_IF, source, start, end, line_start), condition_expr(cond), then_block(then_block),
+      : ASTNode(STMT_IF, source, start, end, line_start), condition_expr(cond), then_block(then_block),
         else_block(else_block) {
 
     add_child(cond);
@@ -740,7 +741,7 @@ class WhileStatement : public ASTNode {
  public:
   WhileStatement(ASTNode *condition_expr, ASTNode *body_stmt, u16string_view source, u32 start,
                  u32 end, u32 line_start)
-      : ASTNode(AST_STMT_WHILE, source, start, end, line_start), condition_expr(condition_expr),
+      : ASTNode(STMT_WHILE, source, start, end, line_start), condition_expr(condition_expr),
         body_stmt(body_stmt) {}
 
   ~WhileStatement() override {
@@ -756,7 +757,7 @@ class WithStatement : public ASTNode {
  public:
   WithStatement(ASTNode *expr, ASTNode *stmt, u16string_view source, u32 start, u32 end,
                 u32 line_start)
-      : ASTNode(AST_STMT_WITH, source, start, end, line_start), expr(expr), stmt(stmt) {}
+      : ASTNode(STMT_WITH, source, start, end, line_start), expr(expr), stmt(stmt) {}
 
   ~WithStatement() override {
     delete expr;
@@ -771,7 +772,7 @@ class DoWhileStatement : public ASTNode {
  public:
   DoWhileStatement(ASTNode *condition_expr, ASTNode *body_stmt, u16string_view source,
                    u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_STMT_DO_WHILE, source, start, end, line_start),
+      : ASTNode(STMT_DO_WHILE, source, start, end, line_start),
         condition_expr(condition_expr), body_stmt(body_stmt) {}
 
   ~DoWhileStatement() override {
@@ -794,7 +795,7 @@ class SwitchStatement : public ASTNode {
     vector<ASTNode *> stmts;
   };
 
-  SwitchStatement() : ASTNode(AST_STMT_SWITCH) {}
+  SwitchStatement() : ASTNode(STMT_SWITCH) {}
 
   ~SwitchStatement() override {
     delete condition_expr;
@@ -806,11 +807,11 @@ class SwitchStatement : public ASTNode {
   }
 
   void add_statement(ASTNode *stmt) {
-    if (stmt->type == ASTNode::AST_FUNC && stmt->as_function()->is_stmt) {
+    if (stmt->type == ASTNode::FUNC && stmt->as_function()->is_stmt) {
       func_decls.push_back(stmt->as_function());
     } else {
       statements.push_back(stmt);
-      if (stmt->is(ASTNode::AST_STMT_VAR) && stmt->as<VarStatement>()->is_lexical()) {
+      if (stmt->is(ASTNode::STMT_VAR) && stmt->as<VarStatement>()->is_lexical()) {
         lexical_var_def.push_back(stmt->as<VarStatement>());
       }
     }
@@ -833,7 +834,7 @@ class ForStatement : public ASTNode {
  public:
   ForStatement(ASTNode * init_expr, ASTNode *condition_expr, ASTNode *increment_expr,
                ASTNode *body_stmt, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_STMT_FOR, source, start, end, line_start), init_expr(init_expr),
+      : ASTNode(STMT_FOR, source, start, end, line_start), init_expr(init_expr),
         condition_expr(condition_expr), increment_expr(increment_expr), body_stmt(body_stmt) {
     add_child(init_expr);
     add_child(condition_expr);
@@ -863,7 +864,7 @@ class ForInStatement : public ASTNode {
 
   ForInStatement(ForInStatement::Type type, ASTNode *element_expr, ASTNode *collection_expr,
                  ASTNode *body_stmt, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(AST_STMT_FOR_IN, source, start, end, line_start),
+      : ASTNode(STMT_FOR_IN, source, start, end, line_start),
         iter_type(type),
         element_expr(element_expr),
         collection_expr(collection_expr),
@@ -874,18 +875,18 @@ class ForInStatement : public ASTNode {
   }
 
   bool element_is_id() {
-    if (element_expr->is(AST_STMT_VAR)) return true;
-    if (element_expr->is(AST_EXPR_ID)) return true;
-    assert(element_expr->is(AST_EXPR_LHS));
+    if (element_expr->is(STMT_VAR)) return true;
+    if (element_expr->is(EXPR_ID)) return true;
+    assert(element_expr->is(EXPR_LHS));
     return static_cast<LeftHandSideExpr *>(element_expr)->is_id();
   }
 
   u16string_view get_element_id() {
-    if (element_expr->is(AST_STMT_VAR)) {
+    if (element_expr->is(STMT_VAR)) {
       VarDecl *decl = element_expr->as<VarStatement>()->declarations[0];
       return decl->id.text;
     } else {
-      assert(element_expr->is(AST_EXPR_LHS) || element_expr->is(AST_EXPR_ID));
+      assert(element_expr->is(EXPR_LHS) || element_expr->is(EXPR_ID));
       return element_expr->get_source();
     }
   }
