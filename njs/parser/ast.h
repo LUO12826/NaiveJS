@@ -223,9 +223,10 @@ class ObjectLiteral : public ASTNode {
       SETTER,
     };
 
-    Property(const Token& key, ASTNode *val, Type type) : key(key), value(val), type(type) {}
+    Property(const u16string& key, ASTNode *val, Type type) : key(key), value(val), type(type) {}
 
-    Token key;
+    u16string key;
+    ASTNode *key_expr {nullptr};
     ASTNode *value;
     Type type;
   };

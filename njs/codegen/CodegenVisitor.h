@@ -74,6 +74,16 @@ class CodegenVisitor {
       }
       std::cout << "\n";
     }
+    std::cout << "global catch table:\n";
+    for (auto& catch_item : scope_chain[0]->catch_table) {
+      std::cout << "  " << catch_item.description() << '\n';
+    }
+
+    std::cout << "global info:\n";
+    std::cout << " num_local_var: " << std::setw(4) << scope().get_var_count()
+              << " stack_size: " << std::setw(3) << scope().get_max_stack_size()
+              << '\n';
+
     std::cout << "\n";
     std::cout << "============== end codegen result ==============\n\n";
   }
@@ -136,6 +146,8 @@ class CodegenVisitor {
         } else if (inst.is_jump_two_target()) {
           inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
           inst.operand.two.opr2 += pos_moved[inst.operand.two.opr2];
+        } else if (inst.op_type == OpType::proc_call) {
+          inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
         }
         bytecode[new_inst_ptr] = inst;
         new_inst_ptr += 1;
@@ -147,11 +159,15 @@ class CodegenVisitor {
       meta.code_address += pos_moved[meta.code_address];
 
       for (auto& entry : meta.catch_table) {
+        entry.start_pos += pos_moved[entry.start_pos];
+        entry.end_pos += pos_moved[entry.end_pos];
         entry.goto_pos += pos_moved[entry.goto_pos];
       }
     }
 
     for (auto& entry : scope_chain[0]->catch_table) {
+      entry.start_pos += pos_moved[entry.start_pos];
+      entry.end_pos += pos_moved[entry.end_pos];
       entry.goto_pos += pos_moved[entry.goto_pos];
     }
 
@@ -233,6 +249,7 @@ class CodegenVisitor {
         break;
       case ASTNode::AST_STMT_BLOCK:
         node->as_block()->scope->associated_node = node;
+        node->as_block()->scope->set_block_type(BlockType::PLAIN);
         visit_block_statement(*static_cast<Block *>(node), true, _, _, _);
         break;
       case ASTNode::AST_STMT_THROW:
@@ -308,9 +325,7 @@ class CodegenVisitor {
     }
     int deinit_end = int(scope().get_var_next_index() + frame_meta_size);
     // set local `let` and `const` variables to UNINIT.
-    if (deinit_end - deinit_begin != 0) {
-      emit(OpType::var_deinit_range, deinit_begin, deinit_end);
-    }
+    gen_var_deinit_code(deinit_begin, deinit_end);
 
     // begin codegen for inner functions
     codegen_inner_function(program.func_decls);
@@ -349,17 +364,20 @@ class CodegenVisitor {
     }
   }
 
-  void gen_func_bytecode(Function& func, SmallVector<Instruction, 5>& init_code) {
+  void gen_func_bytecode(Function& func, SmallVector<Instruction, 10>& init_code) {
 
     ProgramOrFunctionBody *body = func.body->as_func_body();
     u32 func_start_pos = bytecode_pos();
     push_scope(body->scope.get());
+    if (!func.is_stmt && func.has_name()) {
+      auto res = scope().resolve_symbol(func.name.text);
+      assert(not res.not_found());
+      assert(res.storage_scope == ScopeType::FUNC);
+      emit(OpType::store_curr_func, res.get_index());
+    }
 
     // generate bytecode for function body
     visit_program_or_function_body(*body);
-
-    // Only after visiting the body do we know which variables are captured
-    auto capture_list = std::move(scope().get_capture_list());
 
     // create metadata for function
     u32 func_idx = add_function_meta(JSFunctionMeta {
@@ -374,17 +392,17 @@ class CodegenVisitor {
         .source_line = func.start_line_num(),
         .catch_table = std::move(scope().catch_table)
     });
-    // The rest of the work is done in the scope of the outer function, so pop scope here.
-    pop_scope();
 
     // let the VM make a function
     init_code.emplace_back(OpType::make_func, func_idx);
 
     // capture closure variables
-    for (auto symbol : capture_list) {
+    // Only after visiting the body do we know which variables are captured
+    for (auto symbol : scope().capture_list) {
       init_code.emplace_back(OpType::capture, scope_type_int(symbol.storage_scope),
                              symbol.get_index());
     }
+    pop_scope();
   }
 
   void visit_comma_expr(Expression& expr) {
@@ -400,7 +418,7 @@ class CodegenVisitor {
   }
 
   void visit_function(Function& func) {
-    auto& init_code = scope().get_inner_func_init_code()[&func];
+    auto& init_code = scope().inner_func_init_code[&func];
     for (auto& inst : init_code) {
       emit(inst);
     }
@@ -682,7 +700,7 @@ class CodegenVisitor {
     emit(OpType::make_obj);
     for (auto& prop : obj_lit.properties) {
       // push the key into the stack
-      emit(OpType::push_atom, (int)add_const(prop.key.text));
+      emit(OpType::push_atom, (int)add_const(prop.key));
       // push the value into the stack
       visit(prop.value);
     }
@@ -833,11 +851,11 @@ class CodegenVisitor {
   }
 
   void visit_return_statement(ReturnStatement& return_stmt) {
+    gen_call_finally_code(&scope(), scope().get_outer_func());
     // TODO: can make a `return undefined` instruction
     if (return_stmt.expr) {
       visit(return_stmt.expr);
-    }
-    else {
+    } else {
       emit(OpType::push_undef);
     }
     emit(OpType::ret);
@@ -850,7 +868,6 @@ class CodegenVisitor {
     for (u32 idx : true_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
-    // emit(OpType::pop_drop);
 
     if (stmt.then_block->is_valid_in_single_stmt_ctx()) {
       visit_single_statement(stmt.then_block);
@@ -866,11 +883,6 @@ class CodegenVisitor {
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
-
-    // we don't really `pop_drop` twice, we just `pop_drop` in each branch.
-    // To compensate, here 1 is added back.
-    // scope().update_stack_usage(1);
-    // emit(OpType::pop_drop);
 
     if (stmt.else_block) {
       if (stmt.else_block->is_valid_in_single_stmt_ctx()) {
@@ -923,12 +935,12 @@ class CodegenVisitor {
     for (u32 idx : true_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
     }
-    // emit(OpType::pop_drop);
 
     bool body_is_block = false;
     if (stmt.body_stmt->is_block()) {
       body_is_block = true;
       stmt.body_stmt->as_block()->scope->associated_node = &stmt;
+      stmt.body_stmt->as_block()->scope->set_block_type(BlockType::WHILE);
       visit_block_statement(*stmt.body_stmt->as<Block>(), false, _, _, _);
     }
     else if (stmt.body_stmt->is_valid_in_single_stmt_ctx()) {
@@ -945,9 +957,6 @@ class CodegenVisitor {
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
-
-    // scope().update_stack_usage(1);
-    // emit(OpType::pop_drop);
 
     for (u32 idx : scope().break_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
@@ -967,14 +976,11 @@ class CodegenVisitor {
     scope().can_continue = true;
     scope().can_break = true;
 
-    // emit(OpType::jmp, bytecode_pos() + 2); // jump over the `pop_drop`
     u32 loop_start = bytecode_pos();
-
-    // scope().update_stack_usage(1);
-    // emit(OpType::pop_drop);
 
     if (stmt.body_stmt->is_block()) [[likely]] {
       stmt.body_stmt->as_block()->scope->associated_node = &stmt;
+      stmt.body_stmt->as_block()->scope->set_block_type(BlockType::DO_WHILE);
       visit_block_statement(*stmt.body_stmt->as_block(), false, _, _, _);
     }
     else if (stmt.body_stmt->is_valid_in_single_stmt_ctx()) {
@@ -1035,7 +1041,7 @@ class CodegenVisitor {
           extra_var.emplace_back(decl->id.text, var_stmt->kind);
           scope().define_symbol(var_stmt->kind, decl->id.text);
         }
-        extra_var_range = scope().get_var_index_range();
+        extra_var_range = scope().get_var_index_range(frame_meta_size);
       }
 
       if (init_expr->is(ASTNode::AST_STMT_VAR)) {
@@ -1067,7 +1073,6 @@ class CodegenVisitor {
       for (u32 idx : true_list) {
         bytecode[idx].operand.two.opr1 = bytecode_pos();
       }
-      // emit(OpType::pop_drop);
     };
 
     auto epilog = [&, this] {
@@ -1102,10 +1107,12 @@ class CodegenVisitor {
       if (stmt.body_stmt->is_block()) {
         body_is_block = true;
         stmt.body_stmt->as_block()->scope->associated_node = &stmt;
+        stmt.body_stmt->as_block()->scope->set_block_type(BlockType::FOR);
         visit_block_statement(*stmt.body_stmt->as<Block>(), false, init, prolog, epilog);
       } else {
         Scope fake_scope(ScopeType::BLOCK, &scope());
         fake_scope.associated_node = &stmt;
+        fake_scope.set_block_type(BlockType::FOR);
         push_scope(&fake_scope);
         init();
         prolog();
@@ -1123,9 +1130,6 @@ class CodegenVisitor {
     for (u32 idx : false_list) {
       bytecode[idx].operand.two.opr2 = bytecode_pos();
     }
-
-    // outer_scope.update_stack_usage(1);
-    // emit(OpType::pop_drop);
 
     for (u32 idx : outer_scope.break_list) {
       bytecode[idx].operand.two.opr1 = bytecode_pos();
@@ -1231,10 +1235,12 @@ class CodegenVisitor {
       if (stmt.body_stmt->is_block()) {
         body_is_block = true;
         stmt.body_stmt->as_block()->scope->associated_node = &stmt;
+        stmt.body_stmt->as_block()->scope->set_block_type(BlockType::FOR_IN);
         visit_block_statement(*stmt.body_stmt->as<Block>(), false, init, prolog, epilog);
       } else {
         Scope fake_scope(ScopeType::BLOCK, &scope());
         fake_scope.associated_node = &stmt;
+        fake_scope.set_block_type(BlockType::FOR_IN);
         push_scope(&fake_scope);
         init();
         prolog();
@@ -1271,6 +1277,7 @@ class CodegenVisitor {
     scope().can_break = true;
     push_scope(stmt.scope.get());
     scope().associated_node = &stmt;
+    scope().set_block_type(BlockType::SWITCH);
 
     u32 deinit_begin = scope().get_var_next_index();
     for (VarStatement *var_stmt : stmt.lexical_var_def) {
@@ -1285,10 +1292,7 @@ class CodegenVisitor {
       }
     }
     u32 deinit_end = scope().get_var_next_index();
-
-    if (deinit_end - deinit_begin != 0) {
-      emit(OpType::var_deinit_range, deinit_begin, deinit_end);
-    }
+    gen_var_deinit_code(deinit_begin, deinit_end);
 
     codegen_inner_function(stmt.func_decls);
 
@@ -1345,67 +1349,118 @@ class CodegenVisitor {
     visit(stmt.statement);
   }
 
+  void gen_call_finally_code(Scope *curr, Scope *end) {
+    while (curr != end) {
+      assert(curr->get_type() == ScopeType::BLOCK);
+      auto block_type = curr->get_block_type();
+      auto *outer = curr->get_outer();
+      if (block_type == BlockType::TRY_FINALLY || block_type == BlockType::CATCH_FINALLY) {
+        outer->call_procedure_list.push_back(emit_keep_stack(OpType::proc_call));
+      }
+      curr = outer;
+    }
+  }
+
   void visit_continue_break_statement(ContinueOrBreak& stmt) {
 
-    auto resolve_label = [this] (u16string_view label) {
-      using ResolveResult = Scope::LabelResolveResult;
-      ResolveResult res;
-      Scope *scope_iter = &scope();
-      while (true) {
-        auto scope_type = scope_iter->get_type();
-        if (scope_type == ScopeType::GLOBAL || scope_type == ScopeType::FUNC) {
-          break;
-        }
-        auto node = scope_iter->associated_node;
+    auto resolve_label = [] (Scope *scope, u16string_view label) {
+      Scope::ControlRedirectResult res;
+      while (scope->get_type() == ScopeType::BLOCK) {
+        auto node = scope->associated_node;
         assert(node);
         if (node->label == label) {
           if (node->is_loop() || node->is_block()) {
             res.found = true;
-            res.label_scope = scope_iter;
+            res.target_scope = scope;
           }
           break;
         }
         // these two kind of statements put 1 value on the operand stack,
         // which is the iterator object.
-        if (node->is(ASTNode::AST_STMT_FOR_IN) || node->is(ASTNode::AST_STMT_SWITCH)) {
+        if (node->is(ASTNode::AST_STMT_FOR_IN)
+            || node->is(ASTNode::AST_STMT_SWITCH)
+            || scope->get_block_type() == BlockType::FINALLY_NORM) {
           res.stack_drop_cnt += 1;
         }
-        scope_iter = scope_iter->get_outer();
+        scope = scope->get_outer();
       }
       return res;
     };
 
-    auto resolve_break_loop = [this] () -> SmallVector<u32, 3>* {
-      Scope *scope_iter = &scope();
+    auto resolve_break_usual = [] (Scope *scope) {
+      Scope::ControlRedirectResult res;
       bool meet_loop_or_switch = false;
       while (true) {
-        if (scope_iter->can_break && meet_loop_or_switch) {
-          return &scope_iter->break_list;
-        } else if (scope_iter->get_type() == ScopeType::BLOCK && scope_iter->get_outer()) {
-          meet_loop_or_switch |= scope_iter->associated_node->is_loop();
-          meet_loop_or_switch |= scope_iter->associated_node->is(ASTNode::AST_STMT_SWITCH);
-          scope_iter = scope_iter->get_outer();
+        if (scope->can_break && meet_loop_or_switch) {
+          res.found = true;
+          res.target_scope = scope;
+          return res;
+        } else if (scope->get_type() == ScopeType::BLOCK) {
+          meet_loop_or_switch |= scope->associated_node->is_loop();
+          meet_loop_or_switch |= scope->associated_node->is(ASTNode::AST_STMT_SWITCH);
+          if (scope->get_block_type() == BlockType::FINALLY_NORM) {
+            res.stack_drop_cnt += 1;
+          }
+          scope = scope->get_outer();
+          assert(scope);
         } else {
-          return nullptr;
+          return res;
         }
       }
     };
 
+    auto resolve_continue_usual = [] (Scope *scope) {
+      Scope::ControlRedirectResult res;
+      auto prev_node_type = ASTNode::AST_ILLEGAL;
+      while (true) {
+        if (scope->can_continue) {
+          res.found = true;
+          res.target_scope = scope;
+          // no need to drop if we are going to continue this `for-in` loop
+          if (prev_node_type == ASTNode::AST_STMT_FOR_IN) {
+            res.stack_drop_cnt -= 1;
+          }
+          return res;
+        }
+        else if (scope->get_type() == ScopeType::BLOCK) {
+          auto node = scope->associated_node;
+          assert(node);
+          if (node->is(ASTNode::AST_STMT_FOR_IN)
+              || node->is(ASTNode::AST_STMT_SWITCH)
+              || scope->get_block_type() == BlockType::FINALLY_NORM) {
+            res.stack_drop_cnt += 1;
+          }
+          prev_node_type = node->type;
+          scope = scope->get_outer();
+          assert(scope);
+        }
+        else {
+          return res;
+        }
+      }
+    };
+
+
     if (stmt.type == ASTNode::AST_STMT_CONTINUE) {
       Scope *continue_scope;
       if (stmt.id.is(TokenType::NONE)) [[likely]] {
-        continue_scope = scope().resolve_continue_scope();
+        auto resolve_res = resolve_continue_usual(&scope());
+        assert(resolve_res.found);
+        continue_scope = resolve_res.target_scope;
 
         gen_var_dispose_code_recursive(&scope(), [] (Scope *s) {
           return !s->is_continue_target && !s->can_continue;
         });
+        for (int i = 0; i < resolve_res.stack_drop_cnt; i++) {
+          emit_keep_stack(OpType::pop_drop);
+        }
       }
       // continue to a label
       else {
-        auto resolve_res = resolve_label(stmt.id.text);
+        auto resolve_res = resolve_label(&scope(), stmt.id.text);
         if (resolve_res.found) [[likely]] {
           // continue to a block is not allowed
-          if (resolve_res.label_scope->associated_node->is_block()) [[unlikely]] {
+          if (resolve_res.target_scope->associated_node->is_block()) [[unlikely]] {
             report_error(CodegenError {
                 .message = "Illegal continue statement: '" + to_u8string(stmt.id.text)
                            + "' does not denote an iteration statement",
@@ -1413,13 +1468,14 @@ class CodegenVisitor {
             });
             return;
           }
+          continue_scope = resolve_res.target_scope->get_outer();
+
           gen_var_dispose_code_recursive(&scope(), [&] (Scope *s) {
-            return !(s == resolve_res.label_scope);
+            return !(s == resolve_res.target_scope);
           });
           for (int i = 0; i < resolve_res.stack_drop_cnt; i++) {
-            emit(OpType::pop_drop);
+            emit_keep_stack(OpType::pop_drop);
           }
-          continue_scope = resolve_res.label_scope->get_outer();
         } else {
           report_error(CodegenError {
               .message = "Undefined label " + to_u8string(stmt.id.text),
@@ -1429,6 +1485,7 @@ class CodegenVisitor {
         }
       }
       assert(continue_scope);
+      gen_call_finally_code(&scope(), continue_scope);
       if (continue_scope->continue_pos != -1) {
         emit(OpType::jmp, u32(continue_scope->continue_pos));
       } else {
@@ -1437,25 +1494,25 @@ class CodegenVisitor {
     }
     // break
     else {
-      SmallVector<u32, 3> *break_list;
+//      SmallVector<u32, 3> *break_list;
+      Scope *break_scope;
       if (stmt.id.is(TokenType::NONE)) [[likely]] {
         gen_var_dispose_code_recursive(&scope(), [] (Scope *s) {
           return !s->is_break_target && !s->can_break;
         });
-
-        break_list = resolve_break_loop();
+        break_scope = resolve_break_usual(&scope()).target_scope;
       }
       // break to a label
       else {
-        auto resolve_res = resolve_label(stmt.id.text);
+        auto resolve_res = resolve_label(&scope(), stmt.id.text);
         if (resolve_res.found) [[likely]] {
           gen_var_dispose_code_recursive(&scope(), [&] (Scope *s) {
-            return !(s == resolve_res.label_scope);
+            return !(s == resolve_res.target_scope);
           });
           for (int i = 0; i < resolve_res.stack_drop_cnt; i++) {
-            emit(OpType::pop_drop);
+            emit_keep_stack(OpType::pop_drop);
           }
-          break_list = &resolve_res.label_scope->get_outer()->break_list;
+          break_scope = resolve_res.target_scope->get_outer();
         } else {
           report_error(CodegenError {
               .message = "Undefined label " + to_u8string(stmt.id.text),
@@ -1464,19 +1521,20 @@ class CodegenVisitor {
           return;
         }
       }
-      assert(break_list);
-      break_list->push_back(emit(OpType::jmp));
+      assert(break_scope);
+      gen_call_finally_code(&scope(), break_scope);
+      break_scope->break_list.push_back(emit(OpType::jmp));
     }
   }
 
   void codegen_inner_function(const vector<Function *>& stmts) {
-    if (scope().get_inner_func_init_code().empty()) return;
+    if (scope().inner_func_init_code.empty()) return;
 
     u32 jmp_inst_idx = emit(OpType::jmp);
 
     // generate bytecode for functions first, then record its function meta index in the map.
-    for (auto& [func, init_code] : scope().get_inner_func_init_code()) {
-      gen_func_bytecode(*func, init_code);
+    for (Function *func : scope().inner_func_order) {
+      gen_func_bytecode(*func, scope().inner_func_init_code[func]);
     }
     // skip function bytecode
     bytecode[jmp_inst_idx].operand.two.opr1 = bytecode_pos();
@@ -1511,7 +1569,6 @@ class CodegenVisitor {
   void visit_block_statement(Block& block, bool dispose_var,
                              const F1& init, const F2& prolog, const F3& epilog) {
 
-    if (not block.label.empty()) scope().can_break = true;
     push_scope(block.scope.get());
     init();
 
@@ -1534,10 +1591,7 @@ class CodegenVisitor {
     u32 deinit_end = scope().get_var_next_index();
 
     prolog();
-
-    if (deinit_end - deinit_begin != 0) {
-      emit(OpType::var_deinit_range, deinit_begin, deinit_end);
-    }
+    gen_var_deinit_code(deinit_begin, deinit_end);
 
     // begin codegen for inner functions
     codegen_inner_function(block.func_decls);
@@ -1547,14 +1601,16 @@ class CodegenVisitor {
     }
 
     epilog();
-    for (u32 idx : scope().get_outer()->break_list) {
-      bytecode[idx].operand.two.opr1 = bytecode_pos();
+
+    if (not block.label.empty()) {
+      for (u32 idx : scope().get_outer()->break_list) {
+        bytecode[idx].operand.two.opr1 = bytecode_pos();
+      }
+      scope().get_outer()->break_list.clear();
     }
-    scope().get_outer()->break_list.clear();
     // dispose the scope variables after leaving the block scope
     if (dispose_var) gen_var_dispose_code(scope());
     pop_scope();
-    scope().can_break = false;
   }
 
   template <typename Func>
@@ -1573,16 +1629,23 @@ class CodegenVisitor {
   }
 
   void gen_var_dispose_code(Scope& scope) {
-    auto [disp_begin, disp_end] = scope.get_var_index_range();
+    auto [disp_begin, disp_end] = scope.get_var_index_range(frame_meta_size);
     gen_var_dispose_code(disp_begin, disp_end);
   }
 
   void gen_var_dispose_code(u32 begin, u32 end) {
-    
     if (end - begin == 1) {
       emit(OpType::var_dispose, begin);
     } else if (end - begin > 1) {
       emit(OpType::var_dispose_range, begin, end);
+    }
+  }
+
+  void gen_var_deinit_code(u32 begin, u32 end) {
+    if (end - begin == 1) {
+      emit(OpType::var_deinit, begin);
+    } else if (end - begin > 1) {
+      emit(OpType::var_deinit_range, begin, end);
     }
   }
 
@@ -1592,22 +1655,23 @@ class CodegenVisitor {
     bool has_catch = stmt.catch_block != nullptr;
     bool has_finally = stmt.finally_block != nullptr;
     scope().has_try = true;
-
-    // visit the try block to emit bytecode
     u32 try_start = bytecode_pos();
     // reserve a stack element for exception
     scope().update_stack_usage(1);
-    stmt.try_block->as_block()->scope->associated_node = &stmt;
-    visit_block_statement(*stmt.try_block->as_block(), true, _, _, _);
+
+    Block *try_blk = stmt.try_block->as_block();
+    try_blk->scope->associated_node = &stmt;
+    try_blk->scope->set_block_type(has_finally ? BlockType::TRY_FINALLY : BlockType::TRY);
+    visit_block_statement(*try_blk, true, _, _, _);
+
     u32 try_end = bytecode_pos() - 1;
-
-    // We are going to record the address of the variables in the try block.
-    // When an exception happens, we should dispose the variables in this block.
-    u32 var_dispose_start = scope().get_var_next_index() + frame_meta_size;
-    u32 var_dispose_end = stmt.try_block->as_block()->scope->get_var_count() + frame_meta_size;
-
     scope().has_try = false;
 
+    SmallVector<u32, 2> proc_call_inst;
+    if (has_finally) {
+      // this will call the `finally2`.
+      proc_call_inst.push_back(emit(OpType::proc_call));
+    }
     u32 try_end_jmp = emit(OpType::jmp);
     u32 catch_or_finally_pos = try_end_jmp + 1;
 
@@ -1619,8 +1683,11 @@ class CodegenVisitor {
     // also, any error in the try block will jump here. So we should add a catch table entry.
     auto& catch_table = scope().get_outer_func()->catch_table;
     catch_table.emplace_back(try_start, try_end, catch_or_finally_pos);
-    catch_table.back().local_var_begin = var_dispose_start;
-    catch_table.back().local_var_end = var_dispose_end;
+    // We are going to record the address of the variables in the try block.
+    // When an exception happens, we should dispose the variables in this block.
+    pair<u32, u32> var_range = try_blk->scope->get_var_index_range(frame_meta_size);
+    catch_table.back().local_var_begin = var_range.first;
+    catch_table.back().local_var_end = var_range.second;
 
     // in the case of `catch (a) ...`, we are going to store the top-of-stack value to a local
     // variable. The variable is defined as `let` inside the catch block. And since it is the
@@ -1634,22 +1701,28 @@ class CodegenVisitor {
       }
     }
 
+    u32 catch_end_jmp;
     if (has_catch) {
       u32 catch_start = bytecode_pos();
-      var_dispose_start = scope().get_var_next_index() + frame_meta_size;
 
       auto init = [&, this] () {
         if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
           scope().define_symbol(VarKind::DECL_LET, stmt.catch_ident.text);
         }
       };
-      stmt.catch_block->as_block()->scope->associated_node = &stmt;
-      visit_block_statement(*stmt.catch_block->as_block(), true, init, _, _);
+      Block *catch_blk = stmt.catch_block->as_block();
+      catch_blk->scope->associated_node = &stmt;
+      catch_blk->scope->set_block_type(has_finally ? BlockType::CATCH_FINALLY : BlockType::CATCH);
+      if (has_finally) scope().has_try = true;
+      visit_block_statement(*catch_blk, true, init, _, _);
+      if (has_finally) scope().has_try = false;
 
-      var_dispose_end = stmt.catch_block->as_block()->scope->get_var_count() + frame_meta_size;
       u32 catch_end = bytecode_pos() - 1;
 
       if (has_finally) {
+        // this will call the `finally2`.
+        proc_call_inst.push_back(emit_keep_stack(OpType::proc_call));
+        catch_end_jmp = emit(OpType::jmp);
         // the `throw` in the `catch` block should go here
         u32 finally1_start = bytecode_pos();
 
@@ -1659,22 +1732,37 @@ class CodegenVisitor {
         scope().throw_list.clear();
 
         catch_table.emplace_back(catch_start, catch_end, finally1_start);
-        catch_table.back().local_var_begin = var_dispose_start;
-        catch_table.back().local_var_end = var_dispose_end;
+        var_range = catch_blk->scope->get_var_index_range(frame_meta_size);
+        catch_table.back().local_var_begin = var_range.first;
+        catch_table.back().local_var_end = var_range.second;
       }
     }
 
     if (has_finally) {
       // finally1. If there is error in the try block (without catch) or in the catch block, go here.
-      stmt.finally_block->as_block()->scope->associated_node = &stmt;
-      visit_block_statement(*stmt.finally_block->as_block(), true, _, _, _);
-      scope().throw_list.push_back(emit(OpType::jmp));
+      Block *finally_blk = stmt.finally_block->as_block();
+      finally_blk->scope->associated_node = &stmt;
+      finally_blk->scope->set_block_type(BlockType::FINALLY_ECPT);
+      visit_block_statement(*finally_blk, true, _, _, _);
+      scope().resolve_throw_list()->push_back(emit(OpType::jmp));
 
-      bytecode[try_end_jmp].operand.two.opr1 = bytecode_pos();
+      u32 finally2_start = bytecode_pos();
+      for (u32 idx : proc_call_inst) {
+        bytecode[idx].operand.two.opr1 = finally2_start;
+      }
+      for (u32 idx : scope().call_procedure_list) {
+        bytecode[idx].operand.two.opr1 = finally2_start;
+      }
+      scope().call_procedure_list.clear();
       // finally2
-      visit_block_statement(*stmt.finally_block->as_block(), true, _, _, _);
-    } else {
-      bytecode[try_end_jmp].operand.two.opr1 = bytecode_pos();
+      finally_blk->scope->set_block_type(BlockType::FINALLY_NORM);
+      visit_block_statement(*finally_blk, true, _, _, _);
+      emit(OpType::proc_ret);
+    }
+
+    bytecode[try_end_jmp].operand.two.opr1 = bytecode_pos();
+    if (has_catch && has_finally) {
+      bytecode[catch_end_jmp].operand.two.opr1 = bytecode_pos();
     }
   }
 
@@ -1737,6 +1825,12 @@ class CodegenVisitor {
   template <typename... Args>
   u32 emit(OpType inst_type, Args&&...args) {
     update_stack_usage_common(inst_type);
+    bytecode.emplace_back(inst_type, std::forward<Args>(args)...);
+    return bytecode.size() - 1;
+  }
+
+  template <typename... Args>
+  u32 emit_keep_stack(OpType inst_type, Args&&...args) {
     bytecode.emplace_back(inst_type, std::forward<Args>(args)...);
     return bytecode.size() - 1;
   }

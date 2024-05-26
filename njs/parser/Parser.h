@@ -13,6 +13,7 @@
 #include "njs/parser/Lexer.h"
 #include "njs/utils/helper.h"
 #include "njs/common/Defer.h"
+#include "njs/basic_types/conversion.h"
 
 #define START_POS u32 start = lexer.current().start, line_start = lexer.current().line
 #define RENEW_START start = lexer.current().start; line_start = lexer.current().line
@@ -128,8 +129,7 @@ error:
     if (func_keyword_required) {
       assert(token_match(u"function"));
       lexer.next();
-    }
-    else {
+    } else {
       assert(lexer.current().is_identifier());
     }
 
@@ -151,6 +151,11 @@ error:
     }
 
     push_scope(ScopeType::FUNC);
+    // allow function expression to be able to self-reference using its *name*.
+    if (!is_stmt && name.is_identifier()) {
+      bool res = scope().define_symbol(VarKind::DECL_FUNCTION, name.text);
+      if (!res) std::cout << "!!!!define symbol " << name.get_text_utf8() << " failed" << '\n';
+    }
 
     if (!parse_formal_parameter_list(params)) {
       goto error;
@@ -163,7 +168,6 @@ error:
     lexer.next();
     body = parse_function_body();
     if (body->is_illegal()) return body;
-
     if (!token_match(TokenType::RIGHT_BRACE)) {
       delete body;
       goto error;
@@ -216,6 +220,18 @@ error:
   ASTNode* parse_object_literal() {
     using ObjectProp = ObjectLiteral::Property;
 
+    auto token_to_prop_name = [this] (const Token& token) {
+      u16string prop_name;
+      if (token.is_identifier_name()) {
+        prop_name = token.text;
+      } else if (token.type == Token::STRING) {
+        prop_name = std::move(lexer.get_string_val());
+      } else if (token.type == Token::NUMBER) {
+        prop_name = double_to_u16string(lexer.get_number_val());
+      }
+      return prop_name;
+    };
+
     START_POS;
     assert(token_match(TokenType::LEFT_BRACE));
 
@@ -223,6 +239,7 @@ error:
     Token token = lexer.next();
     while (token.type != TokenType::RIGHT_BRACE) {
       if (token.is_property_name()) {
+        u16string prop_name = token_to_prop_name(token);
         // Ordinary proprietary syntax: key: value
         if (lexer.peek().type == TokenType::COLON) {
           lexer.next();
@@ -232,7 +249,7 @@ error:
             delete obj;
             return value;
           }
-          obj->set_property(ObjectProp(token, value, ObjectProp::NORMAL));
+          obj->set_property(ObjectProp(prop_name, value, ObjectProp::NORMAL));
         }
         // ES6+ simplified function syntax
         else if (lexer.peek().type == TokenType::LEFT_PAREN) {
@@ -241,26 +258,23 @@ error:
             delete obj;
             return func;
           }
-          obj->set_property(ObjectProp(token, func, ObjectProp::NORMAL));
+          obj->set_property(ObjectProp(prop_name, func, ObjectProp::NORMAL));
         }
         // getter or setter
         else if ((token.text == u"get" || token.text == u"set") && lexer.peek().is_property_name()) {
           START_POS;
           ObjectProp::Type type = token.text == u"get" ? ObjectLiteral::Property::GETTER
                                                        : ObjectLiteral::Property::SETTER;
-          Token key = lexer.next();
+          prop_name = token_to_prop_name(lexer.next());
 
-          // alternatives can be:
           // get prop() { ... }
-          // get() { ... }
-          ASTNode* get_set_func = parse_function(/*name_required*/false,
+          ASTNode* get_set_func = parse_function(/*name_required*/true,
                                                  /*func_keyword_required*/ false, false);
           if (get_set_func->is_illegal()) {
             delete obj;
             return get_set_func;
           }
-
-          obj->set_property(ObjectProp(key, get_set_func, type));
+          obj->set_property(ObjectProp(prop_name, get_set_func, type));
         }
         else {
           goto error;
@@ -1337,7 +1351,7 @@ error:
     scope_chain.emplace_back(std::make_unique<Scope>(scope_type, parent));
 
 #ifdef DBG_SCOPE
-    std::cout << ">>>> push scope: " << scope().get_scope_type_name() << "\n\n";
+    std::cout << ">>>> push scope: " << scope().get_type_name() << "\n\n";
 #endif
   }
 
@@ -1346,7 +1360,7 @@ error:
     unique_ptr<Scope> scope = std::move(scope_chain.back());
     scope_chain.pop_back();
 #ifdef DBG_SCOPE
-    std::cout << "<<<< pop scope: " << scope->get_scope_type_name() << '\n';
+    std::cout << "<<<< pop scope: " << scope->get_type_name() << '\n';
     std::cout << "  params count: " << scope->get_param_count()
               << ", local variables count (accumulated): " << scope->get_var_count() << '\n';
     std::cout << "  local variables in this scope:\n";

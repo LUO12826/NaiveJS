@@ -448,6 +448,12 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         }
         break;
       }
+      case OpType::store_curr_func:
+        local_vars[OPR1] = JSValue(callee);
+        break;
+      case OpType::var_deinit:
+        local_vars[OPR1].tag = JSValue::UNINIT;
+        break;
       case OpType::var_deinit_range:
         for (int i = OPR1; i < OPR2; i++) {
           local_vars[i].tag = JSValue::UNINIT;
@@ -543,6 +549,17 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         exec_call(sp, OPR1, bool(OPR2), nullptr);
         break;
       }
+      case OpType::proc_call:
+        sp[1].tag = JSValue::PROC_META;
+        sp[1].flag_bits = pc;
+        sp += 1;
+        pc = OPR1;
+        break;
+      case OpType::proc_ret:
+        assert(sp[0].is(JSValue::PROC_META));
+        pc = sp[0].flag_bits;
+        sp -= 1;
+        break;
       case OpType::js_new:
         exec_js_new(sp, OPR1);
         break;
@@ -869,16 +886,19 @@ JSValue NjsVM::exec_typeof(JSValue val) {
 void NjsVM::exec_add(SPRef sp) {
   if (sp[-1].is_float64() && sp[0].is_float64()) {
     sp[-1].val.as_f64 += sp[0].val.as_f64;
-    sp[0].set_undefined();
-    sp -= 1;
-    return;
   }
-  else if (sp[-1].is(JSValue::STRING) && sp[0].is(JSValue::STRING)) {
+  else if (sp[-1].is_prim_string() && sp[0].is_prim_string()) {
     auto *new_str = heap.new_object<PrimitiveString>(
         sp[-1].val.as_prim_string->str + sp[0].val.as_prim_string->str
     );
-
-    sp[-1].set_undefined();
+    sp[-1].set_val(new_str);
+  }
+  else if (sp[-1].is_prim_string() || sp[0].is_prim_string()) {
+    JSValue lhs = js_to_string(*this, sp[-1]).get_value();
+    JSValue rhs = js_to_string(*this, sp[0]).get_value();
+    auto *new_str = heap.new_object<PrimitiveString>(
+        lhs.val.as_prim_string->str + rhs.val.as_prim_string->str
+    );
     sp[-1].set_val(new_str);
   }
   sp[0].set_undefined();
@@ -1371,7 +1391,6 @@ void NjsVM::error_handle(SPRef sp) {
   auto frame = curr_frame;
   u32& pc = *frame->pc_ref;
 
-  // TODO: check this
   u32 err_throw_pc = pc - 1;
   auto& catch_table = this_func->meta.catch_table;
   assert(catch_table.size() >= 1);

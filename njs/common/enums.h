@@ -31,12 +31,19 @@ enum class ScopeType {
 enum class BlockType {
   NOT_BLOCK,
   PLAIN,
-  IF,
+  IF_THEN,
+  IF_ELSE,
   FOR,
+  FOR_IN,
   WHILE,
+  DO_WHILE,
   SWITCH,
   TRY,
-  CATCH
+  TRY_FINALLY,
+  CATCH,
+  CATCH_FINALLY,
+  FINALLY_NORM,
+  FINALLY_ECPT,
 };
 
 inline ScopeType scope_type_from_int(int val) {

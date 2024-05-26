@@ -147,8 +147,14 @@ std::string Instruction::description() const {
     case OpType::store_check:
       sprintf(buffer, "store_check  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
+    case OpType::store_curr_func:
+      sprintf(buffer, "store_curr_func  %d", OPR1);
+      break;
     case OpType::prop_assign:
       sprintf(buffer, "prop_assign %s", (bool)OPR1 ? "(need value)" : "");
+      break;
+    case OpType::var_deinit:
+      sprintf(buffer, "var_deinit  %d", OPR1);
       break;
     case OpType::var_deinit_range:
       sprintf(buffer, "var_deinit_range  %d %d", OPR1, OPR2);
@@ -279,6 +285,12 @@ std::string Instruction::description() const {
     case OpType::ret_err:
       sprintf(buffer, "ret_err");
       break;
+    case OpType::proc_call:
+      sprintf(buffer, "proc_call  at:%d", OPR1);
+      break;
+    case OpType::proc_ret:
+      sprintf(buffer, "proc_ret");
+      break;
     case OpType::halt:
       sprintf(buffer, "halt");
       break;
@@ -355,6 +367,7 @@ int Instruction::get_stack_usage(OpType op_type) {
       return 0;
     case OpType::prop_assign:
       return -2;
+    case OpType::var_deinit:
     case OpType::var_deinit_range:
     case OpType::var_undef:
     case OpType::loop_var_renew:
@@ -414,6 +427,10 @@ int Instruction::get_stack_usage(OpType op_type) {
     case OpType::js_new:  // need special handling
     case OpType::iter_end_jmp: // need special handling
       return 0;
+    case OpType::proc_call:
+      return 1;
+    case OpType::proc_ret:
+      return -1;
     default:
       return 0;
   }

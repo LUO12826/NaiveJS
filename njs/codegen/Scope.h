@@ -54,10 +54,10 @@ class Scope {
     u32 index;
   };
 
-  struct LabelResolveResult {
+  struct ControlRedirectResult {
     bool found {false};
     u32 stack_drop_cnt {0};
-    Scope *label_scope {nullptr};
+    Scope *target_scope {nullptr};
   };
 
   Scope(): scope_type(ScopeType::GLOBAL) {}
@@ -73,7 +73,7 @@ class Scope {
     this->block_type = type;
   }
 
-  std::string get_scope_type_name() {
+  std::string get_type_name() {
     return scope_type_names[static_cast<int>(scope_type)];
   }
 
@@ -122,7 +122,8 @@ class Scope {
   }
 
   void register_function(Function *func) {
-    inner_func_init_code.emplace(func, SmallVector<Instruction, 5>());
+    inner_func_order.push_back(func);
+    inner_func_init_code.emplace(func, SmallVector<Instruction, 10>());
   }
 
   void set_outer(Scope *outer) {
@@ -152,14 +153,6 @@ class Scope {
 
   unordered_map<u16string_view, SymbolRecord>& get_symbol_table() {
     return symbol_table;
-  }
-
-  unordered_map<Function *, SmallVector<Instruction, 5>>& get_inner_func_init_code() {
-    return inner_func_init_code;
-  }
-
-  SmallVector<SymbolResolveResult, 5>& get_capture_list() {
-    return capture_list;
   }
 
   Scope *get_outer_func() {
@@ -312,10 +305,6 @@ class Scope {
   int max_stack_size {0};
   int curr_stack_size {0};
 
-  // for function scope
-  SmallVector<SymbolResolveResult, 5> capture_list;
-  unordered_map<Function *, SmallVector<Instruction, 5>> inner_func_init_code;
-
  public:
   int64_t continue_pos {-1};
   // If this is set to true, that means this scope is the scope that directly contains a
@@ -332,8 +321,15 @@ class Scope {
   SmallVector<u32, 3> continue_list;
   SmallVector<u32, 3> throw_list;
   SmallVector<CatchTableEntry, 3> catch_table;
+  // for try-catch-finally
+  SmallVector<u32, 3> call_procedure_list;
   // only function or global has this
   SmallVector<u16string_view, 3> label_stack;
+
+  // for function scope
+  SmallVector<SymbolResolveResult, 5> capture_list;
+  unordered_map<Function*, SmallVector<Instruction, 10>> inner_func_init_code;
+  SmallVector<Function*, 3> inner_func_order;
 };
 
 inline Scope::SymbolResolveResult  Scope::SymbolResolveResult::none = SymbolResolveResult();

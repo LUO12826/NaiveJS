@@ -48,6 +48,8 @@ friend class NjsVM;
     // Currently only used when need to assign a value to an object's property
     VALUE_HANDLE,
 
+    PROC_META,
+
     NEED_GC_BEGIN,
 
     // Strings and Symbols are stored as pointers in JSValue

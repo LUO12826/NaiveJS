@@ -3,6 +3,14 @@
 
 namespace njs {
 
+/**
+Ask chatGPT:
+Please help me convert the following enumeration values into corresponding C string arrays,
+so that I can easily retrieve their names using the enumeration values as subscripts.
+Please ignore any comments, but keep the blank lines. Please do not add any new enum values.
+*/
+
+
 inline const char *ast_type_names[] = {
     "AST_TOKEN",
     "BEGIN_EXPR",
@@ -161,6 +169,7 @@ inline const char *js_value_tag_names[] = {
     "NUM_INT32",
     "NUM_FLOAT",
     "VALUE_HANDLE",
+    "PROC_META",
     "NEED_GC_BEGIN",
     "STRING",
     "HEAP_VAL",
@@ -184,6 +193,8 @@ inline const char *object_class_names[] = {
     "CLS_ERROR",
     "CLS_DATE",
     "CLS_FUNCTION",
+    "CLS_FOR_IN_ITERATOR",
+    "CLS_ARRAY_ITERATOR",
     "CLS_CUSTOM",
 
     "CLS_OBJECT_PROTO",
@@ -193,6 +204,7 @@ inline const char *object_class_names[] = {
     "CLS_STRING_PROTO",
     "CLS_FUNCTION_PROTO",
     "CLS_ERROR_PROTO",
+    "CLS_ITERATOR_PROTO"
 };
 
 

@@ -63,7 +63,9 @@ enum class OpType {
   pop_drop,
   store,
   store_check,
+  store_curr_func,
   prop_assign,
+  var_deinit,
   var_deinit_range,
   var_undef,
   loop_var_renew,
@@ -115,6 +117,9 @@ enum class OpType {
   js_new,
   ret,
   ret_err,
+  // begin procedure, end procedure
+  proc_call,
+  proc_ret,
 
   halt,
   halt_err,
@@ -152,7 +157,8 @@ struct Instruction {
            || op_type == OpType::jmp_false
            || op_type == OpType::jmp_pop
            || op_type == OpType::jmp_true_pop
-           || op_type == OpType::jmp_false_pop;
+           || op_type == OpType::jmp_false_pop
+           || op_type == OpType::iter_end_jmp;
   }
 
   bool is_jump_two_target() {

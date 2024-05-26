@@ -29,9 +29,9 @@ struct CatchTableEntry {
     if (start_pos == end_pos) {
       ss << "(function root)    " << " goto: " << std::setw(4) << goto_pos;
     } else {
-      ss << "start: " << std::setw(4) << start_pos << " end: " << std::setw(4) << end_pos
-         << " goto: " << std::setw(4) << goto_pos << " var_start: " << std::setw(4) << local_var_begin
-         << " var_end: " << std::setw(4) << local_var_end;
+      ss << "start:" << std::setw(5) << start_pos << "  end:" << std::setw(5) << end_pos
+         << "  goto:" << std::setw(5) << goto_pos << "  var_start:" << std::setw(5) << local_var_begin
+         << "  var_end:" << std::setw(4) << local_var_end;
     }
 
     return ss.str();
