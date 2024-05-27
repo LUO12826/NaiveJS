@@ -3,7 +3,7 @@
 
 #include <string>
 #include "njs/gc/GCObject.h"
-#include "njs/utils/helper.h"
+#include "njs/common/conversion_helper.h"
 
 namespace njs {
 

@@ -5,6 +5,7 @@
 #include <optional>
 #include <utility>
 #include "SymbolRecord.h"
+#include "njs/include/SmallVector.h"
 #include "njs/common/enum_strings.h"
 #include "njs/common/enums.h"
 #include "njs/common/common_def.h"
@@ -52,6 +53,7 @@ class Scope {
     ScopeType storage_scope;
     ScopeType def_scope;
     u32 index;
+    bool is_this_function_name {false};
   };
 
   struct ControlRedirectResult {
@@ -126,6 +128,14 @@ class Scope {
     inner_func_init_code.emplace(func, SmallVector<Instruction, 10>());
   }
 
+  unordered_map<u16string_view, SymbolRecord>& get_symbol_table() {
+    return symbol_table;
+  }
+
+  Scope *get_outer_func() {
+    return outer_func;
+  }
+
   void set_outer(Scope *outer) {
     this->outer_scope = outer;
     if (scope_type == ScopeType::BLOCK) {
@@ -151,26 +161,8 @@ class Scope {
     }
   }
 
-  unordered_map<u16string_view, SymbolRecord>& get_symbol_table() {
-    return symbol_table;
-  }
-
-  Scope *get_outer_func() {
-    return outer_func;
-  }
-
   Scope *get_outer() {
     return outer_scope;
-  }
-
-  Scope *resolve_continue_scope() {
-    if (can_continue) {
-      return this;
-    } else if (scope_type == ScopeType::BLOCK && outer_scope) {
-      return outer_scope->resolve_continue_scope();
-    } else {
-      return nullptr;
-    }
   }
 
   SmallVector<u32, 3> *resolve_throw_list() {

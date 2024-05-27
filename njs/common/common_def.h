@@ -15,5 +15,6 @@ struct CallFlags {
 
 #define JS_NATIVE_FUNC_PARAMS NjsVM& vm, JSFunction& func, JSValue This, ArrayRef<JSValue> args, CallFlags flags
 #define vm_func_This_args_flags NjsVM& vm, JSFunction& func, JSValue This, ArrayRef<JSValue> args, CallFlags flags
+#define JS_NATIVE_FUNC_ARGS vm, func, This, args, flags
 
 #endif //NJS_COMMON_DEF_H

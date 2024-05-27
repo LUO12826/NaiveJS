@@ -3,7 +3,6 @@
 
 #include <cassert>
 #include "njs/parser/unicode.h"
-#include "njs/utils/helper.h"
 
 namespace njs {
 namespace character {

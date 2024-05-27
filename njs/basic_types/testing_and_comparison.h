@@ -7,6 +7,7 @@
 #include "njs/basic_types/JSValue.h"
 #include "njs/basic_types/conversion.h"
 #include "njs/basic_types/JSObject.h"
+#include "njs/common/conversion_helper.h"
 
 namespace njs {
 

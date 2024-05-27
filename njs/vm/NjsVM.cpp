@@ -21,11 +21,24 @@
 #include "njs/basic_types/JSIteratorPrototype.h"
 #include "njs/basic_types/JSForInIterator.h"
 
-#define TRY_AND_HANDLE(expression)                                                            \
+/// try something that produces `Completion`
+#define VM_TRY_COMP(expression)                                                               \
     ({                                                                                        \
         Completion _temp_result = (expression);                                               \
         if (_temp_result.is_throw()) [[unlikely]] {                                           \
           *(++sp) = _temp_result.get_value();                                                 \
+          error_handle(sp);                                                                   \
+          return;                                                                             \
+        }                                                                                     \
+        _temp_result.get_value();                                                             \
+    })
+
+/// try something that produces `ErrorOr<>`
+#define VM_TRY_ERR(expression)                                                                \
+    ({                                                                                        \
+        auto _temp_result = (expression);                                                     \
+        if (_temp_result.is_error()) [[unlikely]] {                                           \
+          *(++sp) = _temp_result.get_error();                                                 \
           error_handle(sp);                                                                   \
           return;                                                                             \
         }                                                                                     \
@@ -884,25 +897,36 @@ JSValue NjsVM::exec_typeof(JSValue val) {
 }
 
 void NjsVM::exec_add(SPRef sp) {
-  if (sp[-1].is_float64() && sp[0].is_float64()) {
-    sp[-1].val.as_f64 += sp[0].val.as_f64;
-  }
-  else if (sp[-1].is_prim_string() && sp[0].is_prim_string()) {
-    auto *new_str = heap.new_object<PrimitiveString>(
-        sp[-1].val.as_prim_string->str + sp[0].val.as_prim_string->str
-    );
-    sp[-1].set_val(new_str);
-  }
-  else if (sp[-1].is_prim_string() || sp[0].is_prim_string()) {
-    JSValue lhs = js_to_string(*this, sp[-1]).get_value();
-    JSValue rhs = js_to_string(*this, sp[0]).get_value();
-    auto *new_str = heap.new_object<PrimitiveString>(
-        lhs.val.as_prim_string->str + rhs.val.as_prim_string->str
-    );
-    sp[-1].set_val(new_str);
-  }
-  sp[0].set_undefined();
+  JSValue& l = sp[-1];
+  JSValue& r = sp[0];
   sp -= 1;
+  if (l.is_float64() && r.is_float64()) {
+    l.val.as_f64 += r.val.as_f64;
+  }
+  else if (l.is_prim_string() && r.is_prim_string()) {
+    auto *new_str = heap.new_object<PrimitiveString>(
+        l.val.as_prim_string->str + r.val.as_prim_string->str
+    );
+    l.set_val(new_str);
+  }
+  else {
+    JSValue lhs = VM_TRY_COMP(js_to_primitive(*this, l));
+    JSValue rhs = VM_TRY_COMP(js_to_primitive(*this, r));
+
+    if (lhs.is_prim_string() || rhs.is_prim_string()) {
+      JSValue lhs_s = VM_TRY_COMP(js_to_string(*this, lhs));
+      JSValue rhs_s = VM_TRY_COMP(js_to_string(*this, rhs));
+      auto *new_str = heap.new_object<PrimitiveString>(
+          lhs_s.val.as_prim_string->str + rhs_s.val.as_prim_string->str
+      );
+      l.set_val(new_str);
+    } else {
+      double lhs_n = VM_TRY_ERR(js_to_number(*this, lhs));
+      double rhs_n = VM_TRY_ERR(js_to_number(*this, rhs));
+      l.set_val(lhs_n + rhs_n);
+    }
+  }
+  sp[1].set_undefined();
 }
 
 void NjsVM::exec_binary(SPRef sp, OpType op_type) {
@@ -1216,7 +1240,7 @@ void NjsVM::exec_get_prop_index(SPRef sp, int keep_obj) {
 
 Completion NjsVM::set_prop_common(JSValue obj, JSValue key, JSValue value) {
   if (obj.is_object()) {
-    auto res = TRY(obj.as_object()->set_property(*this, key, value));
+    auto res = TRY_ERR_COMP(obj.as_object()->set_property(*this, key, value));
     return undefined;
   }
   else if (obj.is_nil()) {
@@ -1291,7 +1315,7 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
   obj = js_to_object(*this, obj).get_value();
   assert(obj.is_object());
   auto iter_key = JSSymbol(AtomPool::k_sym_iterator);
-  JSValue iter_ctor = TRY_COMP(obj.as_object()->get_property(*this, iter_key));
+  JSValue iter_ctor = TRY_COMP_COMP(obj.as_object()->get_property(*this, iter_key));
 
   if (!iter_ctor.is_object()
       || iter_ctor.as_object()->get_class() != CLS_FUNCTION) [[unlikely]] {
@@ -1303,7 +1327,7 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
 Completion NjsVM::for_of_call_next(JSValue iter) {
   assert(iter.is_object());
   auto atom_next = JSAtom(AtomPool::k_next);
-  JSValue next_func = TRY_COMP(iter.as_object()->get_property(*this, atom_next));
+  JSValue next_func = TRY_COMP_COMP(iter.as_object()->get_property(*this, atom_next));
 
   if (!next_func.is_object()
       || next_func.as_object()->get_class() != CLS_FUNCTION) {

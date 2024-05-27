@@ -1,5 +1,6 @@
 #include "NativeFunction.h"
 #include "njs/vm/NjsVM.h"
+#include "njs/basic_types/conversion.h"
 #include "njs/basic_types/JSBoolean.h"
 #include "njs/basic_types/JSNumber.h"
 #include "njs/basic_types/JSString.h"
@@ -10,27 +11,9 @@ namespace njs {
 Completion NativeFunction::Object_ctor(vm_func_This_args_flags) {
   if (args.size() == 0 || args[0].is_nil()) {
     return JSValue(vm.new_object());
+  } else {
+    return js_to_object(vm, args[0]);
   }
-  JSValue arg = args[0];
-
-  if (arg.is_object()) return arg;
-
-  JSObject *obj;
-  switch (arg.tag) {
-    case JSValue::BOOLEAN:
-      obj = vm.heap.new_object<JSBoolean>(vm, arg.val.as_bool);
-      break;
-    case JSValue::NUM_FLOAT:
-      obj = vm.heap.new_object<JSNumber>(vm, arg.val.as_f64);
-      break;
-    case JSValue::STRING:
-      obj = vm.heap.new_object<JSString>(vm, *arg.val.as_prim_string);
-      break;
-    default:
-      assert(false);
-  }
-
-  return JSValue(obj);
 }
 
 Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type) {

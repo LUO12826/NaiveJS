@@ -451,15 +451,12 @@ class CodegenVisitor {
         }
         break;
       case Token::SUB:
-        if (expr.is_prefix_op) {
-          if (expr.operand->is(ASTNode::EXPR_NUMBER)) {
-            emit(Instruction::num_imm(-expr.operand->as_number_literal()->num_val));
-          } else {
-            visit(expr.operand);
-            emit(OpType::neg);
-          }
+        assert(expr.is_prefix_op);
+        if (expr.operand->is(ASTNode::EXPR_NUMBER)) {
+          emit(Instruction::num_imm(-expr.operand->as_number_literal()->num_val));
         } else {
-          assert(false);
+          visit(expr.operand);
+          emit(OpType::neg);
         }
         break;
       case Token::INC:
@@ -1180,7 +1177,7 @@ class CodegenVisitor {
       scope().update_stack_usage(-1);
 
       if (stmt.element_is_id()) {
-        u16str_view id = stmt.get_element_id();
+        auto id = stmt.get_element_id();
         auto sym = scope().resolve_symbol(id);
         bool dynamic = (sym.def_scope == ScopeType::GLOBAL && !sym.is_let_or_const())
                        || sym.not_found();

@@ -29,12 +29,21 @@ class JSObjectPrototype : public JSObject {
   }
 
   static Completion toString(vm_func_This_args_flags) {
-    return vm.new_primitive_string(u"[object Object]");
+    JSObject *obj;
+    if (This.is_object()) [[likely]] {
+      obj = This.as_object();
+    } else {
+      obj = TRY_COMP_COMP(js_to_object(vm, This)).as_object();
+    }
+    u16string res = u"[object ";
+    res += obj->get_class_name();
+    res += u"]";
+    return vm.new_primitive_string(std::move(res));
   }
 
   static Completion toLocaleString(vm_func_This_args_flags) {
     // TODO
-    return vm.new_primitive_string(u"[object Object]");
+    return toString(JS_NATIVE_FUNC_ARGS);
   }
 
   static Completion hasOwnProperty(vm_func_This_args_flags) {

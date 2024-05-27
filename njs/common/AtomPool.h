@@ -1,13 +1,13 @@
 #ifndef NJS_ATOM_POOL_H
 #define NJS_ATOM_POOL_H
 
-#include <string>
-#include <cassert>
-#include <unordered_map>
+#include "njs/basic_types/String.h"
 #include "njs/basic_types/atom.h"
 #include "njs/include/robin_hood.h"
-#include "njs/basic_types/String.h"
-#include "njs/utils/lexing_helper.h"
+#include "njs/parser/lexing_helper.h"
+#include <cassert>
+#include <string>
+#include <unordered_map>
 
 namespace njs {
 

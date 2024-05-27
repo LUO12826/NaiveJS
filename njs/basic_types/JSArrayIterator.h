@@ -50,7 +50,7 @@ class JSArrayIterator : public JSObject {
       done = false;
       if (kind == JSIteratorKind::VALUE) [[likely]] {
         JSValue idx_atom = JSAtom(vm.u32_to_atom(index));
-        value = TRY_COMP(arr.get_property_impl(vm, idx_atom));
+        value = TRY_COMP_COMP(arr.get_property_impl(vm, idx_atom));
       }
       else if (kind == JSIteratorKind::KEY) {
         value = JSValue(double(index));
@@ -61,7 +61,7 @@ class JSArrayIterator : public JSObject {
 
         JSValue idx_atom = JSAtom(vm.u32_to_atom(index));
         tmp_arr.dense_array[0] = JSValue(double(index));
-        tmp_arr.dense_array[1] = TRY_COMP(arr.get_property_impl(vm, idx_atom));
+        tmp_arr.dense_array[1] = TRY_COMP_COMP(arr.get_property_impl(vm, idx_atom));
         value = JSValue(&tmp_arr);
       }
       index += 1;

@@ -64,7 +64,7 @@ class JSArray: public JSObject {
       }
       else {
         if (atom == AtomPool::k_length) {
-          double len = TRY_ERR(js_to_number(vm, val));
+          double len = TRY_ERR_ERR(js_to_number(vm, val));
           int64_t len_int = int64_t(len);
           if (len >= 0 && (double)len_int == len && len_int <= UINT32_MAX) {
             dense_array.resize(len_int);

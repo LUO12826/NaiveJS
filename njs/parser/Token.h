@@ -11,7 +11,7 @@
 #include "njs/common/common_types.h"
 #include "njs/common/enum_strings.h"
 #include "njs/include/robin_hood.h"
-#include "njs/utils/helper.h"
+#include "njs/common/conversion_helper.h"
 
 namespace njs {
 

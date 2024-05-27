@@ -46,6 +46,12 @@ enum ObjClass {
   CLS_ITERATOR_PROTO,
 };
 
+enum ToPrimTypeHint {
+  HINT_DEFAULT,
+  HINT_STRING,
+  HINT_NUMBER,
+};
+
 struct PropFlag {
   bool in_def_mode: 1 {false};
 
@@ -226,8 +232,8 @@ friend class JSForInIterator;
   //   }
   // }
 
-  Completion to_primitive(NjsVM& vm, u16string_view preferred_type = u"default");
-  Completion ordinary_to_primitive(NjsVM& vm, u16string_view hint);
+  Completion to_primitive(NjsVM& vm, ToPrimTypeHint preferred_type = HINT_DEFAULT);
+  Completion ordinary_to_primitive(NjsVM& vm, ToPrimTypeHint hint);
 
   /*
    * The following methods only accept atom or symbol as the key

@@ -72,7 +72,8 @@ inline optional<uint64_t> scan_decimal_literal(const char16_t *str, u32 str_len,
 }
 
 // Scan integer. Allows decimal digits and hexadecimal digits.
-inline optional<uint64_t> scan_integer_literal(const char16_t *str, u32 str_len, u32& cursor, int base = 10) {
+inline optional<uint64_t> scan_integer_literal(
+    const char16_t *str, u32 str_len, u32& cursor, int base = 10) {
   u32 pos = cursor;
   char16_t ch = str[pos];
 

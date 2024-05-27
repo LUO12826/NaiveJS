@@ -3,15 +3,13 @@
 
 #include <string>
 #include <string_view>
-#include <cstdio>
 #include <cassert>
 #include <optional>
-
-#include "njs/parser/character.h"
-#include "njs/parser/Token.h"
-#include "njs/utils/helper.h"
+#include "lexing_helper.h"
 #include "njs/include/SmallVector.h"
-#include "njs/utils/lexing_helper.h"
+#include "njs/parser/Token.h"
+#include "njs/parser/character.h"
+#include "njs/utils/helper.h"
 
 using std::u16string;
 using std::u16string_view;
@@ -270,8 +268,8 @@ class Lexer {
           if (ch == u'=') {  // *=
             next_char();
             curr_token.set(TokenType::MUL_ASSIGN, u"*=", start, start + 2, curr_line);
-          } else {  // +
-            curr_token.set(TokenType::MUL, u"+", start, start + 1, curr_line);
+          } else {  // *
+            curr_token.set(TokenType::MUL, u"*", start, start + 1, curr_line);
           }
           break;
         }

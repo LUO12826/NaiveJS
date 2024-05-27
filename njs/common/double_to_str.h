@@ -139,7 +139,7 @@ static char *i64toa(char *buf_end, int64_t n, unsigned int base) {
   return q;
 }
 
-void js_dtoa(char *buf, double d, int radix, int n_digits, int flags) {
+inline void js_dtoa(char *buf, double d, int radix, int n_digits, int flags) {
   char *q;
 
   if (!isfinite(d)) {

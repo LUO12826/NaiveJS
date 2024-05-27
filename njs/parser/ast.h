@@ -533,6 +533,8 @@ class Function : public ASTNode {
 
   bool is_stmt {false};
   bool is_arrow_func {false};
+  bool is_async {false};
+  bool is_generator {false};
 };
 
 class VarDecl : public ASTNode {

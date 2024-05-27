@@ -2,9 +2,11 @@
 #define NJS_JS_NUMBER_PROTOTYPE_H
 
 #include "JSObject.h"
-#include "njs/vm/NjsVM.h"
+#include "JSObjectPrototype.h"
 #include "JSNumber.h"
+#include "njs/vm/NjsVM.h"
 #include "njs/common/common_def.h"
+#include "njs/common/conversion_helper.h"
 
 namespace njs {
 
@@ -12,6 +14,7 @@ class JSNumberPrototype : public JSObject {
  public:
   explicit JSNumberPrototype(NjsVM &vm) : JSObject(ObjClass::CLS_NUMBER_PROTO) {
     add_method(vm, u"valueOf", JSNumberPrototype::valueOf);
+    add_method(vm, u"toString", JSNumberPrototype::toString);
   }
 
   u16string_view get_class_name() override {
@@ -19,18 +22,32 @@ class JSNumberPrototype : public JSObject {
   }
 
   static Completion valueOf(vm_func_This_args_flags) {
-    if (This.is(JSValue::NUM_FLOAT)) {
-      return This;
-    }
-    else if (This.is_object() && This.as_object()->get_class() == CLS_NUMBER) {
+    if (This.is_object() && This.as_object()->get_class() == CLS_NUMBER) [[likely]] {
       assert(dynamic_cast<JSNumber*>(This.as_object()));
       auto *num_obj = static_cast<JSNumber*>(This.as_object());
       return JSValue(num_obj->value);
+    }
+    else if (This.is(JSValue::NUM_FLOAT)) {
+      return This;
     }
     else {
       JSValue err = vm.build_error_internal(u"Number.prototype.valueOf can only accept argument "
                                              "of type number or number object.");
       return Completion::with_throw(err);
+    }
+  }
+
+  static Completion toString(vm_func_This_args_flags) {
+    if (This.is_object() && This.as_object()->get_class() == CLS_NUMBER) [[likely]] {
+      assert(dynamic_cast<JSNumber*>(This.as_object()));
+      auto *num_obj = static_cast<JSNumber*>(This.as_object());
+      return vm.new_primitive_string(double_to_u16string(num_obj->value));
+    }
+    else if (This.is(JSValue::NUM_FLOAT)) {
+      return vm.new_primitive_string(double_to_u16string(This.val.as_f64));
+    }
+    else {
+      return JSObjectPrototype::toString(JS_NATIVE_FUNC_ARGS);
     }
   }
 };

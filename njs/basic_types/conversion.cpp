@@ -1,30 +1,16 @@
 #include "conversion.h"
 
+#include <limits>
 #include <cmath>
-#include "double_to_str.h"
-#include "njs/parser/character.h"
-#include "njs/utils/lexing_helper.h"
-#include "njs/utils/helper.h"
-#include "njs/vm/NjsVM.h"
-#include "njs/basic_types/JSString.h"
 #include "njs/basic_types/JSBoolean.h"
 #include "njs/basic_types/JSNumber.h"
+#include "njs/basic_types/JSString.h"
+#include "njs/common/conversion_helper.h"
+#include "njs/parser/character.h"
+#include "njs/parser/lexing_helper.h"
+#include "njs/vm/NjsVM.h"
 
 namespace njs {
-
-u16string double_to_u16string(double n) {
-  char buf[JS_DTOA_BUF_SIZE];
-  char16_t u16buf[JS_DTOA_BUF_SIZE];
-  char *p_buf = buf;
-  char16_t *p_u16buf = u16buf;
-
-  js_dtoa(buf, n, 10, 0, JS_DTOA_VAR_FORMAT);
-  while (*p_buf != '\0') {
-    *p_u16buf++ = *p_buf++;
-  }
-  *p_u16buf = '\0';
-  return u16string(u16buf, p_u16buf - u16buf);
-}
 
 Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
   switch (val.tag) {
@@ -53,7 +39,7 @@ Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
       return val;
     default:
       if (val.is_object()) {
-        Completion comp = val.as_object()->to_primitive(vm, u"string");
+        Completion comp = val.as_object()->to_primitive(vm, HINT_STRING);
         if (comp.is_throw()) {
           return comp;
         } else {
@@ -86,6 +72,14 @@ Completion js_to_object(NjsVM &vm, JSValue arg) {
   }
 
   return JSValue(obj);
+}
+
+Completion js_to_primitive(NjsVM &vm, JSValue val) {
+  if (val.is_object()) [[likely]] {
+    return val.as_object()->to_primitive(vm);
+  } else {
+    return val;
+  }
 }
 
 Completion js_to_property_key(NjsVM &vm, JSValue val) {
@@ -125,44 +119,6 @@ Completion js_to_property_key(NjsVM &vm, JSValue val) {
   }
 }
 
-double u16string_to_double(const u16string &str) {
-
-  auto start = std::find_if_not(str.begin(), str.end(), [](char16_t ch) {
-    return character::is_white_space(ch) || character::is_line_terminator(ch);
-  });
-  auto end = std::find_if_not(str.rbegin(), str.rend(), [](char16_t ch) {
-               return character::is_white_space(ch) || character::is_line_terminator(ch);
-             }).base();
-
-  if (start >= end) {
-    return 0;
-  }
-
-  bool positive = true;
-
-  if (*start == u'-') {
-    positive = false;
-    start += 1;
-  } else if (*start == u'+') {
-    start += 1;
-  }
-
-  if (start >= end) return nan("");
-
-  if (u16string(start, end) == u"Infinity") {
-    return positive ? std::numeric_limits<double>::infinity()
-                    : -std::numeric_limits<double>::infinity();
-  }
-
-  u32 cursor = start - str.begin();
-  auto res = scan_numeric_literal(str.data(), str.size(), cursor);
-  if (res.has_value() && cursor == str.size()) {
-    return res.value();
-  } else {
-    return nan("");
-  }
-}
-
 ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {
   switch (val.tag) {
     case JSValue::UNDEFINED:
@@ -179,7 +135,7 @@ ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {
       return u16string_to_double(val.val.as_prim_string->str);
     default:
       if (val.is_object()) {
-        Completion comp = val.as_object()->to_primitive(vm, u"number");
+        Completion comp = val.as_object()->to_primitive(vm, HINT_NUMBER);
         if (comp.is_throw()) return comp.get_value();
 
         return js_to_number(vm, comp.get_value());

@@ -4,21 +4,19 @@
 #include <cstdint>
 #include <string>
 #include "njs/common/enums.h"
-#include "njs/include/SmallVector.h"
 
 namespace njs {
 
-using llvm::SmallVector;
 using u32 = uint32_t;
-using u16str_view = std::u16string_view;
+using std::u16string_view;
 
 struct SymbolRecord {
 
   SymbolRecord() = default;
 
-  SymbolRecord(VarKind kind, u16str_view name) : SymbolRecord(kind, name, 0, false) {}
+  SymbolRecord(VarKind kind, u16string_view name) : SymbolRecord(kind, name, 0, false) {}
 
-  SymbolRecord(VarKind kind, u16str_view name, u32 index, bool is_builtin)
+  SymbolRecord(VarKind kind, u16string_view name, u32 index, bool is_builtin)
       : var_kind(kind), name(name), index(index), is_builtin(is_builtin) {}
 
   bool is_let_or_const() const {
@@ -26,7 +24,7 @@ struct SymbolRecord {
   }
 
   VarKind var_kind;
-  u16str_view name;
+  u16string_view name;
   u32 index;
   bool is_captured {false};
   bool is_builtin {false};

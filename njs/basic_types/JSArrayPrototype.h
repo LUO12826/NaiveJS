@@ -2,6 +2,7 @@
 #define NJS_JSARRAY_PROTOTYPE_H
 
 #include "JSObject.h"
+#include "JSObjectPrototype.h"
 #include "njs/vm/NjsVM.h"
 #include "njs/common/ArrayRef.h"
 #include "njs/common/common_def.h"
@@ -9,6 +10,7 @@
 #include "njs/vm/Completion.h"
 #include "njs/basic_types/JSArray.h"
 #include "njs/basic_types/JSArrayIterator.h"
+#include "njs/basic_types/conversion.h"
 
 namespace njs {
 
@@ -20,11 +22,34 @@ class JSArrayPrototype : public JSObject {
     add_method(vm, u"at", JSArrayPrototype::at);
     add_method(vm, u"push", JSArrayPrototype::push);
     add_method(vm, u"sort", JSArrayPrototype::sort);
+    add_method(vm, u"toString", JSArrayPrototype::toString);
     add_symbol_method(vm, AtomPool::k_sym_iterator,  JSArrayPrototype::get_iter);
   }
 
   u16string_view get_class_name() override {
     return u"ArrayPrototype";
+  }
+
+  static Completion toString(vm_func_This_args_flags) {
+    if (This.is_object() && This.as_object()->get_class() == CLS_ARRAY) [[likely]] {
+      auto *arr = This.as_object()->as<JSArray>();
+      u16string output;
+      bool first = true;
+
+      for (auto& val : arr->dense_array) {
+        if (first) first = false;
+        else output += u',';
+
+        if (not val.is_nil()) [[likely]] {
+          JSValue s = TRY_COMP_COMP(js_to_string(vm, val));
+          output += s.val.as_prim_string->str;
+        }
+      }
+      return vm.new_primitive_string(std::move(output));
+
+    } else {
+      return JSObjectPrototype::toString(JS_NATIVE_FUNC_ARGS);
+    }
   }
 
   static Completion get_iter(vm_func_This_args_flags) {

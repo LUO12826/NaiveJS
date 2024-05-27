@@ -60,10 +60,17 @@ ErrorOr<bool> JSObject::set_property_impl(NjsVM& vm, JSValue key, JSValue value,
   return set_prop(vm, comp.get_value(), value, flag);
 }
 
-Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
+Completion JSObject::to_primitive(NjsVM& vm, ToPrimTypeHint preferred_type) {
   JSValue exotic_to_prim = get_prop(vm, AtomPool::k_toPrimitive).get_value();
   if (exotic_to_prim.is_function()) {
-    JSValue hint_arg = vm.new_primitive_string(u16string(preferred_type));
+    JSValue hint_arg;
+    if (preferred_type == HINT_DEFAULT) {
+      hint_arg = vm.new_primitive_string(u"default");
+    } else if (preferred_type == HINT_NUMBER) {
+      hint_arg = vm.get_string_const(AtomPool::k_number);
+    } else {
+      hint_arg = vm.get_string_const(AtomPool::k_string);
+    }
     Completion to_prim_res = vm.call_function(
         exotic_to_prim.val.as_func, JSValue(this), nullptr, {hint_arg});
     if (to_prim_res.is_throw()) {
@@ -78,16 +85,16 @@ Completion JSObject::to_primitive(NjsVM& vm, u16string_view preferred_type) {
     }
   }
   else {
-    return ordinary_to_primitive(vm, u"number");
+    return ordinary_to_primitive(vm, HINT_NUMBER);
   }
 
 }
 
-Completion JSObject::ordinary_to_primitive(NjsVM& vm, u16string_view hint) {
+Completion JSObject::ordinary_to_primitive(NjsVM& vm, ToPrimTypeHint hint) {
   std::array<u32, 2> method_names_atom;
-  if (hint == u"string") {
+  if (hint == HINT_STRING) {
     method_names_atom = {AtomPool::k_toString, AtomPool::k_valueOf};
-  } else if (hint == u"number") {
+  } else if (hint == HINT_NUMBER) {
     method_names_atom = {AtomPool::k_valueOf, AtomPool::k_toString};
   }
 
