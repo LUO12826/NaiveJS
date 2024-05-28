@@ -317,8 +317,8 @@ inline JSValue JSSymbol(u32 val) {
 }
 
 
-inline const JSValue undefined{JSValue::UNDEFINED};
-inline const JSValue prop_not_found{JSValue::UNDEFINED, 0, FLAG_NOT_FOUND};
+inline const JSValue undefined {JSValue::UNDEFINED};
+inline const JSValue prop_not_found {JSValue::UNDEFINED, 0, FLAG_NOT_FOUND};
 
 } // namespace njs
 

@@ -1,4 +1,6 @@
 #include "NjsVM.h"
+
+#include "object_static_method.h"
 #include "njs/common/common_def.h"
 #include "njs/basic_types/JSErrorPrototype.h"
 
@@ -15,14 +17,13 @@ inline JSFunctionMeta build_func_meta(NativeFuncType func) {
 }
 
 void NjsVM::setup() {
-  auto empty_func = [] (auto& f) {};
-  add_native_func_impl(u"log", NativeFunction::debug_log, empty_func);
-  add_native_func_impl(u"$gc", NativeFunction::js_gc, empty_func);
-  add_native_func_impl(u"setTimeout", NativeFunction::set_timeout, empty_func);
-  add_native_func_impl(u"setInterval", NativeFunction::set_interval, empty_func);
-  add_native_func_impl(u"clearTimeout", NativeFunction::clear_timeout, empty_func);
-  add_native_func_impl(u"clearInterval", NativeFunction::clear_interval, empty_func);
-  add_native_func_impl(u"fetch", NativeFunction::fetch, empty_func);
+  add_native_func_impl(u"log", NativeFunction::debug_log);
+  add_native_func_impl(u"$gc", NativeFunction::js_gc);
+  add_native_func_impl(u"setTimeout", NativeFunction::set_timeout);
+  add_native_func_impl(u"setInterval", NativeFunction::set_interval);
+  add_native_func_impl(u"clearTimeout", NativeFunction::clear_timeout);
+  add_native_func_impl(u"clearInterval", NativeFunction::clear_interval);
+  add_native_func_impl(u"fetch", NativeFunction::fetch);
 
   add_error_ctor<JS_ERROR>();
   add_error_ctor<JS_EVAL_ERROR>();
@@ -34,31 +35,28 @@ void NjsVM::setup() {
   add_error_ctor<JS_INTERNAL_ERROR>();
   add_error_ctor<JS_AGGREGATE_ERROR>();
 
-  add_native_func_impl(u"Object", NativeFunction::Object_ctor, [this] (auto& func) {
-    object_prototype.as_object()->add_prop_trivial(AtomPool::k_constructor, JSValue(&func));
-    func.add_prop_trivial(AtomPool::k_prototype, object_prototype);
-  });
+  {
+    JSFunction *func = add_native_func_impl(u"Object", NativeFunction::Object_ctor);
+    object_prototype.as_object()->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(AtomPool::k_prototype, object_prototype);
+    func->add_method(*this, u"defineProperty", Object_defineProperty);
+    func->add_method(*this, u"hasOwn", Object_hasOwn);
+  }
 
-  add_native_func_impl(u"Symbol", NativeFunction::Symbol, [this] (JSFunction& func) {
-    JSValue sym_iterator = JSSymbol(AtomPool::k_sym_iterator);
-    func.add_prop_trivial(AtomPool::k_iterator, sym_iterator);
-  });
+  {
+    JSFunction *func = add_native_func_impl(u"Symbol", NativeFunction::Symbol);
+    func->add_prop_trivial(AtomPool::k_iterator, JSSymbol(AtomPool::k_sym_iterator));
+  }
 
-  add_builtin_object(u"console", [this] () {
-    JSObject *obj = new_object();
-    JSFunction *log_func = new_function(build_func_meta(NativeFunction::log));
+  {
+    JSObject *obj = add_builtin_object(u"console");
+    obj->add_method(*this, u"log", NativeFunction::log);
+  }
 
-    obj->add_prop_trivial(str_to_atom(u"log"), JSValue(log_func));
-    return obj;
-  });
-
-  add_builtin_object(u"JSON", [this] () {
-    JSObject *obj = new_object();
-    JSFunction *func = new_function(build_func_meta(NativeFunction::json_stringify));
-
-    obj->add_prop_trivial(str_to_atom(u"stringify"), JSValue(func));
-    return obj;
-  });
+  {
+    JSObject *obj = add_builtin_object(u"JSON");
+    obj->add_method(*this, u"stringify", NativeFunction::json_stringify);
+  }
 
   add_builtin_global_var(u"undefined", JSValue());
   add_builtin_global_var(u"NaN", JSValue(nan("")));
@@ -77,9 +75,7 @@ void NjsVM::setup() {
   string_const[AtomPool::k_function] = new_primitive_string(u"function");
 }
 
-void NjsVM::add_native_func_impl(const u16string& name,
-                                 NativeFuncType native_func,
-                                 const std::function<void(JSFunction&)>& builder) {
+JSFunction* NjsVM::add_native_func_impl(const u16string& name, NativeFuncType native_func) {
   JSFunctionMeta meta {
       .name_index = str_to_atom(name),
       .is_native = true,
@@ -90,14 +86,15 @@ void NjsVM::add_native_func_impl(const u16string& name,
 
   auto *func = heap.new_object<JSFunction>(*this, name, meta);
   func->set_proto(function_prototype);
-  builder(*func);
   global_object.as_object()->add_prop_trivial(meta.name_index, JSValue(func));
+  return func;
 }
 
-void NjsVM::add_builtin_object(const u16string& name,
-                               const std::function<JSObject*()>& builder) {
+JSObject* NjsVM::add_builtin_object(const u16string& name) {
   u32 atom = str_to_atom(name);
-  global_object.as_object()->add_prop_trivial(atom, JSValue(builder()));
+  JSObject *obj = new_object();
+  global_object.as_object()->add_prop_trivial(atom, JSValue(obj));
+  return obj;
 }
 
 void NjsVM::add_builtin_global_var(const u16string& name, JSValue val) {

@@ -19,6 +19,14 @@ class ArrayRef {
 
   T* data() { return start; }
 
+  ArrayRef subarray(size_t begin, size_t len) {
+    if (begin >= length) [[unlikely]] {
+      return ArrayRef(start + begin, 0);
+    }
+    size_t num_left = length - begin;
+    return ArrayRef(start + begin, std::min(num_left, len));
+  }
+
  private:
   T* start;
   size_t length;

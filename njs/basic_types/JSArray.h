@@ -65,7 +65,7 @@ class JSArray: public JSObject {
       else {
         if (atom == AtomPool::k_length) {
           double len = TRY_ERR_ERR(js_to_number(vm, val));
-          int64_t len_int = int64_t(len);
+          int64_t len_int = len;
           if (len >= 0 && (double)len_int == len && len_int <= UINT32_MAX) {
             dense_array.resize(len_int);
             set_prop(vm, idx, JSValue(len));
@@ -75,6 +75,32 @@ class JSArray: public JSObject {
           }
         }
         return set_prop(vm, idx, val);
+      }
+    }
+  }
+
+  Completion has_own_property(NjsVM& vm, njs::JSValue key) override {
+    auto has_fast_element = [this] (u32 index) {
+      if (index < dense_array.size()) {
+        JSValue val = dense_array[index];
+        return JSValue(!val.is_uninited());
+      }
+      return JSValue(false);
+    };
+
+    auto comp = get_index_or_atom(vm, key);
+    if (comp.is_throw()) return comp;
+    JSValue k = comp.get_value();
+
+    if (k.is(JSValue::NUM_UINT32)) {
+      return has_fast_element(k.val.as_u32);
+    } else {
+      assert(k.is_atom() || k.is_symbol());
+      u32 atom = k.val.as_atom;
+      if (atom_is_int(atom)) {
+        return has_fast_element(atom_get_int(atom));
+      } else {
+        return JSValue(JSObject::has_own_property_atom(k));
       }
     }
   }
@@ -128,7 +154,7 @@ class JSArray: public JSObject {
   }
 
   u32 get_length() {
-    assert(has_own_property(AtomPool::k_length));
+    assert(has_own_property_atom(AtomPool::k_length));
     return (u32)get_prop_trivial(AtomPool::k_length).val.as_f64;
   }
 

@@ -11,7 +11,7 @@ Please ignore any comments, but keep the blank lines. Please do not add any new 
 */
 
 
-inline const char *ast_type_names[] = {
+inline const char* ast_type_names[] = {
     "TOKEN",
     "BEGIN_EXPR",
     "EXPR_THIS",
@@ -58,7 +58,7 @@ inline const char *ast_type_names[] = {
     "ILLEGAL",
 };
 
-inline const char *token_type_names[] = {
+inline const char* token_type_names[] = {
     "IDENTIFIER",
     "KEYWORD",
 
@@ -142,7 +142,7 @@ inline const char *token_type_names[] = {
     "ILLEGAL",
 };
 
-inline const char *scope_type_names[] = {
+inline const char* scope_type_names[] = {
     "GLOBAL_SCOPE",
     "FUNC_SCOPE",
     "FUNC_PARAM_SCOPE",
@@ -150,7 +150,7 @@ inline const char *scope_type_names[] = {
     "CLOSURE_SCOPE"
 };
 
-inline const char *scope_type_names_alt[] = {
+inline const char* scope_type_names_alt[] = {
     "global",
     "local",
     "arg",
@@ -158,7 +158,7 @@ inline const char *scope_type_names_alt[] = {
     "closure"
 };
 
-inline const char *js_value_tag_names[] = {
+inline const char* js_value_tag_names[] = {
     "UNDEFINED",
     "UNINIT",
     "JS_NULL",
@@ -184,7 +184,7 @@ inline const char *js_value_tag_names[] = {
     "JSVALUE_TAG_CNT"
 };
 
-inline const char *object_class_names[] = {
+inline const char* object_class_names[] = {
     "CLS_OBJECT",
     "CLS_ARRAY",
     "CLS_STRING",

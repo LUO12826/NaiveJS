@@ -44,6 +44,11 @@ class AtomPool {
     k_next = atomize(u"next");
     k_done = atomize(u"done");
     k_value = atomize(u"value");
+    k_enumerable = atomize(u"enumerable");
+    k_configurable = atomize(u"configurable");
+    k_writable = atomize(u"writable");
+    k_get = atomize(u"get");
+    k_set = atomize(u"set");
   }
 
   u32 atomize(u16string_view str_view);
@@ -79,6 +84,11 @@ class AtomPool {
   inline static u32 k_next;
   inline static u32 k_done;
   inline static u32 k_value;
+  inline static u32 k_enumerable;
+  inline static u32 k_configurable;
+  inline static u32 k_writable;
+  inline static u32 k_get;
+  inline static u32 k_set;
 
  private:
   struct Slot {

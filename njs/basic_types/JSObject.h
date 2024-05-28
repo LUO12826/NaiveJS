@@ -81,6 +81,11 @@ struct PropFlag {
 
   bool is_value() const { return has_value; }
   bool is_getset() const { return has_getter | has_setter; }
+  bool is_empty() {
+    bool not_empty = has_enum || has_config || has_write
+                     || has_value || has_getter || has_setter;
+    return !not_empty;
+  }
 
   bool operator==(const PropFlag& other) const = default;
   bool operator!=(const PropFlag& other) const = default;
@@ -125,7 +130,7 @@ struct std::hash<njs::JSObjectKey> {
 } // namespace std
 namespace njs {
 
-struct JSObjectProp {
+struct JSPropDesc {
   PropFlag flag;
   union Data {
     JSValue value;
@@ -144,9 +149,9 @@ struct JSObjectProp {
     }
   } data;
 
-  bool operator==(const JSObjectProp& other) const;
-  
-  bool is_data_descriptor() { return flag.is_value(); }
+  bool operator==(const JSPropDesc& other) const;
+
+  bool is_data_descriptor() { return flag.has_value || flag.has_write; }
   bool is_accessor_descriptor() {return flag.has_getter || flag.has_setter; }
   bool is_generic_descriptor() {
     return !is_data_descriptor() && !is_accessor_descriptor();
@@ -169,12 +174,18 @@ friend class JSForInIterator;
 
   void gc_scan_children(GCHeap& heap) override;
   std::string description() override;
-  
+
   virtual std::string to_string(NjsVM& vm) const;
   virtual void to_json(u16string& output, NjsVM& vm) const;
 
   virtual u16string_view get_class_name() { return u"Object"; }
   ObjClass get_class() { return obj_class; }
+
+  bool is_extensible() { return extensible; }
+  void prevent_extensions() { extensible = false; }
+
+  Completion to_primitive(NjsVM& vm, ToPrimTypeHint preferred_type = HINT_DEFAULT);
+  Completion ordinary_to_primitive(NjsVM& vm, ToPrimTypeHint hint);
 
   Completion get_property(NjsVM& vm, JSValue key);
   ErrorOr<bool> set_property(NjsVM& vm, JSValue key, JSValue value, PropFlag flag = PropFlag::VECW);
@@ -182,58 +193,18 @@ friend class JSForInIterator;
   virtual Completion get_property_impl(NjsVM& vm, JSValue key);
   virtual ErrorOr<bool> set_property_impl(NjsVM& vm, JSValue key, JSValue value, PropFlag flag);
 
-  bool set_proto(JSValue proto) {
-    assert(proto.is_object() || proto.is_null());
+  virtual Completion has_own_property(NjsVM& vm, JSValue key);
 
-    if (proto.is_null() && _proto_.is_null()) return true;
-    if (proto.is_object() && _proto_.is_object()
-        && proto.as_object() == _proto_.as_object()) {
-      return true;
-    }
-    if (not extensible) return false;
-    JSObject *p = proto.as_object_or_null();
-
-    // check if there is a circular prototype chain
-    while (p) {
-      if (p == this) return false;
-      p = p->get_proto().as_object_or_null();
-    }
-
-    _proto_ = proto;
-    return true;
+  template <typename KEY>
+  bool has_own_property_atom(KEY&& key) {
+    auto res = storage.find(JSObjectKey(std::forward<KEY>(key)));
+    return res != storage.end();
   }
 
+  bool set_proto(JSValue proto);
   JSValue get_proto() const { return _proto_; }
 
-  bool is_extensible() { return extensible; }
-  void prevent_extensions() { extensible = false; }
-
-  JSObjectProp *get_own_prop(JSValue key) {
-    assert(key.is_atom() || key.is_symbol());
-    auto res = storage.find(JSObjectKey(key));
-    return likely(res != storage.end()) ? &res->second : nullptr;
-  }
-
-  // bool define_own_prop(u32 key_atom, JSObjectProp& prop_desc) {
-  //   JSObjectKey key(key_atom);
-  //   auto find_res = storage.find(key);
-  //   if (unlikely(find_res == storage.end())) {
-  //     if (likely(extensible)) {
-  //       storage[key] = prop_desc;
-  //     } else {
-  //       return false;
-  //     }
-  //   } else {
-  //     if (prop_desc.is_empty()) return true;
-
-  //     auto& curr = find_res->second;
-  //     if (curr == prop_desc) return true;
-
-  //   }
-  // }
-
-  Completion to_primitive(NjsVM& vm, ToPrimTypeHint preferred_type = HINT_DEFAULT);
-  Completion ordinary_to_primitive(NjsVM& vm, ToPrimTypeHint hint);
+  ErrorOr<bool> define_own_property(JSValue key, JSPropDesc& desc);
 
   /*
    * The following methods only accept atom or symbol as the key
@@ -248,16 +219,14 @@ friend class JSForInIterator;
   bool add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl, PropFlag flag = PropFlag::VCW);
   bool add_symbol_method(NjsVM& vm, u32 symbol, NativeFuncType funcImpl);
 
-  Completion get_prop(NjsVM& vm, u16string_view key_str);
   Completion get_prop(NjsVM& vm, JSValue key);
-  Completion get_prop(NjsVM& vm, u32 key_atom) {
-    return get_prop(vm, JSAtom(key_atom));
-  }
+  Completion get_prop(NjsVM& vm, u32 key_atom);
+  Completion get_prop(NjsVM& vm, u16string_view key_str);
 
   JSValue get_prop_trivial(u32 key_atom) {
-    JSObjectProp *prop = get_own_prop(JSAtom(key_atom));
+    JSPropDesc *prop = get_own_property(JSAtom(key_atom));
     if (prop == nullptr) [[unlikely]] {
-      return undefined;
+      return prop_not_found;
     } else {
       assert(prop->is_data_descriptor());
       return prop->data.value;
@@ -265,26 +234,36 @@ friend class JSForInIterator;
   }
 
   template <typename KEY>
-  JSObjectProp *get_exist_prop(KEY&& key) {
-    auto res = storage.find(JSObjectKey(std::forward<KEY>(key)));
-    if (res != storage.end()) {
-      return &res->second;
-    } else if (_proto_.is_object()) {
-      return _proto_.as_object()->get_exist_prop(std::forward<KEY>(key));
-    } else {
-      return nullptr;
+  JSPropDesc *get_exist_prop(KEY&& key) {
+    JSObject *the_obj = this;
+    while (true) {
+      auto res = the_obj->storage.find(JSObjectKey(std::forward<KEY>(key)));
+      if (res != the_obj->storage.end()) {
+        return &res->second;
+      } else if (the_obj->_proto_.is_object()) {
+        the_obj = the_obj->_proto_.as_object();
+      } else {
+        return nullptr;
+      }
     }
   }
 
-  template <typename KEY>
-  bool has_own_property(KEY&& key) {
-    auto res = storage.find(JSObjectKey(std::forward<KEY>(key)));
-    return res != storage.end();
+  JSPropDesc *get_own_property(JSValue key) {
+    assert(key.is_atom() || key.is_symbol());
+    auto res = storage.find(JSObjectKey(key));
+    return likely(res != storage.end()) ? &res->second : nullptr;
   }
+
+  template <typename KEY>
+  bool has_property(KEY&& key) {
+    return get_exist_prop(key) != nullptr;
+  }
+
+  ErrorOr<JSPropDesc> to_property_descriptor(NjsVM& vm);
 
  private:
   ObjClass obj_class;
-  unordered_flat_map<JSObjectKey, JSObjectProp> storage;
+  unordered_flat_map<JSObjectKey, JSPropDesc> storage;
   JSValue _proto_;
 
   bool extensible {true};

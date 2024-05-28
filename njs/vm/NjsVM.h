@@ -43,7 +43,7 @@ struct JSStackFrame {
   u32 pc {0};
   u32 *pc_ref;
 
-  JSStackFrame *move_to_heap() {
+  JSStackFrame* move_to_heap() {
     JSStackFrame& frame = *new JSStackFrame(*this);
     frame.buffer = (JSValue*)malloc(sizeof(JSValue) * frame.alloc_cnt);
     memcpy(frame.buffer, this->buffer, sizeof(JSValue) * frame.alloc_cnt);
@@ -88,29 +88,24 @@ friend class JSArrayIterator;
   explicit NjsVM(CodegenVisitor& visitor);
   ~NjsVM();
 
-  void add_native_func_impl(const u16string& name,
-                            NativeFuncType func,
-                            const std::function<void(JSFunction&)>& builder);
-  void add_builtin_object(const u16string& name,
-                          const std::function<JSObject*()>& builder);
+  JSFunction* add_native_func_impl(const u16string& name, NativeFuncType func);
+  JSObject* add_builtin_object(const u16string& name);
   void add_builtin_global_var(const u16string& name, JSValue val);
 
   template<JSErrorType type>
   void add_error_ctor() {
-    add_native_func_impl(
+    JSFunction *func = add_native_func_impl(
         // name
         native_error_name[type],
         // function
         [] (vm_func_This_args_flags) {
           return NativeFunction::error_ctor_internal(vm, args, type);
-        },
-        // builder
-        [this] (JSFunction& func) {
-          native_error_protos[type].as_object()
-            ->add_prop_trivial(AtomPool::k_constructor, JSValue(&func));
-          func.add_prop_trivial(AtomPool::k_prototype, error_prototype);
         }
     );
+
+    native_error_protos[type].as_object()
+        ->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(AtomPool::k_prototype, error_prototype);
   }
 
   void setup();

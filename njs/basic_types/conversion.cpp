@@ -114,9 +114,15 @@ Completion js_to_property_key(NjsVM &vm, JSValue val) {
     default: {
       auto comp = js_to_string(vm, val, true);
       if (comp.is_throw()) return comp;
-      return js_to_property_key(vm, comp.get_value());
+      JSValue str = comp.get_value();
+      assert(str.is_prim_string());
+      return JSAtom(vm.str_to_atom(str.val.as_prim_string->str));
     }
   }
+}
+
+bool js_to_boolean(JSValue val) {
+  return val.bool_value();
 }
 
 ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {

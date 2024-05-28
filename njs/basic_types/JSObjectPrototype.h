@@ -53,8 +53,7 @@ class JSObjectPrototype : public JSObject {
     Completion comp = js_to_property_key(vm, prop_name);
     if (comp.is_throw()) return comp;
 
-    bool has = obj->has_own_property(comp.get_value());
-    return JSValue(has);
+    return obj->has_own_property(vm, comp.get_value());
   }
 
 };

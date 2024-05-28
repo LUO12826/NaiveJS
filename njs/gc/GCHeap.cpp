@@ -19,6 +19,7 @@ void GCHeap::gc() {
   Timer timer_copy("copy alive");
   byte *start = from_start;
   byte *end = alloc_point;
+  object_cnt = 0;
   copy_alive();
   timer_copy.end(Global::show_gc_statistics);
 
@@ -27,13 +28,10 @@ void GCHeap::gc() {
   timer_dealloc.end(Global::show_gc_statistics);
 
   if (Global::show_gc_statistics) {
-    timer.end(true);
     std::cout << "******************  gc ends  ******************\n";
     std::cout << "\033[0m";
   }
-  else {
-    timer.end(false);
-  }
+  timer.end(Global::show_gc_statistics);
 }
 
 void GCHeap::gc_visit_object(JSValue &handle, GCObject *obj) {
@@ -103,7 +101,7 @@ void GCHeap::dealloc_dead(byte *start, byte *end) {
     GCObject *obj = reinterpret_cast<GCObject *>(ptr);
     ptr += obj->size;
     if (obj->forward_ptr == nullptr) {
-      if (Global::show_gc_statistics) {
+      if (Global::show_gc_statistics) [[unlikely]] {
         std::cout << "GC deallocate an object: "
                   << static_cast<JSObject *>(obj)->description() << '\n';
       }
@@ -115,7 +113,8 @@ void GCHeap::dealloc_dead(byte *start, byte *end) {
 GCObject *GCHeap::copy_object(GCObject *obj) {
   GCObject *obj_new = obj->forward_ptr;
   if (obj_new == nullptr) {
-    if (Global::show_gc_statistics) {
+    object_cnt += 1;
+    if (Global::show_gc_statistics) [[unlikely]] {
       std::cout << "Copy object: " << static_cast<JSObject *>(obj)->description() << '\n';
     }
     obj_new = (GCObject *)alloc_point;

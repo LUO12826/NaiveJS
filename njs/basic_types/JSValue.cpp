@@ -13,7 +13,7 @@
 namespace njs {
 
 GCObject *JSValue::as_GCObject() const {
-  assert(tag == OBJECT || tag == FUNCTION || tag == ARRAY);
+  assert(needs_gc());
   return static_cast<GCObject *>(val.as_object);
 }
 

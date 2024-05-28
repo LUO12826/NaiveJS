@@ -19,7 +19,7 @@ set(SOURCES
     njs/parser/ast.cpp
     njs/basic_types/JSArray.cpp
     njs/vm/NativeFunction.cpp
-    njs/vm/BasicConstructor.cpp
+    njs/vm/basic_constructor.cpp
     njs/vm/JSRunLoop.cpp
     njs/basic_types/JSObjectPrototype.cpp
     njs/basic_types/JSArrayPrototype.cpp

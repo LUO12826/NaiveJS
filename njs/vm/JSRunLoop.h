@@ -35,7 +35,7 @@ class JSRunLoop {
   size_t add_timer(JSFunction* func, size_t timeout, bool repeat);
   bool remove_timer(size_t timer_id);
 
-  JSTask *add_task(JSFunction* func);
+  JSTask* add_task(JSFunction* func);
   void post_task(JSTask *task);
 
   BS::thread_pool& get_thread_pool() { return thread_pool; }

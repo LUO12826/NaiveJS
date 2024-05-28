@@ -42,13 +42,16 @@ class GCHeap {
     // set the metadata
     auto *metadata = reinterpret_cast<GCObject *>(ptr);
     metadata->size = sizeof(T);
-
+    object_cnt += 1;
     return object;
   }
 
   void gc();
   size_t get_heap_usage() {
     return alloc_point - from_start;
+  }
+  size_t get_object_count() {
+    return object_cnt;
   }
 
   // When garbage collection is performed, this method is called to copy an object
@@ -85,6 +88,8 @@ class GCHeap {
   byte *to_start;
   // Starting address of the next new object
   byte *alloc_point;
+
+  size_t object_cnt {0};
 
   NjsVM& vm;
 

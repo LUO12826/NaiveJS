@@ -185,6 +185,7 @@ void NjsVM::run() {
   };
 
   std::cout << "Heap usage: " << memory_usage_readable(heap.get_heap_usage()) << '\n';
+  std::cout << "Heap object count: " << heap.get_object_count() << '\n';
 
   if (Global::show_log_buffer && !log_buffer.empty()) {
     std::cout << "------------------------------" << '\n';
