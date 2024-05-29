@@ -47,7 +47,7 @@ class JSStringPrototype : public JSObject {
     else {
       JSValue err = vm.build_error_internal(u"String.prototype.valueOf can only accept argument "
                                              "of type string or string object.");
-      return Completion::with_throw(err);
+      return CompThrow(err);
     }
   }
 

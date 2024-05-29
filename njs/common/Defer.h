@@ -5,10 +5,10 @@
 
 namespace njs {
 
-template <typename Func>
+template <typename Func> requires std::invocable<Func>
 class Defer {
  public:
-  explicit Defer(Func callback) : callback(std::move(callback)), dismissed(false) {}
+  explicit Defer(Func callback) : callback(std::move(callback)) {}
 
   ~Defer() {
     if (!dismissed) {
@@ -22,7 +22,7 @@ class Defer {
 
  private:
   Func callback;
-  bool dismissed;
+  bool dismissed {false};
 };
 
 }

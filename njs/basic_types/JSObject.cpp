@@ -14,6 +14,7 @@ PropFlag PropFlag::VECW { .enumerable = true, .configurable = true,
                           .writable = true, .has_value = true };
 PropFlag PropFlag::VCW {  .configurable = true,
                           .writable = true, .has_value = true };
+PropFlag PropFlag::V { .has_value = true };
 
 bool JSPropDesc::operator==(const JSPropDesc& other) const {
   if (flag != other.flag) return false;
@@ -355,7 +356,7 @@ Completion JSObject::to_primitive(NjsVM& vm, ToPrimTypeHint preferred_type) {
     }
     else if (to_prim_res.get_value().is_object()) {
       JSValue err = vm.build_error_internal(JS_TYPE_ERROR, u"");
-      return Completion::with_throw(err);
+      return CompThrow(err);
     }
     else {
       return to_prim_res;
@@ -388,7 +389,7 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, ToPrimTypeHint hint) {
   }
 
   JSValue err = vm.build_error_internal(JS_TYPE_ERROR, u"");
-  return Completion::with_throw(err);
+  return CompThrow(err);
 }
 
 void JSObject::gc_scan_children(GCHeap& heap) {

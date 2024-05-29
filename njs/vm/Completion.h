@@ -1,8 +1,8 @@
 #ifndef NJS_COMPLETION_H
 #define NJS_COMPLETION_H
 
-#include "njs/basic_types/JSValue.h"
 #include <optional>
+#include "njs/basic_types/JSValue.h"
 
 using std::optional;
 
@@ -48,6 +48,10 @@ class Completion {
   Type type;
   JSValue val_or_err;
 };
+
+inline Completion CompThrow(JSValue err) {
+  return {Completion::Type::THROW, err};
+}
 
 }
 

@@ -40,7 +40,17 @@ class AtomPool {
     k_valueOf = atomize(u"valueOf");
     k_toPrimitive = atomize(u"toPrimitive");
     k_iterator = atomize(u"iterator");
+    k_match = atomize(u"match");
+    k_matchAll = atomize(u"matchAll");
+    k_replace = atomize(u"replace");
+    k_search = atomize(u"search");
+    k_split = atomize(u"split");
     k_sym_iterator = atomize_symbol_desc(u"iterator");
+    k_sym_match = atomize_symbol_desc(u"match");
+    k_sym_matchAll = atomize_symbol_desc(u"matchAll");
+    k_sym_replace = atomize_symbol_desc(u"replace");
+    k_sym_search = atomize_symbol_desc(u"search");
+    k_sym_split = atomize_symbol_desc(u"split");
     k_next = atomize(u"next");
     k_done = atomize(u"done");
     k_value = atomize(u"value");
@@ -49,6 +59,7 @@ class AtomPool {
     k_writable = atomize(u"writable");
     k_get = atomize(u"get");
     k_set = atomize(u"set");
+    k_lastIndex = atomize(u"lastIndex");
   }
 
   u32 atomize(u16string_view str_view);
@@ -71,6 +82,7 @@ class AtomPool {
   inline static u32 k_object;
   inline static u32 k_symbol;
   inline static u32 k_function;
+  // atoms above are also in VM's string_const pool.
   inline static u32 k_length;
   inline static u32 k_prototype;
   inline static u32 k_charAt;
@@ -79,8 +91,21 @@ class AtomPool {
   inline static u32 k_toString;
   inline static u32 k_valueOf;
   inline static u32 k_toPrimitive;
+
   inline static u32 k_iterator;
+  inline static u32 k_match;
+  inline static u32 k_matchAll;
+  inline static u32 k_replace;
+  inline static u32 k_search;
+  inline static u32 k_split;
+
   inline static u32 k_sym_iterator;
+  inline static u32 k_sym_match;
+  inline static u32 k_sym_matchAll;
+  inline static u32 k_sym_replace;
+  inline static u32 k_sym_search;
+  inline static u32 k_sym_split;
+  
   inline static u32 k_next;
   inline static u32 k_done;
   inline static u32 k_value;
@@ -89,6 +114,7 @@ class AtomPool {
   inline static u32 k_writable;
   inline static u32 k_get;
   inline static u32 k_set;
+  inline static u32 k_lastIndex;
 
  private:
   struct Slot {

@@ -3,6 +3,8 @@
 #include <iostream>
 #include <format>
 #include "Completion.h"
+#include "njs/utils/helper.h"
+#include "njs/include/libregexp/cutils.h"
 #include "njs/global_var.h"
 #include "njs/common/common_def.h"
 #include "njs/codegen/CodegenVisitor.h"
@@ -11,6 +13,7 @@
 #include "njs/basic_types/conversion.h"
 #include "njs/basic_types/testing_and_comparison.h"
 #include "njs/basic_types/JSArray.h"
+#include "njs/basic_types/JSRegExp.h"
 #include "njs/basic_types/JSNumberPrototype.h"
 #include "njs/basic_types/JSBooleanPrototype.h"
 #include "njs/basic_types/JSStringPrototype.h"
@@ -18,6 +21,7 @@
 #include "njs/basic_types/JSArrayPrototype.h"
 #include "njs/basic_types/JSFunctionPrototype.h"
 #include "njs/basic_types/JSErrorPrototype.h"
+#include "njs/basic_types/JSRegExpPrototype.h"
 #include "njs/basic_types/JSIteratorPrototype.h"
 #include "njs/basic_types/JSForInIterator.h"
 
@@ -44,6 +48,15 @@
         }                                                                                     \
         _temp_result.get_value();                                                             \
     })
+
+// required by libregexp
+BOOL lre_check_stack_overflow(void *opaque, size_t alloca_size) {
+  return FALSE;
+}
+// required by libregexp
+void *lre_realloc(void *opaque, void *ptr, size_t size) {
+  return realloc(ptr, size);
+}
 
 namespace njs {
 
@@ -107,6 +120,9 @@ void NjsVM::init_prototypes() {
   array_prototype.set_val(heap.new_object<JSArrayPrototype>(*this));
   array_prototype.as_object()->set_proto(object_prototype);
 
+  regexp_prototype.set_val(heap.new_object<JSRegExpPrototype>(*this));
+  regexp_prototype.as_object()->set_proto(object_prototype);
+
   native_error_protos.reserve(JSErrorType::JS_NATIVE_ERROR_COUNT);
   for (int i = 0; i < JSErrorType::JS_NATIVE_ERROR_COUNT; i++) {
     JSObject *proto = heap.new_object<JSErrorPrototype>(*this, (JSErrorType)i);
@@ -160,29 +176,6 @@ void NjsVM::run() {
     std::cout << "### end of execution VM\n";
     std::cout << "---------------------------------------------------\n";
   }
-
-  auto memory_usage_readable = [] (size_t size) {
-    constexpr size_t KB = 1024;
-    constexpr size_t MB = 1024 * 1024;
-
-    double size_in_unit;
-    std::string unit;
-
-    if (size >= 10 * MB) {
-      size_in_unit = static_cast<double>(size) / MB;
-      unit = "MB";
-    } else if (size >= KB) {
-      size_in_unit = static_cast<double>(size) / KB;
-      unit = "KB";
-    } else {
-      size_in_unit = static_cast<double>(size);
-      unit = "B";
-    }
-
-    std::ostringstream oss;
-    oss << std::fixed << std::setprecision(2) << size_in_unit << " " << unit;
-    return oss.str();
-  };
 
   std::cout << "Heap usage: " << memory_usage_readable(heap.get_heap_usage()) << '\n';
   std::cout << "Heap object count: " << heap.get_object_count() << '\n';
@@ -386,7 +379,12 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         }
         break;
       }
-      case OpType::pushi:
+      case OpType::push_i32:
+        sp += 1;
+        sp[0].tag = JSValue::NUM_INT32;
+        sp[0].val.as_i32 = OPR1;
+        break;
+      case OpType::push_f64:
         sp += 1;
         sp[0].set_val(inst.operand.num_float);
         break;
@@ -601,15 +599,19 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         if (Global::show_vm_exec_steps) printf("ret\n");
         curr_frame = curr_frame->prev_frame;
         stack_frames.pop_back();
-        JSValue ret_val = sp[0];
-        return ret_val;
+        return sp[0];
+      }
+      case OpType::ret_undef: {
+        if (Global::show_vm_exec_steps) printf("ret_undef\n");
+        curr_frame = curr_frame->prev_frame;
+        stack_frames.pop_back();
+        return undefined;
       }
       case OpType::ret_err: {
         if (Global::show_vm_exec_steps) printf("ret_err\n");
         curr_frame = curr_frame->prev_frame;
         stack_frames.pop_back();
-        JSValue ret_err = sp[0];
-        return Completion::with_throw(ret_err);
+        return CompThrow(sp[0]);
       }
       case OpType::halt:
         if (!global_end) {
@@ -748,6 +750,9 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         break;
       case OpType::js_delete:
         assert(false);
+      case OpType::regexp_build:
+        exec_regexp_build(sp, OPR1, OPR2);
+        break;
       default:
         assert(false);
     }
@@ -895,6 +900,13 @@ JSValue NjsVM::exec_typeof(JSValue val) {
     default:
       assert(false);
   }
+}
+
+void NjsVM::exec_regexp_build(SPRef sp, u32 atom, int reflags) {
+  auto *regexp = heap.new_object<JSRegExp>(*this, atom, reflags);
+  VM_TRY_COMP(regexp->compile_bytecode_internal((*this)));
+  sp += 1;
+  sp[0].set_val(regexp);
 }
 
 void NjsVM::exec_add(SPRef sp) {
@@ -1210,7 +1222,7 @@ Completion NjsVM::get_prop_common(JSValue obj, JSValue key) {
   }
   else {
     u16string msg = u"cannot read property of " + to_u16string(obj.to_string(*this));
-    return Completion::with_throw(build_error_internal(msg));
+    return CompThrow(build_error_internal(msg));
   }
 }
 
@@ -1246,7 +1258,7 @@ Completion NjsVM::set_prop_common(JSValue obj, JSValue key, JSValue value) {
   }
   else if (obj.is_nil()) {
     u16string msg = u"cannot set property of " + to_u16string(obj.to_string(*this));
-    return Completion::with_throw(build_error_internal(msg));
+    return CompThrow(build_error_internal(msg));
   }
   // else the obj is a primitive type. do nothing.
   return undefined;
@@ -1308,7 +1320,7 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
   auto build_err = [&, this] () {
     JSValue err = build_error_internal(
         JS_TYPE_ERROR, to_u16string(obj.to_string(*this)) + u" is not iterable");
-    return Completion::with_throw(err);
+    return CompThrow(err);
   };
   if (obj.is_nil()) [[unlikely]] {
     return build_err();
@@ -1334,7 +1346,7 @@ Completion NjsVM::for_of_call_next(JSValue iter) {
       || next_func.as_object()->get_class() != CLS_FUNCTION) {
     JSValue err = build_error_internal(
         JS_TYPE_ERROR, to_u16string(next_func.to_string(*this)) + u" is not a function.");
-    return Completion::with_throw(err);
+    return CompThrow(err);
   }
 
   return call_function(next_func.val.as_func, iter, nullptr, {});

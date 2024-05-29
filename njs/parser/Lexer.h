@@ -672,7 +672,7 @@ error:
     std::u16string tmp;
     next_char();
     while(cursor != source.size() && ch != quote && !character::is_line_terminator(ch)) {
-      if (ch == u'\\') {
+      if (ch == u'\\') [[unlikely]] {
         next_char();
         switch (ch) {
           case u'0': {
@@ -740,7 +740,7 @@ error:
     auto res = njs::scan_numeric_literal(source.data(), length, cursor);
     update_char();
 
-    if (res.has_value()) {
+    if (res.has_value()) [[likely]] {
       number_val = res.value();
       return token_with_type(TokenType::NUMBER, start);
     } else {

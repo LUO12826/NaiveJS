@@ -11,7 +11,7 @@ using u32 = uint32_t;
 
 // has corresponding string representations
 enum class OpType {
-  neg,
+  neg = 0,
 
   add,
   sub,
@@ -49,7 +49,8 @@ enum class OpType {
 
   push,
   push_check,
-  pushi,
+  push_i32,
+  push_f64,
   push_str,
   push_bool,
   push_atom,
@@ -116,10 +117,13 @@ enum class OpType {
   call,
   js_new,
   ret,
+  ret_undef,
   ret_err,
   // begin procedure, end procedure
   proc_call,
   proc_ret,
+
+  regexp_build,
 
   halt,
   halt_err,

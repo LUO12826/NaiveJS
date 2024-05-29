@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.21)
 
 project(njs LANGUAGES CXX)
 
-# C++ Standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -28,28 +27,31 @@ set(SOURCES
     njs/basic_types/conversion.cpp
 )
 
-# executable is named `njs`
-add_executable(njs ${SOURCES})
-target_include_directories(njs PRIVATE .)
-target_compile_options(njs PRIVATE -Wno-deprecated-declarations)
+add_subdirectory(njs/include/libregexp)
+
+# executable is named `njsmain`
+add_executable(njsmain ${SOURCES})
+target_include_directories(njsmain PRIVATE .)
+target_compile_options(njsmain PRIVATE -Wno-deprecated-declarations)
+target_link_libraries(njsmain regexp)
 
 # Conditionally add sanitizer options if not in Release mode
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_options(njs PRIVATE -fsanitize=address)
-    target_link_options(njs PRIVATE -fsanitize=address)
+    target_compile_options(njsmain PRIVATE -fsanitize=address)
+    target_link_options(njsmain PRIVATE -fsanitize=address)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_options(njs PRIVATE -flto)
-    target_link_options(njs PRIVATE -flto)
+    target_compile_options(njsmain PRIVATE -flto)
+    target_link_options(njsmain PRIVATE -flto)
 endif()
 
 if(DEBUG)
-    target_compile_definitions(njs PRIVATE DEBUG)
+    target_compile_definitions(njsmain PRIVATE DEBUG)
 endif()
 
 if(DBG_SCOPE)
-    target_compile_definitions(njs PRIVATE DBG_SCOPE)
+    target_compile_definitions(njsmain PRIVATE DBG_SCOPE)
 endif()
 
 # executable for debug print
@@ -57,3 +59,4 @@ add_executable(njs_dbgprint ${SOURCES})
 target_include_directories(njs_dbgprint PRIVATE .)
 target_compile_options(njs_dbgprint PRIVATE -Wno-deprecated-declarations)
 target_compile_definitions(njs_dbgprint PRIVATE DBGPRINT)
+target_link_libraries(njs_dbgprint regexp)

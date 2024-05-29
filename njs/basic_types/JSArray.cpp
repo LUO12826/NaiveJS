@@ -41,18 +41,22 @@ std::string JSArray::to_string(NjsVM& vm) const {
     output += ", ";
   }
 
-//  if (!storage.empty()) {
-//    for (auto& [key, value] : storage) {
-//      if (key.key_type == JSObjectKey::KEY_ATOM) {
-//        output += to_u8string(vm.atom_pool.get_string(key.key.atom));
-//      }
-//      else assert(false);
-//
-//      output += ": ";
-//      output += value.to_string(vm);
-//      output += ", ";
-//    }
-//  }
+  if (!storage.empty()) {
+    for (auto& [key, prop] : storage) {
+      if (not prop.flag.enumerable) continue;
+
+      if (key.type == JSValue::JS_ATOM) {
+        u16string escaped = to_escaped_u16string(vm.atom_to_str(key.atom));
+        output += to_u8string(escaped);
+      }
+
+      output += ": ";
+      if (prop.data.value.is(JSValue::STRING)) output += '"';
+      output += prop.data.value.to_string(vm);
+      if (prop.data.value.is(JSValue::STRING)) output += '"';
+      output += ", ";
+    }
+  }
 
   output += "]";
   return output;

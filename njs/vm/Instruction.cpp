@@ -6,7 +6,7 @@
 namespace njs {
 
 Instruction Instruction::num_imm(double num) {
-  Instruction inst(OpType::pushi);
+  Instruction inst(OpType::push_f64);
   inst.operand.num_float = num;
   return inst;
 }
@@ -105,8 +105,11 @@ std::string Instruction::description() const {
     case OpType::push_check:
       sprintf(buffer, "push_check  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
-    case OpType::pushi:
-      sprintf(buffer, "pushi  %lf", operand.num_float);
+    case OpType::push_i32:
+      sprintf(buffer, "push_i32  %d", OPR1);
+      break;
+    case OpType::push_f64:
+      sprintf(buffer, "push_f64  %lf", operand.num_float);
       break;
     case OpType::push_str:
       sprintf(buffer, "push_str  %u", OPR1);
@@ -282,6 +285,9 @@ std::string Instruction::description() const {
     case OpType::ret:
       sprintf(buffer, "ret");
       break;
+    case OpType::ret_undef:
+      sprintf(buffer, "ret_undef");
+      break;
     case OpType::ret_err:
       sprintf(buffer, "ret_err");
       break;
@@ -290,6 +296,9 @@ std::string Instruction::description() const {
       break;
     case OpType::proc_ret:
       sprintf(buffer, "proc_ret");
+      break;
+    case OpType::regexp_build:
+      sprintf(buffer, "regexp_build  pattern_atom: %d  flags:%d", OPR1, OPR2);
       break;
     case OpType::halt:
       sprintf(buffer, "halt");
@@ -308,132 +317,255 @@ std::string Instruction::description() const {
   return std::string(buffer);
 }
 
+static int op_stack_usage[] = {
+    0, // neg
+
+    -1, // add
+    -1, // sub
+    -1, // mul
+    -1, // div
+    -1, // mod
+
+    -1, // logi_and
+    -1, // logi_or
+    0,  // logi_not
+
+    -1, // bits_and
+    -1, // bits_or
+    -1, // bits_xor
+    0,  // bits_not
+
+    -1, // lsh
+    -1, // lshi
+    -1, // rsh
+    -1, // rshi
+    -1, // ursh
+    -1, // urshi
+
+    -1, // gt
+    -1, // lt
+    -1, // ge
+    -1, // le
+    -1, // ne
+    -1, // ne3
+    -1, // eq
+    -1, // eq3
+
+    0,  // inc
+    0,  // dec
+
+    1,  // push
+    1,  // push_check
+    1,  // push_i32
+    1,  // push_f64
+    1,  // push_str
+    1,  // push_bool
+    1,  // push_atom
+    1,  // push_func_this
+    1,  // push_global_this
+    1,  // push_null
+    1,  // push_undef
+    1,  // push_uninit
+    -1, // pop
+    -1, // pop_check
+    -1, // pop_drop
+    0,  // store
+    0,  // store_check
+    0,  // store_curr_func
+    -2, // prop_assign
+    0,  // var_deinit
+    0,  // var_deinit_range
+    0,  // var_undef
+    0,  // loop_var_renew
+    0,  // var_dispose
+    0,  // var_dispose_range
+
+    0,  // jmp
+    0,  // jmp_true
+    0,  // jmp_false
+    0,  // jmp_cond
+
+    -1, // jmp_pop
+    -1, // jmp_true_pop
+    -1, // jmp_false_pop
+    -1, // jmp_cond_pop
+
+    1,  // make_func
+    0,  // capture
+    1,  // make_obj
+    1,  // make_array
+    0,  // add_props
+    0,  // add_elements
+    0,  // get_prop_atom
+    1,  // get_prop_atom2
+    -1, // get_prop_index
+    0,  // get_prop_index2
+    -1, // set_prop_atom
+    -2, // set_prop_index
+
+    1,  // dyn_get_var
+    0,  // dyn_set_var
+
+    1,  // dup_stack_top
+    0,  // move_to_top1
+    0,  // move_to_top2
+
+    0,  // for_in_init
+    2,  // for_in_next
+    0,  // for_of_init
+    2,  // for_of_next
+    0,  // iter_end_jmp
+
+    -1, // js_in
+    -1, // js_instanceof
+    0,  // js_typeof
+    -1, // js_delete
+
+    0,  // call
+    0,  // js_new
+    0,  // ret
+    0,  // ret_undef
+    0,  // ret_err
+    1,  // proc_call
+    -1, // proc_ret
+
+    1,  // regexp_build
+
+    0,  // halt
+    0,  // halt_err
+    0   // nop
+};
+
+
 int Instruction::get_stack_usage(OpType op_type) {
-  switch (op_type) {
-    case OpType::neg:
-      return 0;
-    case OpType::add:
-    case OpType::sub:
-    case OpType::mul:
-    case OpType::div:
-    case OpType::mod:
-    case OpType::logi_and:
-    case OpType::logi_or:
-      return -1;
-    case OpType::logi_not:
-      return 0;
-    case OpType::bits_and:
-    case OpType::bits_or:
-    case OpType::bits_xor:
-      return -1;
-    case OpType::bits_not:
-      return 0;
-    case OpType::lsh:
-    case OpType::lshi:
-    case OpType::rsh:
-    case OpType::rshi:
-    case OpType::ursh:
-    case OpType::urshi:
-    case OpType::gt:
-    case OpType::lt:
-    case OpType::ge:
-    case OpType::le:
-    case OpType::ne:
-    case OpType::ne3:
-    case OpType::eq:
-    case OpType::eq3:
-      return -1;
-    case OpType::inc:
-    case OpType::dec:
-      return 0;
-    case OpType::push:
-    case OpType::push_check:
-    case OpType::pushi:
-    case OpType::push_str:
-    case OpType::push_bool:
-    case OpType::push_atom:
-    case OpType::push_func_this:
-    case OpType::push_global_this:
-    case OpType::push_null:
-    case OpType::push_undef:
-    case OpType::push_uninit:
-      return 1;
-    case OpType::pop:
-    case OpType::pop_check:
-    case OpType::pop_drop:
-      return -1;
-    case OpType::store:
-    case OpType::store_check:
-      return 0;
-    case OpType::prop_assign:
-      return -2;
-    case OpType::var_deinit:
-    case OpType::var_deinit_range:
-    case OpType::var_undef:
-    case OpType::loop_var_renew:
-    case OpType::var_dispose:
-    case OpType::var_dispose_range:
-      return 0;
-    case OpType::jmp:
-    case OpType::jmp_true:
-    case OpType::jmp_false:
-    case OpType::jmp_cond:
-      return 0;
-    case OpType::jmp_pop:
-    case OpType::jmp_true_pop:
-    case OpType::jmp_false_pop:
-    case OpType::jmp_cond_pop:
-      return -1;
-    case OpType::make_func:
-      return 1;
-    case OpType::capture:
-      return 0;
-    case OpType::make_obj:
-    case OpType::make_array:
-      return 1;
-    case OpType::add_props:     // need special handling
-    case OpType::add_elements:  // need special handling
-      return 0;
-    case OpType::get_prop_atom:
-      return 0;
-    case OpType::get_prop_atom2:
-      return 1;
-    case OpType::get_prop_index:
-      return -1;
-    case OpType::get_prop_index2:
-      return 0;
-    case OpType::set_prop_atom:
-      return -1;
-    case OpType::set_prop_index:
-      return -2;
-    case OpType::dyn_get_var:
-      return 1;
-    case OpType::dup_stack_top:
-      return 1;
-    case OpType::for_in_init:
-    case OpType::for_of_init:
-      return 0;
-    case OpType::for_in_next:
-    case OpType::for_of_next:
-      return 2;
-    case OpType::js_in:
-    case OpType::js_instanceof:
-      return -1;
-    case OpType::js_typeof:
-      return 0;
-    case OpType::js_delete:
-      return -1;
-    case OpType::call:    // need special handling
-    case OpType::js_new:  // need special handling
-    case OpType::iter_end_jmp: // need special handling
-      return 0;
-    case OpType::proc_call:
-      return 1;
-    case OpType::proc_ret:
-      return -1;
-    default:
-      return 0;
-  }
+  return op_stack_usage[static_cast<size_t>(op_type)];
+//  switch (op_type) {
+//    case OpType::neg:
+//      return 0;
+//    case OpType::add:
+//    case OpType::sub:
+//    case OpType::mul:
+//    case OpType::div:
+//    case OpType::mod:
+//    case OpType::logi_and:
+//    case OpType::logi_or:
+//      return -1;
+//    case OpType::logi_not:
+//      return 0;
+//    case OpType::bits_and:
+//    case OpType::bits_or:
+//    case OpType::bits_xor:
+//      return -1;
+//    case OpType::bits_not:
+//      return 0;
+//    case OpType::lsh:
+//    case OpType::lshi:
+//    case OpType::rsh:
+//    case OpType::rshi:
+//    case OpType::ursh:
+//    case OpType::urshi:
+//    case OpType::gt:
+//    case OpType::lt:
+//    case OpType::ge:
+//    case OpType::le:
+//    case OpType::ne:
+//    case OpType::ne3:
+//    case OpType::eq:
+//    case OpType::eq3:
+//      return -1;
+//    case OpType::inc:
+//    case OpType::dec:
+//      return 0;
+//    case OpType::push:
+//    case OpType::push_check:
+//    case OpType::push_f64:
+//    case OpType::push_str:
+//    case OpType::push_bool:
+//    case OpType::push_atom:
+//    case OpType::push_func_this:
+//    case OpType::push_global_this:
+//    case OpType::push_null:
+//    case OpType::push_undef:
+//    case OpType::push_uninit:
+//      return 1;
+//    case OpType::pop:
+//    case OpType::pop_check:
+//    case OpType::pop_drop:
+//      return -1;
+//    case OpType::store:
+//    case OpType::store_check:
+//      return 0;
+//    case OpType::prop_assign:
+//      return -2;
+//    case OpType::var_deinit:
+//    case OpType::var_deinit_range:
+//    case OpType::var_undef:
+//    case OpType::loop_var_renew:
+//    case OpType::var_dispose:
+//    case OpType::var_dispose_range:
+//      return 0;
+//    case OpType::jmp:
+//    case OpType::jmp_true:
+//    case OpType::jmp_false:
+//    case OpType::jmp_cond:
+//      return 0;
+//    case OpType::jmp_pop:
+//    case OpType::jmp_true_pop:
+//    case OpType::jmp_false_pop:
+//    case OpType::jmp_cond_pop:
+//      return -1;
+//    case OpType::make_func:
+//      return 1;
+//    case OpType::capture:
+//      return 0;
+//    case OpType::make_obj:
+//    case OpType::make_array:
+//      return 1;
+//    case OpType::add_props:     // need special handling
+//    case OpType::add_elements:  // need special handling
+//      return 0;
+//    case OpType::get_prop_atom:
+//      return 0;
+//    case OpType::get_prop_atom2:
+//      return 1;
+//    case OpType::get_prop_index:
+//      return -1;
+//    case OpType::get_prop_index2:
+//      return 0;
+//    case OpType::set_prop_atom:
+//      return -1;
+//    case OpType::set_prop_index:
+//      return -2;
+//    case OpType::dyn_get_var:
+//      return 1;
+//    case OpType::dup_stack_top:
+//      return 1;
+//    case OpType::for_in_init:
+//    case OpType::for_of_init:
+//      return 0;
+//    case OpType::for_in_next:
+//    case OpType::for_of_next:
+//      return 2;
+//    case OpType::js_in:
+//    case OpType::js_instanceof:
+//      return -1;
+//    case OpType::js_typeof:
+//      return 0;
+//    case OpType::js_delete:
+//      return -1;
+//    case OpType::call:    // need special handling
+//    case OpType::js_new:  // need special handling
+//    case OpType::iter_end_jmp: // need special handling
+//      return 0;
+//    case OpType::proc_call:
+//      return 1;
+//    case OpType::proc_ret:
+//      return -1;
+//    case OpType::ret_undef:
+//      return 0;
+//    default:
+//      return 0;
+//  }
 }
 
 }

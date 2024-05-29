@@ -191,6 +191,7 @@ inline const char* object_class_names[] = {
     "CLS_NUMBER",
     "CLS_BOOLEAN",
     "CLS_ERROR",
+    "CLS_REGEXP",
     "CLS_DATE",
     "CLS_FUNCTION",
     "CLS_FOR_IN_ITERATOR",
@@ -204,6 +205,7 @@ inline const char* object_class_names[] = {
     "CLS_STRING_PROTO",
     "CLS_FUNCTION_PROTO",
     "CLS_ERROR_PROTO",
+    "CLS_REGEXP_PROTO",
     "CLS_ITERATOR_PROTO"
 };
 

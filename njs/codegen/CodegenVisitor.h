@@ -11,8 +11,12 @@
 #include "njs/common/AtomPool.h"
 #include "njs/common/enums.h"
 #include "njs/common/common_def.h"
+#include "njs/common/JSErrorType.h"
 #include "njs/include/SmallVector.h"
 #include "njs/include/robin_hood.h"
+extern "C" {
+#include "njs/include/libregexp/libregexp.h"
+}
 #include "njs/parser/ast.h"
 #include "njs/utils/Timer.h"
 #include "njs/utils/helper.h"
@@ -28,11 +32,15 @@ using std::function;
 using u32 = uint32_t;
 
 struct CodegenError {
+  JSErrorType type;
   std::string message;
   ASTNode *ast_node;
 
   void describe() {
-    printf("At line %u: %s\n", ast_node->start_line_num(), message.c_str());
+    printf("At line %u: %s: %s\n",
+           ast_node->start_line_num(),
+           to_u8string(native_error_name[type]).c_str(),
+           message.c_str());
   }
 };
 
@@ -275,8 +283,9 @@ class CodegenVisitor {
       case ASTNode::EXPR_TRIPLE:
         visit_ternary_expr(*static_cast<TernaryExpr *>(node));
         break;
-//      case ASTNode::EXPR_REGEXP:
-//        break;
+      case ASTNode::EXPR_REGEXP:
+        visit_regexp(*static_cast<RegExpLiteral *>(node));
+        break;
       case ASTNode::EXPR_COMMA:
         visit_comma_expr(*static_cast<Expression *>(node));
         break;
@@ -852,13 +861,13 @@ class CodegenVisitor {
 
   void visit_return_statement(ReturnStatement& return_stmt) {
     gen_call_finally_code(&scope(), scope().get_outer_func());
-    // TODO: can make a `return undefined` instruction
+
     if (return_stmt.expr) {
       visit(return_stmt.expr);
+      emit(OpType::ret);
     } else {
-      emit(OpType::push_undef);
+      emit(OpType::ret_undef);
     }
-    emit(OpType::ret);
   }
 
   void visit_if_statement(IfStatement& stmt) {
@@ -917,6 +926,53 @@ class CodegenVisitor {
 
     visit(expr.false_expr);
     bytecode[true_end_jmp].operand.two.opr1 = bytecode_pos();
+  }
+
+  void visit_regexp(RegExpLiteral& regexp) {
+    auto& flags = regexp.flag;
+    int pattern_atom = atom_pool.atomize(regexp.pattern);
+
+    int re_flags = 0;
+    for (char16_t flag : flags) {
+      int mask;
+      switch(flag) {
+        case 'd':
+          mask = LRE_FLAG_INDICES;
+          break;
+        case 'g':
+          mask = LRE_FLAG_GLOBAL;
+          break;
+        case 'i':
+          mask = LRE_FLAG_IGNORECASE;
+          break;
+        case 'm':
+          mask = LRE_FLAG_MULTILINE;
+          break;
+        case 's':
+          mask = LRE_FLAG_DOTALL;
+          break;
+        case 'u':
+          mask = LRE_FLAG_UNICODE;
+          break;
+        case 'y':
+          mask = LRE_FLAG_STICKY;
+          break;
+        default:
+          goto bad_flags;
+      }
+      if ((re_flags & mask) != 0) {
+      bad_flags:
+        report_error(CodegenError {
+            .type = JS_SYNTAX_ERROR,
+            .message = "Invalid regular expression flags",
+            .ast_node = &regexp,
+        });
+        return;
+      }
+      re_flags |= mask;
+    }
+
+    emit(OpType::regexp_build, pattern_atom, re_flags);
   }
 
   void visit_while_statement(WhileStatement& stmt) {

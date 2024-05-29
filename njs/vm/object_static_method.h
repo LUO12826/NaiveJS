@@ -13,11 +13,11 @@ namespace njs {
 inline Completion Object_defineProperty(vm_func_This_args_flags) {
   assert(args.size() >= 3);
   if (not args[0].is_object()) {
-    return Completion::with_throw(vm.build_error_internal(
+    return CompThrow(vm.build_error_internal(
         JS_TYPE_ERROR, u"Object.defineProperty called on non-object"));
   }
   if (not args[2].is_object()) {
-    return Completion::with_throw(vm.build_error_internal(
+    return CompThrow(vm.build_error_internal(
         JS_TYPE_ERROR, u"Property description must be an object"));
   }
 
@@ -30,7 +30,7 @@ inline Completion Object_defineProperty(vm_func_This_args_flags) {
 inline Completion Object_hasOwn(vm_func_This_args_flags) {
   assert(args.size() >= 2);
   if (not args[0].is_object()) {
-    return Completion::with_throw(vm.build_error_internal(
+    return CompThrow(vm.build_error_internal(
         JS_TYPE_ERROR, u"Object.hasOwn called on non-object"));
   }
   return JSObjectPrototype::hasOwnProperty(vm, func, args[0], args.subarray(1, 1), flags);

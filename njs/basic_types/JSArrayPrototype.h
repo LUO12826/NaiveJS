@@ -100,7 +100,7 @@ class JSArrayPrototype : public JSObject {
         });
       }
       catch (std::runtime_error& err) {
-        return Completion::with_throw(comp.get_value());
+        return CompThrow(comp.get_value());
       }
 
     }

@@ -18,7 +18,9 @@
 #include "njs/basic_types/JSFunction.h"
 #include "njs/basic_types/JSErrorPrototype.h"
 #include "njs/basic_types/JSValue.h"
+#include "njs/basic_types/REByteCode.h"
 #include "njs/include/SmallVector.h"
+#include "njs/include/robin_hood.h"
 
 namespace njs {
 
@@ -67,6 +69,7 @@ friend class JSString;
 friend class JSObject;
 friend class JSFunction;
 friend class JSArray;
+friend class JSRegExp;
 friend class JSForInIterator;
 friend class JSObjectPrototype;
 friend class JSArrayPrototype;
@@ -197,6 +200,8 @@ friend class JSArrayIterator;
 
   JSValue exec_typeof(JSValue val);
 
+  void exec_regexp_build(SPRef sp, u32 atom, int reflags);
+
   void exec_halt_err(SPRef sp, Instruction &inst);
 
   Completion get_prop_on_primitive(JSValue& obj, JSValue key);
@@ -243,9 +248,12 @@ friend class JSArrayIterator;
   JSValue string_prototype;
   JSValue function_prototype;
   JSValue error_prototype;
+  JSValue regexp_prototype;
   JSValue iterator_prototype;
   vector<JSValue> native_error_protos;
+
   vector<JSValue> string_const;
+  unordered_flat_map<u32, REByteCode> regexp_bytecode;
 };
 
 } // namespace njs

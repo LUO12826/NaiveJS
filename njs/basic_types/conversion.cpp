@@ -23,7 +23,7 @@ Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
         return val;
       } else {
         JSValue err = vm.build_error_internal(JS_TYPE_ERROR, u"cannot convert symbol to string");
-        return Completion::with_throw(err);
+        return CompThrow(err);
       }
     case JSValue::BOOLEAN:
       return vm.get_string_const(val.val.as_bool ? AtomPool::k_true : AtomPool::k_false);
@@ -53,7 +53,7 @@ Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
 
 Completion js_to_object(NjsVM &vm, JSValue arg) {
   if (arg.is_nil()) [[unlikely]] {
-    return Completion::with_throw(vm.build_error_internal(JS_TYPE_ERROR, u""));
+    return CompThrow(vm.build_error_internal(JS_TYPE_ERROR, u""));
   }
   JSObject *obj;
   switch (arg.tag) {

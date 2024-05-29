@@ -32,7 +32,7 @@ class JSBooleanPrototype : public JSObject {
     else {
       JSValue err = vm.build_error_internal(u"Boolean.prototype.valueOf can only accept argument "
                                              "of type boolean or boolean object.");
-      return Completion::with_throw(err);
+      return CompThrow(err);
     }
   }
 

@@ -30,6 +30,7 @@ enum ObjClass {
   CLS_NUMBER,
   CLS_BOOLEAN,
   CLS_ERROR,
+  CLS_REGEXP,
   CLS_DATE,
   CLS_FUNCTION,
   CLS_FOR_IN_ITERATOR,
@@ -43,6 +44,7 @@ enum ObjClass {
   CLS_STRING_PROTO,
   CLS_FUNCTION_PROTO,
   CLS_ERROR_PROTO,
+  CLS_REGEXP_PROTO,
   CLS_ITERATOR_PROTO,
 };
 
@@ -69,6 +71,7 @@ struct PropFlag {
   static PropFlag empty;
   static PropFlag VECW;
   static PropFlag VCW;
+  static PropFlag V;
 
   // PropFlag() {}
   // PropFlag(bool e, bool c, bool w, bool v, bool g, bool s) :
@@ -160,6 +163,7 @@ struct JSPropDesc {
 
 class JSObject : public GCObject {
 
+friend class JSArray;
 friend class JSForInIterator;
 
  public:

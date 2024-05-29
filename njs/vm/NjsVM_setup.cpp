@@ -46,6 +46,11 @@ void NjsVM::setup() {
   {
     JSFunction *func = add_native_func_impl(u"Symbol", NativeFunction::Symbol);
     func->add_prop_trivial(AtomPool::k_iterator, JSSymbol(AtomPool::k_sym_iterator));
+    func->add_prop_trivial(AtomPool::k_match, JSSymbol(AtomPool::k_sym_match));
+    func->add_prop_trivial(AtomPool::k_matchAll, JSSymbol(AtomPool::k_sym_matchAll));
+    func->add_prop_trivial(AtomPool::k_replace, JSSymbol(AtomPool::k_sym_replace));
+    func->add_prop_trivial(AtomPool::k_search, JSSymbol(AtomPool::k_sym_search));
+    func->add_prop_trivial(AtomPool::k_split, JSSymbol(AtomPool::k_sym_split));
   }
 
   {

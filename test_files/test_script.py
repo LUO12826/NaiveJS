@@ -221,6 +221,6 @@ def print_red_text(text):
 
 if __name__ == "__main__":
     current_directory = os.path.dirname(os.path.abspath(__file__))
-    njs_exec_path = os.path.join(current_directory, f"../{BUILD_DIR}/njs")
+    njs_exec_path = os.path.join(current_directory, f"../{BUILD_DIR}/njsmain")
     check_test_files(current_directory, njs_exec_path)
     print("skipped: " + ", ".join(test_ignored))

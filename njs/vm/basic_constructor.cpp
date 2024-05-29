@@ -33,13 +33,11 @@ Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args
 Completion NativeFunction::Symbol(vm_func_This_args_flags) {
   if (flags.this_is_new_target && !This.is_undefined()) {
     JSValue err = vm.build_error_internal(JS_TYPE_ERROR, u"Symbol() is not a constructor.");
-    return Completion::with_throw(err);
+    return CompThrow(err);
   }
 
   if (args.size() > 0 && not args[0].is_undefined()) {
-    assert(args[0].tag == JSValue::STRING);
-    // TODO: do a `ToString` here.
-    auto& str = args[0].val.as_prim_string->str;
+    auto& str = TRY_COMP_COMP(js_to_string(vm, args[0])).val.as_prim_string->str;
     return JSSymbol(vm.atom_pool.atomize_symbol_desc(str));
   } else {
     return JSSymbol(vm.atom_pool.atomize_symbol());

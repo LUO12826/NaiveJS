@@ -6,6 +6,7 @@
 #include <cstdarg>
 #include <cstdlib>
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -70,6 +71,29 @@ inline u16string trim(const u16string& str) {
 
   return u16string(start, end);
 }
+
+inline string memory_usage_readable(size_t size) {
+  constexpr size_t KB = 1024;
+  constexpr size_t MB = 1024 * 1024;
+
+  double size_in_unit;
+  std::string unit;
+
+  if (size >= 10 * MB) {
+    size_in_unit = static_cast<double>(size) / MB;
+    unit = "MB";
+  } else if (size >= KB) {
+    size_in_unit = static_cast<double>(size) / KB;
+    unit = "KB";
+  } else {
+    size_in_unit = static_cast<double>(size);
+    unit = "B";
+  }
+
+  std::ostringstream oss;
+  oss << std::fixed << std::setprecision(2) << size_in_unit << " " << unit;
+  return oss.str();
+};
 
 template <typename T>
 inline void hash_combine(size_t& seed, const T& val) {
