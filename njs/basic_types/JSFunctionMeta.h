@@ -44,6 +44,16 @@ struct JSFunctionMeta {
   std::string description() const;
 };
 
+inline JSFunctionMeta build_func_meta(NativeFuncType func) {
+  return JSFunctionMeta {
+      .is_anonymous = true,
+      .is_native = true,
+      .param_count = 0,
+      .local_var_count = 0,
+      .native_func = func,
+  };
+}
+
 }
 
 #endif //NJS_JSFUNCTION_META_H

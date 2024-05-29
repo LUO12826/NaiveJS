@@ -1,4 +1,7 @@
 #include "NativeFunction.h"
+#include "njs/basic_types/JSValue.h"
+#include "njs/common/AtomPool.h"
+#include "njs/utils/macros.h"
 #include "njs/vm/NjsVM.h"
 #include "njs/basic_types/conversion.h"
 #include "njs/basic_types/JSBoolean.h"
@@ -14,6 +17,27 @@ Completion NativeFunction::Object_ctor(vm_func_This_args_flags) {
   } else {
     return js_to_object(vm, args[0]);
   }
+}
+
+Completion NativeFunction::Number_ctor(vm_func_This_args_flags) {
+  double num;
+  if (args.size() == 0 || args[0].is_nil()) [[unlikely]] {
+    num = 0;
+  } else {
+    num = TRY_ERR_COMP(js_to_number(vm, args[0]));
+  }
+  return JSValue(vm.heap.new_object<JSNumber>(vm, num));
+}
+
+Completion NativeFunction::String_ctor(vm_func_This_args_flags) {
+  JSValue str;
+  if (args.size() == 0 || args[0].is_nil()) [[unlikely]] {
+    str = vm.get_string_const(AtomPool::k_);
+  } else {
+    str = TRY_COMP_COMP(js_to_string(vm, args[0]));
+  }
+  auto *obj = vm.heap.new_object<JSString>(vm, *str.val.as_prim_string);
+  return JSValue(obj);
 }
 
 Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type) {

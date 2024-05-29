@@ -70,8 +70,8 @@ class JSArrayIterator : public JSObject {
       done = true;
     }
     JSObject *res = vm.new_object();
-    res->add_prop_trivial(AtomPool::k_done, JSValue(done), PropFlag::VECW);
-    res->add_prop_trivial(AtomPool::k_value, value, PropFlag::VECW);
+    res->add_prop_trivial(AtomPool::k_done, JSValue(done), PFlag::VECW);
+    res->add_prop_trivial(AtomPool::k_value, value, PFlag::VECW);
 
     return JSValue(res);
   }

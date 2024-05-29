@@ -9,12 +9,12 @@
 
 namespace njs {
 
-PropFlag PropFlag::empty {};
-PropFlag PropFlag::VECW { .enumerable = true, .configurable = true,
+PFlag PFlag::empty {};
+PFlag PFlag::VECW { .enumerable = true, .configurable = true,
                           .writable = true, .has_value = true };
-PropFlag PropFlag::VCW {  .configurable = true,
+PFlag PFlag::VCW {  .configurable = true,
                           .writable = true, .has_value = true };
-PropFlag PropFlag::V { .has_value = true };
+PFlag PFlag::V { .has_value = true };
 
 bool JSPropDesc::operator==(const JSPropDesc& other) const {
   if (flag != other.flag) return false;
@@ -47,18 +47,35 @@ Completion JSObject::get_property_impl(NjsVM& vm, JSValue key) {
   }
 }
 
-ErrorOr<bool> JSObject::set_property(NjsVM& vm, JSValue key, JSValue value, PropFlag flag) {
+ErrorOr<bool> JSObject::set_property(NjsVM& vm, JSValue key, JSValue value) {
   if (key.is_atom() && key.val.as_atom == AtomPool::k___proto__) [[unlikely]] {
     return set_proto(value);
   } else {
-    return set_property_impl(vm, key, value, flag);
+    return set_property_impl(vm, key, value);
   }
 }
 
-ErrorOr<bool> JSObject::set_property_impl(NjsVM& vm, JSValue key, JSValue value, PropFlag flag) {
+ErrorOr<bool> JSObject::delete_property(JSValue key) {
+  return delete_property_impl(key);
+}
+
+ErrorOr<bool> JSObject::delete_property_impl(JSValue key) {
+  assert(key.is_atom() || key.is_symbol());
+  auto *desc = get_own_property(key);
+  if (desc == nullptr) return true;
+
+  if (desc->flag.configurable) {
+    storage.erase(JSObjectKey(key));
+    return true;
+  } else {
+    return false;
+  }
+}
+
+ErrorOr<bool> JSObject::set_property_impl(NjsVM& vm, JSValue key, JSValue value) {
   auto comp = js_to_property_key(vm, key);
   if (comp.is_throw()) return comp.get_value();
-  return set_prop(vm, comp.get_value(), value, flag);
+  return set_prop(vm, comp.get_value(), value);
 }
 
 Completion JSObject::has_own_property(NjsVM& vm, JSValue key) {
@@ -88,6 +105,11 @@ bool JSObject::set_proto(JSValue proto) {
 }
 
 ErrorOr<bool> JSObject::define_own_property(JSValue key, JSPropDesc& desc) {
+  return define_own_property_impl(key, get_own_property(key), desc);
+}
+
+ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_desc,
+                                                 JSPropDesc& desc) {
   assert(desc.flag.in_def_mode);
 
   auto setup_getset = [] (JSPropDesc& target, JSPropDesc& desc) {
@@ -100,7 +122,6 @@ ErrorOr<bool> JSObject::define_own_property(JSValue key, JSPropDesc& desc) {
     target.data.getset.setter = has_setter ? desc.data.getset.setter : undefined;
   };
 
-  JSPropDesc *curr_desc = get_own_property(key);
   if (curr_desc == nullptr) [[likely]] {
     if (!extensible) return false;
 
@@ -196,73 +217,82 @@ ErrorOr<bool> JSObject::define_own_property(JSValue key, JSPropDesc& desc) {
   } // end curr_desc != nullptr
 }
 
-ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value, PropFlag flag) {
-  // prop can come from this object or its prototype
-  JSPropDesc *desc = get_exist_prop(key);
-  if (desc == nullptr) [[unlikely]] {
-    if (extensible) {
-      desc = &storage[JSObjectKey(key)];
-      desc->flag = flag;
-      desc->data.value = value;
-      return true;
-    } else {
-      return false;
-    }
+ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
+  assert(key.is_atom() || key.is_symbol());
+  // 1.
+  JSPropDesc own_desc;
+  if (auto *p = get_exist_prop(key); p == nullptr) {
+    own_desc.flag = PFlag::VECW;
+    own_desc.to_definition();
+    own_desc.data.value = undefined;
   } else {
-    PropFlag prop_flag = desc->flag;
-    if (desc->is_data_descriptor()) {
-      if (not prop_flag.writable) return false;
-      desc->data.value = value;
-      return true;
-    } else {
-      assert(desc->is_accessor_descriptor());
-      JSValue setter = desc->data.getset.setter;
-      if (setter.is_undefined()) return false;
-
-      auto comp = vm.call_function(setter.val.as_func, JSValue(this), nullptr, {value});
-      return likely(comp.is_normal()) ? ErrorOr<bool>(true) : comp.get_value();
+    own_desc = *p;
+  }
+  // 2.
+  if (own_desc.is_data_descriptor()) {
+    if (not own_desc.flag.writable) return false;
+    JSPropDesc *existing_desc = get_own_property(key);
+    // 2.d
+    if (existing_desc) {
+      if (existing_desc->is_accessor_descriptor()) return false;
+      if (not existing_desc->flag.writable) return false;
+      JSPropDesc desc {
+          .flag.in_def_mode = true,
+          .flag.has_value = true,
+          .data.value = value,
+      };
+      return define_own_property_impl(key, existing_desc, desc);
     }
+    // 2.e
+    else {
+      // CreateDataProperty
+      JSPropDesc desc {
+          .flag = PFlag::VECW,
+          .data.value = value,
+      };
+      desc.to_definition();
+      return define_own_property_impl(key, existing_desc, desc);
+    }
+  }
+  // is not a data descriptor
+  else {
+    assert(own_desc.is_accessor_descriptor());
+    JSValue setter = own_desc.data.getset.setter;
+    if (setter.is_undefined()) return false;
+
+    auto comp = vm.call_function(setter.val.as_func, JSValue(this), nullptr, {value});
+    return likely(comp.is_normal()) ? ErrorOr<bool>(true) : comp.get_value();
   }
 }
 
-ErrorOr<bool> JSObject::set_prop(NjsVM& vm, u16string_view key_str, JSValue value, PropFlag flag) {
-  return set_prop(vm, JSAtom(vm.str_to_atom(key_str)), value, flag);
+ErrorOr<bool> JSObject::set_prop(NjsVM& vm, u16string_view key_str, JSValue value) {
+  return set_prop(vm, JSAtom(vm.str_to_atom(key_str)), value);
 }
 
-bool JSObject::add_prop_trivial(u32 key_atom, JSValue value, PropFlag flag) {
+bool JSObject::add_prop_trivial(NjsVM& vm, u16string_view key_str, JSValue value, PFlag flag) {
+  return add_prop_trivial(vm.str_to_atom(key_str), value, flag);
+}
+
+bool JSObject::add_prop_trivial(u32 key_atom, JSValue value, PFlag flag) {
   return add_prop_trivial(JSAtom(key_atom), value, flag);
 }
 
-bool JSObject::add_prop_trivial(JSValue key, JSValue value, PropFlag flag) {
+bool JSObject::add_prop_trivial(JSValue key, JSValue value, PFlag flag) {
   JSPropDesc& prop = storage[JSObjectKey(key)];
   prop.flag = flag;
   prop.data.value = value;
   return true;
 }
 
-bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl, PropFlag flag) {
+bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl, PFlag flag) {
   u32 name_idx = vm.str_to_atom(key_str);
-  JSFunctionMeta meta {
-      .name_index = name_idx,
-      .is_native = true,
-      .param_count = 0,
-      .local_var_count = 0,
-      .native_func = funcImpl,
-  };
-
-  return add_prop_trivial(name_idx, JSValue(vm.new_function(meta)));
+  JSFunctionMeta meta = build_func_meta(funcImpl);
+  return add_prop_trivial(name_idx, JSValue(vm.new_function(meta)), flag);
 }
 
-bool JSObject::add_symbol_method(NjsVM& vm, u32 symbol, NativeFuncType funcImpl) {
-  JSFunctionMeta meta {
-      .is_anonymous = true,
-      .is_native = true,
-      .param_count = 0,
-      .local_var_count = 0,
-      .native_func = funcImpl,
-  };
-
-  return add_prop_trivial(JSSymbol(symbol), JSValue(vm.new_function(meta)));
+bool JSObject::add_symbol_method(NjsVM& vm, u32 symbol, NativeFuncType funcImpl, PFlag flag) {
+  JSFunctionMeta meta = build_func_meta(funcImpl);
+  return add_prop_trivial(JSSymbol(symbol), JSValue(vm.new_function(meta)), flag);
 }
 
 Completion JSObject::get_prop(NjsVM& vm, u32 key_atom) {
@@ -274,6 +304,7 @@ Completion JSObject::get_prop(NjsVM& vm, u16string_view key_str) {
 }
 
 Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
+  assert(key.is_atom() || key.is_symbol());
   JSPropDesc *prop = get_exist_prop(key);
   if (prop == nullptr) [[unlikely]] {
     return prop_not_found;

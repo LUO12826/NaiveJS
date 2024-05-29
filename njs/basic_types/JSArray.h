@@ -47,7 +47,7 @@ class JSArray: public JSObject {
     }
   }
 
-  ErrorOr<bool> set_property_impl(NjsVM& vm, JSValue key, JSValue val, PropFlag flag) override {
+  ErrorOr<bool> set_property_impl(NjsVM& vm, JSValue key, JSValue val) override {
     auto comp = get_index_or_atom(vm, key);
     if (comp.is_throw()) return comp.get_value();
 

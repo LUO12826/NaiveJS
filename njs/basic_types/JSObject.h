@@ -54,7 +54,7 @@ enum ToPrimTypeHint {
   HINT_NUMBER,
 };
 
-struct PropFlag {
+struct PFlag {
   bool in_def_mode: 1 {false};
 
   bool enumerable: 1 {false};
@@ -68,15 +68,10 @@ struct PropFlag {
   bool has_getter: 1 {false};
   bool has_setter: 1 {false};
 
-  static PropFlag empty;
-  static PropFlag VECW;
-  static PropFlag VCW;
-  static PropFlag V;
-
-  // PropFlag() {}
-  // PropFlag(bool e, bool c, bool w, bool v, bool g, bool s) :
-  //   enumerable(e), configurable(c), writable(w),
-  //   has_value(v), has_getter(g), has_setter(s) {}
+  static PFlag empty;
+  static PFlag VECW;
+  static PFlag VCW;
+  static PFlag V;
 
   void set_ECW() {
     enumerable = configurable = writable = true;
@@ -90,8 +85,8 @@ struct PropFlag {
     return !not_empty;
   }
 
-  bool operator==(const PropFlag& other) const = default;
-  bool operator!=(const PropFlag& other) const = default;
+  bool operator==(const PFlag& other) const = default;
+  bool operator!=(const PFlag& other) const = default;
 };
 
 struct JSObjectKey {
@@ -134,7 +129,7 @@ struct std::hash<njs::JSObjectKey> {
 namespace njs {
 
 struct JSPropDesc {
-  PropFlag flag;
+  PFlag flag;
   union Data {
     JSValue value;
     struct {
@@ -158,6 +153,24 @@ struct JSPropDesc {
   bool is_accessor_descriptor() {return flag.has_getter || flag.has_setter; }
   bool is_generic_descriptor() {
     return !is_data_descriptor() && !is_accessor_descriptor();
+  }
+
+  void populate() {
+    flag.in_def_mode = false;
+    flag.writable = flag.has_write & flag.writable;
+    flag.configurable = flag.has_config & flag.configurable;
+    flag.enumerable = flag.has_enum & flag.enumerable;
+
+    assert(flag.has_value ^ (flag.has_getter | flag.has_setter));
+  }
+
+  void to_definition() {
+    flag.in_def_mode = true;
+    flag.has_enum = true;
+    flag.has_write = true;
+    flag.has_config = true;
+
+    assert(flag.has_value ^ (flag.has_getter | flag.has_setter));
   }
 };
 
@@ -192,10 +205,12 @@ friend class JSForInIterator;
   Completion ordinary_to_primitive(NjsVM& vm, ToPrimTypeHint hint);
 
   Completion get_property(NjsVM& vm, JSValue key);
-  ErrorOr<bool> set_property(NjsVM& vm, JSValue key, JSValue value, PropFlag flag = PropFlag::VECW);
+  ErrorOr<bool> set_property(NjsVM& vm, JSValue key, JSValue value);
+  ErrorOr<bool> delete_property(JSValue key);
 
   virtual Completion get_property_impl(NjsVM& vm, JSValue key);
-  virtual ErrorOr<bool> set_property_impl(NjsVM& vm, JSValue key, JSValue value, PropFlag flag);
+  virtual ErrorOr<bool> set_property_impl(NjsVM& vm, JSValue key, JSValue value);
+  virtual ErrorOr<bool> delete_property_impl(JSValue key);
 
   virtual Completion has_own_property(NjsVM& vm, JSValue key);
 
@@ -209,19 +224,21 @@ friend class JSForInIterator;
   JSValue get_proto() const { return _proto_; }
 
   ErrorOr<bool> define_own_property(JSValue key, JSPropDesc& desc);
+  ErrorOr<bool> define_own_property_impl(JSValue key, JSPropDesc *curr_desc, JSPropDesc& desc);
 
   /*
    * The following methods only accept atom or symbol as the key
    * if the key type is JSValue.
    */
-  ErrorOr<bool> set_prop(NjsVM& vm, JSValue key, JSValue value, PropFlag flag = PropFlag::VECW);
-  ErrorOr<bool> set_prop(NjsVM& vm, u16string_view key_str, JSValue value, PropFlag flag = PropFlag::VECW);
+  ErrorOr<bool> set_prop(NjsVM& vm, JSValue key, JSValue value);
+  ErrorOr<bool> set_prop(NjsVM& vm, u16string_view key_str, JSValue value);
 
-  bool add_prop_trivial(u32 key_atom, JSValue value, PropFlag flag = PropFlag::VCW);
-  bool add_prop_trivial(JSValue key, JSValue value, PropFlag flag = PropFlag::VCW);
+  bool add_prop_trivial(NjsVM& vm, u16string_view key_str, JSValue value, PFlag flag = PFlag::VCW);
+  bool add_prop_trivial(u32 key_atom, JSValue value, PFlag flag = PFlag::VCW);
+  bool add_prop_trivial(JSValue key, JSValue value, PFlag flag = PFlag::VCW);
 
-  bool add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl, PropFlag flag = PropFlag::VCW);
-  bool add_symbol_method(NjsVM& vm, u32 symbol, NativeFuncType funcImpl);
+  bool add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl, PFlag flag = PFlag::VCW);
+  bool add_symbol_method(NjsVM& vm, u32 symbol, NativeFuncType funcImpl, PFlag flag = PFlag::VCW);
 
   Completion get_prop(NjsVM& vm, JSValue key);
   Completion get_prop(NjsVM& vm, u32 key_atom);

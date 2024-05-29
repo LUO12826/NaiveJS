@@ -113,6 +113,7 @@ enum class OpType {
   js_instanceof,
   js_typeof,
   js_delete,
+  js_to_number,
 
   call,
   js_new,

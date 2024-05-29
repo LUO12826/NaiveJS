@@ -1,13 +1,16 @@
 #include "conversion.h"
 
+#include <cstdint>
 #include <limits>
 #include <cmath>
+#include <sys/_types/_int64_t.h>
 #include "njs/basic_types/JSBoolean.h"
 #include "njs/basic_types/JSNumber.h"
 #include "njs/basic_types/JSString.h"
 #include "njs/common/conversion_helper.h"
 #include "njs/parser/character.h"
 #include "njs/parser/lexing_helper.h"
+#include "njs/utils/macros.h"
 #include "njs/vm/NjsVM.h"
 
 namespace njs {
@@ -161,9 +164,8 @@ ErrorOr<u32> js_to_uint32(NjsVM &vm, JSValue val) {
   if (x == 0.0 || std::isnan(x) || std::isinf(x)) {
     return 0;
   }
-  // very simplified
-  int64_t int_val = x;
-  return u32(int_val);
+  // TODO: may need to double check
+  return (int64_t)x;
 }
 
 ErrorOr<int32_t> js_to_int32(NjsVM &vm, JSValue val) {
@@ -174,9 +176,8 @@ ErrorOr<int32_t> js_to_int32(NjsVM &vm, JSValue val) {
   if (x == 0.0 || std::isnan(x) || std::isinf(x)) {
     return 0;
   }
-  // very simplified
-  int64_t int_val = x;
-  return int32_t(int_val);
+  // TODO: may need to double check
+  return (u32)(int64_t)x;
 }
 
 }

@@ -7,6 +7,7 @@
 #include <string>
 #include <functional>
 #include "Scope.h"
+#include "njs/global_var.h"
 #include "njs/basic_types/JSFunction.h"
 #include "njs/common/AtomPool.h"
 #include "njs/common/enums.h"
@@ -14,6 +15,7 @@
 #include "njs/common/JSErrorType.h"
 #include "njs/include/SmallVector.h"
 #include "njs/include/robin_hood.h"
+#include "njs/parser/Token.h"
 extern "C" {
 #include "njs/include/libregexp/libregexp.h"
 }
@@ -26,9 +28,7 @@ namespace njs {
 
 using robin_hood::unordered_map;
 using std::u16string;
-using std::unique_ptr;
 using std::vector;
-using std::function;
 using u32 = uint32_t;
 
 struct CodegenError {
@@ -398,7 +398,7 @@ class CodegenVisitor {
         .is_strict = body->strict,
         .param_count = (u16)scope().get_param_count(),
         .local_var_count = (u16)scope().get_var_count(),
-        .stack_size = (u16)scope().get_max_stack_size(),
+        .stack_size = u16(scope().get_max_stack_size() + 1), // 1 more slot for error, maybe ?
         .code_address = func_start_pos,
         .source_line = func.start_line_num(),
         .catch_table = std::move(scope().catch_table)
@@ -439,14 +439,14 @@ class CodegenVisitor {
   void visit_unary_expr(UnaryExpr& expr, bool need_value = true) {
 
     switch (expr.op.type) {
+      case Token::ADD:
+        visit(expr.operand);
+        emit(OpType::js_to_number);
+        break;
       case Token::LOGICAL_NOT:
         if (expr.is_prefix_op) {
-          if (expr.operand->is(ASTNode::EXPR_BOOL)) {
-            emit(OpType::push_bool, u32(not (expr.operand->get_source() == u"true")));
-          } else {
-            visit(expr.operand);
-            emit(OpType::logi_not);
-          }
+          visit(expr.operand);
+          emit(OpType::logi_not);
         } else {
           assert(false);
         }
@@ -472,6 +472,7 @@ class CodegenVisitor {
       case Token::DEC: {
         if (not expr.is_prefix_op && need_value) {
           visit(expr.operand);
+          emit(OpType::js_to_number);
         }
 
         auto *num_1 = new NumberLiteral(1.0, u"1", 0, 0, 0);
@@ -490,6 +491,20 @@ class CodegenVisitor {
         if (expr.op.text == u"typeof") {
           visit(expr.operand);
           emit(OpType::js_typeof);
+        } else if (expr.op.text == u"delete") {
+          if (auto *lhs = dynamic_cast<LeftHandSideExpr*>(expr.operand);
+              lhs != nullptr && lhs->postfixs.size() != 0) {
+            auto inst_set_prop = visit_left_hand_side_expr(*lhs, true, false);
+            if (inst_set_prop.op_type == OpType::set_prop_atom) {
+              emit(OpType::push_atom, inst_set_prop.operand.two.opr1);
+            }
+            emit(OpType::js_delete);
+          } else {
+            assert(false);
+          }
+        } else if (expr.op.text == u"void") {
+          visit_single_statement(expr.operand);
+          emit(OpType::push_undef);
         } else {
           assert(false);
         }
@@ -521,6 +536,8 @@ class CodegenVisitor {
         case Token::SUB: emit(OpType::sub); break;
         case Token::MUL: emit(OpType::mul); break;
         case Token::DIV: emit(OpType::div); break;
+
+        case Token::MOD: emit(OpType::mod); break;
 
         case Token::BIT_AND: emit(OpType::bits_and); break;
         case Token::BIT_OR: emit(OpType::bits_or); break;
@@ -698,7 +715,6 @@ class CodegenVisitor {
       if (inst_set_prop.op_type == OpType::nop) {
         assert(false);
       }
-
       codegen_rhs();
       emit(inst_set_prop);
       if (!need_value) emit(OpType::pop_drop);

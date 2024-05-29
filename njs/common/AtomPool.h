@@ -1,13 +1,14 @@
 #ifndef NJS_ATOM_POOL_H
 #define NJS_ATOM_POOL_H
 
+#include <cassert>
+#include <string>
+#include <unordered_map>
 #include "njs/basic_types/String.h"
 #include "njs/basic_types/atom.h"
 #include "njs/include/robin_hood.h"
 #include "njs/parser/lexing_helper.h"
-#include <cassert>
-#include <string>
-#include <unordered_map>
+#include "njs/common/conversion_helper.h"
 
 namespace njs {
 
@@ -21,6 +22,7 @@ using std::optional;
 class AtomPool {
  public:
   AtomPool() {
+    k_ = atomize(u"");
     k_undefined = atomize(u"undefined");
     k_null = atomize(u"null");
     k_true = atomize(u"true");
@@ -72,6 +74,7 @@ class AtomPool {
   bool has_string(u16string_view str_view);
   void record_static_atom_count();
 
+  inline static u32 k_;
   inline static u32 k_undefined;
   inline static u32 k_null;
   inline static u32 k_true;

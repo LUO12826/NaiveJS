@@ -23,6 +23,8 @@ class NativeFunction {
   static Completion json_stringify(JS_NATIVE_FUNC_PARAMS);
 
   static Completion Object_ctor(JS_NATIVE_FUNC_PARAMS);
+  static Completion Number_ctor(JS_NATIVE_FUNC_PARAMS);
+  static Completion String_ctor(JS_NATIVE_FUNC_PARAMS);
   static Completion error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type);
 
   static Completion Symbol(JS_NATIVE_FUNC_PARAMS);

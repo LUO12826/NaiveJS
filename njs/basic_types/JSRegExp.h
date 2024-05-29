@@ -7,6 +7,8 @@
 #include "JSObject.h"
 #include "REByteCode.h"
 #include "njs/vm/NjsVM.h"
+#include "njs/basic_types/conversion.h"
+#include "njs/basic_types/JSArray.h"
 extern "C" {
 #include "njs/include/libregexp/libregexp.h"
 }
@@ -55,17 +57,17 @@ class JSRegExp : public JSObject {
       hasIndices = true;
     }
     
-    set_prop(vm, u"global", JSValue(global), PropFlag::V);
-    set_prop(vm, u"ignoreCase", JSValue(ignoreCase), PropFlag::V);
-    set_prop(vm, u"multiline", JSValue(multiline), PropFlag::V);
-    set_prop(vm, u"dotAll", JSValue(dotAll), PropFlag::V);
-    set_prop(vm, u"unicode", JSValue(unicode), PropFlag::V);
-    set_prop(vm, u"sticky", JSValue(sticky), PropFlag::V);
-    set_prop(vm, u"hasIndices", JSValue(hasIndices), PropFlag::V);
+    add_prop_trivial(vm, u"global", JSValue(global), PFlag::V);
+    add_prop_trivial(vm, u"ignoreCase", JSValue(ignoreCase), PFlag::V);
+    add_prop_trivial(vm, u"multiline", JSValue(multiline), PFlag::V);
+    add_prop_trivial(vm, u"dotAll", JSValue(dotAll), PFlag::V);
+    add_prop_trivial(vm, u"unicode", JSValue(unicode), PFlag::V);
+    add_prop_trivial(vm, u"sticky", JSValue(sticky), PFlag::V);
+    add_prop_trivial(vm, u"hasIndices", JSValue(hasIndices), PFlag::V);
 
-    set_prop(vm, u"source", JSValue(vm.new_primitive_string(this->pattern)), PropFlag::V);
-    set_prop(vm, u"flags", JSValue(vm.new_primitive_string(std::move(flag_str))), PropFlag::V);
-    set_prop(vm, u"lastIndex", JSValue(0.0));
+    add_prop_trivial(vm, u"source", JSValue(vm.new_primitive_string(this->pattern)), PFlag::V);
+    add_prop_trivial(vm, u"flags", JSValue(vm.new_primitive_string(std::move(flag_str))), PFlag::V);
+    add_prop_trivial(vm, u"lastIndex", JSValue(0.0));
   }
 
   Completion compile_bytecode_internal(NjsVM& vm) {

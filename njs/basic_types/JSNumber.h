@@ -2,6 +2,7 @@
 #define JS_NUMBER_H
 
 #include "JSObject.h"
+#include "njs/vm/NjsVM.h"
 
 namespace njs {
 

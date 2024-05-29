@@ -276,6 +276,9 @@ std::string Instruction::description() const {
     case OpType::js_delete:
       sprintf(buffer, "delete");
       break;
+    case OpType::js_to_number:
+      sprintf(buffer, "to_number");
+      break;
     case OpType::call:
       sprintf(buffer, "call  argc:%d  has_this:%d", OPR1, OPR2);
       break;
@@ -420,6 +423,7 @@ static int op_stack_usage[] = {
     -1, // js_instanceof
     0,  // js_typeof
     -1, // js_delete
+    0,  // js_to_number
 
     0,  // call
     0,  // js_new
@@ -439,133 +443,6 @@ static int op_stack_usage[] = {
 
 int Instruction::get_stack_usage(OpType op_type) {
   return op_stack_usage[static_cast<size_t>(op_type)];
-//  switch (op_type) {
-//    case OpType::neg:
-//      return 0;
-//    case OpType::add:
-//    case OpType::sub:
-//    case OpType::mul:
-//    case OpType::div:
-//    case OpType::mod:
-//    case OpType::logi_and:
-//    case OpType::logi_or:
-//      return -1;
-//    case OpType::logi_not:
-//      return 0;
-//    case OpType::bits_and:
-//    case OpType::bits_or:
-//    case OpType::bits_xor:
-//      return -1;
-//    case OpType::bits_not:
-//      return 0;
-//    case OpType::lsh:
-//    case OpType::lshi:
-//    case OpType::rsh:
-//    case OpType::rshi:
-//    case OpType::ursh:
-//    case OpType::urshi:
-//    case OpType::gt:
-//    case OpType::lt:
-//    case OpType::ge:
-//    case OpType::le:
-//    case OpType::ne:
-//    case OpType::ne3:
-//    case OpType::eq:
-//    case OpType::eq3:
-//      return -1;
-//    case OpType::inc:
-//    case OpType::dec:
-//      return 0;
-//    case OpType::push:
-//    case OpType::push_check:
-//    case OpType::push_f64:
-//    case OpType::push_str:
-//    case OpType::push_bool:
-//    case OpType::push_atom:
-//    case OpType::push_func_this:
-//    case OpType::push_global_this:
-//    case OpType::push_null:
-//    case OpType::push_undef:
-//    case OpType::push_uninit:
-//      return 1;
-//    case OpType::pop:
-//    case OpType::pop_check:
-//    case OpType::pop_drop:
-//      return -1;
-//    case OpType::store:
-//    case OpType::store_check:
-//      return 0;
-//    case OpType::prop_assign:
-//      return -2;
-//    case OpType::var_deinit:
-//    case OpType::var_deinit_range:
-//    case OpType::var_undef:
-//    case OpType::loop_var_renew:
-//    case OpType::var_dispose:
-//    case OpType::var_dispose_range:
-//      return 0;
-//    case OpType::jmp:
-//    case OpType::jmp_true:
-//    case OpType::jmp_false:
-//    case OpType::jmp_cond:
-//      return 0;
-//    case OpType::jmp_pop:
-//    case OpType::jmp_true_pop:
-//    case OpType::jmp_false_pop:
-//    case OpType::jmp_cond_pop:
-//      return -1;
-//    case OpType::make_func:
-//      return 1;
-//    case OpType::capture:
-//      return 0;
-//    case OpType::make_obj:
-//    case OpType::make_array:
-//      return 1;
-//    case OpType::add_props:     // need special handling
-//    case OpType::add_elements:  // need special handling
-//      return 0;
-//    case OpType::get_prop_atom:
-//      return 0;
-//    case OpType::get_prop_atom2:
-//      return 1;
-//    case OpType::get_prop_index:
-//      return -1;
-//    case OpType::get_prop_index2:
-//      return 0;
-//    case OpType::set_prop_atom:
-//      return -1;
-//    case OpType::set_prop_index:
-//      return -2;
-//    case OpType::dyn_get_var:
-//      return 1;
-//    case OpType::dup_stack_top:
-//      return 1;
-//    case OpType::for_in_init:
-//    case OpType::for_of_init:
-//      return 0;
-//    case OpType::for_in_next:
-//    case OpType::for_of_next:
-//      return 2;
-//    case OpType::js_in:
-//    case OpType::js_instanceof:
-//      return -1;
-//    case OpType::js_typeof:
-//      return 0;
-//    case OpType::js_delete:
-//      return -1;
-//    case OpType::call:    // need special handling
-//    case OpType::js_new:  // need special handling
-//    case OpType::iter_end_jmp: // need special handling
-//      return 0;
-//    case OpType::proc_call:
-//      return 1;
-//    case OpType::proc_ret:
-//      return -1;
-//    case OpType::ret_undef:
-//      return 0;
-//    default:
-//      return 0;
-//  }
 }
 
 }

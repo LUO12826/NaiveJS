@@ -3,6 +3,7 @@
 
 #include "JSObject.h"
 #include "PrimitiveString.h"
+#include "njs/vm/NjsVM.h"
 
 namespace njs {
 

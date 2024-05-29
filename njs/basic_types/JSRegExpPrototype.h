@@ -2,9 +2,11 @@
 #define NJS_JS_REGEXP_PROTOTYPE_H
 
 #include "JSObject.h"
+#include "JSRegExp.h"
 #include "JSBoolean.h"
 #include "njs/vm/NjsVM.h"
 #include "njs/vm/NativeFunction.h"
+#include "njs/basic_types/conversion.h"
 #include "njs/common/common_def.h"
 
 namespace njs {
@@ -21,13 +23,13 @@ class JSRegExpPrototype : public JSObject {
     add_symbol_method(vm, AtomPool::k_sym_search, JSRegExpPrototype::re_search);
     add_symbol_method(vm, AtomPool::k_sym_split, JSRegExpPrototype::re_split);
 
-    set_prop(vm, u"global", undefined, PropFlag::V);
-    set_prop(vm, u"ignoreCase", undefined, PropFlag::V);
-    set_prop(vm, u"multiline", undefined, PropFlag::V);
-    set_prop(vm, u"dotAll", undefined, PropFlag::V);
-    set_prop(vm, u"unicode", undefined, PropFlag::V);
-    set_prop(vm, u"sticky", undefined, PropFlag::V);
-    set_prop(vm, u"hasIndices", undefined, PropFlag::V);
+    add_prop_trivial(vm, u"global", undefined, PFlag::V);
+    add_prop_trivial(vm, u"ignoreCase", undefined, PFlag::V);
+    add_prop_trivial(vm, u"multiline", undefined, PFlag::V);
+    add_prop_trivial(vm, u"dotAll", undefined, PFlag::V);
+    add_prop_trivial(vm, u"unicode", undefined, PFlag::V);
+    add_prop_trivial(vm, u"sticky", undefined, PFlag::V);
+    add_prop_trivial(vm, u"hasIndices", undefined, PFlag::V);
 
     set_prop(vm, u"source", JSValue(vm.new_primitive_string(u"(?:)")));
     set_prop(vm, u"flags", JSValue(vm.new_primitive_string(u"")));

@@ -43,6 +43,8 @@ struct JSStackFrame {
   JSValue *stack;
   JSValue *sp;
   u32 pc {0};
+  // warning: these two values are valid only when this frame is active.
+  JSValue **sp_ref;
   u32 *pc_ref;
 
   JSStackFrame* move_to_heap() {
@@ -69,6 +71,7 @@ friend class JSString;
 friend class JSObject;
 friend class JSFunction;
 friend class JSArray;
+friend class JSDate;
 friend class JSRegExp;
 friend class JSForInIterator;
 friend class JSObjectPrototype;
@@ -199,6 +202,7 @@ friend class JSArrayIterator;
   void exec_abstract_equality(SPRef sp, bool flip);
 
   JSValue exec_typeof(JSValue val);
+  void exec_delete(SPRef sp);
 
   void exec_regexp_build(SPRef sp, u32 atom, int reflags);
 
@@ -249,6 +253,7 @@ friend class JSArrayIterator;
   JSValue function_prototype;
   JSValue error_prototype;
   JSValue regexp_prototype;
+  JSValue date_prototype;
   JSValue iterator_prototype;
   vector<JSValue> native_error_protos;
 

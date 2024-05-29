@@ -6,16 +6,6 @@
 
 namespace njs {
 
-inline JSFunctionMeta build_func_meta(NativeFuncType func) {
-  return JSFunctionMeta {
-      .is_anonymous = true,
-      .is_native = true,
-      .param_count = 0,
-      .local_var_count = 0,
-      .native_func = func,
-  };
-}
-
 void NjsVM::setup() {
   add_native_func_impl(u"log", NativeFunction::debug_log);
   add_native_func_impl(u"$gc", NativeFunction::js_gc);
@@ -41,6 +31,22 @@ void NjsVM::setup() {
     func->add_prop_trivial(AtomPool::k_prototype, object_prototype);
     func->add_method(*this, u"defineProperty", Object_defineProperty);
     func->add_method(*this, u"hasOwn", Object_hasOwn);
+    func->add_method(*this, u"getPrototypeOf", Object_getPrototypeOf);
+    func->add_method(*this, u"preventExtensions", Object_preventExtensions);
+    func->add_method(*this, u"isExtensible", Object_isExtensible);
+    func->add_method(*this, u"create", Object_create);
+  }
+
+  {
+    JSFunction *func = add_native_func_impl(u"Number", NativeFunction::Number_ctor);
+    number_prototype.as_object()->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(AtomPool::k_prototype, number_prototype);
+  }
+
+  {
+    JSFunction *func = add_native_func_impl(u"String", NativeFunction::String_ctor);
+    string_prototype.as_object()->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(AtomPool::k_prototype, string_prototype);
   }
 
   {
@@ -68,6 +74,7 @@ void NjsVM::setup() {
   add_builtin_global_var(u"Infinity", JSValue(1.0 / 0.0));
 
   string_const.resize(20);
+  string_const[AtomPool::k_] = new_primitive_string(u"");
   string_const[AtomPool::k_undefined] = new_primitive_string(u"undefined");
   string_const[AtomPool::k_null] = new_primitive_string(u"null");
   string_const[AtomPool::k_true] = new_primitive_string(u"true");

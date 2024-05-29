@@ -8,9 +8,8 @@
 
 namespace njs {
 
-
-
 class NjsVM;
+
 class JSErrorPrototype : public JSObject {
  public:
   explicit JSErrorPrototype(NjsVM& vm, JSErrorType type = JS_ERROR);
