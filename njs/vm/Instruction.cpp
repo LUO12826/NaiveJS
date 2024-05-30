@@ -11,20 +11,13 @@ Instruction Instruction::num_imm(double num) {
   return inst;
 }
 
-Instruction::Instruction(OpType op, u16 opr1, u16 opr2, u16 opr3, u16 opr4): op_type(op) {
-  operand.four.opr1 = opr1;
-  operand.four.opr2 = opr2;
-  operand.four.opr3 = opr3;
-  operand.four.opr4 = opr4;
-}
-
 Instruction::Instruction(OpType op, int opr1, int opr2): op_type(op) {
-  operand.two.opr1 = opr1;
-  operand.two.opr2 = opr2;
+  operand.two[0] = opr1;
+  operand.two[1]  = opr2;
 }
 
 Instruction::Instruction(OpType op, int opr1): op_type(op) {
-  operand.two.opr1 = opr1;
+  operand.two[0] = opr1;
 }
 
 Instruction::Instruction(OpType op): op_type(op) {}
@@ -32,14 +25,14 @@ Instruction::Instruction(OpType op): op_type(op) {}
 Instruction::Instruction(): op_type(OpType::nop) {}
 
 void Instruction::swap_two_operands() {
-  int temp = operand.two.opr1;
-  operand.two.opr1 = operand.two.opr2;
-  operand.two.opr2 = temp;
+  int temp = operand.two[0];
+  operand.two[0] = operand.two[1];
+  operand.two[1] = temp;
 }
 
 std::string Instruction::description() const {
-#define OPR1 operand.two.opr1
-#define OPR2 operand.two.opr2
+#define OPR1 operand.two[0]
+#define OPR2 operand.two[1]
 
   static const char *assign_op_names[] = {
       "add_assign",
@@ -237,6 +230,9 @@ std::string Instruction::description() const {
     case OpType::dyn_get_var:
       sprintf(buffer, "dyn_get_var  %d", OPR1);
       break;
+    case OpType::dyn_get_var_undef:
+      sprintf(buffer, "dyn_get_var_undef  %d", OPR1);
+      break;
     case OpType::dyn_set_var:
       sprintf(buffer, "dyn_set_var  %d", OPR1);
       break;
@@ -407,6 +403,7 @@ static int op_stack_usage[] = {
     -2, // set_prop_index
 
     1,  // dyn_get_var
+    1,  // dyn_get_var_undef
     0,  // dyn_set_var
 
     1,  // dup_stack_top

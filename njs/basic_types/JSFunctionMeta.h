@@ -33,13 +33,15 @@ struct JSFunctionMeta {
   u16 param_count;
   u16 local_var_count;
   u16 stack_size;
-  u32 code_address;
+  u32 bytecode_start;
+  u32 bytecode_end;
 
   u32 source_line;
 
   SmallVector<CatchTableEntry, 3> catch_table;
 
   NativeFuncType native_func {nullptr};
+  int magic;
 
   std::string description() const;
 };

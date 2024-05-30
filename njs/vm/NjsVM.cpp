@@ -86,9 +86,10 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   global_meta.name_index = atom_pool.atomize(u"(global)");
   global_meta.is_strict = global_scope.is_strict;
   global_meta.local_var_count = global_scope.get_var_count();
-  global_meta.stack_size = global_scope.get_max_stack_size();
+  global_meta.stack_size = global_scope.get_max_stack_size() + 1;
   global_meta.param_count = 0;
-  global_meta.code_address = 0;
+  global_meta.bytecode_start = 0;
+  global_meta.bytecode_end = bytecode.size();
   global_meta.source_line = 0;
   global_meta.catch_table = std::move(global_scope.catch_table);
 
@@ -202,6 +203,9 @@ void NjsVM::execute_global() {
 
 Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
                                 JSFunction *new_target, ArrayRef<JSValue> argv, CallFlags flags) {
+//  if (callee->name == u"convertTokToIDBase") {
+//    int a = 10;
+//  }
   // setup call stack
   JSStackFrame frame;
   frame.prev_frame = curr_frame;
@@ -248,7 +252,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
   }
 
   JSValue *sp = stack - 1;
-  u32 pc = callee->meta.code_address;
+  u32 pc = callee->meta.bytecode_start;
 
   frame.alloc_cnt = alloc_cnt;
   frame.buffer = buffer;
@@ -307,9 +311,9 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
     }
   };
 
-#define GET_SCOPE (scope_type_from_int(inst.operand.two.opr1))
-#define OPR1 (inst.operand.two.opr1)
-#define OPR2 (inst.operand.two.opr2)
+#define GET_SCOPE (scope_type_from_int(inst.operand.two[0]))
+#define OPR1 (inst.operand.two[0])
+#define OPR2 (inst.operand.two[1])
 
   while (true) {
     Instruction& inst = bytecode[pc++];
@@ -341,8 +345,16 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         break;
       }
       case OpType::logi_and:
+        sp -= 1;
+        if (sp[0].bool_value()) {
+          sp[0] = sp[1];
+        }
+        break;
       case OpType::logi_or:
-        exec_logi(sp, inst.op_type);
+        sp -= 1;
+        if (sp[0].is_falsy()) {
+          sp[0] = sp[1];
+        }
         break;
       case OpType::logi_not: {
         bool bool_val = sp[0].bool_value();
@@ -437,12 +449,12 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
       }
       case OpType::pop_check: {
         JSValue& val = get_value(GET_SCOPE, OPR2);
+        sp -= 1;
         if (val.is_uninited()) [[unlikely]] {
           error_throw(sp, u"Cannot access a variable before initialization");
           error_handle(sp);
         } else {
-          val.assign(sp[0]);
-          sp -= 1;
+          val.assign(sp[1]);
         }
         break;
       }
@@ -655,8 +667,11 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         exec_set_prop_index(sp);
         break;
       case OpType::dyn_get_var:
-        exec_dynamic_get_var(sp, OPR1);
+      case OpType::dyn_get_var_undef: {
+        int no_throw = static_cast<int>(inst.op_type) - static_cast<int>(OpType::dyn_get_var);
+        exec_dynamic_get_var(sp, OPR1, no_throw);
         break;
+      }
       case OpType::dyn_set_var:
         exec_dynamic_set_var(sp, OPR1);
         break;
@@ -994,24 +1009,6 @@ void NjsVM::exec_binary(SPRef sp, OpType op_type) {
   }
 }
 
-void NjsVM::exec_logi(SPRef sp, OpType op_type) {
-  switch (op_type) {
-    case OpType::logi_and:
-      if (!sp[-1].is_falsy()) {
-        sp[-1] = std::move(sp[0]);
-      }
-      break;
-    case OpType::logi_or:
-      if (sp[-1].is_falsy()) {
-        sp[-1] = std::move(sp[0]);
-      }
-      break;
-    default:
-      assert(false);
-  }
-  sp -= 1;
-}
-
 void NjsVM::exec_bits(SPRef sp, OpType op_type) {
 
   ErrorOr<int32_t> lhs, rhs;
@@ -1105,26 +1102,34 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
 }
 
 
-CallResult NjsVM::exec_call(SPRef sp, int arg_count, bool has_this_object, JSFunction *new_target) {
-  JSValue& func_val = sp[-arg_count];
-  assert(func_val.tag == JSValue::FUNCTION);
-  assert(func_val.val.as_object->get_class() == CLS_FUNCTION);
+CallResult NjsVM::exec_call(SPRef sp, int argc, bool has_this, JSFunction *new_target) {
+  size_t c = DebugCounter::count("exec_call");
+  if (c == 1146622) {
+    int a = 10;
+  }
+  JSValue& func_val = sp[-argc];
+  if (func_val.tag != JSValue::FUNCTION
+      || func_val.val.as_object->get_class() != CLS_FUNCTION) [[unlikely]] {
+    error_throw(sp, JS_TYPE_ERROR, u"value is not callable");
+    error_handle(sp);
+    return CallResult::DONE_ERROR;
+  }
   JSFunction *func = func_val.val.as_func;
 
-  JSValue& this_obj = has_this_object ? sp[-arg_count - 1] : global_object;
+  JSValue& this_obj = has_this ? sp[-argc - 1] : global_object;
   JSValue& actual_this = func->has_this_binding ? func->this_binding : this_obj;
   JSValue *argv = &func_val + 1;
-  ArrayRef<JSValue> args_ref(argv, arg_count);
+  ArrayRef<JSValue> args_ref(argv, argc);
   // call the function
   Completion comp = call_internal(func, actual_this, new_target, args_ref, CallFlags());
 
   // put the return value to the correct place
-  if (has_this_object) {
+  if (has_this) {
     this_obj = comp.get_value();
   } else {
     func_val = comp.get_value();
   }
-  sp -= (arg_count + int(has_this_object));
+  sp -= (argc + int(has_this));
 
   if (comp.is_throw()) [[unlikely]] {
     error_handle(sp);
@@ -1179,8 +1184,6 @@ void NjsVM::exec_add_elements(SPRef sp, int elements_cnt) {
   JSValue& val_array = sp[-elements_cnt];
   assert(val_array.tag == JSValue::ARRAY);
   JSArray *array = val_array.val.as_array;
-
-  array->dense_array.resize(elements_cnt);
 
   u32 ele_idx = 0;
   for (JSValue *val = sp - elements_cnt + 1; val <= sp; val++, ele_idx++) {
@@ -1309,14 +1312,15 @@ void NjsVM::exec_set_prop_index(SPRef sp) {
   }
 }
 
-void NjsVM::exec_dynamic_get_var(SPRef sp, u32 name_atom) {
+void NjsVM::exec_dynamic_get_var(SPRef sp, u32 name_atom, bool no_throw) {
   auto comp = global_object.as_object()->get_property_impl(*this, JSAtom(name_atom));
   sp[1] = comp.get_value();
   sp += 1;
 
   if (comp.is_throw()) [[unlikely]] {
     error_handle(sp);
-  } else if (sp[0].flag_bits == FLAG_NOT_FOUND) [[unlikely]] {
+  } else if (!no_throw && sp[0].flag_bits == FLAG_NOT_FOUND) [[unlikely]] {
+    sp -= 1;
     error_throw(sp, atom_to_str(name_atom) + u" is undefined");
     error_handle(sp);
   }
@@ -1376,12 +1380,12 @@ void NjsVM::exec_strict_equality(SPRef sp, bool flip) {
 }
 
 void NjsVM::exec_abstract_equality(SPRef sp, bool flip) {
-  JSValue& lhs = sp[-1];
-  JSValue& rhs = sp[0];
+  sp -= 1;
+  JSValue& lhs = sp[0];
+  JSValue& rhs = sp[1];
 
   ErrorOr<bool> res = lhs.tag == rhs.tag ? strict_equals(*this, lhs, rhs)
                                          : abstract_equals(*this, lhs, rhs);
-  sp -= 1;
 
   if (res.is_value()) {
     sp[0].set_val(bool(flip ^ res.get_value()));
@@ -1393,37 +1397,58 @@ void NjsVM::exec_abstract_equality(SPRef sp, bool flip) {
 
 
 void NjsVM::exec_comparison(SPRef sp, OpType type) {
-  JSValue& lhs = sp[-1];
-  JSValue& rhs = sp[0];
+  sp -= 1;
+  JSValue& lhs = sp[0];
+  JSValue& rhs = sp[1];
+
+  auto double_compare = [] (OpType type, double lhs, double rhs) {
+    switch (type) {
+      case OpType::lt: return lhs < rhs;
+      case OpType::gt: return lhs > rhs;
+      case OpType::le: return lhs <= rhs;
+      case OpType::ge: return lhs >= rhs;
+      default: assert(false);
+    }
+  };
+
+  auto string_compare = [] (OpType type, PrimitiveString *lhs, PrimitiveString *rhs) {
+    switch (type) {
+      case OpType::lt: return *lhs < *rhs;
+      case OpType::gt: return *lhs > *rhs;
+      case OpType::le: return *lhs <= *rhs;
+      case OpType::ge: return *lhs >= *rhs;
+      default: assert(false);
+    }
+  };
 
   bool res;
   if (lhs.is_float64() && rhs.is_float64()) {
-    switch (type) {
-      case OpType::lt: res = lhs.val.as_f64 < rhs.val.as_f64; break;
-      case OpType::gt: res = lhs.val.as_f64 > rhs.val.as_f64; break;
-      case OpType::le: res = lhs.val.as_f64 <= rhs.val.as_f64; break;
-      case OpType::ge: res = lhs.val.as_f64 >= rhs.val.as_f64; break;
-      default: assert(false);
-    }
+    res = double_compare(type, lhs.val.as_f64, rhs.val.as_f64);
   }
   else if (lhs.is(JSValue::STRING) && rhs.is(JSValue::STRING)) {
-    switch (type) {
-      case OpType::lt: res = *lhs.val.as_prim_string < *rhs.val.as_prim_string; break;
-      case OpType::gt: res = *lhs.val.as_prim_string > *rhs.val.as_prim_string; break;
-      case OpType::le: res = *lhs.val.as_prim_string <= *rhs.val.as_prim_string; break;
-      case OpType::ge: res = *lhs.val.as_prim_string >= *rhs.val.as_prim_string; break;
-      default: assert(false);
+    res = string_compare(type, lhs.val.as_prim_string, rhs.val.as_prim_string);
+  }
+  else {
+    JSValue prim_lhs = VM_TRY_COMP(js_to_primitive(*this, lhs));
+    JSValue prim_rhs = VM_TRY_COMP(js_to_primitive(*this, rhs));
+    if (prim_lhs.is(JSValue::STRING) && prim_rhs.is(JSValue::STRING)) {
+      res = string_compare(type, prim_lhs.val.as_prim_string, prim_rhs.val.as_prim_string);
+    } else {
+      double f_lhs = VM_TRY_ERR(js_to_number(*this, prim_lhs));
+      double f_rhs = VM_TRY_ERR(js_to_number(*this, prim_rhs));
+      res = double_compare(type, f_lhs, f_rhs);
     }
   }
-  else
-    assert(false);
 
   lhs.set_val(res);
-  sp -= 1;
 }
 
 void NjsVM::error_throw(SPRef sp, const u16string& msg) {
-  JSValue err_obj = build_error_internal(msg);
+  error_throw(sp, JS_ERROR, msg);
+}
+
+void NjsVM::error_throw(SPRef sp, JSErrorType type, const u16string& msg) {
+  JSValue err_obj = build_error_internal(type, msg);
   sp += 1;
   sp[0] = err_obj;
 }
@@ -1449,9 +1474,7 @@ void NjsVM::error_handle(SPRef sp) {
       pc = entry.goto_pos;
       catch_entry = &entry;
       // restore the sp
-      JSValue *sp_restore = frame->stack - 1;
-
-      sp_restore += 1;
+      JSValue *sp_restore = frame->stack;
       *sp_restore = std::move(sp[0]);
       sp = sp_restore;
 

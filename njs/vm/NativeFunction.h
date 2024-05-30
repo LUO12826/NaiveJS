@@ -21,14 +21,25 @@ class NativeFunction {
   static Completion clear_timeout(JS_NATIVE_FUNC_PARAMS);
   static Completion fetch(JS_NATIVE_FUNC_PARAMS);
   static Completion json_stringify(JS_NATIVE_FUNC_PARAMS);
+  static Completion isFinite(JS_NATIVE_FUNC_PARAMS);
+  static Completion parseFloat(JS_NATIVE_FUNC_PARAMS);
+  static Completion parseInt(JS_NATIVE_FUNC_PARAMS);
 
   static Completion Object_ctor(JS_NATIVE_FUNC_PARAMS);
   static Completion Number_ctor(JS_NATIVE_FUNC_PARAMS);
   static Completion String_ctor(JS_NATIVE_FUNC_PARAMS);
+  static Completion Array_ctor(JS_NATIVE_FUNC_PARAMS);
+  static Completion Date_ctor(JS_NATIVE_FUNC_PARAMS);
   static Completion error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type);
 
   static Completion Symbol(JS_NATIVE_FUNC_PARAMS);
 
+};
+
+class JSMath {
+ public:
+  static Completion max(JS_NATIVE_FUNC_PARAMS);
+  static Completion floor(JS_NATIVE_FUNC_PARAMS);
 };
 
 }

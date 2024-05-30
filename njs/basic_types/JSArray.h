@@ -17,7 +17,15 @@ using u32 = uint32_t;
 class JSArray: public JSObject {
  public:
   JSArray(NjsVM& vm, u32 length): JSObject(ObjClass::CLS_ARRAY, vm.array_prototype) {
-    add_prop_trivial(AtomPool::k_length, JSValue((double)length));
+    PFlag flag {
+        .writable = true,
+        .has_value = true,
+    };
+    add_prop_trivial(AtomPool::k_length, JSValue((double)length), flag);
+    dense_array.resize(length);
+    for (auto& ele : dense_array) {
+      ele.set_uninited();
+    }
   }
 
   void gc_scan_children(GCHeap& heap) override;
@@ -67,7 +75,14 @@ class JSArray: public JSObject {
           double len = TRY_ERR_ERR(js_to_number(vm, val));
           int64_t len_int = len;
           if (len >= 0 && (double)len_int == len && len_int <= UINT32_MAX) {
+            size_t old_len = dense_array.size();
             dense_array.resize(len_int);
+            if (old_len < len_int) {
+              for (size_t i = old_len; i < len_int; i++) {
+                dense_array[i].set_uninited();
+              }
+            }
+
             set_prop(vm, idx, JSValue(len));
             return true;
           } else {
@@ -119,7 +134,6 @@ class JSArray: public JSObject {
     } else {
       auto old_size = dense_array.size();
       dense_array.resize(index + 1);
-      auto new_size = dense_array.size();
       for (size_t i = old_size; i < index; i++) {
         dense_array[i].set_uninited();
       }
@@ -156,6 +170,10 @@ class JSArray: public JSObject {
   u32 get_length() {
     assert(has_own_property_atom(AtomPool::k_length));
     return (u32)get_prop_trivial(AtomPool::k_length).val.as_f64;
+  }
+
+  void update_length() {
+    storage[JSObjectKey(AtomPool::k_length)].data.value = JSValue(double(dense_array.size()));
   }
 
   std::vector<JSValue> dense_array;

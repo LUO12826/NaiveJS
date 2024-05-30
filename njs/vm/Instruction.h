@@ -97,6 +97,7 @@ enum class OpType {
   set_prop_index,
 
   dyn_get_var,
+  dyn_get_var_undef,
   dyn_set_var,
 
   dup_stack_top,
@@ -133,22 +134,9 @@ enum class OpType {
 
 struct Instruction {
 
-  struct OperandType1 {
-    int opr1;
-    int opr2;
-  };
-
-  struct OperandType2 {
-    u16 opr1;
-    u16 opr2;
-    u16 opr3;
-    u16 opr4;
-  };
-
   static Instruction num_imm(double num);
   static int get_stack_usage(OpType op_type);
 
-  Instruction(OpType op, u16 opr1, u16 opr2, u16 opr3, u16 opr4);
   Instruction(OpType op, int opr1, int opr2);
   Instruction(OpType op, int opr1);
   explicit Instruction(OpType op);
@@ -174,8 +162,7 @@ struct Instruction {
   OpType op_type;
   union {
     double num_float;
-    OperandType1 two;
-    OperandType2 four;
+    int32_t two[2];
   } operand;
 
 };

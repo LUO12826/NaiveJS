@@ -124,6 +124,14 @@ Completion js_to_property_key(NjsVM &vm, JSValue val) {
   }
 }
 
+Completion js_require_object_coercible(NjsVM &vm, JSValue val) {
+  if (val.is_nil()) {
+    return CompThrow(vm.build_error_internal(JS_TYPE_ERROR, u"undefined or null is not coercible"));
+  } else {
+    return val;
+  }
+}
+
 bool js_to_boolean(JSValue val) {
   return val.bool_value();
 }
@@ -131,7 +139,7 @@ bool js_to_boolean(JSValue val) {
 ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {
   switch (val.tag) {
     case JSValue::UNDEFINED:
-      return nan("");
+      return NAN;
     case JSValue::JS_NULL:
       return 0.0;
     case JSValue::BOOLEAN:
@@ -161,11 +169,27 @@ ErrorOr<u32> js_to_uint32(NjsVM &vm, JSValue val) {
   if (maybe_num.is_error()) return maybe_num.get_error();
 
   double x = maybe_num.get_value();
-  if (x == 0.0 || std::isnan(x) || std::isinf(x)) {
+  if (std::isnan(x) || std::isinf(x)) {
     return 0;
   }
   // TODO: may need to double check
   return (int64_t)x;
+}
+
+ErrorOr<int64_t> js_to_int64sat(NjsVM &vm, JSValue val) {
+  auto maybe_num = js_to_number(vm, val);
+  if (maybe_num.is_error()) return maybe_num.get_error();
+
+  double x = maybe_num.get_value();
+  if (std::isnan(x)) {
+    return 0;
+  } else if (x < INT64_MIN) {
+    return INT64_MIN;
+  } else if (x > INT64_MAX) {
+    return INT64_MAX;
+  } else {
+    return x;
+  }
 }
 
 ErrorOr<int32_t> js_to_int32(NjsVM &vm, JSValue val) {

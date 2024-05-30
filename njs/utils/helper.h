@@ -10,6 +10,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 namespace njs {
 
@@ -93,6 +94,16 @@ inline string memory_usage_readable(size_t size) {
   std::ostringstream oss;
   oss << std::fixed << std::setprecision(2) << size_in_unit << " " << unit;
   return oss.str();
+};
+
+class DebugCounter {
+ public:
+  static size_t count(const string& name) {
+    size_t curr = (counters[name] += 1);
+    return curr;
+  }
+ private:
+  inline static std::unordered_map<string, size_t> counters;
 };
 
 template <typename T>

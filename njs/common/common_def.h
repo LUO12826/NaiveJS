@@ -11,6 +11,7 @@ struct CallFlags {
   bool buffer_on_heap : 1 {false};
   bool generator : 1 {false};
   bool this_is_new_target : 1 {false};
+  int magic : 27;
 };
 
 #define JS_NATIVE_FUNC_PARAMS NjsVM& vm, JSFunction& func, JSValue This, ArrayRef<JSValue> args, CallFlags flags

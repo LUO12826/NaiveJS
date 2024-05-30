@@ -7,7 +7,10 @@
 #include "njs/basic_types/JSBoolean.h"
 #include "njs/basic_types/JSNumber.h"
 #include "njs/basic_types/JSString.h"
+#include "njs/basic_types/JSArray.h"
+#include "njs/basic_types/JSDate.h"
 #include "njs/common/common_def.h"
+#include "njs/basic_types/qjs_date.h"
 
 namespace njs {
 
@@ -39,6 +42,54 @@ Completion NativeFunction::String_ctor(vm_func_This_args_flags) {
   auto *obj = vm.heap.new_object<JSString>(vm, *str.val.as_prim_string);
   return JSValue(obj);
 }
+
+
+Completion NativeFunction::Array_ctor(vm_func_This_args_flags) {
+  u32 length;
+  if (args.size() == 0) [[likely]] {
+    length = 0;
+  } else {
+    length = TRY_ERR_COMP(js_to_uint32(vm, args[0]));
+  }
+  JSArray *arr = vm.heap.new_object<JSArray>(vm, length);
+  return JSValue(arr);
+}
+
+Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
+  // call with `new`
+  if (flags.this_is_new_target && This.val.as_func != nullptr) {
+    auto num_arg = args.size();
+    auto *date = vm.heap.new_object<JSDate>(vm);
+
+    if (num_arg == 0) {
+      date->set_to_now();
+    }
+    else if (num_arg == 1) {
+      JSValue arg = args[1];
+      if (arg.is_float64()) {
+        date->timestamp = arg.val.as_f64;
+      }
+      else if (arg.is_object()) {
+        date->timestamp = arg.as_object()->as<JSDate>()->timestamp;
+      }
+      else {
+        JSValue ts_str = TRY_COMP_COMP(js_to_string(vm, arg));
+        date->parse_date_str(ts_str.val.as_prim_string->str);
+      }
+    } else {
+      // TODO: other cases
+      assert(false);
+    }
+    return JSValue(date);
+  }
+  // ignore arguments and always return a string representing current date.
+  else {
+    double ts = JSDate::get_curr_millis();
+    u16string date_str = get_date_string(ts, 0x13);
+    return vm.new_primitive_string(std::move(date_str));
+  }
+}
+
 
 Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type) {
   auto *err_obj = vm.new_object(CLS_ERROR, vm.native_error_protos[type]);

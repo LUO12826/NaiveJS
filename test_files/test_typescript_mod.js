@@ -6459,6 +6459,7 @@ var TypeScript;
             this.reportError(ast, "symbol " + text + " defined at (" + defLineCol.line + "," + defLineCol.col + ")");
         };
         ErrorReporter.prototype.unresolvedSymbol = function (ast, name) {
+            console.log("this.reportError");
             this.reportError(ast, "The name '" + name + "' does not exist in the current scope");
         };
         ErrorReporter.prototype.symbolDoesNotReferToAValue = function (ast, name) {
@@ -25776,6 +25777,10 @@ function runTypescript() {
            directoryExists: function (path) { return false; },
            resolvePath: function (path) { return path; }
   });
+
+  console.log("number of parse errors: " + parseErrors.length);
+  console.log(parseErrors);
+
   if (parseErrors.length != 192 && parseErrors.length != 193) {
     throw new Error("Parse errors.");
   }
@@ -25832,7 +25837,8 @@ function createCompiler() {
   settings.codeGenTarget = TypeScript.CodeGenTarget.ES5;
   var compiler = new TypeScript.TypeScriptCompiler(
       outerr, new TypeScript.NullLogger, settings);
-  compiler.setErrorCallback(function (start, len, message) { 
+  compiler.setErrorCallback(function (start, len, message) {
+    console.log("parseErrors.push");
     parseErrors.push({ start: start, len: len, message: message }); 
   });
   compiler.parser.errorRecovery = true;

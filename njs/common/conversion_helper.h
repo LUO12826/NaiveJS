@@ -11,6 +11,7 @@
 #include "njs/parser/character.h"
 #include "double_to_str.h"
 #include "njs/utils/helper.h"
+#include "njs/parser/unicode.h"
 #include "njs/parser/lexing_helper.h"
 
 namespace njs {
@@ -238,7 +239,7 @@ inline double u16string_to_double(const u16string &str) {
     start += 1;
   }
 
-  if (start >= end) return nan("");
+  if (start >= end) return NAN;
 
   if (u16string(start, end) == u"Infinity") {
     return positive ? std::numeric_limits<double>::infinity()
@@ -248,9 +249,59 @@ inline double u16string_to_double(const u16string &str) {
   u32 cursor = start - str.begin();
   auto res = scan_numeric_literal(str.data(), str.size(), cursor);
   if (res.has_value() && cursor == str.size()) {
-    return res.value();
+    return positive ? res.value() : -res.value();
   } else {
-    return nan("");
+    return NAN;
+  }
+}
+
+inline double parse_int(const u16string &str) {
+
+  auto start = std::find_if_not(str.begin(), str.end(), [](char16_t ch) {
+    return character::is_white_space(ch) || character::is_line_terminator(ch);
+  });
+  auto end = std::find_if_not(str.rbegin(), str.rend(), [](char16_t ch) {
+               return character::is_white_space(ch) || character::is_line_terminator(ch);
+             }).base();
+
+  if (start >= end) {
+    return NAN;
+  }
+
+  bool positive = true;
+  int base = 10;
+
+  if (*start == u'-') {
+    positive = false;
+    start += 1;
+  } else if (*start == u'+') {
+    start += 1;
+  } else if (*start == u'0') {
+    start += 1;
+    if (start >= end) {
+      return 0;
+    }
+    if (*start == u'x') {
+      start += 1;
+      base = 16;
+    } else if (character::is_decimal_digit(*start)) {
+      base = 10;
+    } else {
+      return 0;
+    }
+  }
+
+  if (start >= end) return NAN;
+  if (not character::is_hex_digit(*start)) {
+    return 0;
+  }
+
+  u32 cursor = start - str.begin();
+  auto res = scan_integer_literal(str.data(), str.size(), cursor, base);
+  if (res.has_value()) {
+    return positive ? res.value() : -res.value();
+  } else {
+    return NAN;
   }
 }
 

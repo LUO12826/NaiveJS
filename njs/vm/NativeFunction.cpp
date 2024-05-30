@@ -1,6 +1,7 @@
 #include "NativeFunction.h"
 
 #include "NjsVM.h"
+#include "njs/basic_types/conversion.h"
 #include "njs/include/httplib.h"
 
 namespace njs {
@@ -121,6 +122,44 @@ Completion NativeFunction::json_stringify(vm_func_This_args_flags) {
   u16string json_string;
   args[0].to_json(json_string, vm);
   return vm.new_primitive_string(std::move(json_string));
+}
+
+Completion NativeFunction::isFinite(vm_func_This_args_flags) {
+  if (args.size() == 0) return JSValue(false);
+  double val;
+  if (args[0].is_float64()) [[likely]] {
+    val = args[0].val.as_f64;
+  } else {
+    val = TRY_ERR_COMP(js_to_number(vm, args[0]));
+  }
+
+  return JSValue(!std::isinf(val) && !std::isnan(val));
+}
+
+Completion NativeFunction::parseFloat(vm_func_This_args_flags) {
+  if (args.size() == 0) return JSValue(NAN);
+  PrimitiveString *str = TRY_COMP_COMP(js_to_string(vm, args[0])).val.as_prim_string;
+  double val = u16string_to_double(str->str);
+
+  return JSValue(val);
+}
+
+Completion NativeFunction::parseInt(vm_func_This_args_flags) {
+  if (args.size() == 0) return JSValue(NAN);
+  PrimitiveString *str = TRY_COMP_COMP(js_to_string(vm, args[0])).val.as_prim_string;
+  double val = parse_int(str->str);
+
+  return JSValue(val);
+}
+
+Completion JSMath::max(JS_NATIVE_FUNC_PARAMS) {
+  assert(args.size() == 2 && args[0].is_float64() && args[1].is_float64());
+  return JSValue(std::fmax(args[0].val.as_f64, args[1].val.as_f64));
+}
+
+Completion JSMath::floor(JS_NATIVE_FUNC_PARAMS) {
+  assert(args.size() == 1 && args[0].is_float64());
+  return JSValue(std::floor(args[0].val.as_f64));
 }
 
 }

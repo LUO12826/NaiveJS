@@ -50,7 +50,7 @@ std::string JSFunctionMeta::description() const {
   else {
     desc += "name_index: " + std::to_string(name_index);
   }
-  desc += ", code_address: " + std::to_string(code_address);
+  desc += ", bytecode_start: " + std::to_string(bytecode_start);
 
   return desc;
 }

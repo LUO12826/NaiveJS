@@ -14,6 +14,9 @@ void NjsVM::setup() {
   add_native_func_impl(u"clearTimeout", NativeFunction::clear_timeout);
   add_native_func_impl(u"clearInterval", NativeFunction::clear_interval);
   add_native_func_impl(u"fetch", NativeFunction::fetch);
+  add_native_func_impl(u"isFinite", NativeFunction::isFinite);
+  add_native_func_impl(u"parseFloat", NativeFunction::parseFloat);
+  add_native_func_impl(u"parseInt", NativeFunction::parseInt);
 
   add_error_ctor<JS_ERROR>();
   add_error_ctor<JS_EVAL_ERROR>();
@@ -41,12 +44,25 @@ void NjsVM::setup() {
     JSFunction *func = add_native_func_impl(u"Number", NativeFunction::Number_ctor);
     number_prototype.as_object()->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(AtomPool::k_prototype, number_prototype);
+    func->add_method(*this, u"isFinite", NativeFunction::isFinite);
   }
 
   {
     JSFunction *func = add_native_func_impl(u"String", NativeFunction::String_ctor);
     string_prototype.as_object()->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(AtomPool::k_prototype, string_prototype);
+  }
+
+  {
+    JSFunction *func = add_native_func_impl(u"Array", NativeFunction::Array_ctor);
+    array_prototype.as_object()->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(AtomPool::k_prototype, array_prototype);
+  }
+
+  {
+    JSFunction *func = add_native_func_impl(u"Date", NativeFunction::Date_ctor);
+    date_prototype.as_object()->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(AtomPool::k_prototype, date_prototype);
   }
 
   {
@@ -62,6 +78,12 @@ void NjsVM::setup() {
   {
     JSObject *obj = add_builtin_object(u"console");
     obj->add_method(*this, u"log", NativeFunction::log);
+  }
+
+  {
+    JSObject *obj = add_builtin_object(u"Math");
+    obj->add_method(*this, u"max", JSMath::max);
+    obj->add_method(*this, u"floor", JSMath::floor);
   }
 
   {

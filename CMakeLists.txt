@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(njs LANGUAGES CXX)
+project(njs LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,6 +24,7 @@ set(SOURCES
     njs/basic_types/JSFunctionPrototype.cpp
     njs/basic_types/JSErrorPrototype.cpp
     njs/basic_types/conversion.cpp
+    njs/basic_types/qjs_date.cpp
 )
 
 add_subdirectory(njs/include/libregexp)

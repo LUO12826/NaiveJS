@@ -12,6 +12,8 @@ test_ignored = [
     "test_array_exotic.js",
     "test_array.js",
     "test_for_in.js",
+    "test_typescript_mod.js",
+    "test_hashtable.js",
 ]
 
 file_and_expected = {

@@ -178,7 +178,7 @@ friend class JSArrayIterator;
                            ArrayRef<JSValue> argv, CallFlags flags);
   // function operation
   void exec_make_func(SPRef sp, int meta_idx, JSValue env_this);
-  CallResult exec_call(SPRef sp, int arg_count, bool has_this_object, JSFunction *new_target);
+  CallResult exec_call(SPRef sp, int argc, bool has_this, JSFunction *new_target);
   void exec_js_new(SPRef sp, int arg_count);
   // object operation
   void exec_add_props(SPRef sp, int props_cnt);
@@ -186,7 +186,7 @@ friend class JSArrayIterator;
   void exec_get_prop_index(SPRef sp, int keep_obj);
   void exec_set_prop_atom(SPRef sp, u32 key_atom);
   void exec_set_prop_index(SPRef sp);
-  void exec_dynamic_get_var(SPRef sp, u32 name_atom);
+  void exec_dynamic_get_var(SPRef sp, u32 name_atom, bool no_throw);
   void exec_dynamic_set_var(SPRef sp, u32 name_atom);
   // array operation
   void exec_add_elements(SPRef sp, int elements_cnt);
@@ -195,7 +195,6 @@ friend class JSArrayIterator;
 
   void exec_add(SPRef sp);
   void exec_binary(SPRef sp, OpType op_type);
-  void exec_logi(SPRef sp, OpType op_type);
   void exec_bits(SPRef sp, OpType op_type);
   void exec_shift(SPRef sp, OpType op_type);
   void exec_strict_equality(SPRef sp, bool flip);
@@ -216,6 +215,7 @@ friend class JSArrayIterator;
   Completion for_of_call_next(JSValue iter);
 
   void error_throw(SPRef sp, const u16string& msg);
+  void error_throw(SPRef sp, JSErrorType type, const u16string& msg);
   void error_handle(SPRef sp);
   void print_unhandled_error(JSValue err);
 

@@ -19,7 +19,7 @@ class ArrayRef {
 
   T* data() { return start; }
 
-  ArrayRef subarray(size_t begin, size_t len) {
+  ArrayRef subarray(size_t begin, size_t len = SIZE_T_MAX) {
     if (begin >= length) [[unlikely]] {
       return ArrayRef(start + begin, 0);
     }

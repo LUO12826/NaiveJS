@@ -29,6 +29,7 @@ namespace njs {
 using robin_hood::unordered_map;
 using std::u16string;
 using std::vector;
+using U32Pair = std::array<u32, 2>;
 using u32 = uint32_t;
 
 struct CodegenError {
@@ -59,12 +60,14 @@ class CodegenVisitor {
       timer.end();
     }
 
+    check_bytecode();
+
     if (!Global::show_codegen_result) return;
     std::cout << "================ codegen result ================\n\n";
 
     std::cout << "[[instructions]]\n";
     for (int i = 0; i < bytecode.size(); i++) {
-      std::cout << std::setw(6) << std::left << i << bytecode[i].description() << '\n';
+      std::cout << std::setw(10) << std::left << i << bytecode[i].description() << '\n';
     }
     std::cout << '\n';
 
@@ -74,10 +77,14 @@ class CodegenVisitor {
       auto func_name = meta.is_anonymous ? "(anonymous)"
                                          : to_u8string(atom_pool.get_string(meta.name_index));
       std::cout << "index: " << std::setw(3) << i
-                << " name: " << std::setw(20) << func_name
-                << " num_local_var: " << std::setw(4) << meta.local_var_count
+                << " name: " << std::setw(18) << func_name
+                << " source_line: " << std::setw(8) << meta.source_line
+                << " num_local_var: " << std::setw(3) << meta.local_var_count
                 << " stack_size: " << std::setw(3) << meta.stack_size
-                << " addr: " << meta.code_address << '\n';
+                << " bc_begin: " << meta.bytecode_start
+                << " bc_end: " << meta.bytecode_end
+                << '\n';
+
       std::cout << "catch table:\n";
       for (auto& catch_item : meta.catch_table) {
         std::cout << "  " << catch_item.description() << '\n';
@@ -113,8 +120,8 @@ class CodegenVisitor {
       pos_moved[i] = -removed_inst_cnt;
 
       //      if (inst.op_type == OpType:: push && prev_inst.op_type == OpType::pop) {
-      //        if (inst.operand.two.opr1 == prev_inst.operand.two.opr1
-      //            && inst.operand.two.opr2 == prev_inst.operand.two.opr2) {
+      //        if (inst.operand.two[0] == prev_inst.operand.two[0]
+      //            && inst.operand.two[1] == prev_inst.operand.two[1]) {
       //          removed_inst_cnt += 1;
       //          inst.op_type = OpType::nop;
       //          prev_inst.op_type = OpType::store;
@@ -122,23 +129,23 @@ class CodegenVisitor {
       //      }
 
       if (inst.op_type == OpType::jmp_cond
-          && inst.operand.two.opr1 == inst.operand.two.opr2
-          && inst.operand.two.opr1 == i + 1) {
+          && inst.operand.two[0] == inst.operand.two[1]
+          && inst.operand.two[0] == i + 1) {
         removed_inst_cnt += 1;
         inst.op_type = OpType::nop;
       }
 
       if (inst.op_type == OpType::jmp_true || inst.op_type == OpType::jmp) {
-        if (inst.operand.two.opr1 == i + 1) {
+        if (inst.operand.two[0] == i + 1) {
           removed_inst_cnt += 1;
           inst.op_type = OpType::nop;
         }
 
         if (inst.op_type == OpType::jmp && prev_inst.op_type == OpType::jmp_true &&
-            prev_inst.operand.two.opr1 == i + 1) {
+            prev_inst.operand.two[0] == i + 1) {
 
           prev_inst.op_type = OpType::jmp_false;
-          prev_inst.operand.two.opr1 = inst.operand.two.opr1;
+          prev_inst.operand.two[0] = inst.operand.two[0];
           inst.op_type = OpType::nop;
           removed_inst_cnt += 1;
         }
@@ -152,12 +159,12 @@ class CodegenVisitor {
         auto& inst = bytecode[i];
         // Fix the jump target of the jmp instructions
         if (inst.is_jump_single_target()) {
-          inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
+          inst.operand.two[0] += pos_moved[inst.operand.two[0]];
         } else if (inst.is_jump_two_target()) {
-          inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
-          inst.operand.two.opr2 += pos_moved[inst.operand.two.opr2];
+          inst.operand.two[0] += pos_moved[inst.operand.two[0]];
+          inst.operand.two[1] += pos_moved[inst.operand.two[1]];
         } else if (inst.op_type == OpType::proc_call) {
-          inst.operand.two.opr1 += pos_moved[inst.operand.two.opr1];
+          inst.operand.two[0] += pos_moved[inst.operand.two[0]];
         }
         bytecode[new_inst_ptr] = inst;
         new_inst_ptr += 1;
@@ -166,7 +173,7 @@ class CodegenVisitor {
     // Fix the jump target of the call instructions
     for (auto& meta : func_meta) {
       if (meta.is_native) continue;
-      meta.code_address += pos_moved[meta.code_address];
+      meta.bytecode_start += pos_moved[meta.bytecode_start];
 
       for (auto& entry : meta.catch_table) {
         entry.start_pos += pos_moved[entry.start_pos];
@@ -182,6 +189,19 @@ class CodegenVisitor {
     }
 
     bytecode.resize(new_inst_ptr);
+  }
+
+  void check_bytecode() {
+    for (size_t i = 0; i < bytecode.size(); i++) {
+      auto& bc = bytecode[i];
+
+      if (bc.is_jump_two_target()) {
+        assert(bc.operand.two[0] > 0 && bc.operand.two[1] > 0);
+      }
+      if (bc.is_jump_single_target()) {
+        assert(bc.operand.two[0] > 0);
+      }
+    }
   }
 
   void visit(ASTNode *node) {
@@ -353,19 +373,15 @@ class CodegenVisitor {
 
     if (program.type == ASTNode::PROGRAM) {
       emit(OpType::halt);
-    }
-    else { // function body
-      if (bytecode.back().op_type != OpType::ret) {
-        emit(OpType::push_undef);
-        emit(OpType::ret);
-      }
+    } else { // function body
+      emit(OpType::ret_undef);
     }
 
     assert(&scope() == scope().get_outer_func());
     scope().catch_table.emplace_back(0, 0, bytecode_pos());
 
     for (u32 idx : top_level_throw) {
-      bytecode[idx].operand.two.opr1 = bytecode_pos();
+      bytecode[idx].operand.two[0] = bytecode_pos();
     }
 
     if (program.type == ASTNode::PROGRAM) {
@@ -380,6 +396,7 @@ class CodegenVisitor {
     ProgramOrFunctionBody *body = func.body->as_func_body();
     u32 func_start_pos = bytecode_pos();
     push_scope(body->scope.get());
+    // a function expression can call itself in its body using the function name.
     if (!func.is_stmt && func.has_name()) {
       auto res = scope().resolve_symbol(func.name.text);
       assert(not res.not_found());
@@ -399,7 +416,8 @@ class CodegenVisitor {
         .param_count = (u16)scope().get_param_count(),
         .local_var_count = (u16)scope().get_var_count(),
         .stack_size = u16(scope().get_max_stack_size() + 1), // 1 more slot for error, maybe ?
-        .code_address = func_start_pos,
+        .bytecode_start = func_start_pos,
+        .bytecode_end = bytecode_pos(),
         .source_line = func.start_line_num(),
         .catch_table = std::move(scope().catch_table)
     });
@@ -489,14 +507,18 @@ class CodegenVisitor {
       }
       case Token::KEYWORD:
         if (expr.op.text == u"typeof") {
-          visit(expr.operand);
+          if (expr.operand->is(ASTNode::EXPR_ID)) {
+            visit_identifier(*expr.operand, true);
+          } else {
+            visit(expr.operand);
+          }
           emit(OpType::js_typeof);
         } else if (expr.op.text == u"delete") {
           if (auto *lhs = dynamic_cast<LeftHandSideExpr*>(expr.operand);
               lhs != nullptr && lhs->postfixs.size() != 0) {
             auto inst_set_prop = visit_left_hand_side_expr(*lhs, true, false);
             if (inst_set_prop.op_type == OpType::set_prop_atom) {
-              emit(OpType::push_atom, inst_set_prop.operand.two.opr1);
+              emit(OpType::push_atom, inst_set_prop.operand.two[0]);
             }
             emit(OpType::js_delete);
           } else {
@@ -517,15 +539,14 @@ class CodegenVisitor {
   void visit_binary_expr(BinaryExpr& expr) {
 
     if (expr.op.is_binary_logical()) {
-      vector<u32> true_list;
-      vector<u32> false_list;
+      vector<U32Pair> true_list, false_list;
       visit_logical_expr(expr, true_list, false_list, true);
 
-      for (u32 idx : true_list) {
-        bytecode[idx].operand.two.opr1 = int(bytecode_pos());
+      for (auto& [idx, ord] : true_list) {
+        bytecode[idx].operand.two[ord] = int(bytecode_pos());
       }
-      for (u32 idx : false_list) {
-        bytecode[idx].operand.two.opr2 = int(bytecode_pos());
+      for (auto& [idx, ord] : false_list) {
+        bytecode[idx].operand.two[ord] = int(bytecode_pos());
       }
     }
     else {
@@ -562,8 +583,8 @@ class CodegenVisitor {
 
   }
 
-  void visit_expr_in_logical_expr(ASTNode& expr, vector<u32>& true_list, vector<u32>& false_list,
-                                  bool need_value) {
+  void visit_expr_in_logical_expr(ASTNode& expr, vector<U32Pair>& true_list,
+                                  vector<U32Pair>& false_list, bool need_value) {
     if (expr.is_binary_logical_expr()) {
       visit_logical_expr(*expr.as_binary_expr(), true_list, false_list, need_value);
     }
@@ -571,44 +592,42 @@ class CodegenVisitor {
       auto& not_expr = static_cast<UnaryExpr&>(expr);
       visit_expr_in_logical_expr(*not_expr.operand, true_list, false_list, need_value);
 
-      vector<u32> temp = std::move(false_list);
+      vector<U32Pair> temp = std::move(false_list);
       false_list = std::move(true_list);
       true_list = std::move(temp);
     }
     else {
       visit(&expr);
       u32 jmp_pos = emit(need_value ? OpType::jmp_cond : OpType::jmp_cond_pop);
-      true_list.push_back(jmp_pos);
-      false_list.push_back(jmp_pos);
+      true_list.push_back({jmp_pos, 0});
+      false_list.push_back({jmp_pos, 1});
     }
   }
 
-  void visit_logical_expr(BinaryExpr& expr, vector<u32>& true_list, vector<u32>& false_list,
+  void visit_logical_expr(BinaryExpr& expr, vector<U32Pair>& true_list, vector<U32Pair>& false_list,
                           bool need_value) {
 
-    vector<u32> lhs_true_list;
-    vector<u32> lhs_false_list;
+    vector<U32Pair> lhs_true_list, lhs_false_list;
     visit_expr_in_logical_expr(*(expr.lhs), lhs_true_list, lhs_false_list, need_value);
 
     bool is_OR = expr.op.type == Token::LOGICAL_OR;
     if (is_OR) {
       // backpatch( B1.falselist, M.instr)
-      for (u32 idx : lhs_false_list) {
-        bytecode[idx].operand.two.opr2 = int(bytecode_pos());
+      for (auto& [idx, ord] : lhs_false_list) {
+        bytecode[idx].operand.two[ord] = int(bytecode_pos());
       }
       true_list.insert(true_list.end(), lhs_true_list.begin(), lhs_true_list.end());
       if (need_value) emit(OpType::pop_drop);
     }
     else {
-      for (u32 idx : lhs_true_list) {
-        bytecode[idx].operand.two.opr1 = int(bytecode_pos());
+      for (auto& [idx, ord] : lhs_true_list) {
+        bytecode[idx].operand.two[ord] = int(bytecode_pos());
       }
       false_list.insert(false_list.end(), lhs_false_list.begin(), lhs_false_list.end());
       if (need_value) emit(OpType::pop_drop);
     }
 
-    vector<u32> rhs_true_list;
-    vector<u32> rhs_false_list;
+    vector<U32Pair> rhs_true_list, rhs_false_list;
     visit_expr_in_logical_expr(*(expr.rhs), rhs_true_list, rhs_false_list, need_value);
     // If the operator is OR, we take the rhs's false list as this expression's false list.
     if (is_OR) false_list = std::move(rhs_false_list);
@@ -661,11 +680,9 @@ class CodegenVisitor {
             emit(OpType::bits_xor);
             break;
           case Token::LOGI_AND_ASSIGN:
-            emit(OpType::logi_and);
-            break;
           case Token::LOGI_OR_ASSIGN:
-            emit(OpType::logi_or);
-            break;
+            // TODO
+            assert(false);
           default:
             assert(false);
         }
@@ -831,7 +848,7 @@ class CodegenVisitor {
     return inst_set_prop;
   }
 
-  void visit_identifier(ASTNode& id) {
+  void visit_identifier(ASTNode& id, bool no_throw = false) {
     auto symbol = scope().resolve_symbol(id.get_source());
     bool use_dynamic =
         symbol.not_found() || (symbol.def_scope == ScopeType::GLOBAL && !symbol.is_let_or_const());
@@ -843,7 +860,7 @@ class CodegenVisitor {
       }
     } else {
       u32 atom = atom_pool.atomize(id.get_source());
-      emit(OpType::dyn_get_var, atom);
+      emit(no_throw ? OpType::dyn_get_var_undef : OpType::dyn_get_var, atom);
     }
   }
 
@@ -887,11 +904,10 @@ class CodegenVisitor {
   }
 
   void visit_if_statement(IfStatement& stmt) {
-    vector<u32> true_list;
-    vector<u32> false_list;
+    vector<U32Pair> true_list, false_list;
     visit_expr_in_logical_expr(*stmt.condition_expr, true_list, false_list, false);
-    for (u32 idx : true_list) {
-      bytecode[idx].operand.two.opr1 = bytecode_pos();
+    for (auto& [idx, ord] : true_list) {
+      bytecode[idx].operand.two[ord] = bytecode_pos();
     }
 
     if (stmt.then_block->is_valid_in_single_stmt_ctx()) {
@@ -905,8 +921,8 @@ class CodegenVisitor {
 
     u32 if_end_jmp = emit(OpType::jmp);
 
-    for (u32 idx : false_list) {
-      bytecode[idx].operand.two.opr2 = bytecode_pos();
+    for (auto& [idx, ord] : false_list) {
+      bytecode[idx].operand.two[ord] = bytecode_pos();
     }
 
     if (stmt.else_block) {
@@ -921,27 +937,26 @@ class CodegenVisitor {
         });
       }
     }
-    bytecode[if_end_jmp].operand.two.opr1 = bytecode_pos();
+    bytecode[if_end_jmp].operand.two[0] = bytecode_pos();
   }
 
   void visit_ternary_expr(TernaryExpr& expr) {
-    vector<u32> true_list;
-    vector<u32> false_list;
+    vector<U32Pair> true_list, false_list;
     visit_expr_in_logical_expr(*expr.cond_expr, true_list, false_list, false);
 
-    for (u32 idx : true_list) {
-      bytecode[idx].operand.two.opr1 = bytecode_pos();
+    for (auto& [idx, ord] : true_list) {
+      bytecode[idx].operand.two[ord] = bytecode_pos();
     }
 
     visit(expr.true_expr);
     u32 true_end_jmp = emit(OpType::jmp);
 
-    for (u32 idx : false_list) {
-      bytecode[idx].operand.two.opr2 = bytecode_pos();
+    for (auto& [idx, ord] : false_list) {
+      bytecode[idx].operand.two[ord] = bytecode_pos();
     }
 
     visit(expr.false_expr);
-    bytecode[true_end_jmp].operand.two.opr1 = bytecode_pos();
+    bytecode[true_end_jmp].operand.two[0] = bytecode_pos();
   }
 
   void visit_regexp(RegExpLiteral& regexp) {
@@ -997,11 +1012,11 @@ class CodegenVisitor {
     scope().can_break = true;
     scope().can_continue = true;
 
-    vector<u32> true_list, false_list;
+    vector<U32Pair> true_list, false_list;
     visit_expr_in_logical_expr(*stmt.condition_expr, true_list, false_list, false);
 
-    for (u32 idx : true_list) {
-      bytecode[idx].operand.two.opr1 = bytecode_pos();
+    for (auto& [idx, ord] : true_list) {
+      bytecode[idx].operand.two[ord] = bytecode_pos();
     }
 
     bool body_is_block = false;
@@ -1022,12 +1037,12 @@ class CodegenVisitor {
     }
     emit(OpType::jmp, loop_start);
 
-    for (u32 idx : false_list) {
-      bytecode[idx].operand.two.opr2 = bytecode_pos();
+    for (auto& [idx, ord] : false_list) {
+      bytecode[idx].operand.two[ord] = bytecode_pos();
     }
 
     for (u32 idx : scope().break_list) {
-      bytecode[idx].operand.two.opr1 = bytecode_pos();
+      bytecode[idx].operand.two[0] = bytecode_pos();
     }
     scope().break_list.clear();
     // dispose the variables in the loop body
@@ -1062,23 +1077,22 @@ class CodegenVisitor {
     }
 
     for (u32 idx : scope().continue_list) {
-      bytecode[idx].operand.two.opr1 = bytecode_pos();
+      bytecode[idx].operand.two[0] = bytecode_pos();
     }
     scope().continue_list.clear();
 
-    vector<u32> true_list;
-    vector<u32> false_list;
+    vector<U32Pair> true_list, false_list;
     visit_expr_in_logical_expr(*stmt.condition_expr, true_list, false_list, false);
 
-    for (u32 idx : true_list) {
-      bytecode[idx].operand.two.opr1 = loop_start;
+    for (auto& [idx, ord] : true_list) {
+      bytecode[idx].operand.two[ord] = loop_start;
     }
-    for (u32 idx : false_list) {
-      bytecode[idx].operand.two.opr2 = bytecode_pos();
+    for (auto& [idx, ord] : false_list) {
+      bytecode[idx].operand.two[ord] = bytecode_pos();
     }
 
     for (u32 idx : scope().break_list) {
-      bytecode[idx].operand.two.opr1 = bytecode_pos();
+      bytecode[idx].operand.two[0] = bytecode_pos();
     }
     scope().break_list.clear();
     // dispose the variables in the loop body
@@ -1121,7 +1135,7 @@ class CodegenVisitor {
       }
     };
 
-    vector<u32> true_list, false_list;
+    vector<U32Pair> true_list, false_list;
     u32 loop_start_pos;
 
     auto prolog = [&, this] {
@@ -1137,14 +1151,14 @@ class CodegenVisitor {
       loop_start_pos = bytecode_pos();
       if (!stmt.condition_expr) return;
       visit_expr_in_logical_expr(*stmt.condition_expr, true_list, false_list, false);
-      for (u32 idx : true_list) {
-        bytecode[idx].operand.two.opr1 = bytecode_pos();
+      for (auto& [idx, ord] : true_list) {
+        bytecode[idx].operand.two[ord] = bytecode_pos();
       }
     };
 
     auto epilog = [&, this] {
       for (u32 idx : outer_scope.continue_list) {
-        bytecode[idx].operand.two.opr1 = bytecode_pos();
+        bytecode[idx].operand.two[0] = bytecode_pos();
       }
       outer_scope.continue_list.clear();
 
@@ -1194,12 +1208,12 @@ class CodegenVisitor {
       });
     }
 
-    for (u32 idx : false_list) {
-      bytecode[idx].operand.two.opr2 = bytecode_pos();
+    for (auto& [idx, ord] : false_list) {
+      bytecode[idx].operand.two[ord] = bytecode_pos();
     }
 
     for (u32 idx : outer_scope.break_list) {
-      bytecode[idx].operand.two.opr1 = bytecode_pos();
+      bytecode[idx].operand.two[0] = bytecode_pos();
     }
     outer_scope.break_list.clear();
 
@@ -1283,7 +1297,7 @@ class CodegenVisitor {
 
     auto epilog = [&, this] {
       for (u32 idx : outer_scope.continue_list) {
-        bytecode[idx].operand.two.opr1 = bytecode_pos();
+        bytecode[idx].operand.two[0] = bytecode_pos();
       }
       outer_scope.continue_list.clear();
 
@@ -1321,9 +1335,9 @@ class CodegenVisitor {
       });
     }
     u32 loop_end = bytecode_pos();
-    bytecode[exit_jump].operand.two.opr1 = loop_end;
+    bytecode[exit_jump].operand.two[0] = loop_end;
     for (u32 idx : outer_scope.break_list) {
-      bytecode[idx].operand.two.opr1 = loop_end;
+      bytecode[idx].operand.two[0] = loop_end;
     }
     outer_scope.break_list.clear();
 
@@ -1373,7 +1387,7 @@ class CodegenVisitor {
     u32 jmp_to_default = emit(OpType::jmp);
 
     auto visit_case_stmts = [this] (SwitchStatement::CaseClause& case_clause) {
-      bytecode[case_clause.jump_point].operand.two.opr1 = bytecode_pos();
+      bytecode[case_clause.jump_point].operand.two[0] = bytecode_pos();
       for (auto stmt : case_clause.stmts) {
         if (stmt->is(ASTNode::FUNC) && stmt->as_function()->is_stmt) continue;
         visit_single_statement(stmt);
@@ -1386,7 +1400,7 @@ class CodegenVisitor {
     }
 
     if (stmt.has_default) {
-      bytecode[jmp_to_default].operand.two.opr1 = bytecode_pos();
+      bytecode[jmp_to_default].operand.two[0] = bytecode_pos();
       for (auto s : stmt.default_stmts) {
         if (s->is(ASTNode::FUNC) && s->as_function()->is_stmt) continue;
         visit_single_statement(s);
@@ -1398,10 +1412,10 @@ class CodegenVisitor {
     }
 
     if (not stmt.has_default) {
-      bytecode[jmp_to_default].operand.two.opr1 = bytecode_pos();
+      bytecode[jmp_to_default].operand.two[0] = bytecode_pos();
     }
     for (u32 idx : scope().get_outer()->break_list) {
-      bytecode[idx].operand.two.opr1 = bytecode_pos();
+      bytecode[idx].operand.two[0] = bytecode_pos();
     }
     scope().get_outer()->break_list.clear();
     // drop the condition value
@@ -1602,7 +1616,7 @@ class CodegenVisitor {
       gen_func_bytecode(*func, scope().inner_func_init_code[func]);
     }
     // skip function bytecode
-    bytecode[jmp_inst_idx].operand.two.opr1 = bytecode_pos();
+    bytecode[jmp_inst_idx].operand.two[0] = bytecode_pos();
 
     auto env_scope_type = scope().get_outer_func()->get_type();
     for (Function *node : stmts) {
@@ -1669,7 +1683,7 @@ class CodegenVisitor {
 
     if (not block.label.empty()) {
       for (u32 idx : scope().get_outer()->break_list) {
-        bytecode[idx].operand.two.opr1 = bytecode_pos();
+        bytecode[idx].operand.two[0] = bytecode_pos();
       }
       scope().get_outer()->break_list.clear();
     }
@@ -1742,7 +1756,7 @@ class CodegenVisitor {
 
     // `throw` statements will jump here
     for (u32 idx : scope().throw_list) {
-      bytecode[idx].operand.two.opr1 = int(catch_or_finally_pos);
+      bytecode[idx].operand.two[0] = int(catch_or_finally_pos);
     }
     scope().throw_list.clear();
     // also, any error in the try block will jump here. So we should add a catch table entry.
@@ -1792,7 +1806,7 @@ class CodegenVisitor {
         u32 finally1_start = bytecode_pos();
 
         for (u32 idx : scope().throw_list) {
-          bytecode[idx].operand.two.opr1 = int(finally1_start);
+          bytecode[idx].operand.two[0] = int(finally1_start);
         }
         scope().throw_list.clear();
 
@@ -1813,10 +1827,10 @@ class CodegenVisitor {
 
       u32 finally2_start = bytecode_pos();
       for (u32 idx : proc_call_inst) {
-        bytecode[idx].operand.two.opr1 = finally2_start;
+        bytecode[idx].operand.two[0] = finally2_start;
       }
       for (u32 idx : scope().call_procedure_list) {
-        bytecode[idx].operand.two.opr1 = finally2_start;
+        bytecode[idx].operand.two[0] = finally2_start;
       }
       scope().call_procedure_list.clear();
       // finally2
@@ -1825,9 +1839,9 @@ class CodegenVisitor {
       emit(OpType::proc_ret);
     }
 
-    bytecode[try_end_jmp].operand.two.opr1 = bytecode_pos();
+    bytecode[try_end_jmp].operand.two[0] = bytecode_pos();
     if (has_catch && has_finally) {
-      bytecode[catch_end_jmp].operand.two.opr1 = bytecode_pos();
+      bytecode[catch_end_jmp].operand.two[0] = bytecode_pos();
     }
   }
 
