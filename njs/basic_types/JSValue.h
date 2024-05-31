@@ -83,33 +83,12 @@ friend class NjsVM;
   }
 
   JSValue(): JSValue(JSValueTag::UNDEFINED) {}
+
   JSValue(JSValueTag tag, uint64_t data, u32 flag)
       : tag(tag), val(data), flag_bits(flag) {}
+
   explicit JSValue(JSValueTag tag): tag(tag) {}
 
-  ~JSValue() = default;
-
-  // Not trying to move anything here, since moving and copying cost are the same for JSValue.
-  // Just to utilize the semantics of std::move to set the source value to undefined when it's moved.
-  JSValue(JSValue&& other) {
-    *this = other;
-    other.tag = UNDEFINED;
-  }
-
-  JSValue(const JSValue& other) {
-    *this = other;
-  }
-
-  JSValue& operator = (const JSValue& other) = default;
-
-  JSValue& operator = (JSValue&& other) noexcept {
-    if (this == &other) return *this;
-    val = other.val;
-    tag = other.tag;
-    flag_bits = other.flag_bits;
-    other.tag = UNDEFINED;
-    return *this;
-  }
 
   explicit JSValue(double number): tag(NUM_FLOAT) {
     val.as_f64 = number;
@@ -303,6 +282,10 @@ friend class NjsVM;
   JSValueTag tag;
   u32 flag_bits;
 };
+
+inline JSValue JSDouble(double val) {
+  return JSValue(val);
+}
 
 inline JSValue JSAtom(u32 val) {
   JSValue atom(JSValue::JS_ATOM);

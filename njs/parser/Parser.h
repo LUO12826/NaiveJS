@@ -151,6 +151,9 @@ error:
     }
 
     push_scope(ScopeType::FUNC);
+    // the `arguments` special object. should always be the first one.
+    scope().define_symbol(VarKind::DECL_VAR, u"arguments", true);
+
     // allow function expression to be able to self-reference using its *name*.
     if (!is_stmt && name.is_identifier()) {
       bool res = scope().define_symbol(VarKind::DECL_FUNCTION, name.text);
@@ -166,7 +169,7 @@ error:
 
     if (lexer.next().type != TokenType::LEFT_BRACE) goto error;
     lexer.next();
-    body = parse_function_body();
+    body = parse_program_or_function_body(TokenType::RIGHT_BRACE, ASTNode::FUNC_BODY);
     if (body->is_illegal()) return body;
     if (!token_match(TokenType::RIGHT_BRACE)) {
       delete body;
@@ -628,10 +631,6 @@ error:
     return arg_ast;
   }
 
-  ASTNode* parse_function_body() {
-    return parse_program_or_function_body(TokenType::RIGHT_BRACE, ASTNode::FUNC_BODY);
-  }
-
   ASTNode* parse_program() {
     lexer.next();
     push_scope(ScopeType::GLOBAL);
@@ -652,12 +651,10 @@ error:
       }
       // else, `curr_token` will be 'use strict' (a string).
     }
-
     auto* prog = new ProgramOrFunctionBody(syntax_type, strict);
-    ASTNode* stmt;
-    
+
     while (!token_match(ending_token_type)) {
-      stmt = parse_statement();
+      ASTNode* stmt = parse_statement();
       if (stmt->is_illegal()) {
         delete prog;
         return stmt;
@@ -1331,7 +1328,6 @@ error:
     stmt->label = id.text;
     // TODO: check this
     return stmt;
-//    return new LabelledStatement(id, stmt, SOURCE_PARSED_EXPR);
   }
 
  private:

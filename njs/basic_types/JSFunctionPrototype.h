@@ -17,6 +17,7 @@ class JSFunctionPrototype : public JSObject {
   // see also NjsVM::init_prototypes
   void add_methods(NjsVM& vm) {
     add_method(vm, u"call", JSFunctionPrototype::call);
+    add_method(vm, u"apply", JSFunctionPrototype::apply);
   }
 
   u16string_view get_class_name() override {
@@ -28,6 +29,30 @@ class JSFunctionPrototype : public JSObject {
       return vm.call_internal(This.val.as_func, undefined, nullptr, args, flags);
     } else {
       return vm.call_internal(This.val.as_func, args[0], nullptr, args.subarray(1), flags);
+    }
+  }
+
+  static Completion apply(vm_func_This_args_flags) {
+    if (args.size() == 0) [[unlikely]] {
+      return vm.call_internal(This.val.as_func, undefined, nullptr, args, flags);
+    } else if (args.size() == 1) [[unlikely]] {
+      return vm.call_internal(This.val.as_func, args[0], nullptr, args.subarray(1), flags);
+    } else {
+      if (not args[1].is_object()) [[unlikely]] {
+        return CompThrow(vm.build_error_internal(
+            JS_TYPE_ERROR, u"CreateListFromArrayLike called on non-object"));
+      }
+      JSObject *arr = args[1].as_object();
+      JSValue len = TRY_COMP_COMP(arr->get_property(vm, JSAtom(AtomPool::k_length)));
+      assert(len.is_float64());
+      size_t length = len.val.as_f64;
+      vector<JSValue> argv(length);
+      for (int i = 0; i < length; i++) {
+        JSValue idx_atom = JSAtom(vm.atom_pool.atomize_u32(i));
+        argv[i] = TRY_COMP_COMP(arr->get_property(vm, idx_atom));
+      }
+      return vm.call_internal(This.val.as_func, args[0], nullptr,
+                              ArrayRef(argv.data(), length), flags);
     }
   }
 };

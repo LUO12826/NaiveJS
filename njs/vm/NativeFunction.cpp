@@ -16,23 +16,32 @@ Completion NativeFunction::log(vm_func_This_args_flags) {
 
   output += "\n\033[0m";
   printf("%s", output.c_str());
-  vm.log_buffer.push_back(std::move(output));
+//  vm.log_buffer.push_back(std::move(output));
 
   return undefined;
 }
 
 Completion NativeFunction::debug_log(vm_func_This_args_flags) {
-  std::string output = "\033[32m[LOG] ";
+//  std::string output = "\033[32m[LOG] ";
+  std::string output;
 
   for (int i = 0; i < args.size(); i++) {
     output += args[i].to_string(vm);
-    output += " ";
+//    output += " ";
   }
 
-  output += "\n\033[0m";
-  printf("%s", output.c_str());
+//  output += "\n\033[0m";
+  printf("%s\n", output.c_str());
 
   return undefined;
+}
+
+Completion NativeFunction::debug_trap(vm_func_This_args_flags) {
+  if (args.size() > 0 && args[0].bool_value()) {
+    return CompThrow(vm.build_error_internal(JS_INTERNAL_ERROR, u"Trap"));
+  } else {
+    return undefined;
+  }
 }
 
 Completion NativeFunction::js_gc(vm_func_This_args_flags) {
@@ -45,7 +54,7 @@ Completion NativeFunction::set_timeout(vm_func_This_args_flags) {
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
   size_t id = vm.runloop.add_timer(args[0].val.as_func, (size_t)args[1].val.as_f64, false);
-  return JSValue(double(id));
+  return JSDouble(id);
 }
 
 Completion NativeFunction::set_interval(vm_func_This_args_flags) {
@@ -53,7 +62,7 @@ Completion NativeFunction::set_interval(vm_func_This_args_flags) {
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
   size_t id = vm.runloop.add_timer(args[0].val.as_func, (size_t)args[1].val.as_f64, true);
-  return JSValue(double(id));
+  return JSDouble(id);
 }
 
 Completion NativeFunction::clear_interval(vm_func_This_args_flags) {

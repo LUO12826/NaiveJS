@@ -17,6 +17,25 @@ class JSString : public JSObject {
     return u"String";
   }
 
+  Completion get_property_impl(NjsVM &vm, JSValue key) override {
+    JSValue k = TRY_COMP_COMP(js_to_property_key(vm, key));
+    if (k.is_atom() && k.val.as_atom == AtomPool::k_length) {
+      return JSDouble(value.length());
+    } else {
+      return get_prop(vm, k);
+    }
+  }
+
+  ErrorOr<bool> set_property_impl(NjsVM &vm, JSValue key, JSValue value) override {
+    JSValue k = TRY_COMP_ERR(js_to_property_key(vm, key));
+    if (k.is_atom() && k.val.as_atom == AtomPool::k_length) {
+      // do nothing. TODO: check this
+      return true;
+    } else {
+      return set_prop(vm, k, value);
+    }
+  }
+
 //  std::string description() override;
 //  std::string to_string(NjsVM& vm) override;
 //  void to_json(u16string& output, NjsVM& vm) const override;

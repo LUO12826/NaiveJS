@@ -40,7 +40,7 @@ inline Completion Object_hasOwn(vm_func_This_args_flags) {
   return JSObjectPrototype::hasOwnProperty(vm, func, args[0], args.subarray(1, 1), flags);
 }
 
-inline ErrorOr<JSObject*> check_argumnet_and_get_object(NjsVM& vm, ArrayRef<JSValue> args) {
+inline ErrorOr<JSObject*> check_argument_and_get_object(NjsVM& vm, ArrayRef<JSValue> args) {
   JSValue arg;
   if (args.size() >= 1) [[likely]] {
     arg = args[0];
@@ -55,17 +55,17 @@ inline ErrorOr<JSObject*> check_argumnet_and_get_object(NjsVM& vm, ArrayRef<JSVa
 }
 
 inline Completion Object_getPrototypeOf(vm_func_This_args_flags) {
-  JSObject *obj = TRY_ERR_COMP(check_argumnet_and_get_object(vm, args));
+  JSObject *obj = TRY_ERR_COMP(check_argument_and_get_object(vm, args));
   return obj->get_proto();
 }
 
 inline Completion Object_isExtensible(vm_func_This_args_flags) {
-  JSObject *obj = TRY_ERR_COMP(check_argumnet_and_get_object(vm, args));
+  JSObject *obj = TRY_ERR_COMP(check_argument_and_get_object(vm, args));
   return JSValue(obj->is_extensible());
 }
 
 inline Completion Object_preventExtensions(vm_func_This_args_flags) {
-  JSObject *obj = TRY_ERR_COMP(check_argumnet_and_get_object(vm, args));
+  JSObject *obj = TRY_ERR_COMP(check_argument_and_get_object(vm, args));
   obj->prevent_extensions();
   return undefined;
 }

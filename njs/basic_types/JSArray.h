@@ -38,10 +38,8 @@ class JSArray: public JSObject {
   void to_json(u16string& output, NjsVM& vm) const override;
 
   Completion get_property_impl(NjsVM& vm, JSValue key) override {
-    auto comp = get_index_or_atom(vm, key);
-    if (comp.is_throw()) return comp;
+    JSValue res = TRY_COMP_COMP(get_index_or_atom(vm, key));
 
-    JSValue res = comp.get_value();
     if (res.is(JSValue::NUM_UINT32)) {
       return get_element_fast(res.val.as_u32);
     } else {
@@ -50,7 +48,7 @@ class JSArray: public JSObject {
       if (atom_is_int(atom)) {
         return get_element_fast(atom_get_int(atom));
       } else {
-        return get_prop(vm, atom);
+        return get_prop(vm, res);
       }
     }
   }
@@ -83,7 +81,7 @@ class JSArray: public JSObject {
               }
             }
 
-            set_prop(vm, idx, JSValue(len));
+            set_length(len);
             return true;
           } else {
             return vm.build_error_internal(JS_RANGE_ERROR, u"Invalid array length");
@@ -138,6 +136,7 @@ class JSArray: public JSObject {
         dense_array[i].set_uninited();
       }
       dense_array[index] = val;
+      set_length(index + 1);
     }
   }
 
@@ -160,20 +159,47 @@ class JSArray: public JSObject {
         return JSAtom(atom);
       }
 
-    } else if (key.is_atom()) {
-      return key;      
     } else {
       return js_to_property_key(vm, key);
     }
   }
+
+  Completion pop() {
+    if (dense_array.empty()) [[unlikely]] {
+      return undefined;
+    } else {
+      JSValue last = dense_array.back();
+      dense_array.pop_back();
+      update_length();
+
+      return unlikely(last.is_uninited()) ? prop_not_found : last;
+    }
+  }
+
+  Completion shift() {
+    if (dense_array.empty()) [[unlikely]] {
+      return undefined;
+    } else {
+      JSValue front = dense_array.front();
+      dense_array.erase(dense_array.begin());
+      update_length();
+
+      return unlikely(front.is_uninited()) ? prop_not_found : front;
+    }
+  }
+
 
   u32 get_length() {
     assert(has_own_property_atom(AtomPool::k_length));
     return (u32)get_prop_trivial(AtomPool::k_length).val.as_f64;
   }
 
+  void set_length(double len) {
+    storage[JSObjectKey(AtomPool::k_length)].data.value.val.as_f64 = len;
+  }
+
   void update_length() {
-    storage[JSObjectKey(AtomPool::k_length)].data.value = JSValue(double(dense_array.size()));
+    storage[JSObjectKey(AtomPool::k_length)].data.value.val.as_f64 = dense_array.size();
   }
 
   std::vector<JSValue> dense_array;

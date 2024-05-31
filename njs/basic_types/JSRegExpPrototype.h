@@ -40,7 +40,13 @@ class JSRegExpPrototype : public JSObject {
   }
 
   static Completion toString(vm_func_This_args_flags) {
-    return undefined;
+    if (This.is_object() && This.as_object()->get_class() == CLS_REGEXP) [[likely]] {
+      return This.as_object()->as<JSRegExp>()->js_to_string(vm);
+    } else {
+      JSValue err = vm.build_error_internal(JS_TYPE_ERROR,
+        u"RegExp.prototype.toString can only be called by RegExp object");
+      return CompThrow(err);
+    }
   }
 
   static Completion re_test(vm_func_This_args_flags) {

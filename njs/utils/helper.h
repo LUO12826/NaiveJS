@@ -2,6 +2,7 @@
 #define NJS_UTILS_HELPER_H
 
 #include <algorithm>
+#include <optional>
 #include <cctype>
 #include <cstdarg>
 #include <cstdlib>
@@ -11,12 +12,16 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+extern "C" {
+  #include "njs/include/libregexp/libregexp.h"
+};
 
 namespace njs {
 
 using u32 = uint32_t;
 using std::string;
 using std::u16string;
+using std::optional;
 using std::u16string_view;
 
 // From Knuth https://stackoverflow.com/a/253874/5163915
@@ -95,6 +100,44 @@ inline string memory_usage_readable(size_t size) {
   oss << std::fixed << std::setprecision(2) << size_in_unit << " " << unit;
   return oss.str();
 };
+
+inline optional<int> str_to_regexp_flags(const u16string& flags) {
+  int re_flags = 0;
+  for (char16_t flag : flags) {
+    int mask;
+    switch(flag) {
+      case 'd':
+        mask = LRE_FLAG_INDICES;
+        break;
+      case 'g':
+        mask = LRE_FLAG_GLOBAL;
+        break;
+      case 'i':
+        mask = LRE_FLAG_IGNORECASE;
+        break;
+      case 'm':
+        mask = LRE_FLAG_MULTILINE;
+        break;
+      case 's':
+        mask = LRE_FLAG_DOTALL;
+        break;
+      case 'u':
+        mask = LRE_FLAG_UNICODE;
+        break;
+      case 'y':
+        mask = LRE_FLAG_STICKY;
+        break;
+      default:
+        goto bad_flags;
+    }
+    if ((re_flags & mask) != 0) {
+    bad_flags:
+      return std::nullopt;
+    }
+    re_flags |= mask;
+  }
+  return re_flags;
+}
 
 class DebugCounter {
  public:

@@ -16,8 +16,8 @@ struct SymbolRecord {
 
   SymbolRecord(VarKind kind, u16string_view name) : SymbolRecord(kind, name, 0, false) {}
 
-  SymbolRecord(VarKind kind, u16string_view name, u32 index, bool is_builtin)
-      : var_kind(kind), name(name), index(index), is_builtin(is_builtin) {}
+  SymbolRecord(VarKind kind, u16string_view name, u32 index, bool is_special)
+      : var_kind(kind), name(name), index(index), is_special(is_special) {}
 
   bool is_let_or_const() const {
     return var_kind == VarKind::DECL_LET || var_kind == VarKind::DECL_CONST;
@@ -27,7 +27,8 @@ struct SymbolRecord {
   u16string_view name;
   u32 index;
   bool is_captured {false};
-  bool is_builtin {false};
+  bool is_special {false};
+  bool referenced {false};
 };
 
 } // namespace njs

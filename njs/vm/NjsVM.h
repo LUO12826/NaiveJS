@@ -119,8 +119,8 @@ friend class JSArrayIterator;
 
   vector<StackTraceItem> capture_stack_trace();
   u16string build_trace_str(bool remove_top = false);
-  JSValue build_error_internal(const u16string& msg);
   JSValue build_error_internal(JSErrorType type, const u16string& msg);
+  JSValue build_error_internal(JSErrorType type, u16string&& msg);
 
   JSObject* new_object(ObjClass cls = ObjClass::CLS_OBJECT);
   JSObject* new_object(ObjClass cls, JSValue proto);
@@ -218,6 +218,8 @@ friend class JSArrayIterator;
   void error_throw(SPRef sp, JSErrorType type, const u16string& msg);
   void error_handle(SPRef sp);
   void print_unhandled_error(JSValue err);
+
+  JSValue prepare_arguments_array(ArrayRef<JSValue> args);
 
   void init_prototypes();
 

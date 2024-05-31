@@ -9,6 +9,7 @@
 #include "njs/vm/NjsVM.h"
 #include "njs/basic_types/conversion.h"
 #include "njs/basic_types/JSArray.h"
+#include "njs/utils/helper.h"
 extern "C" {
 #include "njs/include/libregexp/libregexp.h"
 }
@@ -18,6 +19,28 @@ namespace njs {
 
 class JSRegExp : public JSObject {
  public:
+
+  static Completion New(NjsVM& vm, u32 pattern_atom, int flags) {
+    auto *regexp = vm.heap.new_object<JSRegExp>(vm, pattern_atom, flags);
+    Completion comp = regexp->compile_bytecode_internal((vm));
+    return comp.is_throw() ? comp : JSValue(regexp);
+  }
+
+  static Completion New(NjsVM& vm, const u16string& pattern, const u16string& flags) {
+    auto maybe_flags = str_to_regexp_flags(flags);
+
+    if (maybe_flags.has_value()) [[likely]] {
+      u32 pattern_atom = vm.str_to_atom(pattern);
+      // TODO: optimize this
+      auto *regexp = vm.heap.new_object<JSRegExp>(vm, pattern_atom, maybe_flags.value());
+      Completion comp = regexp->compile_bytecode_internal((vm));
+      return comp.is_throw() ? comp : JSValue(regexp);
+    } else {
+      JSValue err = vm.build_error_internal(JS_SYNTAX_ERROR, u"Invalid regular expression flags");
+      return CompThrow(err);
+    }
+  }
+
   JSRegExp(NjsVM& vm, u32 pattern_atom, int flags)
     : JSObject(ObjClass::CLS_REGEXP, vm.regexp_prototype),
       pattern_atom(pattern_atom),
@@ -184,8 +207,18 @@ class JSRegExp : public JSObject {
     }
   }
 
+  Completion js_to_string(NjsVM& vm) {
+    JSValue flags_val = TRY_COMP_COMP(get_prop(vm, u"flags"));
+    u16string regexp_str = u"/" + pattern + u"/" + flags_val.val.as_prim_string->str;
+    return JSValue(vm.new_primitive_string(std::move(regexp_str)));
+  }
+
   u16string_view get_class_name() override {
     return u"RegExp";
+  }
+
+  std::string to_string(njs::NjsVM &vm) const override {
+    return to_u8string(pattern);
   }
 
   u32 pattern_atom;

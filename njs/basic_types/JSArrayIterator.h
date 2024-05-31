@@ -53,14 +53,14 @@ class JSArrayIterator : public JSObject {
         value = TRY_COMP_COMP(arr.get_property_impl(vm, idx_atom));
       }
       else if (kind == JSIteratorKind::KEY) {
-        value = JSValue(double(index));
+        value = JSDouble(index);
       }
       else {
         JSArray& tmp_arr = *vm.heap.new_object<JSArray>(vm, 2);
         tmp_arr.dense_array.resize(2);
 
         JSValue idx_atom = JSAtom(vm.u32_to_atom(index));
-        tmp_arr.dense_array[0] = JSValue(double(index));
+        tmp_arr.dense_array[0] = JSDouble(index);
         tmp_arr.dense_array[1] = TRY_COMP_COMP(arr.get_property_impl(vm, idx_atom));
         value = JSValue(&tmp_arr);
       }

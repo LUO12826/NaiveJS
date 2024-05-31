@@ -84,7 +84,13 @@ class Scope {
   bool define_func_parameter(u16string_view name, bool strict = true) {
     assert(scope_type == ScopeType::FUNC);
 
-    if (symbol_table.contains(name)) {
+    auto find_res = symbol_table.find(name);
+    if (find_res != symbol_table.end()) [[unlikely]] {
+      if (find_res->second.is_special) {
+        find_res->second = SymbolRecord(VarKind::DECL_FUNC_PARAM, name, param_count, false);
+        param_count += 1;
+        return true;
+      }
       // Strict mode doesn't allow duplicated parameter name.
       return !strict;
     }
@@ -96,23 +102,35 @@ class Scope {
 
   /// @brief Define a symbol in this scope.
   /// @return Succeeded or not.
-  bool define_symbol(VarKind var_kind, u16string_view name, bool is_builtin = false) {
+  bool define_symbol(VarKind var_kind, u16string_view name, bool is_special = false) {
     assert(var_kind != VarKind::DECL_FUNC_PARAM);
     // var... or function...
     if (var_kind == VarKind::DECL_VAR || var_kind == VarKind::DECL_FUNCTION) {
       assert(outer_func);
       if (outer_func != this) {
-        return outer_func->define_symbol(var_kind, name);
+        return outer_func->define_symbol(var_kind, name, is_special);
       }
     }
 
-    if (symbol_table.contains(name)) {
-      bool can_redeclare = var_kind_allow_redeclare(var_kind)
-                            && var_kind_allow_redeclare(symbol_table.at(name).var_kind);
-      return can_redeclare;
+    auto find_res = symbol_table.find(name);
+
+    if (find_res != symbol_table.end()) [[unlikely]] {
+      if (find_res->second.is_special) [[unlikely]] {
+        find_res->second.is_special = is_special;
+        goto redeclare;
+      }
+
+      if (var_kind_allow_redeclare(var_kind)
+          && var_kind_allow_redeclare(find_res->second.var_kind)) {
+      redeclare:
+        find_res->second.var_kind = var_kind;
+        return true;
+      } else {
+        return false;
+      }
     }
 
-    symbol_table.emplace(name, SymbolRecord(var_kind, name, var_idx_next, is_builtin));
+    symbol_table.emplace(name, SymbolRecord(var_kind, name, var_idx_next, is_special));
     var_idx_next += 1;
     update_var_count(var_idx_next);
 
@@ -121,6 +139,14 @@ class Scope {
 
   SymbolResolveResult resolve_symbol(u16string_view name) {
     return resolve_symbol_impl(name, 0, false);
+  }
+
+  SymbolRecord* get_symbol_direct(u16string_view name) {
+    if (symbol_table.contains(name)) {
+      return &symbol_table[name];
+    } else {
+      return nullptr;
+    }
   }
 
   void register_function(Function *func) {
@@ -216,6 +242,7 @@ class Scope {
   SymbolResolveResult resolve_symbol_impl(u16string_view name, u32 depth, bool nonlocal) {
     if (symbol_table.contains(name)) {
       SymbolRecord& rec = symbol_table[name];
+      rec.referenced = true;
 
       if (nonlocal && scope_type != ScopeType::GLOBAL) rec.is_captured = true;
 

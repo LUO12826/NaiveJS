@@ -7,6 +7,7 @@
 #include "njs/basic_types/JSBoolean.h"
 #include "njs/basic_types/JSNumber.h"
 #include "njs/basic_types/JSString.h"
+#include "njs/basic_types/JSRegExp.h"
 #include "njs/basic_types/JSArray.h"
 #include "njs/basic_types/JSDate.h"
 #include "njs/common/common_def.h"
@@ -54,6 +55,19 @@ Completion NativeFunction::Array_ctor(vm_func_This_args_flags) {
   JSArray *arr = vm.heap.new_object<JSArray>(vm, length);
   return JSValue(arr);
 }
+
+Completion NativeFunction::RegExp_ctor(vm_func_This_args_flags) {
+  // TODO
+  assert(args.size() > 0);
+  JSValue pattern = TRY_COMP_COMP(js_to_string(vm, args[0]));
+  u16string reflags;
+  if (args.size() > 1) {
+    reflags = TRY_COMP_COMP(js_to_string(vm, args[1])).val.as_prim_string->str;
+  }
+
+  return JSRegExp::New(vm, pattern.val.as_prim_string->str, reflags);
+}
+
 
 Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
   // call with `new`

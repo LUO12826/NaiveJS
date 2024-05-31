@@ -27,6 +27,7 @@ class JSArrayPrototype : public JSObject {
     add_method(vm, u"sort", JSArrayPrototype::sort);
     add_method(vm, u"toString", JSArrayPrototype::toString);
     add_method(vm, u"concat", JSArrayPrototype::concat);
+    add_method(vm, u"join", JSArrayPrototype::join);
   }
 
   u16string_view get_class_name() override {
@@ -55,6 +56,31 @@ class JSArrayPrototype : public JSObject {
     }
   }
 
+  static Completion join(vm_func_This_args_flags) {
+    assert(This.is(JSValue::ARRAY));
+
+    u16string delimiter = u",";
+    if (args.size() != 0 && !args[0].is_undefined()) [[likely]] {
+      JSValue deli = TRY_COMP_COMP(js_to_string(vm, args[0]));
+      delimiter = deli.val.as_prim_string->str;
+    }
+
+    auto *arr = This.as_object()->as<JSArray>();
+    u16string output;
+    bool first = true;
+
+    for (auto& val : arr->dense_array) {
+      if (first) first = false;
+      else output += delimiter;
+
+      if (not val.is_nil()) [[likely]] {
+        JSValue s = TRY_COMP_COMP(js_to_string(vm, val));
+        output += s.val.as_prim_string->str;
+      }
+    }
+    return vm.new_primitive_string(std::move(output));
+  }
+
   static Completion get_iter(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
     assert(This.is_object());
@@ -75,19 +101,37 @@ class JSArrayPrototype : public JSObject {
   static Completion sort(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
     auto& data_array = This.val.as_array->dense_array;
-
+    Completion comp;
     // no compare function provided. Convert values to strings and do string sorting.
     if (args.size() == 0) {
-      std::sort(data_array.begin(), data_array.end(), [&vm] (JSValue& a, JSValue& b) {
-        if (a.is_undefined()) return false;
-        if (b.is_undefined()) return true;
-        return a.to_string(vm) < b.to_string(vm);
-      });
+      try {
+        std::sort(data_array.begin(), data_array.end(), [&vm, &comp] (JSValue& a, JSValue& b) {
+          if (a.is_undefined()) return false;
+          if (b.is_undefined()) return true;
+
+          Completion comp_a = js_to_string(vm, a);
+          if (comp_a.is_throw()) {
+            comp = comp_a;
+            throw std::runtime_error("");
+          }
+          Completion comp_b = js_to_string(vm, b);
+          if (comp_b.is_throw()) {
+            comp = comp_b;
+            throw std::runtime_error("");
+          }
+
+          auto prim_a = comp_a.get_value().val.as_prim_string;
+          auto prim_b = comp_b.get_value().val.as_prim_string;
+          return *prim_a < *prim_b;
+        });
+      }
+      catch (std::runtime_error& err) {
+        return comp;
+      }
     }
     // else, use the compare function
     else if (args.size() >= 1) {
       assert(args[0].is_function());
-      Completion comp;
       try {
         std::sort(data_array.begin(), data_array.end(), [&vm, &args, &comp] (JSValue& a, JSValue& b) {
           if (a.is_undefined()) return false;
@@ -103,12 +147,10 @@ class JSArrayPrototype : public JSObject {
         });
       }
       catch (std::runtime_error& err) {
-        return CompThrow(comp.get_value());
+        return comp;
       }
-
     }
-
-    return undefined;
+    return This;
   }
 
   static Completion push(vm_func_This_args_flags) {
@@ -119,50 +161,20 @@ class JSArrayPrototype : public JSObject {
       array->dense_array.push_back(args[i]);
     }
 
-    JSValue new_length {double(array->dense_array.size())};
-    array->set_prop(vm, JSAtom(AtomPool::k_length), new_length);
+    double new_length = array->dense_array.size();
+    array->set_length(new_length);
 
-    return new_length;
+    return JSValue(new_length);
   }
 
   static Completion pop(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
-    JSArray *array = This.val.as_array;
-    auto& dense_arr = array->dense_array;
-
-    if (dense_arr.empty()) [[unlikely]] {
-      return undefined;
-    } else {
-      JSValue last = dense_arr.back();
-      if (last.is_uninited()) last.set_undefined();
-
-      dense_arr.pop_back();
-
-      JSValue new_length {double(dense_arr.size())};
-      array->set_prop(vm, JSAtom(AtomPool::k_length), new_length);
-
-      return last;
-    }
+    return This.val.as_array->pop();
   }
 
   static Completion shift(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
-    JSArray *array = This.val.as_array;
-    auto& dense_arr = array->dense_array;
-
-    if (dense_arr.empty()) [[unlikely]] {
-      return undefined;
-    } else {
-      JSValue front = dense_arr.front();
-      if (front.is_uninited()) front.set_undefined();
-
-      dense_arr.erase(dense_arr.begin());
-
-      JSValue new_length {double(dense_arr.size())};
-      array->set_prop(vm, JSAtom(AtomPool::k_length), new_length);
-
-      return front;
-    }
+    return This.val.as_array->shift();
   }
 
   static Completion concat(vm_func_This_args_flags) {

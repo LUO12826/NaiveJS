@@ -177,7 +177,7 @@ class StringLiteral : public ASTNode {
   std::string description() override {
     auto desc = ASTNode::description();
     if (str_val.size() < 80) {
-      desc += to_u8string(str_val);
+      desc += "  " + to_u8string(str_val);
     }
     return desc;
   }
@@ -187,13 +187,13 @@ class StringLiteral : public ASTNode {
 
 class RegExpLiteral : public ASTNode {
  public:
-  RegExpLiteral(u16string pattern, u16string flag, u16string_view source, u32 start,
+  RegExpLiteral(u16string pattern, u16string flags, u16string_view source, u32 start,
                 u32 end, u32 line_start)
       : ASTNode(EXPR_REGEXP, source, start, end, line_start),
-        pattern(std::move(pattern)), flag(std::move(flag)) {}
+        pattern(std::move(pattern)), flags(std::move(flags)) {}
 
   u16string pattern;
-  u16string flag;
+  u16string flags;
 };
 
 class ArrayLiteral : public ASTNode {

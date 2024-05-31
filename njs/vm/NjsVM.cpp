@@ -201,11 +201,17 @@ void NjsVM::execute_global() {
   call_internal(func, global_object, nullptr, ArrayRef<JSValue>(nullptr, 0), CallFlags());
 }
 
+// TODO: this is a very simplified implementation.
+JSValue NjsVM::prepare_arguments_array(ArrayRef<JSValue> args) {
+  auto *arr = heap.new_object<JSArray>(*this, args.size());
+  for (int i = 0; i < args.size(); i++) {
+    arr->dense_array[i] = args[i];
+  }
+  return JSValue(arr);
+}
+
 Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
                                 JSFunction *new_target, ArrayRef<JSValue> argv, CallFlags flags) {
-//  if (callee->name == u"convertTokToIDBase") {
-//    int a = 10;
-//  }
   // setup call stack
   JSStackFrame frame;
   frame.prev_frame = curr_frame;
@@ -249,6 +255,10 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
   // Initialize local variables and operation stack to undefined
   for (JSValue *val = local_vars; val < stack; val++) {
     val->set_undefined();
+  }
+
+  if (callee->meta.prepare_arguments_array) [[unlikely]] {
+    local_vars[0] = prepare_arguments_array(argv);
   }
 
   JSValue *sp = stack - 1;
@@ -880,13 +890,19 @@ u16string NjsVM::build_trace_str(bool remove_top) {
   return trace_str;
 }
 
-JSValue NjsVM::build_error_internal(const u16string& msg) {
-  return build_error_internal(JS_ERROR, msg);
-}
-
 JSValue NjsVM::build_error_internal(JSErrorType type, const u16string& msg) {
   auto *err_obj = new_object(CLS_ERROR, native_error_protos[type]);
   err_obj->set_prop(*this, u"message", new_primitive_string(msg));
+
+  u16string trace_str = build_trace_str();
+  err_obj->set_prop(*this, u"stack", new_primitive_string(std::move(trace_str)));
+
+  return JSValue(err_obj);
+}
+
+JSValue NjsVM::build_error_internal(JSErrorType type, u16string&& msg) {
+  auto *err_obj = new_object(CLS_ERROR, native_error_protos[type]);
+  err_obj->set_prop(*this, u"message", new_primitive_string(std::move(msg)));
 
   u16string trace_str = build_trace_str();
   err_obj->set_prop(*this, u"stack", new_primitive_string(std::move(trace_str)));
@@ -943,10 +959,12 @@ void NjsVM::exec_delete(SPRef sp) {
 }
 
 void NjsVM::exec_regexp_build(SPRef sp, u32 atom, int reflags) {
-  auto *regexp = heap.new_object<JSRegExp>(*this, atom, reflags);
-  VM_TRY_COMP(regexp->compile_bytecode_internal((*this)));
   sp += 1;
-  sp[0].set_val(regexp);
+  Completion comp = JSRegExp::New(*this, atom, reflags);
+  sp[0] = comp.get_value();
+  if (comp.is_throw()) [[unlikely]] {
+    error_handle(sp);
+  }
 }
 
 void NjsVM::exec_add(SPRef sp) {
@@ -1103,10 +1121,6 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
 
 
 CallResult NjsVM::exec_call(SPRef sp, int argc, bool has_this, JSFunction *new_target) {
-  size_t c = DebugCounter::count("exec_call");
-  if (c == 1146622) {
-    int a = 10;
-  }
   JSValue& func_val = sp[-argc];
   if (func_val.tag != JSValue::FUNCTION
       || func_val.val.as_object->get_class() != CLS_FUNCTION) [[unlikely]] {
@@ -1196,7 +1210,9 @@ void NjsVM::exec_add_elements(SPRef sp, int elements_cnt) {
 Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
   switch (obj.tag) {
     case JSValue::BOOLEAN:
+      return boolean_prototype.as_object()->get_property(*this, key);
     case JSValue::NUM_FLOAT:
+      return number_prototype.as_object()->get_property(*this, key);
     case JSValue::SYMBOL:
       return undefined;
       break;
@@ -1214,13 +1230,12 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
           return undefined; 
         }
       }
+      else if (atom == AtomPool::k_length) {
+        auto len = obj.val.as_prim_string->length();
+        return JSDouble(len);
+      }
       else {
-        if (atom == AtomPool::k_length) {
-          auto len = obj.val.as_prim_string->length();
-          return JSValue(double(len));
-        } else {
-          return string_prototype.as_object()->get_prop(*this, atom);
-        }
+        return string_prototype.as_object()->get_prop(*this, comp.get_value());
       }
       break;
     }
@@ -1230,15 +1245,25 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
 }
 
 Completion NjsVM::get_prop_common(JSValue obj, JSValue key) {
-  if(obj.is_object()) {
+  if(obj.is_object()) [[likely]] {
     return obj.as_object()->get_property(*this, key);
   }
   else if (not obj.is_nil()) {
     return get_prop_on_primitive(obj, key);
   }
   else {
-    u16string msg = u"cannot read property of " + to_u16string(obj.to_string(*this));
-    return CompThrow(build_error_internal(msg));
+    u16string prop_name;
+
+    if (key.is_atom()) {
+      prop_name = atom_to_str(key.val.as_atom);
+    } else {
+      Completion comp = js_to_string(*this, key);
+      assert(comp.is_normal());
+      prop_name = comp.get_value().val.as_prim_string->str;
+    }
+    u16string msg = u"cannot read property '" + prop_name + u"' of "
+                    + to_u16string(obj.to_string(*this));
+    return CompThrow(build_error_internal(JS_TYPE_ERROR, std::move(msg)));
   }
 }
 
@@ -1272,8 +1297,19 @@ Completion NjsVM::set_prop_common(JSValue obj, JSValue key, JSValue value) {
     return undefined;
   }
   else if (obj.is_nil()) {
-    u16string msg = u"cannot set property of " + to_u16string(obj.to_string(*this));
-    return CompThrow(build_error_internal(msg));
+    u16string prop_name;
+
+    if (key.is_atom()) {
+      prop_name = atom_to_str(key.val.as_atom);
+    } else {
+      Completion comp = js_to_string(*this, key);
+      assert(comp.is_normal());
+      prop_name = comp.get_value().val.as_prim_string->str;
+    }
+    u16string msg = u"cannot set property '" + prop_name + u"' of "
+                    + to_u16string(obj.to_string(*this));
+
+    return CompThrow(build_error_internal(JS_TYPE_ERROR, std::move(msg)));
   }
   // else the obj is a primitive type. do nothing.
   return undefined;
@@ -1290,7 +1326,7 @@ void NjsVM::exec_set_prop_atom(SPRef sp, u32 key_atom) {
     error_handle(sp);
   } else {
     // keep the value on the stack
-    obj = std::move(val);
+    obj = val;
     sp -= 1;
   }
 }
@@ -1307,7 +1343,7 @@ void NjsVM::exec_set_prop_index(SPRef sp) {
     error_handle(sp);
   } else {
     // keep the value on the stack
-    obj = std::move(val);
+    obj = val;
     sp -= 2;
   }
 }
@@ -1475,7 +1511,7 @@ void NjsVM::error_handle(SPRef sp) {
       catch_entry = &entry;
       // restore the sp
       JSValue *sp_restore = frame->stack;
-      *sp_restore = std::move(sp[0]);
+      *sp_restore = sp[0];
       sp = sp_restore;
 
       // dispose local variables

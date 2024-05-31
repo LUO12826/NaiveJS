@@ -407,12 +407,20 @@ class CodegenVisitor {
     // generate bytecode for function body
     visit_program_or_function_body(*body);
 
+    bool prepare_arguments = false;
+    if (not func.is_arrow_func) {
+      auto *sym = scope().get_symbol_direct(u"arguments");
+      assert(sym);
+      prepare_arguments = sym->is_special && sym->referenced;
+    }
+
     // create metadata for function
     u32 func_idx = add_function_meta(JSFunctionMeta {
         .name_index = func.has_name() ? add_const(func.name.text) : 0,
         .is_anonymous = !func.has_name() || func.is_arrow_func,
         .is_arrow_func = func.is_arrow_func,
         .is_strict = body->strict,
+        .prepare_arguments_array = prepare_arguments,
         .param_count = (u16)scope().get_param_count(),
         .local_var_count = (u16)scope().get_var_count(),
         .stack_size = u16(scope().get_max_stack_size() + 1), // 1 more slot for error, maybe ?
@@ -960,50 +968,18 @@ class CodegenVisitor {
   }
 
   void visit_regexp(RegExpLiteral& regexp) {
-    auto& flags = regexp.flag;
     int pattern_atom = atom_pool.atomize(regexp.pattern);
+    auto maybe_flags = str_to_regexp_flags(regexp.flags);
 
-    int re_flags = 0;
-    for (char16_t flag : flags) {
-      int mask;
-      switch(flag) {
-        case 'd':
-          mask = LRE_FLAG_INDICES;
-          break;
-        case 'g':
-          mask = LRE_FLAG_GLOBAL;
-          break;
-        case 'i':
-          mask = LRE_FLAG_IGNORECASE;
-          break;
-        case 'm':
-          mask = LRE_FLAG_MULTILINE;
-          break;
-        case 's':
-          mask = LRE_FLAG_DOTALL;
-          break;
-        case 'u':
-          mask = LRE_FLAG_UNICODE;
-          break;
-        case 'y':
-          mask = LRE_FLAG_STICKY;
-          break;
-        default:
-          goto bad_flags;
-      }
-      if ((re_flags & mask) != 0) {
-      bad_flags:
-        report_error(CodegenError {
-            .type = JS_SYNTAX_ERROR,
-            .message = "Invalid regular expression flags",
-            .ast_node = &regexp,
-        });
-        return;
-      }
-      re_flags |= mask;
+    if (maybe_flags.has_value()) {
+      emit(OpType::regexp_build, pattern_atom, maybe_flags.value());
+    } else {
+      report_error(CodegenError {
+          .type = JS_SYNTAX_ERROR,
+          .message = "Invalid regular expression flags",
+          .ast_node = &regexp,
+      });
     }
-
-    emit(OpType::regexp_build, pattern_atom, re_flags);
   }
 
   void visit_while_statement(WhileStatement& stmt) {
