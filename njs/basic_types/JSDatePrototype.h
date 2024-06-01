@@ -14,6 +14,7 @@ class JSDatePrototype : public JSObject {
  public:
   explicit JSDatePrototype(NjsVM& vm) {
     add_method(vm, u"valueOf", JSDatePrototype::valueOf);
+    add_method(vm, u"getTime", JSDatePrototype::valueOf);
     add_method(vm, u"toString", JSDatePrototype::toString);
     add_method(vm, u"toJSON", JSDatePrototype::toJSON);
   }

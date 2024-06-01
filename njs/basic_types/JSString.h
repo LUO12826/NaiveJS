@@ -20,7 +20,7 @@ class JSString : public JSObject {
   Completion get_property_impl(NjsVM &vm, JSValue key) override {
     JSValue k = TRY_COMP_COMP(js_to_property_key(vm, key));
     if (k.is_atom() && k.val.as_atom == AtomPool::k_length) {
-      return JSDouble(value.length());
+      return JSFloat(value.length());
     } else {
       return get_prop(vm, k);
     }

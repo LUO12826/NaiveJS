@@ -288,7 +288,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
     if (scope == ScopeType::CLOSURE) {
       return callee->captured_var[index].deref_heap();
     }
-
+    __builtin_unreachable();
     assert(false);
   };
 
@@ -368,7 +368,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         break;
       case OpType::logi_not: {
         bool bool_val = sp[0].bool_value();
-        sp[0].set_val(!bool_val);
+        sp[0].set_bool(!bool_val);
         break;
       }
       case OpType::bits_and:
@@ -380,7 +380,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         auto res = js_to_int32(*this, sp[0]);
         if (res.is_value()) {
           int v = ~res.get_value();
-          sp[0].set_val(double(v));
+          sp[0].set_float(v);
         } else {
           sp[0] = res.get_error();
           error_handle(sp);
@@ -414,7 +414,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         break;
       case OpType::push_f64:
         sp += 1;
-        sp[0].set_val(inst.operand.num_float);
+        sp[0].set_float(inst.operand.num_float);
         break;
       case OpType::push_str:
         sp += 1;
@@ -429,7 +429,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         break;
       case OpType::push_bool:
         sp += 1;
-        sp[0].set_val(bool(OPR1));
+        sp[0].set_bool(OPR1);
         break;
       case OpType::push_func_this:
         assert(callee);
@@ -785,7 +785,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
           sp[0] = res.get_error();
           error_handle(sp);
         } else {
-          sp[0].set_val(res.get_value());
+          sp[0].set_float(res.get_value());
         }
         break;
       }
@@ -945,6 +945,7 @@ JSValue NjsVM::exec_typeof(JSValue val) {
     default:
       assert(false);
   }
+  __builtin_unreachable();
 }
 
 void NjsVM::exec_delete(SPRef sp) {  
@@ -952,9 +953,9 @@ void NjsVM::exec_delete(SPRef sp) {
   if (sp[0].is_object()) [[likely]] {
     JSValue key = VM_TRY_COMP(js_to_property_key(*this, sp[1]));
     bool succeeded = VM_TRY_ERR(sp[0].as_object()->delete_property(key));
-    sp[0].set_val(succeeded);
+    sp[0].set_bool(succeeded);
   } else {
-    sp[0].set_val(true);
+    sp[0].set_bool(true);
   }
 }
 
@@ -995,7 +996,7 @@ void NjsVM::exec_add(SPRef sp) {
     } else {
       double lhs_n = VM_TRY_ERR(js_to_number(*this, lhs));
       double rhs_n = VM_TRY_ERR(js_to_number(*this, rhs));
-      l.set_val(lhs_n + rhs_n);
+      l.set_float(lhs_n + rhs_n);
     }
   }
 }
@@ -1015,6 +1016,7 @@ void NjsVM::exec_binary(SPRef sp, OpType op_type) {
       default:
         assert(false);
     }
+    __builtin_unreachable();
   };
   sp -= 1;
   if (sp[0].is_float64() && sp[1].is_float64()) [[likely]] {
@@ -1023,7 +1025,7 @@ void NjsVM::exec_binary(SPRef sp, OpType op_type) {
   else {
     double lhs = VM_TRY_ERR(js_to_number(*this, sp[0]));
     double rhs = VM_TRY_ERR(js_to_number(*this, sp[1]));
-    sp[0].set_val(calc(op_type, lhs, rhs));
+    sp[0].set_float(calc(op_type, lhs, rhs));
   }
 }
 
@@ -1039,13 +1041,13 @@ void NjsVM::exec_bits(SPRef sp, OpType op_type) {
 
   switch (op_type) {
     case OpType::bits_and:
-      sp[-1].set_val(double(lhs.get_value() & rhs.get_value()));
+      sp[-1].set_float(lhs.get_value() & rhs.get_value());
       break;
     case OpType::bits_or:
-      sp[-1].set_val(double(lhs.get_value() | rhs.get_value()));
+      sp[-1].set_float(lhs.get_value() | rhs.get_value());
       break;
     case OpType::bits_xor:
-      sp[-1].set_val(double(lhs.get_value() ^ rhs.get_value()));
+      sp[-1].set_float(lhs.get_value() ^ rhs.get_value());
       break;
     default:
       assert(false);
@@ -1075,13 +1077,13 @@ void NjsVM::exec_shift(SPRef sp, OpType op_type) {
 
   switch (op_type) {
     case OpType::lsh:
-      sp[-1].set_val(double(lhs.get_value() << shift_len));
+      sp[-1].set_float(lhs.get_value() << shift_len);
       break;
     case OpType::rsh:
-      sp[-1].set_val(double(lhs.get_value() >> shift_len));
+      sp[-1].set_float(lhs.get_value() >> shift_len);
       break;
     case OpType::ursh:
-      sp[-1].set_val(double(u32(lhs.get_value()) >> shift_len));
+      sp[-1].set_float(u32(lhs.get_value()) >> shift_len);
       break;
     default:
       assert(false);
@@ -1232,7 +1234,7 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
       }
       else if (atom == AtomPool::k_length) {
         auto len = obj.val.as_prim_string->length();
-        return JSDouble(len);
+        return JSFloat(len);
       }
       else {
         return string_prototype.as_object()->get_prop(*this, comp.get_value());
@@ -1242,6 +1244,7 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
     default:
       assert(false);
   }
+  __builtin_unreachable();
 }
 
 Completion NjsVM::get_prop_common(JSValue obj, JSValue key) {
@@ -1408,7 +1411,7 @@ void NjsVM::exec_strict_equality(SPRef sp, bool flip) {
   sp -= 1;
 
   if (res.is_value()) {
-    sp[0].set_val(bool(flip ^ res.get_value()));
+    sp[0].set_bool(flip ^ res.get_value());
   } else {
     sp[0] = res.get_error();
     error_handle(sp);
@@ -1424,7 +1427,7 @@ void NjsVM::exec_abstract_equality(SPRef sp, bool flip) {
                                          : abstract_equals(*this, lhs, rhs);
 
   if (res.is_value()) {
-    sp[0].set_val(bool(flip ^ res.get_value()));
+    sp[0].set_bool(flip ^ res.get_value());
   } else {
     sp[0] = res.get_error();
     error_handle(sp);
@@ -1445,6 +1448,7 @@ void NjsVM::exec_comparison(SPRef sp, OpType type) {
       case OpType::ge: return lhs >= rhs;
       default: assert(false);
     }
+    __builtin_unreachable();
   };
 
   auto string_compare = [] (OpType type, PrimitiveString *lhs, PrimitiveString *rhs) {
@@ -1455,6 +1459,7 @@ void NjsVM::exec_comparison(SPRef sp, OpType type) {
       case OpType::ge: return *lhs >= *rhs;
       default: assert(false);
     }
+    __builtin_unreachable();
   };
 
   bool res;
@@ -1476,7 +1481,7 @@ void NjsVM::exec_comparison(SPRef sp, OpType type) {
     }
   }
 
-  lhs.set_val(res);
+  lhs.set_bool(res);
 }
 
 void NjsVM::error_throw(SPRef sp, const u16string& msg) {

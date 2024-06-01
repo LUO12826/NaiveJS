@@ -54,7 +54,7 @@ Completion NativeFunction::set_timeout(vm_func_This_args_flags) {
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
   size_t id = vm.runloop.add_timer(args[0].val.as_func, (size_t)args[1].val.as_f64, false);
-  return JSDouble(id);
+  return JSFloat(id);
 }
 
 Completion NativeFunction::set_interval(vm_func_This_args_flags) {
@@ -62,7 +62,7 @@ Completion NativeFunction::set_interval(vm_func_This_args_flags) {
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
   size_t id = vm.runloop.add_timer(args[0].val.as_func, (size_t)args[1].val.as_f64, true);
-  return JSDouble(id);
+  return JSFloat(id);
 }
 
 Completion NativeFunction::clear_interval(vm_func_This_args_flags) {

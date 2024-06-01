@@ -118,12 +118,12 @@ friend class NjsVM;
     val.as_func = func;
   }
 
-  void set_val(double number) {
+  void set_float(double number) {
     tag = NUM_FLOAT;
     val.as_f64 = number;
   }
 
-  void set_val(bool boolean) {
+  void set_bool(bool boolean) {
     tag = BOOLEAN;
     val.as_bool = boolean;
   }
@@ -207,24 +207,13 @@ friend class NjsVM;
   }
 
   GCObject *as_GCObject() const;
+
   JSObject *as_object() const {
     return val.as_object;
   }
+
   JSObject *as_object_or_null() const {
     return is_object() ? val.as_object : nullptr;
-  }
-
-  double as_f64() const {
-    switch (tag) {
-      case NUM_FLOAT:
-        return val.as_f64;
-      case NUM_INT32:
-        return double(val.as_i32);
-      case NUM_UINT32:
-        return double(val.as_u32);
-      default:
-        assert(false);
-    }
   }
 
   bool is_falsy() const {
@@ -283,7 +272,7 @@ friend class NjsVM;
   u32 flag_bits;
 };
 
-inline JSValue JSDouble(double val) {
+inline JSValue JSFloat(double val) {
   return JSValue(val);
 }
 
@@ -299,7 +288,7 @@ inline JSValue JSSymbol(u32 val) {
   return symbol;
 }
 
-
+inline const JSValue JSFloat0 {JSValue::NUM_FLOAT, 0, 0};
 inline const JSValue undefined {JSValue::UNDEFINED};
 inline const JSValue prop_not_found {JSValue::UNDEFINED, 0, FLAG_NOT_FOUND};
 

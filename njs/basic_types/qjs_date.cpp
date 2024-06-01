@@ -232,10 +232,6 @@ u16string get_date_string(double ts, int magic) {
   }
 
   char16_t u16buf[64];
-  int i = 0;
-  for (; buf[i] != '\0'; i++) {
-    u16buf[i] = buf[i];
-  }
-  u16buf[i] = '\0';
+  njs::u8_to_u16_buffer_convert(buf, u16buf);
   return u16string(u16buf);
 }

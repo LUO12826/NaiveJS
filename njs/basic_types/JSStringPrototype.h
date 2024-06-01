@@ -26,9 +26,13 @@ class JSStringPrototype : public JSObject {
     add_method(vm, u"toLocaleLowerCase", JSStringPrototype::toLowerCase);
     add_method(vm, u"toLocaleUpperCase", JSStringPrototype::toUpperCase);
     add_method(vm, u"substring", JSStringPrototype::substring);
+    add_method(vm, u"substr", JSStringPrototype::substr);
     add_method(vm, u"concat", JSStringPrototype::concat);
     add_method(vm, u"indexOf", JSStringPrototype::indexOf);
+    add_method(vm, u"lastIndexOf", JSStringPrototype::lastIndexOf);
     add_method(vm, u"split", JSStringPrototype::split);
+    add_method(vm, u"match", JSStringPrototype::match);
+    add_method(vm, u"replace", JSStringPrototype::replace);
   }
 
   u16string_view get_class_name() override {
@@ -72,14 +76,38 @@ class JSStringPrototype : public JSObject {
 
     if (pattern->length() == 0) [[unlikely]] {
       size_t res = std::min(str->size(), (size_t)start);
-      return JSDouble(res);
+      return JSFloat(res);
     }
 
     size_t find_res = str->find(pattern->str, start);
     if (find_res != u16string::npos) {
-      return JSDouble(find_res);
+      return JSFloat(find_res);
     } else {
-      return JSDouble(-1);
+      return JSFloat(-1);
+    }
+  }
+
+  static Completion lastIndexOf(vm_func_This_args_flags) {
+    assert(args.size() > 0);
+    This = TRY_COMP_COMP(js_require_object_coercible(vm, This));
+    u16string *str = TRY_ERR_COMP(get_string_from_value(vm, This));
+    auto *pattern = TRY_COMP_COMP(js_to_string(vm, args[0])).val.as_prim_string;
+
+    int64_t end = INT64_MAX;
+    if (args.size() > 1) {
+      end = std::min(TRY_ERR_COMP(js_to_int64sat(vm, args[1])), INT64_MAX);
+    }
+
+    if (pattern->length() == 0) [[unlikely]] {
+      size_t res = std::min(str->size(), (size_t)end);
+      return JSFloat(res);
+    }
+
+    size_t find_res = str->rfind(pattern->str, end);
+    if (find_res != u16string::npos) {
+      return JSFloat(find_res);
+    } else {
+      return JSFloat(-1);
     }
   }
 
@@ -129,6 +157,75 @@ class JSStringPrototype : public JSObject {
     return JSValue(arr);
   }
 
+  static Completion match(vm_func_This_args_flags) {
+    This = TRY_COMP_COMP(js_require_object_coercible(vm, This));
+    JSValue str = TRY_COMP_ERR(js_to_string(vm, This));
+    
+    JSValue match_method;
+    // get @@match from that object
+    if (args.size() > 0 && args[0].is_object()) [[likely]] {
+      JSValue key = JSSymbol(AtomPool::k_sym_match);
+      match_method = TRY_COMP_COMP(args[0].as_object()->get_property(vm, key));
+    }
+    
+    if (match_method.is_undefined() || not match_method.is_function()) [[unlikely]] {
+      JSValue regexp = TRY_COMP_COMP(JSRegExp::New(vm, u"", u""));
+      return regexp.as_object()->as<JSRegExp>()->exec(vm, str, false);
+    }
+    else {
+      return vm.call_function(match_method.val.as_func, args[0], nullptr, {str}, flags);
+    }
+  }
+
+  static Completion replace(vm_func_This_args_flags) {
+    This = TRY_COMP_COMP(js_require_object_coercible(vm, This));
+    // nothing to replace
+    if (args.size() < 2) {
+      return js_to_string(vm, This);
+    }
+    
+    // get @@replace from that object
+    if (args[0].is_object()) {
+      JSValue key = JSSymbol(AtomPool::k_sym_replace);
+      JSValue m_replace = TRY_COMP_COMP(args[0].as_object()->get_property(vm, key));
+      if (m_replace.is_undefined()) [[unlikely]] {
+        goto arg0_is_string;
+      } else {
+        if (m_replace.is_function()) {
+          return vm.call_function(m_replace.val.as_func, args[0], nullptr, {This, args[1]}, flags);
+        } else {
+          return CompThrow(vm.build_error_internal(
+            JS_TYPE_ERROR, u"[Symbol.replace] method is not callable"));
+        }
+      }
+    } else {
+    arg0_is_string:
+      u16string *str = &TRY_COMP_COMP(js_to_string(vm, This)).val.as_prim_string->str;
+      JSValue pattern_val = TRY_COMP_COMP(js_to_string(vm, args[0]));
+      u16string *pattern = &pattern_val.val.as_prim_string->str;
+      u16string res = *str;
+
+      auto start_pos = res.find(*pattern);
+
+      if (start_pos != u16string::npos) {
+        if (args[1].is_function()) {
+          vector<JSValue> argv{pattern_val, JSFloat(start_pos)};
+          JSFunction *func = args[1].val.as_func;
+          JSValue rep = TRY_COMP_COMP(vm.call_function(func, undefined, nullptr, argv));
+          u16string *rep_str = &TRY_COMP_COMP(js_to_string(vm, rep)).val.as_prim_string->str;
+
+          res.replace(start_pos, pattern->size(), *rep_str);
+        }
+        else {
+          u16string *replacer = &TRY_COMP_COMP(js_to_string(vm, args[1])).val.as_prim_string->str;
+          res.replace(start_pos, pattern->size(), *replacer);
+        }
+      }
+
+      return vm.new_primitive_string(std::move(res));
+    }
+  }
+
   static Completion charCodeAt(vm_func_This_args_flags) {
     assert(args.size() > 0 && args[0].is(JSValue::NUM_FLOAT));
     This = TRY_COMP_COMP(js_require_object_coercible(vm, This));
@@ -139,7 +236,7 @@ class JSStringPrototype : public JSObject {
       return JSValue(nan(""));
     }
     char16_t ch = (*str)[(size_t)index];
-    return JSDouble(ch);
+    return JSFloat(ch);
   }
 
   static Completion toLowerCase(vm_func_This_args_flags) {
@@ -172,6 +269,23 @@ class JSStringPrototype : public JSObject {
     int64_t to = std::max(start, end);
 
     return vm.new_primitive_string(str->substr(from, to - from));
+  }
+
+  static Completion substr(vm_func_This_args_flags) {
+    This = TRY_COMP_COMP(js_require_object_coercible(vm, This));
+    u16string *str = TRY_ERR_COMP(get_string_from_value(vm, This));
+    int64_t str_len = str->size();
+
+    int64_t start = TRY_ERR_COMP(js_to_int64sat(vm, args.size() > 0 ? args[0] : undefined));
+    int64_t length = INT64_MAX;
+    if (args.size() > 1) {
+      length = TRY_ERR_COMP(js_to_int64sat(vm, args[1]));
+    }
+
+    start = std::clamp(start, int64_t(0), str_len);
+    length = std::clamp(length, int64_t(0), str_len - start);
+
+    return vm.new_primitive_string(str->substr(start, length));
   }
 
   static Completion concat(vm_func_This_args_flags) {

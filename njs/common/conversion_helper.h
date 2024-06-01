@@ -205,16 +205,11 @@ inline int print_double_u16string(double val, char16_t *str) {
 
 inline u16string double_to_u16string(double n) {
   char buf[JS_DTOA_BUF_SIZE];
-  char16_t u16buf[JS_DTOA_BUF_SIZE];
-  char *p_buf = buf;
-  char16_t *p_u16buf = u16buf;
-
   js_dtoa(buf, n, 10, 0, JS_DTOA_VAR_FORMAT);
-  while (*p_buf != '\0') {
-    *p_u16buf++ = *p_buf++;
-  }
-  *p_u16buf = '\0';
-  return u16string(u16buf, p_u16buf - u16buf);
+  
+  char16_t u16buf[JS_DTOA_BUF_SIZE];
+  u8_to_u16_buffer_convert(buf, u16buf);
+  return u16string(u16buf);
 }
 
 inline double u16string_to_double(const u16string &str) {

@@ -17,7 +17,7 @@ class JSRegExpPrototype : public JSObject {
     add_method(vm, u"toString", JSRegExpPrototype::toString);
     add_method(vm, u"test", JSRegExpPrototype::re_test);
     add_method(vm, u"exec", JSRegExpPrototype::re_exec);
-    add_symbol_method(vm, AtomPool::k_sym_match, JSRegExpPrototype::re_match);
+    add_symbol_method(vm, AtomPool::k_sym_match, JSRegExpPrototype::re_exec);
     add_symbol_method(vm, AtomPool::k_sym_matchAll, JSRegExpPrototype::re_match_all);
     add_symbol_method(vm, AtomPool::k_sym_replace, JSRegExpPrototype::re_replace);
     add_symbol_method(vm, AtomPool::k_sym_search, JSRegExpPrototype::re_search);
@@ -41,7 +41,7 @@ class JSRegExpPrototype : public JSObject {
 
   static Completion toString(vm_func_This_args_flags) {
     if (This.is_object() && This.as_object()->get_class() == CLS_REGEXP) [[likely]] {
-      return This.as_object()->as<JSRegExp>()->js_to_string(vm);
+      return This.as_object()->as<JSRegExp>()->prototype_to_string(vm);
     } else {
       JSValue err = vm.build_error_internal(JS_TYPE_ERROR,
         u"RegExp.prototype.toString can only be called by RegExp object");
@@ -57,25 +57,17 @@ class JSRegExpPrototype : public JSObject {
       arg = args[0];
     }
     JSValue str = TRY_COMP_COMP(js_to_string(vm, arg));
-    JSValue res = TRY_COMP_COMP(This.as_object()->as<JSRegExp>()->exec(vm, str, true));
-
-    return res.is(JSValue::BOOLEAN) ? res : JSValue(false);
+    return TRY_COMP_COMP(This.as_object()->as<JSRegExp>()->exec(vm, str, true));
   }
 
   static Completion re_exec(vm_func_This_args_flags) {
     assert(This.is_object() && This.as_object()->get_class() == CLS_REGEXP);
 
-    JSValue arg;
+    JSValue str;
     if (args.size() >= 1) [[likely]] {
-      arg = args[0];
+      str = args[0];
     }
-    JSValue str = TRY_COMP_COMP(js_to_string(vm, arg));
-
     return This.as_object()->as<JSRegExp>()->exec(vm, str, false);
-  }
-
-  static Completion re_match(vm_func_This_args_flags) {
-    return undefined;
   }
 
   static Completion re_match_all(vm_func_This_args_flags) {
@@ -83,7 +75,16 @@ class JSRegExpPrototype : public JSObject {
   }
 
   static Completion re_replace(vm_func_This_args_flags) {
-    return undefined;
+    assert(This.is_object() && This.as_object()->get_class() == CLS_REGEXP);
+
+    JSValue str, replacer;
+    if (args.size() >= 1) [[likely]] {
+      str = args[0];
+    }
+    if (args.size() >= 2) [[likely]] {
+      replacer = args[1];
+    }
+    return This.as_object()->as<JSRegExp>()->replace(vm, str, replacer);
   }
 
   static Completion re_search(vm_func_This_args_flags) {

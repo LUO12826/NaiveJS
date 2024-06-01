@@ -16,9 +16,7 @@
 #include "njs/include/SmallVector.h"
 #include "njs/include/robin_hood.h"
 #include "njs/parser/Token.h"
-extern "C" {
-#include "njs/include/libregexp/libregexp.h"
-}
+#include "njs/include/libregexp/lre_helper.h"
 #include "njs/parser/ast.h"
 #include "njs/utils/Timer.h"
 #include "njs/utils/helper.h"

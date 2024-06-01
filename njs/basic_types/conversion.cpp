@@ -52,6 +52,7 @@ Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
         assert(false);
       }
   }
+  __builtin_unreachable();
 }
 
 Completion js_to_object(NjsVM &vm, JSValue arg) {
@@ -161,6 +162,7 @@ ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {
       }
   }
   assert(false);
+  __builtin_unreachable();
 }
 
 

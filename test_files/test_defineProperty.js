@@ -1,3 +1,27 @@
+function Constructor() {}
+
+Object.defineProperty(Constructor.prototype, 'myProp', {
+  writable: false,
+  value: 'aaa'
+});
+
+const obj = new Constructor();
+
+obj.myProp = 10
+
+console.log(obj.myProp); // "value"
+
+Object.defineProperty(obj, 'myProp', {
+  writable: false,
+  value: 'new value'
+});
+console.log(obj.myProp); // "new value"
+
+obj.myProp = 'another value';
+console.log(obj.myProp); // "new value"，because it's not writable
+
+console.log(Constructor.prototype.myProp); // "value"
+
 let o = {}
 
 Object.defineProperty(o, "p", {

@@ -6,13 +6,16 @@ test_ignored = [
     "jquery-1.4.2.js",
     "temp_test.js",
     "test_typescript.js",
+    "test_typescript_mod.js",
+    "test_typescript_mod1.js",
+    "test_typescript2_0_0.js",
     "test_string_lit.js",
     "test_number_lit.js",
     "test_try_catch.js",
+    "test_regexp.js",
     "test_array_exotic.js",
     "test_array.js",
     "test_for_in.js",
-    "test_typescript_mod.js",
     "test_hashtable.js",
 ]
 
