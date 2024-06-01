@@ -98,6 +98,16 @@ std::string Instruction::description() const {
     case OpType::push_check:
       sprintf(buffer, "push_check  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
+
+    case OpType::push_local: sprintf(buffer, "push_local  %d", OPR1); break;
+    case OpType::push_local_check: sprintf(buffer, "push_local_check  %d", OPR1); break;
+    case OpType::push_global: sprintf(buffer, "push_global  %d", OPR1); break;
+    case OpType::push_global_check: sprintf(buffer, "push_global_check  %d", OPR1); break;
+    case OpType::push_arg: sprintf(buffer, "push_arg  %d", OPR1); break;
+    case OpType::push_arg_check: sprintf(buffer, "push_arg_check  %d", OPR1); break;
+    case OpType::push_closure: sprintf(buffer, "push_closure  %d", OPR1); break;
+    case OpType::push_closure_check: sprintf(buffer, "push_closure_check  %d", OPR1); break;
+
     case OpType::push_i32:
       sprintf(buffer, "push_i32  %d", OPR1);
       break;
@@ -145,9 +155,6 @@ std::string Instruction::description() const {
       break;
     case OpType::store_curr_func:
       sprintf(buffer, "store_curr_func  %d", OPR1);
-      break;
-    case OpType::prop_assign:
-      sprintf(buffer, "prop_assign %s", (bool)OPR1 ? "(need value)" : "");
       break;
     case OpType::var_deinit:
       sprintf(buffer, "var_deinit  %d", OPR1);
@@ -355,6 +362,14 @@ static int op_stack_usage[] = {
 
     1,  // push
     1,  // push_check
+    1,  // push_local
+    1,  // push_local_check
+    1,  // push_global
+    1,  // push_global_check
+    1,  // push_arg
+    1,  // push_arg_check
+    1,  // push_closure
+    1,  // push_closure_check
     1,  // push_i32
     1,  // push_f64
     1,  // push_str
@@ -371,7 +386,6 @@ static int op_stack_usage[] = {
     0,  // store
     0,  // store_check
     0,  // store_curr_func
-    -2, // prop_assign
     0,  // var_deinit
     0,  // var_deinit_range
     0,  // var_undef

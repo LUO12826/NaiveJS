@@ -29,6 +29,15 @@ JSValue& JSValue::deref_heap() const {
   return val.as_heap_val->wrapped_val;
 }
 
+JSValue& JSValue::deref_heap_if_needed() {
+  if (tag == HEAP_VAL) [[unlikely]] {
+    return val.as_heap_val->wrapped_val;
+  } else {
+    return *this;
+  }
+}
+
+
 std::string JSValue::description() const {
 
   std::ostringstream stream;

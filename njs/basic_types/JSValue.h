@@ -161,6 +161,7 @@ friend class NjsVM;
     return *val.as_JSValue;
   }
   JSValue& deref_heap() const;
+  JSValue& deref_heap_if_needed();
 
   void move_to_heap(NjsVM& vm);
   void move_to_stack();

@@ -708,7 +708,7 @@ class CodegenVisitor {
           OpType op = assign_op == TokenType::ADD_ASSIGN  ? OpType::inc : OpType::dec;
           emit(op, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
           if (need_value) {
-            emit(OpType::push, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
+            emit_push(lhs_sym.storage_scope, lhs_sym.get_index(), false);
           }
           return;
         }
@@ -859,11 +859,7 @@ class CodegenVisitor {
     bool use_dynamic =
         symbol.not_found() || (symbol.def_scope == ScopeType::GLOBAL && !symbol.is_let_or_const());
     if (not use_dynamic) {
-      if (symbol.is_let_or_const()) {
-        emit(OpType::push_check, scope_type_int(symbol.storage_scope), symbol.get_index());
-      } else {
-        emit(OpType::push, scope_type_int(symbol.storage_scope), symbol.get_index());
-      }
+      emit_push(symbol.storage_scope, symbol.get_index(), symbol.is_let_or_const());
     } else {
       u32 atom = atom_pool.atomize(id.get_source());
       emit(no_throw ? OpType::dyn_get_var_undef : OpType::dyn_get_var, atom);
@@ -1891,6 +1887,30 @@ class CodegenVisitor {
   u32 emit(Instruction inst) {
     update_stack_usage_common(inst.op_type);
     bytecode.push_back(inst);
+    return bytecode.size() - 1;
+  }
+
+  u32 emit_push(ScopeType scope_type, u32 index, bool check) {
+    scope().update_stack_usage(1);
+    OpType op;
+    switch (scope_type) {
+      case ScopeType::GLOBAL:
+        op = OpType::push_global;
+        break;
+      case ScopeType::FUNC:
+        op = OpType::push_local;
+        break;
+      case ScopeType::FUNC_PARAM:
+        op = OpType::push_arg;
+        break;
+      case ScopeType::CLOSURE:
+        op = OpType::push_closure;
+        break;
+      default:
+        assert(false);
+    }
+    op = static_cast<OpType>(static_cast<int>(op) + (int)check);
+    bytecode.emplace_back(op, index);
     return bytecode.size() - 1;
   }
 

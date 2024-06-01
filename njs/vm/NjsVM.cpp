@@ -392,21 +392,58 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
       case OpType::ursh:
         exec_shift(sp, inst.op_type);
         break;
-      case OpType::push:
-        sp += 1;
-        sp[0] = get_value(GET_SCOPE, OPR2);
-        break;
-      case OpType::push_check: {
-        JSValue& val = get_value(GET_SCOPE, OPR2);
-        if (val.is_uninited()) [[unlikely]] {
-          error_throw(sp, u"Cannot access a variable before initialization");
-          error_handle(sp);
-        } else {
-          sp += 1;
-          sp[0] = val;
+
+#define CHECK_UNINIT {                                                                    \
+          if (sp[0].is_uninited()) [[unlikely]] {                                         \
+            sp -= 1;                                                                      \
+            error_throw(sp, u"Cannot access a variable before initialization");           \
+            error_handle(sp);                                                             \
+          }                                                                               \
         }
+
+#define DEREF_HEAP_IF_NEEDED \
+          *++sp = (val.tag == JSValue::HEAP_VAL ? val.val.as_heap_val->wrapped_val : val);
+
+      case OpType::push_local: {
+        JSValue val = local_vars[OPR1];
+        DEREF_HEAP_IF_NEEDED
         break;
       }
+      case OpType::push_local_check: {
+        JSValue val = local_vars[OPR1];
+        DEREF_HEAP_IF_NEEDED
+        CHECK_UNINIT
+        break;
+      }
+      case OpType::push_global: {
+        JSValue val = stack_frames.front()->local_vars[OPR1];
+        DEREF_HEAP_IF_NEEDED
+        break;
+      }
+      case OpType::push_global_check: {
+        JSValue val = stack_frames.front()->local_vars[OPR1];
+        DEREF_HEAP_IF_NEEDED
+        CHECK_UNINIT
+        break;
+      }
+      case OpType::push_arg: {
+        JSValue val = args_buf[OPR1];
+        DEREF_HEAP_IF_NEEDED
+        break;
+      }
+      case OpType::push_arg_check: {
+        JSValue val = args_buf[OPR1];
+        DEREF_HEAP_IF_NEEDED
+        CHECK_UNINIT
+        break;
+      }
+      case OpType::push_closure:
+        *++sp = callee->captured_var[OPR1].deref_heap();
+        break;
+      case OpType::push_closure_check:
+        *++sp = callee->captured_var[OPR1].deref_heap();
+        CHECK_UNINIT
+        break;
       case OpType::push_i32:
         sp += 1;
         sp[0].tag = JSValue::NUM_INT32;
@@ -428,29 +465,23 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         sp[0].val.as_atom = OPR1;
         break;
       case OpType::push_bool:
-        sp += 1;
-        sp[0].set_bool(OPR1);
+        (*++sp).set_bool(OPR1);
         break;
       case OpType::push_func_this:
         assert(callee);
-        sp += 1;
-        sp[0] = This;
+        *++sp = This;
         break;
       case OpType::push_global_this:
-        sp += 1;
-        sp[0] = global_object;
+        *++sp = global_object;
         break;
       case OpType::push_null:
-        sp += 1;
-        sp[0].tag = JSValue::JS_NULL;
+        (*++sp).tag = JSValue::JS_NULL;
         break;
       case OpType::push_undef:
-        sp += 1;
-        sp[0].tag = JSValue::UNDEFINED;
+        (*++sp).tag = JSValue::UNDEFINED;
         break;
       case OpType::push_uninit:
-        sp += 1;
-        sp[0].tag = JSValue::UNINIT;
+        (*++sp).tag = JSValue::UNINIT;
         break;
       case OpType::pop: {
         get_value(GET_SCOPE, OPR2).assign(sp[0]);
