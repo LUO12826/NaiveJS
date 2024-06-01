@@ -141,7 +141,7 @@ error:
     if (lexer.current().is_identifier()) {
       name = lexer.current();
       if (is_stmt) {
-        bool res = scope().define_symbol(VarKind::DECL_FUNCTION, name.text);
+        bool res = scope().define_symbol(VarKind::FUNCTION, name.text);
         if (!res) std::cout << "!!!!define symbol " << name.get_text_utf8() << " failed" << '\n';
       }
       lexer.next();
@@ -152,11 +152,11 @@ error:
 
     push_scope(ScopeType::FUNC);
     // the `arguments` special object. should always be the first one.
-    scope().define_symbol(VarKind::DECL_VAR, u"arguments", true);
+    scope().define_symbol(VarKind::VAR, u"arguments", true);
 
     // allow function expression to be able to self-reference using its *name*.
     if (!is_stmt && name.is_identifier()) {
-      bool res = scope().define_symbol(VarKind::DECL_FUNCTION, name.text);
+      bool res = scope().define_symbol(VarKind::FUNCTION, name.text);
       if (!res) std::cout << "!!!!define symbol " << name.get_text_utf8() << " failed" << '\n';
     }
 
@@ -750,13 +750,13 @@ error:
     Token id = lexer.current();
     assert(id.is_identifier());
 
-    if (kind == VarKind::DECL_VAR) {
+    if (kind == VarKind::VAR) {
       bool res = scope().define_symbol(kind, id.text);
       if (!res) std::cout << "!!!!define symbol " << id.get_text_utf8() << " failed" << '\n';
     }
 
     if (lexer.peek().type != TokenType::ASSIGN) {
-      if (kind == VarKind::DECL_CONST) {
+      if (kind == VarKind::CONST) {
         lexer.next();
         return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
       }

@@ -40,7 +40,15 @@ class Completion {
     return type == Type::THROW;
   }
 
+  bool is_error() {
+    return type == Type::THROW;
+  }
+
   JSValue& get_value() {
+    return val_or_err;
+  }
+
+  JSValue& get_error() {
     return val_or_err;
   }
 

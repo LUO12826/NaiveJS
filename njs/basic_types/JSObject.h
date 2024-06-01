@@ -180,7 +180,7 @@ friend class JSArray;
 friend class JSForInIterator;
 
  public:
-  JSObject() : obj_class(ObjClass::CLS_OBJECT), _proto_(JSValue::null) {}
+  JSObject() : obj_class(CLS_OBJECT), _proto_(JSValue::null) {}
   explicit JSObject(ObjClass cls) : obj_class(cls), _proto_(JSValue::null) {}
   explicit JSObject(ObjClass cls, JSValue proto) : obj_class(cls), _proto_(proto) {}
 

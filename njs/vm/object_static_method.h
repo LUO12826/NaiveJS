@@ -25,9 +25,9 @@ inline Completion Object_defineProperty(vm_func_This_args_flags) {
         JS_TYPE_ERROR, u"Property description must be an object"));
   }
 
-  JSPropDesc desc = TRY_ERR_COMP(args[2].as_object()->to_property_descriptor(vm));
-  JSValue key = TRY_COMP_COMP(js_to_property_key(vm, args[1]));
-  bool succeeded = TRY_ERR_COMP(args[0].as_object()->define_own_property(key, desc));
+  JSPropDesc desc = TRY_COMP(args[2].as_object()->to_property_descriptor(vm));
+  JSValue key = TRY_COMP(js_to_property_key(vm, args[1]));
+  bool succeeded = TRY_COMP(args[0].as_object()->define_own_property(key, desc));
   return JSValue(succeeded);
 }
 
@@ -49,23 +49,23 @@ inline ErrorOr<JSObject*> check_argument_and_get_object(NjsVM& vm, ArrayRef<JSVa
   if (arg.is_object()) [[likely]] {
     obj = arg.as_object();
   } else {
-    obj = TRY_COMP_ERR(js_to_object(vm, arg)).as_object();
+    obj = TRY_ERR(js_to_object(vm, arg)).as_object();
   }
   return obj;
 }
 
 inline Completion Object_getPrototypeOf(vm_func_This_args_flags) {
-  JSObject *obj = TRY_ERR_COMP(check_argument_and_get_object(vm, args));
+  JSObject *obj = TRY_COMP(check_argument_and_get_object(vm, args));
   return obj->get_proto();
 }
 
 inline Completion Object_isExtensible(vm_func_This_args_flags) {
-  JSObject *obj = TRY_ERR_COMP(check_argument_and_get_object(vm, args));
+  JSObject *obj = TRY_COMP(check_argument_and_get_object(vm, args));
   return JSValue(obj->is_extensible());
 }
 
 inline Completion Object_preventExtensions(vm_func_This_args_flags) {
-  JSObject *obj = TRY_ERR_COMP(check_argument_and_get_object(vm, args));
+  JSObject *obj = TRY_COMP(check_argument_and_get_object(vm, args));
   obj->prevent_extensions();
   return undefined;
 }

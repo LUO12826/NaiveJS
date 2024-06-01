@@ -13,7 +13,7 @@ namespace njs {
 
 class JSRegExpPrototype : public JSObject {
  public:
-  explicit JSRegExpPrototype(NjsVM &vm) : JSObject(ObjClass::CLS_REGEXP_PROTO) {
+  explicit JSRegExpPrototype(NjsVM &vm) : JSObject(CLS_REGEXP_PROTO) {
     add_method(vm, u"toString", JSRegExpPrototype::toString);
     add_method(vm, u"test", JSRegExpPrototype::re_test);
     add_method(vm, u"exec", JSRegExpPrototype::re_exec);
@@ -40,8 +40,8 @@ class JSRegExpPrototype : public JSObject {
   }
 
   static Completion toString(vm_func_This_args_flags) {
-    if (This.is_object() && This.as_object()->get_class() == CLS_REGEXP) [[likely]] {
-      return This.as_object()->as<JSRegExp>()->prototype_to_string(vm);
+    if (This.is_object() && object_class(This) == CLS_REGEXP) [[likely]] {
+      return This.as_object<JSRegExp>()->prototype_to_string(vm);
     } else {
       JSValue err = vm.build_error_internal(JS_TYPE_ERROR,
         u"RegExp.prototype.toString can only be called by RegExp object");
@@ -50,24 +50,24 @@ class JSRegExpPrototype : public JSObject {
   }
 
   static Completion re_test(vm_func_This_args_flags) {
-    assert(This.is_object() && This.as_object()->get_class() == CLS_REGEXP);
+    assert(This.is_object() && object_class(This) == CLS_REGEXP);
 
     JSValue arg;
     if (args.size() >= 1) [[likely]] {
       arg = args[0];
     }
-    JSValue str = TRY_COMP_COMP(js_to_string(vm, arg));
-    return TRY_COMP_COMP(This.as_object()->as<JSRegExp>()->exec(vm, str, true));
+    JSValue str = TRY_COMP(js_to_string(vm, arg));
+    return TRY_COMP(This.as_object<JSRegExp>()->exec(vm, str, true));
   }
 
   static Completion re_exec(vm_func_This_args_flags) {
-    assert(This.is_object() && This.as_object()->get_class() == CLS_REGEXP);
+    assert(This.is_object() && object_class(This) == CLS_REGEXP);
 
     JSValue str;
     if (args.size() >= 1) [[likely]] {
       str = args[0];
     }
-    return This.as_object()->as<JSRegExp>()->exec(vm, str, false);
+    return This.as_object<JSRegExp>()->exec(vm, str, false);
   }
 
   static Completion re_match_all(vm_func_This_args_flags) {
@@ -75,7 +75,7 @@ class JSRegExpPrototype : public JSObject {
   }
 
   static Completion re_replace(vm_func_This_args_flags) {
-    assert(This.is_object() && This.as_object()->get_class() == CLS_REGEXP);
+    assert(This.is_object() && object_class(This) == CLS_REGEXP);
 
     JSValue str, replacer;
     if (args.size() >= 1) [[likely]] {
@@ -84,7 +84,7 @@ class JSRegExpPrototype : public JSObject {
     if (args.size() >= 2) [[likely]] {
       replacer = args[1];
     }
-    return This.as_object()->as<JSRegExp>()->replace(vm, str, replacer);
+    return This.as_object<JSRegExp>()->replace(vm, str, replacer);
   }
 
   static Completion re_search(vm_func_This_args_flags) {

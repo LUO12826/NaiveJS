@@ -11,7 +11,7 @@ namespace njs {
 
 class JSBooleanPrototype : public JSObject {
  public:
-  explicit JSBooleanPrototype(NjsVM &vm) : JSObject(ObjClass::CLS_NUMBER_PROTO) {
+  explicit JSBooleanPrototype(NjsVM &vm) : JSObject(CLS_NUMBER_PROTO) {
     add_method(vm, u"valueOf", JSBooleanPrototype::valueOf);
     add_method(vm, u"toString", JSBooleanPrototype::toString);
   }
@@ -21,7 +21,7 @@ class JSBooleanPrototype : public JSObject {
   }
 
   static Completion valueOf(vm_func_This_args_flags) {
-    if (This.is_object() && This.as_object()->get_class() == CLS_BOOLEAN) [[likely]] {
+    if (This.is_object() && object_class(This) == CLS_BOOLEAN) [[likely]] {
       assert(dynamic_cast<JSBoolean*>(This.as_object()));
       auto *bool_obj = static_cast<JSBoolean*>(This.as_object());
       return JSValue(bool_obj->value);
@@ -37,7 +37,7 @@ class JSBooleanPrototype : public JSObject {
   }
 
   static Completion toString(vm_func_This_args_flags) {
-    if (This.is_object() && This.as_object()->get_class() == CLS_BOOLEAN) [[likely]] {
+    if (This.is_object() && object_class(This) == CLS_BOOLEAN) [[likely]] {
       assert(dynamic_cast<JSBoolean*>(This.as_object()));
       auto *bool_obj = static_cast<JSBoolean*>(This.as_object());
       return vm.get_string_const(bool_obj->value ? AtomPool::k_true : AtomPool::k_false);

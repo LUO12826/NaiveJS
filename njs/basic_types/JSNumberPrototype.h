@@ -12,7 +12,7 @@ namespace njs {
 
 class JSNumberPrototype : public JSObject {
  public:
-  explicit JSNumberPrototype(NjsVM &vm) : JSObject(ObjClass::CLS_NUMBER_PROTO) {
+  explicit JSNumberPrototype(NjsVM &vm) : JSObject(CLS_NUMBER_PROTO) {
     add_method(vm, u"valueOf", JSNumberPrototype::valueOf);
     add_method(vm, u"toString", JSNumberPrototype::toString);
   }
@@ -22,7 +22,7 @@ class JSNumberPrototype : public JSObject {
   }
 
   static Completion valueOf(vm_func_This_args_flags) {
-    if (This.is_object() && This.as_object()->get_class() == CLS_NUMBER) [[likely]] {
+    if (This.is_object() && object_class(This) == CLS_NUMBER) [[likely]] {
       assert(dynamic_cast<JSNumber*>(This.as_object()));
       auto *num_obj = static_cast<JSNumber*>(This.as_object());
       return JSValue(num_obj->value);
@@ -38,7 +38,7 @@ class JSNumberPrototype : public JSObject {
   }
 
   static Completion toString(vm_func_This_args_flags) {
-    if (This.is_object() && This.as_object()->get_class() == CLS_NUMBER) [[likely]] {
+    if (This.is_object() && object_class(This) == CLS_NUMBER) [[likely]] {
       assert(dynamic_cast<JSNumber*>(This.as_object()));
       auto *num_obj = static_cast<JSNumber*>(This.as_object());
       return vm.new_primitive_string(double_to_u16string(num_obj->value));

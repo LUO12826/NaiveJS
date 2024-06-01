@@ -4,7 +4,7 @@
 namespace njs {
 
 JSErrorPrototype::JSErrorPrototype(NjsVM& vm, JSErrorType type)
-  : JSObject(ObjClass::CLS_ERROR_PROTO) {
+  : JSObject(CLS_ERROR_PROTO) {
   set_prop(vm, u"name", vm.new_primitive_string(native_error_name[type]));
   add_method(vm, u"toString", JSErrorPrototype::toString);
 }

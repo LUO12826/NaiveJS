@@ -11,7 +11,7 @@ namespace njs {
 
 class JSFunctionPrototype : public JSObject {
  public:
-  JSFunctionPrototype(NjsVM& vm) : JSObject(ObjClass::CLS_FUNCTION_PROTO) {}
+  JSFunctionPrototype(NjsVM& vm) : JSObject(CLS_FUNCTION_PROTO) {}
 
   // We need this to solve the chicken or egg question.
   // see also NjsVM::init_prototypes
@@ -43,13 +43,13 @@ class JSFunctionPrototype : public JSObject {
             JS_TYPE_ERROR, u"CreateListFromArrayLike called on non-object"));
       }
       JSObject *arr = args[1].as_object();
-      JSValue len = TRY_COMP_COMP(arr->get_property(vm, JSAtom(AtomPool::k_length)));
+      JSValue len = TRY_COMP(arr->get_property(vm, JSAtom(AtomPool::k_length)));
       assert(len.is_float64());
       size_t length = len.val.as_f64;
       vector<JSValue> argv(length);
       for (int i = 0; i < length; i++) {
         JSValue idx_atom = JSAtom(vm.atom_pool.atomize_u32(i));
-        argv[i] = TRY_COMP_COMP(arr->get_property(vm, idx_atom));
+        argv[i] = TRY_COMP(arr->get_property(vm, idx_atom));
       }
       return vm.call_internal(This.val.as_func, args[0], nullptr,
                               ArrayRef(argv.data(), length), flags);

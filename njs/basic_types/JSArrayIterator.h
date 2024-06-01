@@ -19,15 +19,15 @@ class JSArrayIterator : public JSObject {
 
   static Completion iter_next(vm_func_This_args_flags) {
     assert(This.is_object());
-    assert(This.as_object()->get_class() == CLS_ARRAY_ITERATOR);
+    assert(object_class(This) == CLS_ARRAY_ITERATOR);
 
-    auto *iter = This.as_object()->as<JSArrayIterator>();
+    auto *iter = This.as_object<JSArrayIterator>();
     return iter->next(vm);
   }
 
  public:
   JSArrayIterator(NjsVM& vm, JSValue array, JSIteratorKind kind)
-    : JSObject(ObjClass::CLS_ARRAY_ITERATOR, vm.iterator_prototype)
+    : JSObject(CLS_ARRAY_ITERATOR, vm.iterator_prototype)
     , array(array), kind(kind) {
     add_method(vm, u"next", JSArrayIterator::iter_next);
   }
@@ -42,7 +42,7 @@ class JSArrayIterator : public JSObject {
   }
 
   Completion next(NjsVM& vm) {
-    JSArray& arr = *array.as_object()->as<JSArray>();
+    JSArray& arr = *array.as_object<JSArray>();
     JSValue value;
     bool done;
 
@@ -50,7 +50,7 @@ class JSArrayIterator : public JSObject {
       done = false;
       if (kind == JSIteratorKind::VALUE) [[likely]] {
         JSValue idx_atom = JSAtom(vm.u32_to_atom(index));
-        value = TRY_COMP_COMP(arr.get_property_impl(vm, idx_atom));
+        value = TRY_COMP(arr.get_property_impl(vm, idx_atom));
       }
       else if (kind == JSIteratorKind::KEY) {
         value = JSFloat(index);
@@ -61,7 +61,7 @@ class JSArrayIterator : public JSObject {
 
         JSValue idx_atom = JSAtom(vm.u32_to_atom(index));
         tmp_arr.dense_array[0] = JSFloat(index);
-        tmp_arr.dense_array[1] = TRY_COMP_COMP(arr.get_property_impl(vm, idx_atom));
+        tmp_arr.dense_array[1] = TRY_COMP(arr.get_property_impl(vm, idx_atom));
         value = JSValue(&tmp_arr);
       }
       index += 1;

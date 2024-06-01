@@ -9,7 +9,7 @@ namespace njs {
 class JSBoolean : public JSObject {
  public:
   JSBoolean(NjsVM& vm, bool b) :
-      JSObject(ObjClass::CLS_BOOLEAN, vm.boolean_prototype),
+      JSObject(CLS_BOOLEAN, vm.boolean_prototype),
       value(b) {}
 
   u16string_view get_class_name() override {

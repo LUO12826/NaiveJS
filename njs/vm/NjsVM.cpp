@@ -78,7 +78,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   auto& global_sym_table = global_scope.get_symbol_table();
 
   for (auto& [sym_name, sym_rec] : global_sym_table) {
-    if (sym_rec.var_kind == VarKind::DECL_VAR || sym_rec.var_kind == VarKind::DECL_FUNCTION) {
+    if (sym_rec.var_kind == VarKind::VAR || sym_rec.var_kind == VarKind::FUNCTION) {
       global_obj->set_prop(*this, sym_name, undefined);
     }
   }
@@ -712,9 +712,9 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
       }
       case OpType::for_in_next: {
         assert(sp[0].is_object());
-        assert(sp[0].as_object()->get_class() == CLS_FOR_IN_ITERATOR);
+        assert(object_class(sp[0]) == CLS_FOR_IN_ITERATOR);
         
-        auto *iter = sp[0].as_object()->as<JSForInIterator>();
+        auto *iter = sp[0].as_object<JSForInIterator>();
         sp[1] = iter->next(*this);
         sp[2] = JSValue(sp[1].is_uninited());
         sp += 2;
@@ -935,7 +935,7 @@ JSValue NjsVM::exec_typeof(JSValue val) {
     case JSValue::OBJECT:
     case JSValue::ARRAY:
       // will this happen?
-      if (val.as_object()->get_class() == ObjClass::CLS_FUNCTION) {
+      if (object_class(val) == CLS_FUNCTION) {
         return get_string_const(AtomPool::k_function);
       } else {
         return get_string_const(AtomPool::k_object);
@@ -1296,7 +1296,7 @@ void NjsVM::exec_get_prop_index(SPRef sp, int keep_obj) {
 
 Completion NjsVM::set_prop_common(JSValue obj, JSValue key, JSValue value) {
   if (obj.is_object()) {
-    auto res = TRY_ERR_COMP(obj.as_object()->set_property(*this, key, value));
+    auto res = TRY_COMP(obj.as_object()->set_property(*this, key, value));
     return undefined;
   }
   else if (obj.is_nil()) {
@@ -1382,10 +1382,9 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
   obj = js_to_object(*this, obj).get_value();
   assert(obj.is_object());
   auto iter_key = JSSymbol(AtomPool::k_sym_iterator);
-  JSValue iter_ctor = TRY_COMP_COMP(obj.as_object()->get_property(*this, iter_key));
+  JSValue iter_ctor = TRY_COMP(obj.as_object()->get_property(*this, iter_key));
 
-  if (!iter_ctor.is_object()
-      || iter_ctor.as_object()->get_class() != CLS_FUNCTION) [[unlikely]] {
+  if (!iter_ctor.is_object() || object_class(iter_ctor) != CLS_FUNCTION) [[unlikely]] {
     return build_err();
   }
   return call_function(iter_ctor.val.as_func, obj, nullptr, {});
@@ -1394,10 +1393,9 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
 Completion NjsVM::for_of_call_next(JSValue iter) {
   assert(iter.is_object());
   auto atom_next = JSAtom(AtomPool::k_next);
-  JSValue next_func = TRY_COMP_COMP(iter.as_object()->get_property(*this, atom_next));
+  JSValue next_func = TRY_COMP(iter.as_object()->get_property(*this, atom_next));
 
-  if (!next_func.is_object()
-      || next_func.as_object()->get_class() != CLS_FUNCTION) {
+  if (!next_func.is_object() || object_class(next_func) != CLS_FUNCTION) {
     JSValue err = build_error_internal(
         JS_TYPE_ERROR, to_u16string(next_func.to_string(*this)) + u" is not a function.");
     return CompThrow(err);
@@ -1536,7 +1534,7 @@ void NjsVM::error_handle(SPRef sp) {
 }
 
 void NjsVM::print_unhandled_error(JSValue err) {
-  if (err.is_object() && err.as_object()->get_class() == CLS_ERROR) {
+  if (err.is_object() && object_class(err) == CLS_ERROR) {
     auto err_obj = err.as_object();
     // TODO: should not use `get_prop_trivial` here
     std::string err_msg = err_obj->get_prop_trivial(str_to_atom(u"message")).to_string(*this);

@@ -24,8 +24,8 @@ class JSDatePrototype : public JSObject {
   }
 
   static Completion valueOf(vm_func_This_args_flags) {
-    if (This.is_object() && This.as_object()->get_class() == ObjClass::CLS_DATE) {
-      double ts = This.as_object()->as<JSDate>()->timestamp;
+    if (This.is_object() && object_class(This) == CLS_DATE) {
+      double ts = This.as_object<JSDate>()->timestamp;
       return JSValue(ts);
     } else {
       return CompThrow(vm.build_error_internal(
@@ -34,8 +34,8 @@ class JSDatePrototype : public JSObject {
   }
 
   static Completion toString(vm_func_This_args_flags) {
-    if (This.is_object() && This.as_object()->get_class() == ObjClass::CLS_DATE) {
-      double ts = This.as_object()->as<JSDate>()->timestamp;
+    if (This.is_object() && object_class(This) == CLS_DATE) {
+      double ts = This.as_object<JSDate>()->timestamp;
       u16string date_str = get_date_string(ts, 0x13);
       return vm.new_primitive_string(std::move(date_str));
     } else {
@@ -45,8 +45,8 @@ class JSDatePrototype : public JSObject {
   }
 
   static Completion toJSON(vm_func_This_args_flags) {
-    if (This.is_object() && This.as_object()->get_class() == ObjClass::CLS_DATE) {
-      double ts = This.as_object()->as<JSDate>()->timestamp;
+    if (This.is_object() && object_class(This) == CLS_DATE) {
+      double ts = This.as_object<JSDate>()->timestamp;
       u16string date_str = get_date_string(ts, 0x23);
       return vm.new_primitive_string(std::move(date_str));
     } else {

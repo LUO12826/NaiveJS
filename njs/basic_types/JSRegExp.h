@@ -61,7 +61,7 @@ class JSRegExp : public JSObject {
   }
 
   JSRegExp(NjsVM& vm, const u16string& pattern, const u16string& flags_str, int flags)
-    : JSObject(ObjClass::CLS_REGEXP, vm.regexp_prototype),
+    : JSObject(CLS_REGEXP, vm.regexp_prototype),
       pattern_atom(vm.str_to_atom(pattern)),
       pattern(pattern),
       flags(flags)
@@ -73,7 +73,7 @@ class JSRegExp : public JSObject {
   }
 
   JSRegExp(NjsVM& vm, u32 pattern_atom, int flags)
-      : JSObject(ObjClass::CLS_REGEXP, vm.regexp_prototype),
+      : JSObject(CLS_REGEXP, vm.regexp_prototype),
         pattern_atom(pattern_atom),
         pattern(vm.atom_to_str(pattern_atom)),
         flags(flags)
@@ -149,7 +149,7 @@ class JSRegExp : public JSObject {
       if (group_name_ptr && i > 0) {
         if (*group_name_ptr) {
           auto group_name = to_u16string(string(group_name_ptr));
-          TRY_ERR_ERR(groups->set_prop(vm, group_name, item));
+          TRY_ERR(groups->set_prop(vm, group_name, item));
         }
         group_name_ptr += strlen(group_name_ptr) + 1;
       }
@@ -161,7 +161,7 @@ class JSRegExp : public JSObject {
   }
 
   Completion exec(NjsVM& vm, JSValue arg, bool test_mode) {
-    arg = TRY_COMP_COMP(js_to_string(vm, arg));
+    arg = TRY_COMP(js_to_string(vm, arg));
     auto& arg_str = arg.val.as_prim_string->str;
 
     u32 last_index;
@@ -169,11 +169,11 @@ class JSRegExp : public JSObject {
     if (not (flags & (LRE_FLAG_GLOBAL | LRE_FLAG_STICKY))) {
       last_index = 0;
     } else {
-      JSValue last_idx_prop = TRY_COMP_COMP(get_prop(vm, AtomPool::k_lastIndex));
-      last_index = TRY_ERR_COMP(js_to_uint32(vm, last_idx_prop));
+      JSValue last_idx_prop = TRY_COMP(get_prop(vm, AtomPool::k_lastIndex));
+      last_index = TRY_COMP(js_to_uint32(vm, last_idx_prop));
 
       if (last_index > arg_str.size()) {
-        TRY_ERR_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat0));
+        TRY_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat0));
         return JSValue::null;
       }
     }
@@ -184,27 +184,27 @@ class JSRegExp : public JSObject {
     if (ret == 1) {
       if (flags & (LRE_FLAG_GLOBAL | LRE_FLAG_STICKY)) {
         size_t idx = lre.get_last_index();
-        TRY_ERR_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat(idx)));
+        TRY_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat(idx)));
       }
 
       if (test_mode) return JSValue(true);
 
       auto *arr = vm.heap.new_object<JSArray>(vm, lre.get_capture_cnt());
 
-      JSObject *groups = TRY_ERR_COMP(build_group_object(vm, lre, [arr] (int i, JSValue item) {
+      JSObject *groups = TRY_COMP(build_group_object(vm, lre, [arr] (int i, JSValue item) {
         arr->set_element_fast(i, item);
       }));
 
-      TRY_ERR_COMP(arr->set_prop(vm, u"groups", groups ? JSValue(groups) : undefined));
+      TRY_COMP(arr->set_prop(vm, u"groups", groups ? JSValue(groups) : undefined));
       size_t index = lre.get_first_index();
-      TRY_ERR_COMP(arr->set_prop(vm, u"index", JSFloat(index)));
-      TRY_ERR_COMP(arr->set_prop(vm, u"input", arg));
+      TRY_COMP(arr->set_prop(vm, u"index", JSFloat(index)));
+      TRY_COMP(arr->set_prop(vm, u"input", arg));
 
       return JSValue(arr);
     }
     else if (ret == 0) {
       // if matching failed, set `lastIndex` to 0
-      TRY_ERR_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat0));
+      TRY_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat0));
 
       if (test_mode) return JSValue(false);
       else return JSValue::null;
@@ -216,18 +216,18 @@ class JSRegExp : public JSObject {
   }
 
   Completion replace(NjsVM& vm, JSValue str, JSValue replacer) {
-    str = TRY_COMP_COMP(js_to_string(vm, str));
+    str = TRY_COMP(js_to_string(vm, str));
     auto& arg_str = str.val.as_prim_string->str;
 
     u32 last_index;
     if (not (flags & (LRE_FLAG_STICKY))) {
       last_index = 0;
     } else { // is sticky
-      JSValue last_idx_prop = TRY_COMP_COMP(get_prop(vm, AtomPool::k_lastIndex));
-      last_index = TRY_ERR_COMP(js_to_uint32(vm, last_idx_prop));
+      JSValue last_idx_prop = TRY_COMP(get_prop(vm, AtomPool::k_lastIndex));
+      last_index = TRY_COMP(js_to_uint32(vm, last_idx_prop));
 
       if (last_index > arg_str.size()) {
-        TRY_ERR_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat0));
+        TRY_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat0));
         return str;
       }
     }
@@ -238,7 +238,7 @@ class JSRegExp : public JSObject {
     if (replacer.is_function()) [[unlikely]] {
       replace_func = replacer.val.as_func;
     } else {
-      replace_str = &TRY_COMP_COMP(js_to_string(vm, replacer)).val.as_prim_string->str;
+      replace_str = &TRY_COMP(js_to_string(vm, replacer)).val.as_prim_string->str;
     }
 
     LREWrapper lre(this->bytecode, arg_str);
@@ -253,7 +253,7 @@ class JSRegExp : public JSObject {
         last_index = lre.get_last_index();
 
         if (flags & (LRE_FLAG_GLOBAL | LRE_FLAG_STICKY)) {
-          TRY_ERR_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat(last_index)));
+          TRY_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat(last_index)));
         }
 
         // the part that is unchanged
@@ -266,7 +266,7 @@ class JSRegExp : public JSObject {
           // match, p1, p2, /* …, */ pN, offset, full string, groups
           vector<JSValue> func_args(lre.get_capture_cnt());
 
-          JSObject *groups = TRY_ERR_COMP(build_group_object(vm, lre, [&] (int i, JSValue item) {
+          JSObject *groups = TRY_COMP(build_group_object(vm, lre, [&] (int i, JSValue item) {
             func_args[i] = item;
           }));
 
@@ -274,10 +274,10 @@ class JSRegExp : public JSObject {
           func_args.push_back(str);                                   // full string
           func_args.push_back(groups ? JSValue(groups) : undefined);  // groups
 
-          JSValue rep_str = TRY_COMP_COMP(
+          JSValue rep_str = TRY_COMP(
             vm.call_function(replace_func, undefined, nullptr, func_args));
           
-          rep_str = TRY_COMP_COMP(js_to_string(vm, rep_str));
+          rep_str = TRY_COMP(js_to_string(vm, rep_str));
           result += rep_str.val.as_prim_string->str;
         }
 
@@ -286,7 +286,7 @@ class JSRegExp : public JSObject {
       }
       else if (ret == 0) {
         if (flags & (LRE_FLAG_GLOBAL | LRE_FLAG_STICKY)) {
-          TRY_ERR_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat0));
+          TRY_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat0));
         }
         break;
       }
@@ -303,7 +303,7 @@ class JSRegExp : public JSObject {
   }
 
   Completion prototype_to_string(NjsVM& vm) {
-    JSValue flags_val = TRY_COMP_COMP(get_prop(vm, u"flags"));
+    JSValue flags_val = TRY_COMP(get_prop(vm, u"flags"));
     u16string regexp_str = u"/" + pattern + u"/" + flags_val.val.as_prim_string->str;
     return JSValue(vm.new_primitive_string(std::move(regexp_str)));
   }

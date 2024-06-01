@@ -16,7 +16,7 @@ using u32 = uint32_t;
 
 class JSArray: public JSObject {
  public:
-  JSArray(NjsVM& vm, u32 length): JSObject(ObjClass::CLS_ARRAY, vm.array_prototype) {
+  JSArray(NjsVM& vm, u32 length): JSObject(CLS_ARRAY, vm.array_prototype) {
     PFlag flag {
         .writable = true,
         .has_value = true,
@@ -38,7 +38,7 @@ class JSArray: public JSObject {
   void to_json(u16string& output, NjsVM& vm) const override;
 
   Completion get_property_impl(NjsVM& vm, JSValue key) override {
-    JSValue res = TRY_COMP_COMP(get_index_or_atom(vm, key));
+    JSValue res = TRY_COMP(get_index_or_atom(vm, key));
 
     if (res.is(JSValue::NUM_UINT32)) {
       return get_element_fast(res.val.as_u32);
@@ -70,7 +70,7 @@ class JSArray: public JSObject {
       }
       else {
         if (atom == AtomPool::k_length) {
-          double len = TRY_ERR_ERR(js_to_number(vm, val));
+          double len = TRY_ERR(js_to_number(vm, val));
           int64_t len_int = len;
           if (len >= 0 && (double)len_int == len && len_int <= UINT32_MAX) {
             size_t old_len = dense_array.size();

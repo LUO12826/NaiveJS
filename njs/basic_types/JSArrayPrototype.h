@@ -18,7 +18,7 @@ class NjsVM;
 
 class JSArrayPrototype : public JSObject {
  public:
-  JSArrayPrototype(NjsVM& vm) : JSObject(ObjClass::CLS_ARRAY_PROTO) {
+  JSArrayPrototype(NjsVM& vm) : JSObject(CLS_ARRAY_PROTO) {
     add_symbol_method(vm, AtomPool::k_sym_iterator,  JSArrayPrototype::get_iter);
     add_method(vm, u"at", JSArrayPrototype::at);
     add_method(vm, u"push", JSArrayPrototype::push);
@@ -35,8 +35,8 @@ class JSArrayPrototype : public JSObject {
   }
 
   static Completion toString(vm_func_This_args_flags) {
-    if (This.is_object() && This.as_object()->get_class() == CLS_ARRAY) [[likely]] {
-      auto *arr = This.as_object()->as<JSArray>();
+    if (This.is_object() && object_class(This) == CLS_ARRAY) [[likely]] {
+      auto *arr = This.as_object<JSArray>();
       u16string output;
       bool first = true;
 
@@ -45,7 +45,7 @@ class JSArrayPrototype : public JSObject {
         else output += u',';
 
         if (not val.is_nil()) [[likely]] {
-          JSValue s = TRY_COMP_COMP(js_to_string(vm, val));
+          JSValue s = TRY_COMP(js_to_string(vm, val));
           output += s.val.as_prim_string->str;
         }
       }
@@ -61,11 +61,11 @@ class JSArrayPrototype : public JSObject {
 
     u16string delimiter = u",";
     if (args.size() != 0 && !args[0].is_undefined()) [[likely]] {
-      JSValue deli = TRY_COMP_COMP(js_to_string(vm, args[0]));
+      JSValue deli = TRY_COMP(js_to_string(vm, args[0]));
       delimiter = deli.val.as_prim_string->str;
     }
 
-    auto *arr = This.as_object()->as<JSArray>();
+    auto *arr = This.as_object<JSArray>();
     u16string output;
     bool first = true;
 
@@ -74,7 +74,7 @@ class JSArrayPrototype : public JSObject {
       else output += delimiter;
 
       if (not val.is_nil()) [[likely]] {
-        JSValue s = TRY_COMP_COMP(js_to_string(vm, val));
+        JSValue s = TRY_COMP(js_to_string(vm, val));
         output += s.val.as_prim_string->str;
       }
     }
@@ -84,7 +84,7 @@ class JSArrayPrototype : public JSObject {
   static Completion get_iter(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
     assert(This.is_object());
-    assert(This.as_object()->get_class() == CLS_ARRAY);
+    assert(object_class(This) == CLS_ARRAY);
 
     auto *iter = vm.heap.new_object<JSArrayIterator>(vm, This, JSIteratorKind::VALUE);
     return JSValue(iter);

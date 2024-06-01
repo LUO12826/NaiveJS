@@ -1760,7 +1760,7 @@ class CodegenVisitor {
 
       auto init = [&, this] () {
         if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
-          scope().define_symbol(VarKind::DECL_LET, stmt.catch_ident.text);
+          scope().define_symbol(VarKind::LET, stmt.catch_ident.text);
         }
       };
       Block *catch_blk = stmt.catch_block->as_block();

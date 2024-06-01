@@ -62,7 +62,7 @@ class JSForInIterator : public JSObject {
     return JSValue(iter);
   }
 
-  JSForInIterator(NjsVM& vm) : JSObject(ObjClass::CLS_FOR_IN_ITERATOR, vm.iterator_prototype) {}
+  JSForInIterator(NjsVM& vm) : JSObject(CLS_FOR_IN_ITERATOR, vm.iterator_prototype) {}
 
   u16string_view get_class_name() override {
     return u"ForInIterator";

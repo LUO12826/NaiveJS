@@ -114,7 +114,7 @@ bool ASTNode::is_lhs_expr() {
 // single statement context is, for example, if (cond) followed by a statement without `{}`.
 // in single statement context, `let` and `const` are not allowed.
 bool ASTNode::is_valid_in_single_stmt_ctx() {
-  if (is(ASTNode::STMT_VAR) && as<VarStatement>()->kind != VarKind::DECL_VAR) {
+  if (is(ASTNode::STMT_VAR) && as<VarStatement>()->kind != VarKind::VAR) {
     return false;
   }
   return true;

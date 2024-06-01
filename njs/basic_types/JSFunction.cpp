@@ -7,7 +7,7 @@
 
 namespace njs {
 JSFunction::JSFunction(NjsVM& vm, u16string name, const JSFunctionMeta& meta)
-    : JSObject(ObjClass::CLS_FUNCTION, vm.function_prototype)
+    : JSObject(CLS_FUNCTION, vm.function_prototype)
     , name(std::move(name))
     , meta(meta)
     , native_func(meta.native_func) {}

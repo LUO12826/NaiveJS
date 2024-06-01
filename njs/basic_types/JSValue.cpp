@@ -12,11 +12,6 @@
 
 namespace njs {
 
-GCObject *JSValue::as_GCObject() const {
-  assert(needs_gc());
-  return static_cast<GCObject *>(val.as_object);
-}
-
 void JSValue::move_to_heap(NjsVM& vm) {
   auto *heap_val = vm.heap.new_object<JSHeapValue>(*this);
   this->val.as_heap_val = heap_val;

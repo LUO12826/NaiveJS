@@ -10,7 +10,7 @@ namespace njs {
 class JSString : public JSObject {
  public:
   JSString(NjsVM& vm, const PrimitiveString& str) :
-      JSObject(ObjClass::CLS_STRING, vm.string_prototype),
+      JSObject(CLS_STRING, vm.string_prototype),
       value(str.str) {}
 
   u16string_view get_class_name() override {
@@ -18,7 +18,7 @@ class JSString : public JSObject {
   }
 
   Completion get_property_impl(NjsVM &vm, JSValue key) override {
-    JSValue k = TRY_COMP_COMP(js_to_property_key(vm, key));
+    JSValue k = TRY_COMP(js_to_property_key(vm, key));
     if (k.is_atom() && k.val.as_atom == AtomPool::k_length) {
       return JSFloat(value.length());
     } else {
@@ -26,13 +26,13 @@ class JSString : public JSObject {
     }
   }
 
-  ErrorOr<bool> set_property_impl(NjsVM &vm, JSValue key, JSValue value) override {
-    JSValue k = TRY_COMP_ERR(js_to_property_key(vm, key));
+  ErrorOr<bool> set_property_impl(NjsVM &vm, JSValue key, JSValue val) override {
+    JSValue k = TRY_ERR(js_to_property_key(vm, key));
     if (k.is_atom() && k.val.as_atom == AtomPool::k_length) {
       // do nothing. TODO: check this
       return true;
     } else {
-      return set_prop(vm, k, value);
+      return set_prop(vm, k, val);
     }
   }
 

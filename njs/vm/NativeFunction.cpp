@@ -139,7 +139,7 @@ Completion NativeFunction::isFinite(vm_func_This_args_flags) {
   if (args[0].is_float64()) [[likely]] {
     val = args[0].val.as_f64;
   } else {
-    val = TRY_ERR_COMP(js_to_number(vm, args[0]));
+    val = TRY_COMP(js_to_number(vm, args[0]));
   }
 
   return JSValue(!std::isinf(val) && !std::isnan(val));
@@ -147,7 +147,7 @@ Completion NativeFunction::isFinite(vm_func_This_args_flags) {
 
 Completion NativeFunction::parseFloat(vm_func_This_args_flags) {
   if (args.size() == 0) return JSValue(NAN);
-  PrimitiveString *str = TRY_COMP_COMP(js_to_string(vm, args[0])).val.as_prim_string;
+  PrimitiveString *str = TRY_COMP(js_to_string(vm, args[0])).val.as_prim_string;
   double val = u16string_to_double(str->str);
 
   return JSValue(val);
@@ -155,7 +155,7 @@ Completion NativeFunction::parseFloat(vm_func_This_args_flags) {
 
 Completion NativeFunction::parseInt(vm_func_This_args_flags) {
   if (args.size() == 0) return JSValue(NAN);
-  PrimitiveString *str = TRY_COMP_COMP(js_to_string(vm, args[0])).val.as_prim_string;
+  PrimitiveString *str = TRY_COMP(js_to_string(vm, args[0])).val.as_prim_string;
   double val = parse_int(str->str);
 
   return JSValue(val);

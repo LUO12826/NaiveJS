@@ -20,7 +20,7 @@ class JSIteratorPrototype : public JSObject {
   }
 
  public:
-  JSIteratorPrototype(NjsVM& vm) : JSObject(ObjClass::CLS_ITERATOR_PROTO) {
+  JSIteratorPrototype(NjsVM& vm) : JSObject(CLS_ITERATOR_PROTO) {
     add_symbol_method(vm, AtomPool::k_sym_iterator, JSIteratorPrototype::sym_iterator);
   }
 

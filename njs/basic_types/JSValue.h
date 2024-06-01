@@ -206,10 +206,18 @@ friend class NjsVM;
     return tag > NEED_GC_BEGIN && tag < NEED_GC_END;
   }
 
-  GCObject *as_GCObject() const;
+  GCObject *as_GCObject() const {
+    assert(needs_gc());
+    return val.as_GCObject;
+  }
 
   JSObject *as_object() const {
     return val.as_object;
+  }
+
+  template <class T>
+  T *as_object() const {
+    return static_cast<T*>(val.as_object);
   }
 
   JSObject *as_object_or_null() const {

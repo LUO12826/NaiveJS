@@ -28,7 +28,7 @@ Completion NativeFunction::Number_ctor(vm_func_This_args_flags) {
   if (args.size() == 0 || args[0].is_nil()) [[unlikely]] {
     num = 0;
   } else {
-    num = TRY_ERR_COMP(js_to_number(vm, args[0]));
+    num = TRY_COMP(js_to_number(vm, args[0]));
   }
   return JSValue(vm.heap.new_object<JSNumber>(vm, num));
 }
@@ -38,7 +38,7 @@ Completion NativeFunction::String_ctor(vm_func_This_args_flags) {
   if (args.size() == 0 || args[0].is_nil()) [[unlikely]] {
     str = vm.get_string_const(AtomPool::k_);
   } else {
-    str = TRY_COMP_COMP(js_to_string(vm, args[0]));
+    str = TRY_COMP(js_to_string(vm, args[0]));
   }
   auto *obj = vm.heap.new_object<JSString>(vm, *str.val.as_prim_string);
   return JSValue(obj);
@@ -50,7 +50,7 @@ Completion NativeFunction::Array_ctor(vm_func_This_args_flags) {
   if (args.size() == 0) [[likely]] {
     length = 0;
   } else {
-    length = TRY_ERR_COMP(js_to_uint32(vm, args[0]));
+    length = TRY_COMP(js_to_uint32(vm, args[0]));
   }
   JSArray *arr = vm.heap.new_object<JSArray>(vm, length);
   return JSValue(arr);
@@ -59,10 +59,10 @@ Completion NativeFunction::Array_ctor(vm_func_This_args_flags) {
 Completion NativeFunction::RegExp_ctor(vm_func_This_args_flags) {
   // TODO
   assert(args.size() > 0);
-  JSValue pattern = TRY_COMP_COMP(js_to_string(vm, args[0]));
+  JSValue pattern = TRY_COMP(js_to_string(vm, args[0]));
   u16string reflags;
   if (args.size() > 1) {
-    reflags = TRY_COMP_COMP(js_to_string(vm, args[1])).val.as_prim_string->str;
+    reflags = TRY_COMP(js_to_string(vm, args[1])).val.as_prim_string->str;
   }
 
   return JSRegExp::New(vm, pattern.val.as_prim_string->str, reflags);
@@ -84,10 +84,10 @@ Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
         date->timestamp = arg.val.as_f64;
       }
       else if (arg.is_object()) {
-        date->timestamp = arg.as_object()->as<JSDate>()->timestamp;
+        date->timestamp = arg.as_object<JSDate>()->timestamp;
       }
       else {
-        JSValue ts_str = TRY_COMP_COMP(js_to_string(vm, arg));
+        JSValue ts_str = TRY_COMP(js_to_string(vm, arg));
         date->parse_date_str(ts_str.val.as_prim_string->str);
       }
     } else {
@@ -126,7 +126,7 @@ Completion NativeFunction::Symbol(vm_func_This_args_flags) {
   }
 
   if (args.size() > 0 && not args[0].is_undefined()) {
-    auto& str = TRY_COMP_COMP(js_to_string(vm, args[0])).val.as_prim_string->str;
+    auto& str = TRY_COMP(js_to_string(vm, args[0])).val.as_prim_string->str;
     return JSSymbol(vm.atom_pool.atomize_symbol_desc(str));
   } else {
     return JSSymbol(vm.atom_pool.atomize_symbol());

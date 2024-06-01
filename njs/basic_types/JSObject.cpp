@@ -79,7 +79,7 @@ ErrorOr<bool> JSObject::set_property_impl(NjsVM& vm, JSValue key, JSValue value)
 }
 
 Completion JSObject::has_own_property(NjsVM& vm, JSValue key) {
-  JSValue k = TRY_COMP_COMP(js_to_property_key(vm, key));
+  JSValue k = TRY_COMP(js_to_property_key(vm, key));
   return JSValue(has_own_property_atom(k));
 }
 
@@ -236,12 +236,11 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
     if (existing_desc) {
       if (existing_desc->is_accessor_descriptor()) return false;
       if (not existing_desc->flag.writable) return false;
-      JSPropDesc desc {
-          .flag.in_def_mode = true,
-          .flag.has_value = true,
-          .data.value = value,
-      };
-      return define_own_property_impl(key, existing_desc, desc);
+
+      // TODO: looks like this is good enough. Do we really need to call `define_own_property` ?
+      existing_desc->data.value = value;
+      return true;
+//      return define_own_property_impl(key, existing_desc, desc);
     }
     // 2.e
     else {
@@ -327,37 +326,37 @@ ErrorOr<JSPropDesc> JSObject::to_property_descriptor(NjsVM& vm) {
 
     if (has_property(AtomPool::k_enumerable)) {
       desc.flag.has_enum = true;
-      auto res = TRY_COMP_ERR(get_prop(vm, AtomPool::k_enumerable));
+      auto res = TRY_ERR(get_prop(vm, AtomPool::k_enumerable));
       desc.flag.enumerable = res.bool_value();
     }
 
     if (has_property(AtomPool::k_configurable)) {
       desc.flag.has_config = true;
-      auto res = TRY_COMP_ERR(get_prop(vm, AtomPool::k_configurable));
+      auto res = TRY_ERR(get_prop(vm, AtomPool::k_configurable));
       desc.flag.configurable = res.bool_value();
     }
 
     if (has_property(AtomPool::k_value)) {
       desc.flag.has_value = true;
-      desc.data.value = TRY_COMP_ERR(get_prop(vm, AtomPool::k_value));
+      desc.data.value = TRY_ERR(get_prop(vm, AtomPool::k_value));
     }
 
     if (has_property(AtomPool::k_writable)) {
       desc.flag.has_write = true;
-      auto res = TRY_COMP_ERR(get_prop(vm, AtomPool::k_writable));
+      auto res = TRY_ERR(get_prop(vm, AtomPool::k_writable));
       desc.flag.writable = res.bool_value();
     }
 
     // TODO: check whether the getter is callable.
     if (has_property(AtomPool::k_get)) {
       desc.flag.has_getter = true;
-      auto res = TRY_COMP_ERR(get_prop(vm, AtomPool::k_get));
+      auto res = TRY_ERR(get_prop(vm, AtomPool::k_get));
       desc.data.getset.getter = res;
     }
 
     if (has_property(AtomPool::k_set)) {
       desc.flag.has_setter = true;
-      auto res = TRY_COMP_ERR(get_prop(vm, AtomPool::k_set));
+      auto res = TRY_ERR(get_prop(vm, AtomPool::k_set));
       desc.data.getset.setter = res;
     }
 

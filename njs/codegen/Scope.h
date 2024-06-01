@@ -87,7 +87,7 @@ class Scope {
     auto find_res = symbol_table.find(name);
     if (find_res != symbol_table.end()) [[unlikely]] {
       if (find_res->second.is_special) {
-        find_res->second = SymbolRecord(VarKind::DECL_FUNC_PARAM, name, param_count, false);
+        find_res->second = SymbolRecord(VarKind::FUNC_PARAM, name, param_count, false);
         param_count += 1;
         return true;
       }
@@ -95,7 +95,7 @@ class Scope {
       return !strict;
     }
 
-    symbol_table.emplace(name, SymbolRecord(VarKind::DECL_FUNC_PARAM, name, param_count, false));
+    symbol_table.emplace(name, SymbolRecord(VarKind::FUNC_PARAM, name, param_count, false));
     param_count += 1;
     return true;
   }
@@ -103,9 +103,9 @@ class Scope {
   /// @brief Define a symbol in this scope.
   /// @return Succeeded or not.
   bool define_symbol(VarKind var_kind, u16string_view name, bool is_special = false) {
-    assert(var_kind != VarKind::DECL_FUNC_PARAM);
+    assert(var_kind != VarKind::FUNC_PARAM);
     // var... or function...
-    if (var_kind == VarKind::DECL_VAR || var_kind == VarKind::DECL_FUNCTION) {
+    if (var_kind == VarKind::VAR || var_kind == VarKind::FUNCTION) {
       assert(outer_func);
       if (outer_func != this) {
         return outer_func->define_symbol(var_kind, name, is_special);
@@ -299,9 +299,9 @@ class Scope {
   }
 
   ScopeType get_storage_scope(VarKind var_kind) {
-    if (var_kind == VarKind::DECL_VAR) return this->scope_type;      // should be global or function
-    if (var_kind == VarKind::DECL_FUNCTION) return this->scope_type; // should be global or function
-    if (var_kind == VarKind::DECL_FUNC_PARAM) return ScopeType::FUNC_PARAM;
+    if (var_kind == VarKind::VAR) return this->scope_type;      // should be global or function
+    if (var_kind == VarKind::FUNCTION) return this->scope_type; // should be global or function
+    if (var_kind == VarKind::FUNC_PARAM) return ScopeType::FUNC_PARAM;
 
     // let or const
     // Blocks does not have a separate storage space, so `let` and `const` are stored in

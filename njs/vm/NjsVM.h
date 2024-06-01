@@ -122,7 +122,7 @@ friend class JSArrayIterator;
   JSValue build_error_internal(JSErrorType type, const u16string& msg);
   JSValue build_error_internal(JSErrorType type, u16string&& msg);
 
-  JSObject* new_object(ObjClass cls = ObjClass::CLS_OBJECT);
+  JSObject* new_object(ObjClass cls = CLS_OBJECT);
   JSObject* new_object(ObjClass cls, JSValue proto);
   JSFunction* new_function(const JSFunctionMeta& meta);
   JSValue new_primitive_string(const u16string& str);

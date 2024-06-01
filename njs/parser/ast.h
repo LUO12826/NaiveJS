@@ -647,7 +647,7 @@ class VarStatement : public ASTNode {
   }
 
   bool is_lexical() {
-    return kind == VarKind::DECL_LET || kind == VarKind::DECL_CONST;
+    return kind == VarKind::LET || kind == VarKind::CONST;
   }
 
   VarKind kind;

@@ -20,7 +20,7 @@ struct SymbolRecord {
       : var_kind(kind), name(name), index(index), is_special(is_special) {}
 
   bool is_let_or_const() const {
-    return var_kind == VarKind::DECL_LET || var_kind == VarKind::DECL_CONST;
+    return var_kind == VarKind::LET || var_kind == VarKind::CONST;
   }
 
   VarKind var_kind;
