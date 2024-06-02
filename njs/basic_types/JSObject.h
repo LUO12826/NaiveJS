@@ -93,7 +93,7 @@ struct JSObjectKey {
 
   explicit JSObjectKey(u32 atom) : type(JSValue::STRING), atom(atom) {}
 
-  explicit JSObjectKey(JSValue val) : type(val.tag), atom(val.val.as_atom) {
+  explicit JSObjectKey(JSValue val) : type(val.tag), atom(val.u.as_atom) {
     assert(val.is_symbol() || val.is_atom());
   }
 

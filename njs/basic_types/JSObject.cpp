@@ -29,7 +29,7 @@ bool JSPropDesc::operator==(const JSPropDesc& other) const {
 }
 
 Completion JSObject::get_property(NjsVM& vm, JSValue key) {
-  if (key.is_atom() && key.val.as_atom == AtomPool::k___proto__) [[unlikely]] {
+  if (key.is_atom() && key.u.as_atom == AtomPool::k___proto__) [[unlikely]] {
     return get_proto();
   } else {
     return get_property_impl(vm, key);
@@ -39,7 +39,7 @@ Completion JSObject::get_property(NjsVM& vm, JSValue key) {
 Completion JSObject::get_property_impl(NjsVM& vm, JSValue key) {
   // fast path for atom
   if (key.is_atom()) [[likely]] {
-    return get_prop(vm, key.val.as_atom);
+    return get_prop(vm, key.u.as_atom);
   } else {
     auto comp = js_to_property_key(vm, key);
     if (comp.is_throw()) return comp;
@@ -48,7 +48,7 @@ Completion JSObject::get_property_impl(NjsVM& vm, JSValue key) {
 }
 
 ErrorOr<bool> JSObject::set_property(NjsVM& vm, JSValue key, JSValue value) {
-  if (key.is_atom() && key.val.as_atom == AtomPool::k___proto__) [[unlikely]] {
+  if (key.is_atom() && key.u.as_atom == AtomPool::k___proto__) [[unlikely]] {
     return set_proto(value);
   } else {
     return set_property_impl(vm, key, value);
@@ -259,7 +259,7 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
     JSValue setter = own_desc.data.getset.setter;
     if (setter.is_undefined()) return false;
 
-    auto comp = vm.call_function(setter.val.as_func, JSValue(this), nullptr, {value});
+    auto comp = vm.call_function(setter.u.as_func, JSValue(this), nullptr, {value});
     return likely(comp.is_normal()) ? ErrorOr<bool>(true) : comp.get_value();
   }
 }
@@ -313,7 +313,7 @@ Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
     } else if (prop->flag.has_getter) {
       JSValue getter = prop->data.getset.getter;
       assert(not getter.is_undefined());
-      return vm.call_function(getter.val.as_func, JSValue(this), nullptr, {});
+      return vm.call_function(getter.u.as_func, JSValue(this), nullptr, {});
     } else {
       return prop_not_found;
     }
@@ -387,7 +387,7 @@ Completion JSObject::to_primitive(NjsVM& vm, ToPrimTypeHint preferred_type) {
       hint_arg = vm.get_string_const(AtomPool::k_string);
     }
     Completion to_prim_res = vm.call_function(
-        exotic_to_prim.val.as_func, JSValue(this), nullptr, {hint_arg});
+        exotic_to_prim.u.as_func, JSValue(this), nullptr, {hint_arg});
     if (to_prim_res.is_throw()) {
       return to_prim_res;
     }
@@ -417,7 +417,7 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, ToPrimTypeHint hint) {
     JSValue method = get_prop(vm, method_atom).get_value();
     if (not method.is_function()) continue;
 
-    Completion comp = vm.call_function(method.val.as_func, JSValue(this), nullptr, {});
+    Completion comp = vm.call_function(method.u.as_func, JSValue(this), nullptr, {});
     if (comp.is_throw()) return comp;
 
     if (not comp.get_value().is_object()) {

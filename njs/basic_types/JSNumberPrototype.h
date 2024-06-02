@@ -44,7 +44,7 @@ class JSNumberPrototype : public JSObject {
       return vm.new_primitive_string(double_to_u16string(num_obj->value));
     }
     else if (This.is(JSValue::NUM_FLOAT)) {
-      return vm.new_primitive_string(double_to_u16string(This.val.as_f64));
+      return vm.new_primitive_string(double_to_u16string(This.u.as_f64));
     }
     else {
       return JSObjectPrototype::toString(JS_NATIVE_FUNC_ARGS);

@@ -43,7 +43,7 @@ class JSBooleanPrototype : public JSObject {
       return vm.get_string_const(bool_obj->value ? AtomPool::k_true : AtomPool::k_false);
     }
     else if (This.is(JSValue::BOOLEAN)) {
-      return vm.get_string_const(This.val.as_bool ? AtomPool::k_true : AtomPool::k_false);
+      return vm.get_string_const(This.u.as_bool ? AtomPool::k_true : AtomPool::k_false);
     }
     else {
       return JSObjectPrototype::toString(JS_NATIVE_FUNC_ARGS);

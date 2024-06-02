@@ -41,12 +41,12 @@ class JSStringPrototype : public JSObject {
 
   static ErrorOr<u16string*> get_string_from_value(NjsVM& vm, JSValue value) {
     if (value.is_prim_string()) {
-      return &value.val.as_prim_string->str;
+      return &value.u.as_prim_string->str;
     } else if (value.is(JSValue::STRING_OBJ)) {
-      return &value.val.as_string->value.str;
+      return &value.u.as_string->value.str;
     } else {
       JSValue prim_str = TRY_ERR(js_to_string(vm, value));
-      return &prim_str.val.as_prim_string->str;
+      return &prim_str.u.as_prim_string->str;
     }
   }
 
@@ -55,7 +55,7 @@ class JSStringPrototype : public JSObject {
     This = TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
 
-    double index = args[0].val.as_f64;
+    double index = args[0].u.as_f64;
     if (index < 0 || index > str->size()) {
       return vm.new_primitive_string(u"");
     }
@@ -67,7 +67,7 @@ class JSStringPrototype : public JSObject {
     assert(args.size() > 0);
     This = TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
-    auto *pattern = TRY_COMP(js_to_string(vm, args[0])).val.as_prim_string;
+    auto *pattern = TRY_COMP(js_to_string(vm, args[0])).u.as_prim_string;
 
     int64_t start = 0;
     if (args.size() > 1) {
@@ -91,7 +91,7 @@ class JSStringPrototype : public JSObject {
     assert(args.size() > 0);
     This = TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
-    auto *pattern = TRY_COMP(js_to_string(vm, args[0])).val.as_prim_string;
+    auto *pattern = TRY_COMP(js_to_string(vm, args[0])).u.as_prim_string;
 
     int64_t end = INT64_MAX;
     if (args.size() > 1) {
@@ -146,7 +146,7 @@ class JSStringPrototype : public JSObject {
       arr->set_element_fast(0, vm.new_primitive_string(*str));
     }
     else {
-      auto *pattern = TRY_COMP(js_to_string(vm, args[0])).val.as_prim_string;
+      auto *pattern = TRY_COMP(js_to_string(vm, args[0])).u.as_prim_string;
       vector<u16string> split_res = cpp_split(*str, pattern->str);
 
       for (auto& substr : split_res) {
@@ -173,7 +173,7 @@ class JSStringPrototype : public JSObject {
       return regexp.as_object<JSRegExp>()->exec(vm, str, false);
     }
     else {
-      return vm.call_function(match_method.val.as_func, args[0], nullptr, {str}, flags);
+      return vm.call_function(match_method.u.as_func, args[0], nullptr, {str}, flags);
     }
   }
 
@@ -192,7 +192,7 @@ class JSStringPrototype : public JSObject {
         goto arg0_is_string;
       } else {
         if (m_replace.is_function()) {
-          return vm.call_function(m_replace.val.as_func, args[0], nullptr, {This, args[1]}, flags);
+          return vm.call_function(m_replace.u.as_func, args[0], nullptr, {This, args[1]}, flags);
         } else {
           return CompThrow(vm.build_error_internal(
             JS_TYPE_ERROR, u"[Symbol.replace] method is not callable"));
@@ -200,9 +200,9 @@ class JSStringPrototype : public JSObject {
       }
     } else {
     arg0_is_string:
-      u16string& str = TRY_COMP(js_to_string(vm, This)).val.as_prim_string->str;
+      u16string& str = TRY_COMP(js_to_string(vm, This)).u.as_prim_string->str;
       JSValue pattern_val = TRY_COMP(js_to_string(vm, args[0]));
-      u16string& pattern = pattern_val.val.as_prim_string->str;
+      u16string& pattern = pattern_val.u.as_prim_string->str;
       u16string res = str;
 
       auto start_pos = res.find(pattern);
@@ -211,14 +211,14 @@ class JSStringPrototype : public JSObject {
         // call a function to get the replacement
         if (args[1].is_function()) {
           vector<JSValue> argv{pattern_val, JSFloat(start_pos)};
-          JSFunction *rep_func = args[1].val.as_func;
+          JSFunction *rep_func = args[1].u.as_func;
           JSValue rep = TRY_COMP(vm.call_function(rep_func, undefined, nullptr, argv));
-          u16string &replacement = TRY_COMP(js_to_string(vm, rep)).val.as_prim_string->str;
+          u16string &replacement = TRY_COMP(js_to_string(vm, rep)).u.as_prim_string->str;
 
           res.replace(start_pos, pattern.size(), replacement);
         }
         else {
-          u16string& replacement = TRY_COMP(js_to_string(vm, args[1])).val.as_prim_string->str;
+          u16string& replacement = TRY_COMP(js_to_string(vm, args[1])).u.as_prim_string->str;
           u16string_view matched(str.begin() + start_pos,
                                  str.begin() + start_pos + pattern.size());
           u16string populated = prepare_replacer_string(str, replacement, matched,
@@ -236,7 +236,7 @@ class JSStringPrototype : public JSObject {
     This = TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
 
-    double index = args[0].val.as_f64;
+    double index = args[0].u.as_f64;
     if (index < 0 || index > str->size()) {
       return JSValue(nan(""));
     }

@@ -11,11 +11,12 @@
 
 namespace njs {
 
+using std::vector;
 class NjsVM;
 
 class GCHeap {
 
-  using byte = int8_t;
+using byte = int8_t;
 
  public:
 
@@ -61,7 +62,7 @@ class GCHeap {
   void gc_visit_object(JSValue &handle, GCObject *obj);
 
  private:
-  std::vector<JSValue *> gather_roots();
+  vector<JSValue *> gather_roots();
 
   // Copying GC
   void copy_alive();

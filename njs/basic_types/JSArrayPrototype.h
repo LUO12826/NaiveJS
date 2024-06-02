@@ -48,7 +48,7 @@ class JSArrayPrototype : public JSObject {
 
         if (not val.is_nil()) [[likely]] {
           JSValue s = TRY_COMP(js_to_string(vm, val));
-          output += s.val.as_prim_string->str;
+          output += s.u.as_prim_string->str;
         }
       }
       return vm.new_primitive_string(std::move(output));
@@ -64,7 +64,7 @@ class JSArrayPrototype : public JSObject {
     u16string delimiter = u",";
     if (args.size() != 0 && !args[0].is_undefined()) [[likely]] {
       JSValue deli = TRY_COMP(js_to_string(vm, args[0]));
-      delimiter = deli.val.as_prim_string->str;
+      delimiter = deli.u.as_prim_string->str;
     }
 
     auto *arr = This.as_object<JSArray>();
@@ -77,7 +77,7 @@ class JSArrayPrototype : public JSObject {
 
       if (not val.is_nil()) [[likely]] {
         JSValue s = TRY_COMP(js_to_string(vm, val));
-        output += s.val.as_prim_string->str;
+        output += s.u.as_prim_string->str;
       }
     }
     return vm.new_primitive_string(std::move(output));
@@ -96,13 +96,13 @@ class JSArrayPrototype : public JSObject {
     assert(args.size() > 0);
     assert(This.is(JSValue::ARRAY));
 
-    JSArray *array = This.val.as_array;
+    JSArray *array = This.u.as_array;
     return array->get_property_impl(vm, args[0]);
   }
 
   static Completion sort(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
-    auto& data_array = This.val.as_array->dense_array;
+    auto& data_array = This.u.as_array->dense_array;
     Completion comp;
     // no compare function provided. Convert values to strings and do string sorting.
     if (args.size() == 0) {
@@ -122,8 +122,8 @@ class JSArrayPrototype : public JSObject {
             throw std::runtime_error("");
           }
 
-          auto prim_a = comp_a.get_value().val.as_prim_string;
-          auto prim_b = comp_b.get_value().val.as_prim_string;
+          auto prim_a = comp_a.get_value().u.as_prim_string;
+          auto prim_b = comp_b.get_value().u.as_prim_string;
           return *prim_a < *prim_b;
         });
       }
@@ -139,13 +139,13 @@ class JSArrayPrototype : public JSObject {
           if (a.is_undefined()) return false;
           if (b.is_undefined()) return true;
 
-          comp = vm.call_function(args[0].val.as_func, undefined, nullptr, {a, b});
+          comp = vm.call_function(args[0].u.as_func, undefined, nullptr, {a, b});
           if (comp.is_throw()) {
             throw std::runtime_error("");
           }
           assert(comp.get_value().is_float64());
 
-          return comp.get_value().val.as_f64 < 0;
+          return comp.get_value().u.as_f64 < 0;
         });
       }
       catch (std::runtime_error& err) {
@@ -157,19 +157,19 @@ class JSArrayPrototype : public JSObject {
 
   static Completion push(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
-    JSArray *array = This.val.as_array;
+    JSArray *array = This.u.as_array;
 
     return JSFloat(array->push(args));
   }
 
   static Completion pop(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
-    return This.val.as_array->pop();
+    return This.u.as_array->pop();
   }
 
   static Completion shift(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
-    return This.val.as_array->shift();
+    return This.u.as_array->shift();
   }
 
   static Completion slice(vm_func_This_args_flags) {
@@ -248,7 +248,7 @@ class JSArrayPrototype : public JSObject {
 
   static Completion concat(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
-    auto *array = This.val.as_array;
+    auto *array = This.u.as_array;
     auto *res = vm.heap.new_object<JSArray>(vm, 0);
     // copy the `this` array
     res->dense_array = array->dense_array;
@@ -257,7 +257,7 @@ class JSArrayPrototype : public JSObject {
       for (int i = 0; i < args.size(); i++) {
         JSValue arg = args[i];
         if (arg.is(JSValue::ARRAY)) [[likely]] {
-          auto& arg_arr = arg.val.as_array->dense_array;
+          auto& arg_arr = arg.u.as_array->dense_array;
           res->dense_array.insert(res->dense_array.end(), arg_arr.begin(), arg_arr.end());
           for (auto& ele : arg_arr) {
             res->dense_array.push_back(ele);

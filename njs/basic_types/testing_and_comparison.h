@@ -19,18 +19,18 @@ inline ErrorOr<bool> strict_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
 
     switch (lhs.tag) {
       case JSValue::BOOLEAN:
-        res = lhs.val.as_bool == rhs.val.as_bool;
+        res = lhs.u.as_bool == rhs.u.as_bool;
         break;
       case JSValue::NUM_FLOAT:
-        res = lhs.val.as_f64 == rhs.val.as_f64;
+        res = lhs.u.as_f64 == rhs.u.as_f64;
         break;
       case JSValue::UNDEFINED:
       case JSValue::JS_NULL:
         res = true;
         break;
       case JSValue::STRING: {
-        res = lhs.val.as_prim_string->str
-              == rhs.val.as_prim_string->str;
+        res = lhs.u.as_prim_string->str
+              == rhs.u.as_prim_string->str;
         break;
       }
       default:
@@ -53,20 +53,20 @@ inline ErrorOr<bool> abstract_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
     return strict_equals(vm, lhs, rhs);
   }
   if (lhs.is_float64() && rhs.is_prim_string()) {
-    return lhs.val.as_f64 == u16string_to_double(rhs.val.as_prim_string->str);
+    return lhs.u.as_f64 == u16string_to_double(rhs.u.as_prim_string->str);
   }
   else if (lhs.is_prim_string() && rhs.is_float64()) {
-    return rhs.val.as_f64 == u16string_to_double(lhs.val.as_prim_string->str);
+    return rhs.u.as_f64 == u16string_to_double(lhs.u.as_prim_string->str);
   }
   else if (lhs.is_nil() && rhs.is_nil()) {
     return true;
   }
   else if (lhs.is_bool()) {
-    double num_val = lhs.val.as_bool ? 1 : 0;
+    double num_val = lhs.u.as_bool ? 1 : 0;
     return abstract_equals(vm, JSValue(num_val), rhs);
   }
   else if (rhs.is_bool()) {
-    double num_val = rhs.val.as_bool ? 1 : 0;
+    double num_val = rhs.u.as_bool ? 1 : 0;
     return abstract_equals(vm, lhs, JSValue(num_val));
   } else if ((lhs.is_float64() || lhs.is_prim_string()) && rhs.is_object()) {
     Completion to_prim_res = rhs.as_object()->to_primitive(vm);
@@ -101,13 +101,13 @@ inline bool same_value(JSValue lhs, JSValue rhs) {
   if (lhs.is_undefined() || lhs.is_null()) return true;
   switch (lhs.tag) {
     case JSValue::NUM_FLOAT:
-      return same_number_value(lhs.val.as_f64, lhs.val.as_f64);
+      return same_number_value(lhs.u.as_f64, lhs.u.as_f64);
     case JSValue::BOOLEAN:
-      return lhs.val.as_bool == rhs.val.as_bool;
+      return lhs.u.as_bool == rhs.u.as_bool;
     case JSValue::STRING:
-      return lhs.val.as_prim_string->str == rhs.val.as_prim_string->str;
+      return lhs.u.as_prim_string->str == rhs.u.as_prim_string->str;
     case JSValue::SYMBOL:
-      return lhs.val.as_symbol == rhs.val.as_symbol;
+      return lhs.u.as_symbol == rhs.u.as_symbol;
     default:
       assert(lhs.is_object());
       return lhs.as_object() == rhs.as_object();

@@ -162,7 +162,7 @@ class JSRegExp : public JSObject {
 
   Completion exec(NjsVM& vm, JSValue arg, bool test_mode) {
     arg = TRY_COMP(js_to_string(vm, arg));
-    auto& arg_str = arg.val.as_prim_string->str;
+    auto& arg_str = arg.u.as_prim_string->str;
 
     u32 last_index;
     // last_index is only effective when in `global` or `sticky` mode.
@@ -217,7 +217,7 @@ class JSRegExp : public JSObject {
 
   Completion replace(NjsVM& vm, JSValue str, JSValue replacer) {
     str = TRY_COMP(js_to_string(vm, str));
-    auto& arg_str = str.val.as_prim_string->str;
+    auto& arg_str = str.u.as_prim_string->str;
 
     u32 last_index;
     if (not (flags & (LRE_FLAG_STICKY))) {
@@ -237,9 +237,9 @@ class JSRegExp : public JSObject {
     JSFunction *replace_func = nullptr;
 
     if (replacer.is_function()) [[unlikely]] {
-      replace_func = replacer.val.as_func;
+      replace_func = replacer.u.as_func;
     } else {
-      replacement = &TRY_COMP(js_to_string(vm, replacer)).val.as_prim_string->str;
+      replacement = &TRY_COMP(js_to_string(vm, replacer)).u.as_prim_string->str;
       should_populate_replacement = replacement->find(u'$') != u16string::npos;
     }
 
@@ -287,7 +287,7 @@ class JSRegExp : public JSObject {
             vm.call_function(replace_func, undefined, nullptr, func_args));
           
           rep_str = TRY_COMP(js_to_string(vm, rep_str));
-          result += rep_str.val.as_prim_string->str;
+          result += rep_str.u.as_prim_string->str;
         }
 
         prev_last_index = last_index;
@@ -313,7 +313,7 @@ class JSRegExp : public JSObject {
 
   Completion prototype_to_string(NjsVM& vm) {
     JSValue flags_val = TRY_COMP(get_prop(vm, u"flags"));
-    u16string regexp_str = u"/" + pattern + u"/" + flags_val.val.as_prim_string->str;
+    u16string regexp_str = u"/" + pattern + u"/" + flags_val.u.as_prim_string->str;
     return JSValue(vm.new_primitive_string(std::move(regexp_str)));
   }
 

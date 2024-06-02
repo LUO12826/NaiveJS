@@ -46,11 +46,11 @@ void GCHeap::gc_if_needed() {
 void GCHeap::gc_visit_object(JSValue& handle, GCObject *obj) {
   assert(handle.needs_gc());
   GCObject *obj_new = copy_object(obj);
-  handle.val.as_object = static_cast<JSObject*>(obj_new);
+  handle.u.as_object = static_cast<JSObject*>(obj_new);
 }
 
-std::vector<JSValue *> GCHeap::gather_roots() {
-  std::vector<JSValue *> roots;
+vector<JSValue*> GCHeap::gather_roots() {
+  vector<JSValue *> roots;
 
   // All values on the rt_stack are possible roots
   for (JSStackFrame *frame : vm.stack_frames) {
@@ -100,7 +100,7 @@ std::vector<JSValue *> GCHeap::gather_roots() {
 
 void GCHeap::copy_alive() {
   alloc_point = to_start;
-  std::vector<JSValue *> roots = gather_roots();
+  vector<JSValue*> roots = gather_roots();
 
   if (Global::show_gc_statistics) {
     std::cout << "GC found roots:\n";
@@ -122,19 +122,6 @@ void GCHeap::copy_alive() {
   std::swap(from_start, to_start);
 }
 
-void GCHeap::check_fwd_pointer() {
-  for (byte *ptr = from_start; ptr < alloc_point; ) {
-    GCObject *obj = reinterpret_cast<GCObject *>(ptr);
-    if (obj->size % 8 != 0) {
-      assert(false);
-    }
-    if (obj->forward_ptr != nullptr) {
-      assert(false);
-    }
-    ptr += obj->size;
-  }
-}
-
 void GCHeap::dealloc_dead(byte *start, byte *end) {
   for (byte *ptr = start; ptr < end; ) {
     GCObject *obj = reinterpret_cast<GCObject *>(ptr);
@@ -149,7 +136,7 @@ void GCHeap::dealloc_dead(byte *start, byte *end) {
   }
 }
 
-GCObject *GCHeap::copy_object(GCObject *obj) {
+GCObject* GCHeap::copy_object(GCObject *obj) {
   GCObject *obj_new = obj->forward_ptr;
   if (obj_new == nullptr) {
     object_cnt += 1;
@@ -166,8 +153,20 @@ GCObject *GCHeap::copy_object(GCObject *obj) {
   return obj_new;
 }
 
+void GCHeap::check_fwd_pointer() {
+  for (byte *ptr = from_start; ptr < alloc_point; ) {
+    GCObject *obj = reinterpret_cast<GCObject *>(ptr);
+    if (obj->size % 8 != 0) {
+      assert(false);
+    }
+    if (obj->forward_ptr != nullptr) {
+      assert(false);
+    }
+    ptr += obj->size;
+  }
+}
 // Allocate memory for a new object.
-void *GCHeap::allocate(size_t size_byte) {
+void* GCHeap::allocate(size_t size_byte) {
   if (lacking_free_memory(size_byte)) [[unlikely]] {
     gc();
     if (lacking_free_memory(size_byte)) [[unlikely]]  {

@@ -41,10 +41,10 @@ class JSArray: public JSObject {
     JSValue res = TRY_COMP(get_index_or_atom(vm, key));
 
     if (res.is(JSValue::NUM_UINT32)) {
-      return get_element_fast(res.val.as_u32);
+      return get_element_fast(res.u.as_u32);
     } else {
       assert(res.is_atom() || res.is_symbol());
-      u32 atom = res.val.as_atom;
+      u32 atom = res.u.as_atom;
       if (atom_is_int(atom)) {
         return get_element_fast(atom_get_int(atom));
       } else {
@@ -57,11 +57,11 @@ class JSArray: public JSObject {
     JSValue idx = TRY_ERR(get_index_or_atom(vm, key));
 
     if (idx.is(JSValue::NUM_UINT32)) {
-      set_element_fast(idx.val.as_u32, val);
+      set_element_fast(idx.u.as_u32, val);
       return true;
     } else {
       assert(idx.is_atom() || idx.is_symbol());
-      u32 atom = idx.val.as_atom;
+      u32 atom = idx.u.as_atom;
       if (atom_is_int(atom)) {
         set_element_fast(atom_get_int(atom), val);
         return true;
@@ -94,7 +94,7 @@ class JSArray: public JSObject {
   Completion has_property(NjsVM &vm, JSValue key) override {
     JSValue res = TRYCC(has_own_property(vm, key));
     assert(res.is_bool());
-    if (res.val.as_bool) { // found
+    if (res.u.as_bool) { // found
       return res;
     } else if (not _proto_.is_null()) {
       return _proto_.as_object()->has_property(vm, key);
@@ -115,10 +115,10 @@ class JSArray: public JSObject {
     JSValue k = TRYCC(get_index_or_atom(vm, key));
 
     if (k.is(JSValue::NUM_UINT32)) {
-      return has_fast_element(k.val.as_u32);
+      return has_fast_element(k.u.as_u32);
     } else {
       assert(k.is_atom() || k.is_symbol());
-      u32 atom = k.val.as_atom;
+      u32 atom = k.u.as_atom;
       if (atom_is_int(atom)) {
         return has_fast_element(atom_get_int(atom));
       } else {
@@ -162,7 +162,7 @@ class JSArray: public JSObject {
     // The float value can be interpreted as array index
     if (key.is_float64()) {
       if (key.is_non_negative() && key.is_integer()) {
-        auto int_idx = int64_t(key.val.as_f64);
+        auto int_idx = int64_t(key.u.as_f64);
         if (int_idx < UINT32_MAX) {
           return JSValue::U32(int_idx);
         } else {
@@ -172,7 +172,7 @@ class JSArray: public JSObject {
       }
       // in this case, the float value is interpreted as an ordinary property key
       else {
-        u16string num_str = double_to_u16string(key.val.as_f64);
+        u16string num_str = double_to_u16string(key.u.as_f64);
         u32 atom = vm.str_to_atom_no_uint(num_str);
         return JSAtom(atom);
       }
@@ -217,15 +217,15 @@ class JSArray: public JSObject {
 
   u32 get_length() {
     assert(has_own_property_atom(AtomPool::k_length));
-    return (u32)get_prop_trivial(AtomPool::k_length).val.as_f64;
+    return (u32)get_prop_trivial(AtomPool::k_length).u.as_f64;
   }
 
   void set_length(double len) {
-    storage[JSObjectKey(AtomPool::k_length)].data.value.val.as_f64 = len;
+    storage[JSObjectKey(AtomPool::k_length)].data.value.u.as_f64 = len;
   }
 
   void update_length() {
-    storage[JSObjectKey(AtomPool::k_length)].data.value.val.as_f64 = dense_array.size();
+    storage[JSObjectKey(AtomPool::k_length)].data.value.u.as_f64 = dense_array.size();
   }
 
   std::vector<JSValue> dense_array;

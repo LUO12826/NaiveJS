@@ -29,13 +29,13 @@ Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
         return CompThrow(err);
       }
     case JSValue::BOOLEAN:
-      return vm.get_string_const(val.val.as_bool ? AtomPool::k_true : AtomPool::k_false);
+      return vm.get_string_const(val.u.as_bool ? AtomPool::k_true : AtomPool::k_false);
     case JSValue::NUM_UINT32:
-      return vm.new_primitive_string(to_u16string(val.val.as_u32));
+      return vm.new_primitive_string(to_u16string(val.u.as_u32));
     case JSValue::NUM_INT32:
-      return vm.new_primitive_string(to_u16string(val.val.as_i32));
+      return vm.new_primitive_string(to_u16string(val.u.as_i32));
     case JSValue::NUM_FLOAT: {
-      u16string str = double_to_u16string(val.val.as_f64);
+      u16string str = double_to_u16string(val.u.as_f64);
       return vm.new_primitive_string(std::move(str));
     }
     case JSValue::STRING:
@@ -62,13 +62,13 @@ Completion js_to_object(NjsVM &vm, JSValue arg) {
   JSObject *obj;
   switch (arg.tag) {
     case JSValue::BOOLEAN:
-      obj = vm.heap.new_object<JSBoolean>(vm, arg.val.as_bool);
+      obj = vm.heap.new_object<JSBoolean>(vm, arg.u.as_bool);
       break;
     case JSValue::NUM_FLOAT:
-      obj = vm.heap.new_object<JSNumber>(vm, arg.val.as_f64);
+      obj = vm.heap.new_object<JSNumber>(vm, arg.u.as_f64);
       break;
     case JSValue::STRING:
-      obj = vm.heap.new_object<JSString>(vm, *arg.val.as_prim_string);
+      obj = vm.heap.new_object<JSString>(vm, *arg.u.as_prim_string);
       break;
     default:
       if (arg.is_object()) return arg;
@@ -93,15 +93,15 @@ Completion js_to_property_key(NjsVM &vm, JSValue val) {
     case JSValue::JS_NULL:
       return JSAtom(AtomPool::k_null);
     case JSValue::BOOLEAN:
-      return JSAtom(val.val.as_bool ? AtomPool::k_true : AtomPool::k_false);
+      return JSAtom(val.u.as_bool ? AtomPool::k_true : AtomPool::k_false);
     case JSValue::JS_ATOM:
     case JSValue::SYMBOL:
       return val;
     case JSValue::NUM_UINT32:
-      return JSAtom(vm.u32_to_atom(val.val.as_u32));
+      return JSAtom(vm.u32_to_atom(val.u.as_u32));
     case JSValue::NUM_FLOAT: {
       if (val.is_non_negative() && val.is_integer()) {
-        auto int_idx = int64_t(val.val.as_f64);
+        auto int_idx = int64_t(val.u.as_f64);
         if (int_idx < UINT32_MAX) {
           return JSAtom(vm.u32_to_atom(int_idx));
         } else {
@@ -109,18 +109,18 @@ Completion js_to_property_key(NjsVM &vm, JSValue val) {
           return JSAtom(vm.str_to_atom_no_uint(str));
         }
       } else {
-        u16string str = double_to_u16string(val.val.as_f64);
+        u16string str = double_to_u16string(val.u.as_f64);
         return JSAtom(vm.str_to_atom_no_uint(str));
       }
     }
     case JSValue::STRING:
-      return JSAtom(vm.str_to_atom(val.val.as_prim_string->str));
+      return JSAtom(vm.str_to_atom(val.u.as_prim_string->str));
     default: {
       auto comp = js_to_string(vm, val, true);
       if (comp.is_throw()) return comp;
       JSValue str = comp.get_value();
       assert(str.is_prim_string());
-      return JSAtom(vm.str_to_atom(str.val.as_prim_string->str));
+      return JSAtom(vm.str_to_atom(str.u.as_prim_string->str));
     }
   }
 }
@@ -144,13 +144,13 @@ ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {
     case JSValue::JS_NULL:
       return 0.0;
     case JSValue::BOOLEAN:
-      return val.val.as_bool ? 1.0 : 0.0;
+      return val.u.as_bool ? 1.0 : 0.0;
     case JSValue::NUM_FLOAT:
-      return val.val.as_f64;
+      return val.u.as_f64;
     case JSValue::SYMBOL:
       return vm.build_error_internal(JS_TYPE_ERROR, u"TypeError");
     case JSValue::STRING:
-      return u16string_to_double(val.val.as_prim_string->str);
+      return u16string_to_double(val.u.as_prim_string->str);
     default:
       if (val.is_object()) {
         Completion comp = val.as_object()->to_primitive(vm, HINT_NUMBER);

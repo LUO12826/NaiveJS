@@ -78,79 +78,79 @@ friend class NjsVM;
 
   static JSValue U32(u32 val) {
     JSValue num(NUM_UINT32);
-    num.val.as_u32 = val;
+    num.u.as_u32 = val;
     return num;
   }
 
   JSValue(): JSValue(JSValueTag::UNDEFINED) {}
 
   JSValue(JSValueTag tag, uint64_t data, u32 flag)
-      : tag(tag), val(data), flag_bits(flag) {}
+      : tag(tag), u(data), flag_bits(flag) {}
 
   explicit JSValue(JSValueTag tag): tag(tag) {}
 
 
   explicit JSValue(double number): tag(NUM_FLOAT) {
-    val.as_f64 = number;
+    u.as_f64 = number;
   }
 
   explicit JSValue(bool boolean): tag(BOOLEAN) {
-    val.as_bool = boolean;
+    u.as_bool = boolean;
   }
 
   explicit JSValue(JSValue *js_val): tag(VALUE_HANDLE) {
-    val.as_JSValue = js_val;
+    u.as_JSValue = js_val;
   }
 
   explicit JSValue(JSObject *obj): tag(OBJECT) {
-    val.as_object = obj;
+    u.as_object = obj;
   }
 
   explicit JSValue(PrimitiveString *str): tag(STRING) {
-    val.as_prim_string = str;
+    u.as_prim_string = str;
   }
 
   explicit JSValue(JSArray *array): tag(ARRAY) {
-    val.as_array = array;
+    u.as_array = array;
   }
 
   explicit JSValue(JSFunction *func): tag(FUNCTION) {
-    val.as_func = func;
+    u.as_func = func;
   }
 
   void set_float(double number) {
     tag = NUM_FLOAT;
-    val.as_f64 = number;
+    u.as_f64 = number;
   }
 
   void set_bool(bool boolean) {
     tag = BOOLEAN;
-    val.as_bool = boolean;
+    u.as_bool = boolean;
   }
 
   void set_val(JSValue *js_val) {
     tag = VALUE_HANDLE;
-    val.as_JSValue = js_val;
+    u.as_JSValue = js_val;
   }
 
   void set_val(JSObject *obj) {
     tag = OBJECT;
-    val.as_object = obj;
+    u.as_object = obj;
   }
 
   void set_val(PrimitiveString *str) {
     tag = STRING;
-    val.as_prim_string = str;
+    u.as_prim_string = str;
   }
 
   void set_val(JSArray *array) {
     tag = ARRAY;
-    val.as_array = array;
+    u.as_array = array;
   }
 
   void set_val(JSFunction *func) {
     tag = FUNCTION;
-    val.as_func = func;
+    u.as_func = func;
   }
 
   void set_undefined() { tag = UNDEFINED; }
@@ -158,7 +158,7 @@ friend class NjsVM;
 
   JSValue& deref() const {
     assert(tag == VALUE_HANDLE);
-    return *val.as_JSValue;
+    return *u.as_JSValue;
   }
   JSValue& deref_heap() const;
   JSValue& deref_heap_if_needed();
@@ -179,12 +179,12 @@ friend class NjsVM;
 
   /// @brief NOTE: this method does not check the tag.
   bool is_integer() const {
-    return double(int64_t(val.as_f64)) == val.as_f64;
+    return double(int64_t(u.as_f64)) == u.as_f64;
   }
 
   /// @brief NOTE: this method does not check the tag.
   bool is_non_negative() const {
-    return val.as_f64 >= 0;
+    return u.as_f64 >= 0;
   }
 
   bool is_string_type() const {
@@ -209,27 +209,27 @@ friend class NjsVM;
 
   GCObject *as_GCObject() const {
     assert(needs_gc());
-    return val.as_GCObject;
+    return u.as_GCObject;
   }
 
   JSObject *as_object() const {
-    return val.as_object;
+    return u.as_object;
   }
 
   template <class T>
   T *as_object() const {
-    return static_cast<T*>(val.as_object);
+    return static_cast<T*>(u.as_object);
   }
 
   JSObject *as_object_or_null() const {
-    return is_object() ? val.as_object : nullptr;
+    return is_object() ? u.as_object : nullptr;
   }
 
   bool is_falsy() const {
-    if (tag == BOOLEAN) return !val.as_bool;
+    if (tag == BOOLEAN) return !u.as_bool;
     if (tag == JS_NULL || tag == UNDEFINED || tag == UNINIT) return true;
-    if (tag == NUM_FLOAT) return val.as_f64 == 0 || std::isnan(val.as_f64);
-    if (tag == STRING) return val.as_prim_string->str.empty();
+    if (tag == NUM_FLOAT) return u.as_f64 == 0 || std::isnan(u.as_f64);
+    if (tag == STRING) return u.as_prim_string->str.empty();
     return false;
   }
 
@@ -253,9 +253,9 @@ friend class NjsVM;
   /// `to_json(u16string&, NjsVM&)` is for JSON.stringify.
   void to_json(u16string& output, NjsVM& vm) const;
 
-  union Val {
-    Val() {}
-    Val(uint64_t data): data(data) {}
+  union Data {
+    Data() {}
+    Data(uint64_t data): data(data) {}
 
     uint64_t data;
     double as_f64;
@@ -275,7 +275,7 @@ friend class NjsVM;
     JSArray *as_array;
     JSString *as_string;
     JSFunction *as_func;
-  } val;
+  } u;
 
   JSValueTag tag;
   u32 flag_bits;
@@ -287,13 +287,13 @@ inline JSValue JSFloat(double val) {
 
 inline JSValue JSAtom(u32 val) {
   JSValue atom(JSValue::JS_ATOM);
-  atom.val.as_atom = val;
+  atom.u.as_atom = val;
   return atom;
 }
 
 inline JSValue JSSymbol(u32 val) {
   JSValue symbol(JSValue::SYMBOL);
-  symbol.val.as_symbol = val;
+  symbol.u.as_symbol = val;
   return symbol;
 }
 
