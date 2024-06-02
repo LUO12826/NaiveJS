@@ -99,12 +99,12 @@ class LREWrapper {
     return lre_exec(capture, bytecode, input_buf, start_index, input_len, is_wchar, nullptr);
   }
 
-  size_t get_last_index() {
+  size_t get_matched_end() {
     assert(executed);
     return (capture[1] - input_buf) >> is_wchar;
   }
 
-  size_t get_first_index() {
+  size_t get_matched_start() {
     assert(executed);
     return (capture[0] - input_buf) >> is_wchar;
   }

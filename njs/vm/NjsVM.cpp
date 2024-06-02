@@ -198,11 +198,12 @@ void NjsVM::run() {
 
 void NjsVM::execute_global() {
   auto *func = heap.new_object<JSFunction>(*this, global_meta);
-  call_internal(func, global_object, nullptr, ArrayRef<JSValue>(nullptr, 0), CallFlags());
+  global_func.set_val(func);
+  call_internal(func, global_object, nullptr, ArgRef(nullptr, 0), CallFlags());
 }
 
 // TODO: this is a very simplified implementation.
-JSValue NjsVM::prepare_arguments_array(ArrayRef<JSValue> args) {
+JSValue NjsVM::prepare_arguments_array(ArgRef args) {
   auto *arr = heap.new_object<JSArray>(*this, args.size());
   for (int i = 0; i < args.size(); i++) {
     arr->dense_array[i] = args[i];
@@ -211,7 +212,12 @@ JSValue NjsVM::prepare_arguments_array(ArrayRef<JSValue> args) {
 }
 
 Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
-                                JSFunction *new_target, ArrayRef<JSValue> argv, CallFlags flags) {
+                                JSFunction *new_target, ArgRef argv, CallFlags flags) {
+  if (Global::show_vm_exec_steps) {
+    printf("*** call function: %s\n", to_u8string(callee->name).c_str());
+    printf("*** heap object count: %zu\n", heap.get_object_count());
+  }
+
   // setup call stack
   JSStackFrame frame;
   frame.prev_frame = curr_frame;
@@ -238,7 +244,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
 
   if (callee->meta.is_native) {
     Completion comp;
-    ArrayRef<JSValue> args_ref(args_buf, actual_arg_cnt);
+    ArgRef args_ref(args_buf, actual_arg_cnt);
     if (new_target) [[unlikely]] {
       flags.this_is_new_target = true;
       comp = callee->native_func(*this, *callee, JSValue(new_target), args_ref, flags);
@@ -393,12 +399,12 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         exec_shift(sp, inst.op_type);
         break;
 
-#define CHECK_UNINIT {                                                                    \
-          if (sp[0].is_uninited()) [[unlikely]] {                                         \
-            sp -= 1;                                                                      \
-            error_throw(sp, u"Cannot access a variable before initialization");           \
-            error_handle(sp);                                                             \
-          }                                                                               \
+#define CHECK_UNINIT {                                                                             \
+          if (sp[0].is_uninited()) [[unlikely]] {                                                  \
+            sp -= 1;                                                                               \
+            error_throw(sp, JS_REFERENCE_ERROR, u"Cannot access a variable before initialization");\
+            error_handle(sp);                                                                      \
+          }                                                                                        \
         }
 
 #define DEREF_HEAP_IF_NEEDED \
@@ -492,8 +498,8 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         JSValue& val = get_value(GET_SCOPE, OPR2);
         sp -= 1;
         if (val.is_uninited()) [[unlikely]] {
-          error_throw(sp, u"Cannot access a variable before initialization");
-          error_handle(sp);
+          error_throw_handle(sp, JS_REFERENCE_ERROR,
+                             u"Cannot access a variable before initialization");
         } else {
           val.assign(sp[1]);
         }
@@ -509,8 +515,8 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
       case OpType::store_check: {
         JSValue &val = get_value(GET_SCOPE, OPR2);
         if (val.is_uninited()) [[unlikely]] {
-          error_throw(sp, u"Cannot access a variable before initialization");
-          error_handle(sp);
+          error_throw_handle(sp, JS_REFERENCE_ERROR,
+                             u"Cannot access a variable before initialization");
         } else {
           val.assign(sp[0]);
         }
@@ -615,6 +621,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
           printf("%-50s sp: %-3ld   pc: %-3u\n", inst.description().c_str(), (sp - (stack - 1)), pc);
         }
         exec_call(sp, OPR1, bool(OPR2), nullptr);
+        heap.gc_if_needed();
         break;
       }
       case OpType::proc_call:
@@ -801,9 +808,11 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         }
         break;
       case OpType::js_in:
-        assert(false);
+        exec_in(sp);
+        break;
       case OpType::js_instanceof:
-        assert(false);
+        exec_instanceof(sp);
+        break;
       case OpType::js_typeof:
         sp[0] = exec_typeof(sp[0]);
         break;
@@ -868,7 +877,7 @@ Completion NjsVM::call_function(JSFunction *func, JSValue This, JSFunction *new_
                                 const vector<JSValue>& args, CallFlags flags) {
   JSValue& this_obj = This.is_undefined() ? global_object : This;
   JSValue& actual_this = func->has_this_binding ? func->this_binding : this_obj;
-  ArrayRef<JSValue> args_ref(const_cast<JSValue*>(args.data()), args.size());
+  ArgRef args_ref(const_cast<JSValue*>(args.data()), args.size());
   return call_internal(func, actual_this, new_target, args_ref, flags);
 }
 
@@ -977,6 +986,53 @@ JSValue NjsVM::exec_typeof(JSValue val) {
       assert(false);
   }
   __builtin_unreachable();
+}
+
+void NjsVM::exec_in(SPRef sp) {
+  sp -= 1;
+  // sp[0] : key, sp[1] : object.
+  if (not sp[1].is_object()) [[unlikely]] {
+    error_throw_handle(sp, JS_TYPE_ERROR, u"rhs of `in` is not an object");
+    return;
+  }
+
+  sp[0] = VM_TRY_COMP(sp[1].as_object()->has_property(*this, sp[0]));
+}
+
+void NjsVM::exec_instanceof(SPRef sp) {
+  sp -= 1;
+  JSValue o = sp[0];
+  JSValue cls = sp[1];
+
+  if (not o.is_object()) [[unlikely]] {
+    sp[0].set_bool(false);
+    return;
+  }
+  if (not (cls.is_object() && object_class(cls) == CLS_FUNCTION)) [[unlikely]] {
+    error_throw_handle(sp, JS_TYPE_ERROR, u"rhs of `instanceof` is not a function");
+    return;
+  }
+
+  bool is_instance = false;
+  JSValue proto = o.as_object()->get_proto();
+  JSValue func_prototype = VM_TRY_COMP(cls.as_object()->get_prop(*this, AtomPool::k_prototype));
+
+  if (not func_prototype.is_object()) {
+    error_throw_handle(sp, JS_TYPE_ERROR, u"");
+    return;
+  }
+
+  while (!is_instance) {
+    if (same_value(proto, func_prototype)) {
+      is_instance = true;
+    } else if (proto.is_object()) {
+      proto = proto.as_object()->get_proto();
+    } else {
+      break;
+    }
+  }
+
+  sp[0].set_bool(is_instance);
 }
 
 void NjsVM::exec_delete(SPRef sp) {  
@@ -1157,8 +1213,7 @@ CallResult NjsVM::exec_call(SPRef sp, int argc, bool has_this, JSFunction *new_t
   JSValue& func_val = sp[-argc];
   if (func_val.tag != JSValue::FUNCTION
       || func_val.val.as_object->get_class() != CLS_FUNCTION) [[unlikely]] {
-    error_throw(sp, JS_TYPE_ERROR, u"value is not callable");
-    error_handle(sp);
+    error_throw_handle(sp, JS_TYPE_ERROR, u"value is not callable");
     return CallResult::DONE_ERROR;
   }
   JSFunction *func = func_val.val.as_func;
@@ -1166,9 +1221,8 @@ CallResult NjsVM::exec_call(SPRef sp, int argc, bool has_this, JSFunction *new_t
   JSValue& this_obj = has_this ? sp[-argc - 1] : global_object;
   JSValue& actual_this = func->has_this_binding ? func->this_binding : this_obj;
   JSValue *argv = &func_val + 1;
-  ArrayRef<JSValue> args_ref(argv, argc);
   // call the function
-  Completion comp = call_internal(func, actual_this, new_target, args_ref, CallFlags());
+  Completion comp = call_internal(func, actual_this, new_target, ArgRef(argv, argc), CallFlags());
 
   // put the return value to the correct place
   if (has_this) {
@@ -1391,8 +1445,7 @@ void NjsVM::exec_dynamic_get_var(SPRef sp, u32 name_atom, bool no_throw) {
     error_handle(sp);
   } else if (!no_throw && sp[0].flag_bits == FLAG_NOT_FOUND) [[unlikely]] {
     sp -= 1;
-    error_throw(sp, atom_to_str(name_atom) + u" is undefined");
-    error_handle(sp);
+    error_throw_handle(sp, JS_REFERENCE_ERROR, atom_to_str(name_atom) + u" is undefined");
   }
 }
 
@@ -1517,10 +1570,15 @@ void NjsVM::error_throw(SPRef sp, const u16string& msg) {
   error_throw(sp, JS_ERROR, msg);
 }
 
+void NjsVM::error_throw_handle(SPRef sp, JSErrorType type, const u16string& msg) {
+  JSValue err_obj = build_error_internal(type, msg);
+  *++sp = err_obj;
+  error_handle(sp);
+}
+
 void NjsVM::error_throw(SPRef sp, JSErrorType type, const u16string& msg) {
   JSValue err_obj = build_error_internal(type, msg);
-  sp += 1;
-  sp[0] = err_obj;
+  *++sp = err_obj;
 }
 
 void NjsVM::error_handle(SPRef sp) {

@@ -315,9 +315,10 @@ class CodegenVisitor {
         break;
       case ASTNode::STMT_EMPTY:
         break;
+      case ASTNode::STMT_DEBUG:
+        break;
       default:
         std::cout << node->description() << " not supported yet" << '\n';
-        assert(false);
     }
   }
 
@@ -583,7 +584,14 @@ class CodegenVisitor {
         case Token::LT: emit(OpType::lt); break;
         case Token::GT: emit(OpType::gt); break;
         case Token::GE: emit(OpType::ge); break;
-        default: assert(false);
+        default:
+          if (expr.op.text == u"instanceof") {
+            emit(OpType::js_instanceof);
+          } else if (expr.op.text == u"in") {
+            emit(OpType::js_in);
+          } else {
+            assert(false);
+          }
       }
     }
 

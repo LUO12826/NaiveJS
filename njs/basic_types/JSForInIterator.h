@@ -70,7 +70,9 @@ class JSForInIterator : public JSObject {
 
   void gc_scan_children(njs::GCHeap &heap) override {
     JSObject::gc_scan_children(heap);
-    heap.gc_visit_object(object, object.as_GCObject());
+    if (object.needs_gc()) [[likely]] {
+      heap.gc_visit_object(object, object.as_GCObject());
+    }
   }
 
   JSValue next(NjsVM& vm) {

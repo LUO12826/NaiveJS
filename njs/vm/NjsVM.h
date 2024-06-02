@@ -29,6 +29,7 @@ using std::u16string;
 using std::vector;
 using llvm::SmallVector;
 using SPRef = JSValue*&;
+using ArgRef = ArrayRef<JSValue>;
 
 class CodegenVisitor;
 struct JSTask;
@@ -175,7 +176,7 @@ friend class JSArrayIterator;
   Completion call_function(JSFunction *func, JSValue This, JSFunction *new_target,
                            const vector<JSValue>& args, CallFlags flags = CallFlags());
   Completion call_internal(JSFunction *callee, JSValue This, JSFunction *new_target,
-                           ArrayRef<JSValue> argv, CallFlags flags);
+                           ArgRef argv, CallFlags flags);
   // function operation
   void exec_make_func(SPRef sp, int meta_idx, JSValue env_this);
   CallResult exec_call(SPRef sp, int argc, bool has_this, JSFunction *new_target);
@@ -201,6 +202,8 @@ friend class JSArrayIterator;
   void exec_abstract_equality(SPRef sp, bool flip);
 
   JSValue exec_typeof(JSValue val);
+  void exec_in(SPRef sp);
+  void exec_instanceof(SPRef sp);
   void exec_delete(SPRef sp);
 
   void exec_regexp_build(SPRef sp, u32 atom, int reflags);
@@ -216,10 +219,11 @@ friend class JSArrayIterator;
 
   void error_throw(SPRef sp, const u16string& msg);
   void error_throw(SPRef sp, JSErrorType type, const u16string& msg);
+  void error_throw_handle(SPRef sp, JSErrorType type, const u16string& msg);
   void error_handle(SPRef sp);
   void print_unhandled_error(JSValue err);
 
-  JSValue prepare_arguments_array(ArrayRef<JSValue> args);
+  JSValue prepare_arguments_array(ArgRef args);
 
   void init_prototypes();
 
@@ -242,6 +246,7 @@ friend class JSArrayIterator;
   SmallVector<JSFunctionMeta, 10> func_meta;
 
   JSValue global_object;
+  JSValue global_func;
 
   // for collecting all log strings.
   vector<std::string> log_buffer;

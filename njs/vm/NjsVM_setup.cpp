@@ -3,6 +3,7 @@
 #include "object_static_method.h"
 #include "njs/common/common_def.h"
 #include "njs/basic_types/JSErrorPrototype.h"
+// #include "njs/basic_types/JSStringPrototype.h"
 
 namespace njs {
 
@@ -52,6 +53,11 @@ void NjsVM::setup() {
     JSFunction *func = add_native_func_impl(u"String", NativeFunction::String_ctor);
     string_prototype.as_object()->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(AtomPool::k_prototype, string_prototype);
+    func->add_method(*this, u"fromCharCode", [] (vm_func_This_args_flags) -> Completion {
+      assert(args.size() == 1);
+      int16_t code = TRY_COMP(js_to_uint16(vm, args[0]));
+      return JSValue(vm.new_primitive_string(u16string(1, code)));
+    });
   }
 
   {
@@ -89,6 +95,7 @@ void NjsVM::setup() {
 
   {
     JSObject *obj = add_builtin_object(u"Math");
+    obj->add_method(*this, u"min", JSMath::min);
     obj->add_method(*this, u"max", JSMath::max);
     obj->add_method(*this, u"floor", JSMath::floor);
   }
@@ -102,7 +109,7 @@ void NjsVM::setup() {
   add_builtin_global_var(u"NaN", JSValue(nan("")));
   add_builtin_global_var(u"Infinity", JSValue(1.0 / 0.0));
 
-  string_const.resize(20);
+  string_const.resize(11);
   string_const[AtomPool::k_] = new_primitive_string(u"");
   string_const[AtomPool::k_undefined] = new_primitive_string(u"undefined");
   string_const[AtomPool::k_null] = new_primitive_string(u"null");

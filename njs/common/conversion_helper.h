@@ -208,7 +208,7 @@ inline u16string double_to_u16string(double n) {
   js_dtoa(buf, n, 10, 0, JS_DTOA_VAR_FORMAT);
   
   char16_t u16buf[JS_DTOA_BUF_SIZE];
-  u8_to_u16_buffer_convert(buf, u16buf);
+  u8_to_u16_buffer(buf, u16buf);
   return u16string(u16buf);
 }
 

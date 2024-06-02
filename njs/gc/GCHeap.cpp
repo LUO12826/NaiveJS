@@ -10,6 +10,7 @@
 namespace njs {
 
 void GCHeap::gc() {
+  check_fwd_pointer();
   if (Global::show_gc_statistics) {
     std::cout << "\033[33m";
     std::cout << "****************** gc starts ******************\n";
@@ -21,6 +22,8 @@ void GCHeap::gc() {
   byte *end = alloc_point;
   object_cnt = 0;
   copy_alive();
+  check_fwd_pointer();
+  last_gc_object_cnt = object_cnt;
   timer_copy.end(Global::show_gc_statistics);
 
   Timer timer_dealloc("dealloc dead");
@@ -34,7 +37,13 @@ void GCHeap::gc() {
   timer.end(Global::show_gc_statistics);
 }
 
-void GCHeap::gc_visit_object(JSValue &handle, GCObject *obj) {
+void GCHeap::gc_if_needed() {
+  if (object_cnt - last_gc_object_cnt > 10000) {
+//    gc();
+  }
+}
+
+void GCHeap::gc_visit_object(JSValue& handle, GCObject *obj) {
   assert(handle.needs_gc());
   GCObject *obj_new = copy_object(obj);
   handle.val.as_object = static_cast<JSObject*>(obj_new);
@@ -54,12 +63,25 @@ std::vector<JSValue *> GCHeap::gather_roots() {
   }
 
   roots.push_back(&vm.global_object);
+
   roots.push_back(&vm.object_prototype);
   roots.push_back(&vm.array_prototype);
   roots.push_back(&vm.number_prototype);
   roots.push_back(&vm.boolean_prototype);
   roots.push_back(&vm.string_prototype);
   roots.push_back(&vm.function_prototype);
+  roots.push_back(&vm.error_prototype);
+  roots.push_back(&vm.regexp_prototype);
+  roots.push_back(&vm.date_prototype);
+  roots.push_back(&vm.iterator_prototype);
+
+  for (auto& val : vm.native_error_protos) {
+    roots.push_back(&val);
+  }
+
+  for (auto& val : vm.string_const) {
+    roots.push_back(&val);
+  }
 
   for (auto& task : vm.micro_task_queue) {
     roots.push_back(&task.task_func);
@@ -89,11 +111,28 @@ void GCHeap::copy_alive() {
     std::cout << "---------------\n";
   }
 
+  // for checking the index of this root in case the `forward_ptr` is not null
+  int index = 0;
   for (JSValue *root : roots) {
+    assert(root->as_GCObject()->forward_ptr == nullptr);
     gc_visit_object(*root, root->as_GCObject());
+    index += 1;
   }
 
   std::swap(from_start, to_start);
+}
+
+void GCHeap::check_fwd_pointer() {
+  for (byte *ptr = from_start; ptr < alloc_point; ) {
+    GCObject *obj = reinterpret_cast<GCObject *>(ptr);
+    if (obj->size % 8 != 0) {
+      assert(false);
+    }
+    if (obj->forward_ptr != nullptr) {
+      assert(false);
+    }
+    ptr += obj->size;
+  }
 }
 
 void GCHeap::dealloc_dead(byte *start, byte *end) {
@@ -129,10 +168,11 @@ GCObject *GCHeap::copy_object(GCObject *obj) {
 
 // Allocate memory for a new object.
 void *GCHeap::allocate(size_t size_byte) {
-  if (lacking_free_memory(size_byte)) {
+  if (lacking_free_memory(size_byte)) [[unlikely]] {
     gc();
-    if (lacking_free_memory(size_byte)) {
-      // allocation fail
+    if (lacking_free_memory(size_byte)) [[unlikely]]  {
+      fprintf(stderr, "memory allocation failed\n");
+      exit(EXIT_FAILURE);
     }
   }
 

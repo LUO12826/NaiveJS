@@ -105,7 +105,7 @@ Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
 }
 
 
-Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type) {
+Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArgRef args, JSErrorType type) {
   auto *err_obj = vm.new_object(CLS_ERROR, vm.native_error_protos[type]);
   if (args.size() > 0 && args[0].is_string_type()) {
     // only supports primitive string now.

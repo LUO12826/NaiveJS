@@ -166,18 +166,6 @@ ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {
 }
 
 
-ErrorOr<u32> js_to_uint32(NjsVM &vm, JSValue val) {
-  auto maybe_num = js_to_number(vm, val);
-  if (maybe_num.is_error()) return maybe_num.get_error();
-
-  double x = maybe_num.get_value();
-  if (std::isnan(x) || std::isinf(x)) {
-    return 0;
-  }
-  // TODO: may need to double check
-  return (int64_t)x;
-}
-
 ErrorOr<int64_t> js_to_int64sat(NjsVM &vm, JSValue val) {
   auto maybe_num = js_to_number(vm, val);
   if (maybe_num.is_error()) return maybe_num.get_error();
@@ -194,6 +182,18 @@ ErrorOr<int64_t> js_to_int64sat(NjsVM &vm, JSValue val) {
   }
 }
 
+ErrorOr<u32> js_to_uint32(NjsVM &vm, JSValue val) {
+  auto maybe_num = js_to_number(vm, val);
+  if (maybe_num.is_error()) return maybe_num.get_error();
+
+  double x = maybe_num.get_value();
+  if (std::isnan(x) || std::isinf(x)) {
+    return 0;
+  }
+  // TODO: may need to double check
+  return (int64_t)x;
+}
+
 ErrorOr<int32_t> js_to_int32(NjsVM &vm, JSValue val) {
   auto maybe_num = js_to_number(vm, val);
   if (maybe_num.is_error()) return maybe_num.get_error();
@@ -204,6 +204,32 @@ ErrorOr<int32_t> js_to_int32(NjsVM &vm, JSValue val) {
   }
   // TODO: may need to double check
   return (u32)(int64_t)x;
+}
+
+ErrorOr<uint16_t> js_to_uint16(NjsVM &vm, JSValue val) {
+  auto maybe_num = js_to_number(vm, val);
+  if (maybe_num.is_error()) return maybe_num.get_error();
+
+  double x = maybe_num.get_value();
+  if (std::isnan(x) || std::isinf(x)) {
+    return 0;
+  }
+
+  int64_t int_val = floor(fabs(x));
+  return int_val;
+}
+
+ErrorOr<int16_t> js_to_int16(NjsVM &vm, JSValue val) {
+  auto maybe_num = js_to_number(vm, val);
+  if (maybe_num.is_error()) return maybe_num.get_error();
+
+  double x = maybe_num.get_value();
+  if (std::isnan(x) || std::isinf(x)) {
+    return 0;
+  }
+
+  int64_t int_val = floor(fabs(x));
+  return int_val;
 }
 
 }

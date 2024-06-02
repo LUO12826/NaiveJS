@@ -1,6 +1,7 @@
 #ifndef NJS_JSFUNCTION_META_H
 #define NJS_JSFUNCTION_META_H
 
+#include <vector>
 #include "JSValue.h"
 #include "njs/vm/Completion.h"
 #include "njs/include/SmallVector.h"
@@ -13,6 +14,7 @@ namespace njs {
 using u16 = uint16_t;
 using u32 = uint32_t;
 using llvm::SmallVector;
+using std::vector;
 
 class GCHeap;
 class NjsVM;
@@ -39,7 +41,7 @@ struct JSFunctionMeta {
 
   u32 source_line;
 
-  SmallVector<CatchTableEntry, 3> catch_table;
+  vector<CatchTableEntry> catch_table;
 
   NativeFuncType native_func {nullptr};
   int magic;

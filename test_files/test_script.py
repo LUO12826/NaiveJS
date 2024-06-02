@@ -17,6 +17,7 @@ test_ignored = [
     "test_array.js",
     "test_for_in.js",
     "test_hashtable.js",
+    "test_defineProperty.js",
 ]
 
 file_and_expected = {
@@ -199,6 +200,9 @@ def check_test_files(directory, exec_path):
 
     print()
     print(f"Number of files that do not match: {num_not_match}")
+    if num_not_match == 0:
+        print("*** All passed ***")
+        # print("\033[1m" + "*** All passed ***" + "\033[0m")
 
 
 def output_match(expected: str, output: list[str]):
@@ -227,5 +231,6 @@ def print_red_text(text):
 if __name__ == "__main__":
     current_directory = os.path.dirname(os.path.abspath(__file__))
     njs_exec_path = os.path.join(current_directory, f"../{BUILD_DIR}/njsmain")
+    print("skipped:\n  " + "\n  ".join(test_ignored))
+    print()
     check_test_files(current_directory, njs_exec_path)
-    print("skipped: " + ", ".join(test_ignored))

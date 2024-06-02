@@ -114,7 +114,7 @@ class JSRegExp : public JSObject {
                                            flags, nullptr);
     if (re_bytecode_buf == nullptr) {
       char16_t u16_msg[64];
-      u8_to_u16_buffer_convert(error_msg, u16_msg);
+      u8_to_u16_buffer(error_msg, u16_msg);
 
       JSValue err = vm.build_error_internal(JS_SYNTAX_ERROR, u16string(u16_msg));
       return CompThrow(err);
@@ -183,7 +183,7 @@ class JSRegExp : public JSObject {
 
     if (ret == 1) {
       if (flags & (LRE_FLAG_GLOBAL | LRE_FLAG_STICKY)) {
-        size_t idx = lre.get_last_index();
+        size_t idx = lre.get_matched_end();
         TRY_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat(idx)));
       }
 
@@ -196,7 +196,7 @@ class JSRegExp : public JSObject {
       }));
 
       TRY_COMP(arr->set_prop(vm, u"groups", groups ? JSValue(groups) : undefined));
-      size_t index = lre.get_first_index();
+      size_t index = lre.get_matched_start();
       TRY_COMP(arr->set_prop(vm, u"index", JSFloat(index)));
       TRY_COMP(arr->set_prop(vm, u"input", arg));
 
@@ -232,13 +232,15 @@ class JSRegExp : public JSObject {
       }
     }
 
-    u16string *replace_str = nullptr;
+    u16string *replacement = nullptr;
+    bool should_populate_replacement = false;
     JSFunction *replace_func = nullptr;
 
     if (replacer.is_function()) [[unlikely]] {
       replace_func = replacer.val.as_func;
     } else {
-      replace_str = &TRY_COMP(js_to_string(vm, replacer)).val.as_prim_string->str;
+      replacement = &TRY_COMP(js_to_string(vm, replacer)).val.as_prim_string->str;
+      should_populate_replacement = replacement->find(u'$') != u16string::npos;
     }
 
     LREWrapper lre(this->bytecode, arg_str);
@@ -249,8 +251,8 @@ class JSRegExp : public JSObject {
       int ret = lre.exec(last_index);
 
       if (ret == 1) {
-        u32 first_index = lre.get_first_index();
-        last_index = lre.get_last_index();
+        u32 first_index = lre.get_matched_start();
+        last_index = lre.get_matched_end();
 
         if (flags & (LRE_FLAG_GLOBAL | LRE_FLAG_STICKY)) {
           TRY_COMP(set_prop(vm, JSAtom(AtomPool::k_lastIndex), JSFloat(last_index)));
@@ -259,8 +261,15 @@ class JSRegExp : public JSObject {
         // the part that is unchanged
         result += arg_str.substr(prev_last_index, first_index - prev_last_index);
 
-        if (replace_str) {
-          result += *replace_str;
+        if (replacement) {
+          if (should_populate_replacement) [[unlikely]] {
+            u16string_view matched(arg_str.begin() + first_index, arg_str.begin() + last_index);
+            u16string populated = prepare_replacer_string(arg_str, *replacement, matched,
+                                                          first_index, last_index);
+            result += populated;
+          } else {
+            result += *replacement;
+          }
         } else {
           assert(replace_func);
           // match, p1, p2, /* …, */ pN, offset, full string, groups

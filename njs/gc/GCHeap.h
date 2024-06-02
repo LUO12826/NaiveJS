@@ -26,9 +26,6 @@ class GCHeap {
 
     if (Global::show_gc_statistics) {
       std::cout << "GCHeap init, from_start == " << (size_t)from_start << '\n';
-//      std::cout << "sizeof JSFunction: " << sizeof(JSFunction) << '\n';
-//      std::cout << "sizeof JSObject:  " << sizeof(JSObject) << '\n';
-//      std::cout << "sizeof JSArray:  " << sizeof(JSArray) << '\n';
     }
   }
 
@@ -47,6 +44,8 @@ class GCHeap {
   }
 
   void gc();
+  void gc_if_needed();
+  void check_fwd_pointer();
   size_t get_heap_usage() {
     return alloc_point - from_start;
   }
@@ -66,14 +65,14 @@ class GCHeap {
 
   // Copying GC
   void copy_alive();
-
   void dealloc_dead(byte *start, byte *end);
 
   // Copy a single object. Recursively copy its child objects.
   GCObject *copy_object(GCObject *obj);
 
   bool lacking_free_memory(size_t size_byte) {
-    return alloc_point + size_byte > from_start + heap_size / 2;
+    size_t threshold = heap_size - heap_size / 4;
+    return alloc_point + size_byte > (from_start + threshold);
   }
 
   // Allocate memory for a new object.
@@ -90,6 +89,7 @@ class GCHeap {
   byte *alloc_point;
 
   size_t object_cnt {0};
+  size_t last_gc_object_cnt {0};
 
   NjsVM& vm;
 

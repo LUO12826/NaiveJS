@@ -184,7 +184,7 @@ class JSStringPrototype : public JSObject {
       return js_to_string(vm, This);
     }
     
-    // get @@replace from that object
+    // get @@replace from that object (this is basically for the RegExp)
     if (args[0].is_object()) {
       JSValue key = JSSymbol(AtomPool::k_sym_replace);
       JSValue m_replace = TRY_COMP(args[0].as_object()->get_property(vm, key));
@@ -200,25 +200,30 @@ class JSStringPrototype : public JSObject {
       }
     } else {
     arg0_is_string:
-      u16string *str = &TRY_COMP(js_to_string(vm, This)).val.as_prim_string->str;
+      u16string& str = TRY_COMP(js_to_string(vm, This)).val.as_prim_string->str;
       JSValue pattern_val = TRY_COMP(js_to_string(vm, args[0]));
-      u16string *pattern = &pattern_val.val.as_prim_string->str;
-      u16string res = *str;
+      u16string& pattern = pattern_val.val.as_prim_string->str;
+      u16string res = str;
 
-      auto start_pos = res.find(*pattern);
+      auto start_pos = res.find(pattern);
 
       if (start_pos != u16string::npos) {
+        // call a function to get the replacement
         if (args[1].is_function()) {
           vector<JSValue> argv{pattern_val, JSFloat(start_pos)};
           JSFunction *rep_func = args[1].val.as_func;
           JSValue rep = TRY_COMP(vm.call_function(rep_func, undefined, nullptr, argv));
-          u16string *rep_str = &TRY_COMP(js_to_string(vm, rep)).val.as_prim_string->str;
+          u16string &replacement = TRY_COMP(js_to_string(vm, rep)).val.as_prim_string->str;
 
-          res.replace(start_pos, pattern->size(), *rep_str);
+          res.replace(start_pos, pattern.size(), replacement);
         }
         else {
-          u16string *replacer = &TRY_COMP(js_to_string(vm, args[1])).val.as_prim_string->str;
-          res.replace(start_pos, pattern->size(), *replacer);
+          u16string& replacement = TRY_COMP(js_to_string(vm, args[1])).val.as_prim_string->str;
+          u16string_view matched(str.begin() + start_pos,
+                                 str.begin() + start_pos + pattern.size());
+          u16string populated = prepare_replacer_string(str, replacement, matched,
+                                                        start_pos, start_pos + pattern.size());
+          res.replace(start_pos, pattern.size(), populated);
         }
       }
 
@@ -317,6 +322,12 @@ class JSStringPrototype : public JSObject {
         u"String.prototype.valueOf can only be called by string or string object.");
       return CompThrow(err);
     }
+  }
+
+  static Completion String_fromCharCode(vm_func_This_args_flags) {
+    assert(args.size() == 1);
+    int16_t code = TRY_COMP(js_to_uint16(vm, args[0]));
+    return JSValue(vm.new_primitive_string(u16string(1, code)));
   }
 
 };

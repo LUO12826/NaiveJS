@@ -54,10 +54,8 @@ class JSArray: public JSObject {
   }
 
   ErrorOr<bool> set_property_impl(NjsVM& vm, JSValue key, JSValue val) override {
-    auto comp = get_index_or_atom(vm, key);
-    if (comp.is_throw()) return comp.get_value();
+    JSValue idx = TRY_ERR(get_index_or_atom(vm, key));
 
-    JSValue idx = comp.get_value();
     if (idx.is(JSValue::NUM_UINT32)) {
       set_element_fast(idx.val.as_u32, val);
       return true;
@@ -92,7 +90,20 @@ class JSArray: public JSObject {
     }
   }
 
-  Completion has_own_property(NjsVM& vm, njs::JSValue key) override {
+  // TODO: avoid key conversion at every level
+  Completion has_property(NjsVM &vm, JSValue key) override {
+    JSValue res = TRYCC(has_own_property(vm, key));
+    assert(res.is_bool());
+    if (res.val.as_bool) { // found
+      return res;
+    } else if (not _proto_.is_null()) {
+      return _proto_.as_object()->has_property(vm, key);
+    } else {
+      return JSValue(false);
+    }
+  }
+
+  Completion has_own_property(NjsVM& vm, JSValue key) override {
     auto has_fast_element = [this] (u32 index) {
       if (index < dense_array.size()) {
         JSValue val = dense_array[index];
@@ -101,9 +112,7 @@ class JSArray: public JSObject {
       return JSValue(false);
     };
 
-    auto comp = get_index_or_atom(vm, key);
-    if (comp.is_throw()) return comp;
-    JSValue k = comp.get_value();
+    JSValue k = TRYCC(get_index_or_atom(vm, key));
 
     if (k.is(JSValue::NUM_UINT32)) {
       return has_fast_element(k.val.as_u32);
@@ -130,6 +139,15 @@ class JSArray: public JSObject {
     if (index < dense_array.size()) {
       dense_array[index] = val;
     } else {
+
+      // since sparse arrays are not implemented, an assertion failure is
+      // raised if the array is too large.
+      if (index > 100000 && index > dense_array.size() * 100) [[unlikely]] {
+        assert(false);
+        fprintf(stderr, "very sparse array detected\n");
+        exit(EXIT_FAILURE);
+      }
+
       auto old_size = dense_array.size();
       dense_array.resize(index + 1);
       for (size_t i = old_size; i < index; i++) {
@@ -164,7 +182,15 @@ class JSArray: public JSObject {
     }
   }
 
-  Completion pop() {
+  size_t push(ArrayRef<JSValue> values) {
+    for (size_t i = 0; i < values.size(); i++) {
+      dense_array.push_back(values[i]);
+    }
+    update_length();
+    return dense_array.size();
+  }
+
+  JSValue pop() {
     if (dense_array.empty()) [[unlikely]] {
       return undefined;
     } else {
@@ -176,7 +202,7 @@ class JSArray: public JSObject {
     }
   }
 
-  Completion shift() {
+  JSValue shift() {
     if (dense_array.empty()) [[unlikely]] {
       return undefined;
     } else {

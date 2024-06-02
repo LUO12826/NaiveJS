@@ -213,6 +213,7 @@ friend class JSForInIterator;
   virtual ErrorOr<bool> delete_property_impl(JSValue key);
 
   virtual Completion has_own_property(NjsVM& vm, JSValue key);
+  virtual Completion has_property(NjsVM& vm, JSValue key);
 
   template <typename KEY>
   bool has_own_property_atom(KEY&& key) {
@@ -276,7 +277,7 @@ friend class JSForInIterator;
   }
 
   template <typename KEY>
-  bool has_property(KEY&& key) {
+  bool has_prop(KEY&& key) {
     return get_exist_prop(key) != nullptr;
   }
 

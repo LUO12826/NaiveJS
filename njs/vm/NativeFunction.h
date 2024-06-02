@@ -40,6 +40,7 @@ class NativeFunction {
 
 class JSMath {
  public:
+  static Completion min(JS_NATIVE_FUNC_PARAMS);
   static Completion max(JS_NATIVE_FUNC_PARAMS);
   static Completion floor(JS_NATIVE_FUNC_PARAMS);
 };

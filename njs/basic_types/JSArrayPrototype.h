@@ -28,6 +28,8 @@ class JSArrayPrototype : public JSObject {
     add_method(vm, u"toString", JSArrayPrototype::toString);
     add_method(vm, u"concat", JSArrayPrototype::concat);
     add_method(vm, u"join", JSArrayPrototype::join);
+    add_method(vm, u"slice", JSArrayPrototype::slice);
+    add_method(vm, u"splice", JSArrayPrototype::splice);
   }
 
   u16string_view get_class_name() override {
@@ -157,14 +159,7 @@ class JSArrayPrototype : public JSObject {
     assert(This.is(JSValue::ARRAY));
     JSArray *array = This.val.as_array;
 
-    for (size_t i = 0; i < args.size(); i++) {
-      array->dense_array.push_back(args[i]);
-    }
-
-    double new_length = array->dense_array.size();
-    array->set_length(new_length);
-
-    return JSValue(new_length);
+    return JSFloat(array->push(args));
   }
 
   static Completion pop(vm_func_This_args_flags) {
@@ -175,6 +170,80 @@ class JSArrayPrototype : public JSObject {
   static Completion shift(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
     return This.val.as_array->shift();
+  }
+
+  static Completion slice(vm_func_This_args_flags) {
+    assert(This.is_object() && object_class(This) == CLS_ARRAY);
+    JSArray *arr = This.as_object<JSArray>();
+    int64_t arr_len = arr->get_length();
+
+    int64_t start = TRY_COMP(js_to_int64sat(vm, args.size() > 0 ? args[0] : undefined));
+    int64_t end = TRY_COMP(js_to_int64sat(vm, args.size() > 1 ? args[1] : undefined));
+
+    start = std::clamp(start, int64_t(0), arr_len);
+    end = std::clamp(end, int64_t(0), arr_len);
+    int64_t from = std::min(start, end);
+    int64_t to = std::max(start, end);
+    int64_t new_len = to - from;
+
+    JSArray *new_arr = vm.heap.new_object<JSArray>(vm, new_len);
+    for (int64_t i = 0; i < new_len; i++) {
+      new_arr->dense_array[i] = arr->dense_array[i + from];
+    }
+    return JSValue(new_arr);
+  }
+
+  static Completion splice(vm_func_This_args_flags) {
+    assert(This.is_object() && object_class(This) == CLS_ARRAY);
+    JSArray *arr = This.as_object<JSArray>();
+    auto& dense_arr = arr->dense_array;
+    int64_t arr_len = arr->get_length();
+
+    JSArray *ret_arr = vm.heap.new_object<JSArray>(vm, 0);
+    // nothing to delete or insert
+    if (args.size() == 0) {
+      return JSValue(ret_arr);
+    }
+    int64_t start = TRY_COMP(js_to_int64sat(vm, args[0]));
+    int64_t del_cnt = INT64_MAX;
+    if (args.size() > 1) {
+      del_cnt = TRY_COMP(js_to_int64sat(vm, args[1]));
+    }
+    del_cnt = del_cnt < 0 ? 0 : del_cnt;
+
+    if (start < 0) {
+      if (start < -arr_len) {
+        start = 0;
+      } else {
+        start = start + arr_len;
+      }
+    } else if (start >= arr_len) {
+      del_cnt = 0;
+    }
+    del_cnt = std::min(del_cnt, arr_len - start);
+
+    // remove elements and add them to the return array
+    for (u32 i = start; i < start + del_cnt; i++) {
+      ret_arr->dense_array.push_back(dense_arr[start]);
+      dense_arr.erase(dense_arr.begin() + start);
+    }
+    ret_arr->update_length();
+
+    // insert new elements at `start`
+    if (args.size() > 2) {
+      u32 insert_cnt = args.size() - 2;
+      u32 old_size = dense_arr.size();
+      dense_arr.resize(old_size + insert_cnt);
+
+      JSValue *data = dense_arr.data();
+      memmove(data + start + insert_cnt, data + start, (old_size - start) * sizeof(*data));
+
+      for (size_t i = start; i < start + (args.size() - 2); i++) {
+        dense_arr[i] = args[i - start + 2];
+      }
+    }
+    arr->update_length();
+    return JSValue(ret_arr);
   }
 
   static Completion concat(vm_func_This_args_flags) {

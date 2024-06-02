@@ -19,11 +19,10 @@ void JSFunction::gc_scan_children(GCHeap& heap) {
   JSObject::gc_scan_children(heap);
   for (auto& var : captured_var) {
     assert(var.is(JSValue::HEAP_VAL));
-    JSValue& the_value = var.deref_heap();
-
-    if (the_value.needs_gc()) {
-      heap.gc_visit_object(the_value, the_value.as_GCObject());
-    }
+    heap.gc_visit_object(var, var.as_GCObject());
+  }
+  if (this_binding.needs_gc()) {
+    heap.gc_visit_object(this_binding, this_binding.as_GCObject());
   }
 }
 

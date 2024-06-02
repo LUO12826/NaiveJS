@@ -13,14 +13,14 @@ using u32 = uint32_t;
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
 /// try something that produces `ErrorOr<>`, return `CompThrow` if get an error.
-//#define TRY_COMP(expression)                                                              \
-//    ({                                                                                        \
-//        auto _temp_result = (expression);                                                     \
-//        if (_temp_result.is_error()) [[unlikely]] {                                           \
-//          return CompThrow(_temp_result.get_error());                                         \
-//        }                                                                                     \
-//        _temp_result.get_value();                                                             \
-//    })
+#define TRYCC(expression)                                                                     \
+    ({                                                                                        \
+        auto _temp_result = (expression);                                                     \
+        if (_temp_result.is_throw()) [[unlikely]] {                                           \
+          return _temp_result;                                                                \
+        }                                                                                     \
+        _temp_result.get_value();                                                             \
+    })
 
 /// try something that produces `ErrorOr<>`, return `Error` if get an error.
 #define TRY_ERR(expression)                                                                   \

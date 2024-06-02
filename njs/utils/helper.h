@@ -98,11 +98,56 @@ inline string memory_usage_readable(size_t size) {
   return oss.str();
 };
 
-inline void u8_to_u16_buffer_convert(char input[], char16_t output[]) {
+inline void u8_to_u16_buffer(char input[], char16_t output[]) {
   while (*input != '\0') {
     *output++ = *input++;
   }
   *output = '\0';
+}
+
+inline u16string prepare_replacer_string(const u16string& entire_str,
+                                         const u16string& replacer,
+                                         u16string_view matched,
+                                         size_t match_start,
+                                         size_t match_end) {
+  u16string prepared;
+  size_t rep_len = replacer.size();
+  size_t copy_start = 0;
+
+  for (size_t i = 0; i < rep_len; i++) {
+    if (replacer[i] != u'$') continue;
+    if (i == rep_len - 1) continue;
+
+    prepared += replacer.substr(copy_start, i - copy_start);
+    switch (replacer[i + 1]) {
+      case u'$':
+        prepared += u'$';
+        i += 1;
+        break;
+      case u'&':
+        prepared += matched;
+        i += 1;
+        break;
+      case u'`':
+        prepared += entire_str.substr(0, match_start);
+        i += 1;
+        break;
+      case u'\'':
+        prepared += entire_str.substr(match_end, entire_str.size() - match_end);
+        i += 1;
+        break;
+      default:
+        printf("waring: unsupported placeholder may have been used in replacement string\n");
+        prepared += u'$';
+    }
+    copy_start = i + 1;
+  }
+
+  if (copy_start < replacer.size()) {
+    prepared += replacer.substr(copy_start, replacer.size() - copy_start);
+  }
+
+  return prepared;
 }
 
 class DebugCounter {

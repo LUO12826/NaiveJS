@@ -4,6 +4,7 @@
 #include <memory>
 #include <optional>
 #include <utility>
+#include <vector>
 #include "SymbolRecord.h"
 #include "njs/include/SmallVector.h"
 #include "njs/common/enum_strings.h"
@@ -21,6 +22,7 @@ using std::u16string_view;
 using robin_hood::unordered_set;
 using robin_hood::unordered_map;
 using std::optional;
+using std::vector;
 using std::pair;
 using std::unique_ptr;
 using u32 = uint32_t;
@@ -339,7 +341,7 @@ class Scope {
   SmallVector<u32, 3> break_list;
   SmallVector<u32, 3> continue_list;
   SmallVector<u32, 3> throw_list;
-  SmallVector<CatchTableEntry, 3> catch_table;
+  vector<CatchTableEntry> catch_table;
   // for try-catch-finally
   SmallVector<u32, 3> call_procedure_list;
   // only function or global has this

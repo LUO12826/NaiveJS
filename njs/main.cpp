@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <unistd.h>
+#include <sys/resource.h>
 
 #include "njs/utils/Timer.h"
 #include "njs/global_var.h"
@@ -16,6 +17,7 @@ using namespace njs;
 using std::string;
 using std::u16string;
 
+void set_stack_size(size_t size_mb);
 u16string read_file(const string & path);
 void print_tokens(u16string& source_code);
 void read_options(int argc, char *argv[]);
@@ -25,7 +27,7 @@ static bool show_ast = false;
 static bool show_tokens = false;
 
 int main(int argc, char *argv[]) {
-
+  set_stack_size(48);
   read_options(argc, argv);
 
   try {
@@ -79,7 +81,7 @@ int main(int argc, char *argv[]) {
 
 void read_options(int argc, char *argv[]) {
   int option;
-  while ((option = getopt(argc, argv, "bgatvlof:")) != -1) {
+  while ((option = getopt(argc, argv, "bgatvlos:f:")) != -1) {
     switch (option) {
       case 'b':
         Global::show_codegen_result = true;
@@ -102,6 +104,9 @@ void read_options(int argc, char *argv[]) {
       case 'o':
         Global::enable_optimization = true;
         break;
+      case 's':
+        set_stack_size(atoi(optarg));
+        break;
       case 'f':
         file_path = string(optarg);
         break;
@@ -114,13 +119,29 @@ void read_options(int argc, char *argv[]) {
   }
 }
 
+void set_stack_size(size_t size_mb) {
+  const rlim_t stack_size = size_mb * 1024 * 1024;
+  struct rlimit rl;
+  int result;
+
+  result = getrlimit(RLIMIT_STACK, &rl);
+  if (result == 0) {
+    if (rl.rlim_cur < stack_size) {
+      rl.rlim_cur = stack_size;
+      result = setrlimit(RLIMIT_STACK, &rl);
+      if (result != 0) {
+        fprintf(stderr, "setrlimit return error\n");
+      }
+    }
+  }
+}
+
 void print_tokens(u16string& source_code) {
   Lexer lexer(source_code);
   Token token = Token::none;
 
   while (token.type != TokenType::EOS) {
     token = lexer.next();
-
     printf("%s\n", token.to_string().c_str());
 
     if (token.type == TokenType::ILLEGAL) {

@@ -232,6 +232,6 @@ u16string get_date_string(double ts, int magic) {
   }
 
   char16_t u16buf[64];
-  njs::u8_to_u16_buffer_convert(buf, u16buf);
+  njs::u8_to_u16_buffer(buf, u16buf);
   return u16string(u16buf);
 }

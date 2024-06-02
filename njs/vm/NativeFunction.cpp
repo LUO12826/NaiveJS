@@ -161,12 +161,17 @@ Completion NativeFunction::parseInt(vm_func_This_args_flags) {
   return JSValue(val);
 }
 
-Completion JSMath::max(JS_NATIVE_FUNC_PARAMS) {
+Completion JSMath::min(vm_func_This_args_flags) {
+  assert(args.size() == 2 && args[0].is_float64() && args[1].is_float64());
+  return JSValue(std::fmin(args[0].val.as_f64, args[1].val.as_f64));
+}
+
+Completion JSMath::max(vm_func_This_args_flags) {
   assert(args.size() == 2 && args[0].is_float64() && args[1].is_float64());
   return JSValue(std::fmax(args[0].val.as_f64, args[1].val.as_f64));
 }
 
-Completion JSMath::floor(JS_NATIVE_FUNC_PARAMS) {
+Completion JSMath::floor(vm_func_This_args_flags) {
   assert(args.size() == 1 && args[0].is_float64());
   return JSValue(std::floor(args[0].val.as_f64));
 }
