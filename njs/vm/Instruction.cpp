@@ -67,6 +67,16 @@ std::string Instruction::description() const {
       sprintf(buffer, "dec  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
 
+    case OpType::add_assign:
+      sprintf(buffer, "add_assign  %s %d", scope_type_names_alt[OPR1], OPR2);
+      break;
+    case OpType::add_assign_keep:
+      sprintf(buffer, "add_assign_keep  %s %d", scope_type_names_alt[OPR1], OPR2);
+      break;
+    case OpType::add_to_left:
+      sprintf(buffer, "add_to_left");
+      break;
+
     case OpType::le: sprintf(buffer, "le"); break;
     case OpType::ge: sprintf(buffer, "ge"); break;
     case OpType::lt: sprintf(buffer, "lt"); break;
@@ -361,6 +371,10 @@ static int op_stack_usage[] = {
 
     0,  // inc
     0,  // dec
+
+    -1, // add_assign,
+    0,  // add_assign_keep,
+    -1, // add_to_left,
 
     1,  // push
     1,  // push_check

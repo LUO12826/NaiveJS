@@ -196,7 +196,9 @@ friend class JSArrayIterator;
   // binary operation
   void exec_comparison(SPRef sp, OpType type);
 
+  void exec_add_common(SPRef sp, JSValue& dest, JSValue& lhs, JSValue& rhs, bool& succeeded);
   void exec_add(SPRef sp);
+  void exec_add_assign(SPRef sp, JSValue& target, bool keep_value);
   void exec_binary(SPRef sp, OpType op_type);
   void exec_bits(SPRef sp, OpType op_type);
   void exec_shift(SPRef sp, OpType op_type);

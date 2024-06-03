@@ -59,9 +59,9 @@ void GCHeap::gc_task() {
 
     last_gc_object_cnt = object_cnt;
     if (object_cnt > 3 * old_object_cnt  / 4) {
-      gc_threshold *= 2;
+      gc_threshold *= 1.6;
     } else {
-      gc_threshold /= 2;
+      gc_threshold /= 1.6;
     }
 
     if (Global::show_gc_statistics) {

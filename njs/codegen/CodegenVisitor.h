@@ -659,14 +659,12 @@ class CodegenVisitor {
     auto assign_op = expr.assign_type;
 
     auto codegen_rhs = [&] () {
-      if (assign_op != TokenType::ASSIGN) {
-        if (expr.lhs->is_identifier()) {
-          visit_identifier(*expr.lhs);
-        } else {
-          visit_left_hand_side_expr(*expr.lhs->as_lhs_expr(), false, false);
-        }
-
+      if (assign_op == Token::ASSIGN) {
         visit(expr.rhs);
+      } else {
+        visit(expr.lhs);
+        visit(expr.rhs);
+        
         switch (assign_op) {
           case Token::ADD_ASSIGN:
           case Token::SUB_ASSIGN:
@@ -703,8 +701,6 @@ class CodegenVisitor {
           default:
             assert(false);
         }
-      } else {
-        visit(expr.rhs);
       }
     };
 
@@ -715,41 +711,61 @@ class CodegenVisitor {
 
       if (not use_dynamic) {
         if (expr.rhs_is_1()
-            && (assign_op == TokenType::ADD_ASSIGN || assign_op == TokenType::SUB_ASSIGN)) {
-          OpType op = assign_op == TokenType::ADD_ASSIGN  ? OpType::inc : OpType::dec;
+            && (assign_op == Token::ADD_ASSIGN || assign_op == Token::SUB_ASSIGN)) {
+          OpType op = assign_op == Token::ADD_ASSIGN ? OpType::inc : OpType::dec;
           emit(op, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
           if (need_value) {
             emit_push(lhs_sym.storage_scope, lhs_sym.get_index(), false);
           }
+        }
+        else if (assign_op == Token::ADD_ASSIGN) {
+          visit(expr.rhs);
+          OpType op = need_value ? OpType::add_assign_keep : OpType::add_assign;
+          emit(op, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
           return;
         }
-
-        codegen_rhs();
-        OpType op;
-        if (lhs_sym.is_let_or_const()) {
-          op = need_value ? OpType::store_check : OpType::pop_check;
-        } else {
-          op = need_value ? OpType::store : OpType::pop;
+        else {
+          codegen_rhs();
+          OpType op;
+          if (lhs_sym.is_let_or_const()) {
+            op = need_value ? OpType::store_check : OpType::pop_check;
+          } else {
+            op = need_value ? OpType::store : OpType::pop;
+          }
+          emit(op, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
         }
-        emit(op, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
-      } else {
+      } // end not use dynamic
+      else {
         u32 atom = atom_pool.atomize(expr.lhs->get_source());
         emit(OpType::push_global_this);
-        codegen_rhs();
+
+        if (assign_op == Token::ADD_ASSIGN) {
+          visit(expr.lhs);
+          visit(expr.rhs);
+          emit(OpType::add_to_left);
+        } else {
+          codegen_rhs();
+        }
+
         emit(OpType::set_prop_atom, int(atom));
         if (!need_value) emit(OpType::pop_drop);
       }
-    }
+    } // end lhs is id
     else {
-      // check if left hand side is LeftHandSide Expression
       Instruction inst_set_prop;
       if (expr.lhs->type == ASTNode::EXPR_LHS) {
         inst_set_prop = visit_left_hand_side_expr(*expr.lhs->as_lhs_expr(), true, false);
       }
-      if (inst_set_prop.op_type == OpType::nop) {
-        assert(false);
+      assert(inst_set_prop.op_type != OpType::nop);
+
+      if (assign_op == Token::ADD_ASSIGN) {
+        visit(expr.lhs);
+        visit(expr.rhs);
+        emit(OpType::add_to_left);
+      } else {
+        codegen_rhs();
       }
-      codegen_rhs();
+
       emit(inst_set_prop);
       if (!need_value) emit(OpType::pop_drop);
     }
@@ -1504,7 +1520,7 @@ class CodegenVisitor {
 
     if (stmt.type == ASTNode::STMT_CONTINUE) {
       Scope *continue_scope;
-      if (stmt.id.is(TokenType::NONE)) [[likely]] {
+      if (stmt.id.is(Token::NONE)) [[likely]] {
         auto resolve_res = resolve_continue_usual(&scope());
         assert(resolve_res.found);
         continue_scope = resolve_res.target_scope;
@@ -1556,7 +1572,7 @@ class CodegenVisitor {
     // break
     else {
       Scope *break_scope;
-      if (stmt.id.is(TokenType::NONE)) [[likely]] {
+      if (stmt.id.is(Token::NONE)) [[likely]] {
         gen_var_dispose_code_recursive(&scope(), [] (Scope *s) {
           return !s->is_break_target && !s->can_break;
         });
@@ -1753,7 +1769,7 @@ class CodegenVisitor {
     // variable. The variable is defined as `let` inside the catch block. And since it is the
     // first variable in the catch block, we know it must be at `var_next_index`.
     if (has_catch) {
-      if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
+      if (stmt.catch_ident.is(Token::IDENTIFIER)) {
         int catch_id_addr = scope().get_var_next_index() + frame_meta_size;
         emit(OpType::pop, scope_type_int(scope().get_outer_func()->get_type()), catch_id_addr);
       } else {
@@ -1766,7 +1782,7 @@ class CodegenVisitor {
       u32 catch_start = bytecode_pos();
 
       auto init = [&, this] () {
-        if (stmt.catch_ident.is(TokenType::IDENTIFIER)) {
+        if (stmt.catch_ident.is(Token::IDENTIFIER)) {
           scope().define_symbol(VarKind::LET, stmt.catch_ident.text);
         }
       };

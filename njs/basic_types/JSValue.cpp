@@ -121,8 +121,7 @@ void JSValue::to_json(u16string& output, NjsVM& vm) const {
     default:
       if (is_object()) {
         u.as_object->to_json(output, vm);
-      }
-      else {
+      } else {
         assert(false);
       }
   }

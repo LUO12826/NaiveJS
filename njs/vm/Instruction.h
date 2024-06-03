@@ -48,6 +48,10 @@ enum class OpType {
   inc,
   dec,
 
+  add_assign,
+  add_assign_keep,
+  add_to_left,
+
   push,
   push_check,
   push_local,

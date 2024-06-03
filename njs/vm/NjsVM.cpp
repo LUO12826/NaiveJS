@@ -362,6 +362,24 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         value.u.as_f64 -= 1;
         break;
       }
+      case OpType::add_assign:
+      case OpType::add_assign_keep:
+        exec_add_assign(sp, get_value(GET_SCOPE, OPR2), inst.op_type == OpType::add_assign_keep);
+        break;
+      case OpType::add_to_left: {
+        sp -= 1;
+        JSValue& l = sp[0];
+        JSValue& r = sp[1];
+        if (l.is_float64() && r.is_float64()) {
+          l.u.as_f64 += r.u.as_f64;
+        } else if (l.is_prim_string() && r.is_prim_string()) {
+          l.u.as_prim_string->str += r.u.as_prim_string->str;
+        } else {
+          bool succeeded;
+          exec_add_common(sp, l, l, r, succeeded);
+        }
+        break;
+      }
       case OpType::logi_and:
         sp -= 1;
         if (sp[0].bool_value()) {
@@ -694,17 +712,13 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       case OpType::nop:
         break;
       case OpType::get_prop_atom:
-      case OpType::get_prop_atom2: {
-        int keep_obj = static_cast<int>(inst.op_type) - static_cast<int>(OpType::get_prop_atom);
-        exec_get_prop_atom(sp, OPR1, keep_obj);
+      case OpType::get_prop_atom2:
+        exec_get_prop_atom(sp, OPR1, inst.op_type == OpType::get_prop_atom2);
         break;
-      }
       case OpType::get_prop_index:
-      case OpType::get_prop_index2: {
-        int keep_obj = static_cast<int>(inst.op_type) - static_cast<int>(OpType::get_prop_index);
-        exec_get_prop_index(sp, keep_obj);
+      case OpType::get_prop_index2:
+        exec_get_prop_index(sp, inst.op_type == OpType::get_prop_index2);
         break;
-      }
       case OpType::set_prop_atom:
         exec_set_prop_atom(sp, OPR1);
         break;
@@ -1060,6 +1074,26 @@ void NjsVM::exec_regexp_build(SPRef sp, u32 atom, int reflags) {
   }
 }
 
+void NjsVM::exec_add_common(SPRef sp, JSValue& dest, JSValue& l, JSValue& r, bool& succeeded) {
+  succeeded = false;
+  JSValue lhs = VM_TRY_COMP(js_to_primitive(*this, l));
+  JSValue rhs = VM_TRY_COMP(js_to_primitive(*this, r));
+
+  if (lhs.is_prim_string() || rhs.is_prim_string()) {
+    JSValue lhs_s = VM_TRY_COMP(js_to_string(*this, lhs));
+    JSValue rhs_s = VM_TRY_COMP(js_to_string(*this, rhs));
+    auto *new_str = heap.new_object<PrimitiveString>(
+        lhs_s.u.as_prim_string->str + rhs_s.u.as_prim_string->str
+    );
+    dest.set_val(new_str);
+  } else {
+    double lhs_n = VM_TRY_ERR(js_to_number(*this, lhs));
+    double rhs_n = VM_TRY_ERR(js_to_number(*this, rhs));
+    dest.set_float(lhs_n + rhs_n);
+  }
+  succeeded = true;
+}
+
 void NjsVM::exec_add(SPRef sp) {
   sp -= 1;
   JSValue& l = sp[0];
@@ -1075,21 +1109,28 @@ void NjsVM::exec_add(SPRef sp) {
     l.set_val(new_str);
   }
   else {
-    JSValue lhs = VM_TRY_COMP(js_to_primitive(*this, l));
-    JSValue rhs = VM_TRY_COMP(js_to_primitive(*this, r));
+    bool succeeded;
+    exec_add_common(sp, l, l, r, succeeded);
+  }
+}
 
-    if (lhs.is_prim_string() || rhs.is_prim_string()) {
-      JSValue lhs_s = VM_TRY_COMP(js_to_string(*this, lhs));
-      JSValue rhs_s = VM_TRY_COMP(js_to_string(*this, rhs));
-      auto *new_str = heap.new_object<PrimitiveString>(
-          lhs_s.u.as_prim_string->str + rhs_s.u.as_prim_string->str
-      );
-      l.set_val(new_str);
-    } else {
-      double lhs_n = VM_TRY_ERR(js_to_number(*this, lhs));
-      double rhs_n = VM_TRY_ERR(js_to_number(*this, rhs));
-      l.set_float(lhs_n + rhs_n);
+void NjsVM::exec_add_assign(SPRef sp, JSValue& target, bool keep_value) {
+  sp -= 1;
+  JSValue& r = sp[1];
+
+  if (target.is_float64() && r.is_float64()) {
+    target.u.as_f64 += r.u.as_f64;
+  } else if (target.is_prim_string() && r.is_prim_string()) {
+    target.u.as_prim_string->str += r.u.as_prim_string->str;
+  } else {
+    bool succeeded;
+    exec_add_common(sp, target, target, r, succeeded);
+    if (not succeeded) [[unlikely]] {
+      return;
     }
+  }
+  if (keep_value) [[unlikely]] {
+    *++sp = target;
   }
 }
 
