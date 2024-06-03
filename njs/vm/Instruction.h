@@ -11,7 +11,8 @@ using u32 = uint32_t;
 
 // has corresponding string representations
 enum class OpType {
-  neg = 0,
+  init = 0,
+  neg,
 
   add,
   sub,

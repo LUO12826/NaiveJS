@@ -48,8 +48,8 @@ class CodegenVisitor {
 
  public:
   void codegen(ProgramOrFunctionBody *prog) {
-
     push_scope(prog->scope.get());
+    emit(OpType::init);
     visit_program_or_function_body(*prog);
 
     if (Global::enable_optimization) {

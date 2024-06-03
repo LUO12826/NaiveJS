@@ -101,16 +101,17 @@ vector<JSValue*> GCHeap::gather_roots() {
   vector<JSValue *> roots;
 
   // All values on the rt_stack are possible roots
-  for (JSStackFrame *frame : vm.stack_frames) {
+  JSStackFrame *frame = vm.curr_frame;
+  while (frame) {
     roots.push_back(&frame->function);
-    if (frame->alloc_cnt == 0) [[unlikely]] {
-      continue;
-    }
-    for (JSValue *val = frame->buffer; val <= *frame->sp_ref; val++) {
-      if (val->needs_gc()) {
-        roots.push_back(val);
+    if (frame->alloc_cnt != 0) [[likely]] {
+      for (JSValue *val = frame->buffer; val <= *frame->sp_ref; val++) {
+        if (val->needs_gc()) {
+          roots.push_back(val);
+        }
       }
     }
+    frame = frame->prev_frame;
   }
 
   roots.push_back(&vm.global_object);

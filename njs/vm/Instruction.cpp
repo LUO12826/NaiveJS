@@ -51,12 +51,13 @@ std::string Instruction::description() const {
   char buffer[80];
 
   switch (op_type) {
+    case OpType::init: sprintf(buffer, "init"); break;
+    case OpType::neg: sprintf(buffer, "neg"); break;
     case OpType::add: sprintf(buffer, "add"); break;
     case OpType::sub: sprintf(buffer, "sub"); break;
     case OpType::mul: sprintf(buffer, "mul"); break;
     case OpType::div: sprintf(buffer, "div"); break;
     case OpType::mod: sprintf(buffer, "mod"); break;
-    case OpType::neg: sprintf(buffer, "neg"); break;
 
     case OpType::inc:
       sprintf(buffer, "inc  %s %d", scope_type_names_alt[OPR1], OPR2);
@@ -324,6 +325,7 @@ std::string Instruction::description() const {
 }
 
 static int op_stack_usage[] = {
+    0, // init
     0, // neg
 
     -1, // add

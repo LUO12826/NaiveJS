@@ -225,9 +225,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   // setup call stack
   JSStackFrame frame;
   frame.prev_frame = curr_frame;
-  frame.function = JSValue(callee);
-
-  stack_frames.push_back(&frame);
+  frame.function = callee;
   curr_frame = &frame;
 
   bool copy_argv = (argv.size() < this_func_meta.param_count) | flags.copy_args;
@@ -256,7 +254,6 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       comp = this_func->native_func(*this, callee, This, args_ref, flags);
     }
     curr_frame = curr_frame->prev_frame;
-    stack_frames.pop_back();
     return comp;
   }
 
@@ -292,7 +289,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();
     }
     if (scope == ScopeType::GLOBAL) {
-      JSValue &val = stack_frames.front()->local_vars[index];
+      JSValue &val = global_frame->local_vars[index];
       return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();
     }
     if (scope == ScopeType::CLOSURE) {
@@ -317,7 +314,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       } else if (var_scope == ScopeType::FUNC_PARAM) {
         stack_val = args_buf + index;
       } else if (var_scope == ScopeType::GLOBAL) {
-        stack_val = &stack_frames.front()->local_vars[index];
+        stack_val = &global_frame->local_vars[index];
       } else {
         assert(false);
       }
@@ -337,6 +334,13 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
     Instruction& inst = bytecode[pc++];
 
     switch (inst.op_type) {
+      case OpType::init:
+        global_frame = curr_frame;
+        break;
+      case OpType::neg:
+        assert(sp[0].is_float64());
+        sp[0].u.as_f64 = -sp[0].u.as_f64;
+        break;
       case OpType::add:
         exec_add(sp);
         break;
@@ -345,10 +349,6 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       case OpType::div:
       case OpType::mod:
         exec_binary(sp, inst.op_type);
-        break;
-      case OpType::neg:
-        assert(sp[0].is_float64());
-        sp[0].u.as_f64 = -sp[0].u.as_f64;
         break;
       case OpType::inc: {
         JSValue& value = get_value(GET_SCOPE, OPR2);
@@ -424,12 +424,12 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         break;
       }
       case OpType::push_global: {
-        JSValue val = stack_frames.front()->local_vars[OPR1];
+        JSValue val = global_frame->local_vars[OPR1];
         DEREF_HEAP_IF_NEEDED
         break;
       }
       case OpType::push_global_check: {
-        JSValue val = stack_frames.front()->local_vars[OPR1];
+        JSValue val = global_frame->local_vars[OPR1];
         DEREF_HEAP_IF_NEEDED
         CHECK_UNINIT
         break;
@@ -662,27 +662,23 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       case OpType::ret: {
         if (Global::show_vm_exec_steps) printf("ret\n");
         curr_frame = curr_frame->prev_frame;
-        stack_frames.pop_back();
         return sp[0];
       }
       case OpType::ret_undef: {
         if (Global::show_vm_exec_steps) printf("ret_undef\n");
         curr_frame = curr_frame->prev_frame;
-        stack_frames.pop_back();
         return undefined;
       }
       case OpType::ret_err: {
         if (Global::show_vm_exec_steps) printf("ret_err\n");
         curr_frame = curr_frame->prev_frame;
-        stack_frames.pop_back();
         return CompThrow(sp[0]);
       }
       case OpType::halt:
         if (!global_end) {
           global_end = true;
           curr_frame = curr_frame->move_to_heap();
-          assert(stack_frames.size() == 1);
-          stack_frames.front() = curr_frame;
+          global_frame = curr_frame;
           if (Global::show_vm_exec_steps) {
             size_t sp_offset = sp - (curr_frame->stack - 1);
             printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp_offset, pc);
@@ -877,12 +873,15 @@ void NjsVM::execute_pending_task() {
 Completion NjsVM::call_function(JSValueRef func, JSValueRef This, JSValueRef new_target,
                                 const vector<JSValue>& args, CallFlags flags) {
   JSFunction& f = *func.u.as_func;
-  // forgive me for the only time I've used nested ternary expressions
-  const JSValue& actual_this = f.has_this_binding ?
-                                   f.this_binding : (This.is_undefined() ? global_object : This);
+  const JSValue *actual_this;
+  if (f.has_this_binding) {
+    actual_this = &f.this_binding;
+  } else {
+    actual_this = This.is_undefined() ? &global_object : &This;
+  }
 
   ArgRef args_ref(const_cast<JSValue*>(args.data()), args.size());
-  return call_internal(func, actual_this, new_target, args_ref, flags);
+  return call_internal(func, *actual_this, new_target, args_ref, flags);
 }
 
 using StackTraceItem = NjsVM::StackTraceItem;
@@ -890,13 +889,15 @@ using StackTraceItem = NjsVM::StackTraceItem;
 vector<StackTraceItem> NjsVM::capture_stack_trace() {
   vector<StackTraceItem> trace;
 
-  for (size_t i = stack_frames.size() - 1; i > 0; i--) {
-    auto func = stack_frames[i]->function.u.as_func;
+  auto iter = curr_frame;
+  while (iter != global_frame) {
+    auto func = iter->function.u.as_func;
     trace.emplace_back(StackTraceItem {
         .func_name = func->meta->is_anonymous ? u"(anonymous)" : u16string(func->name),
         .source_line = func->meta->source_line,
         .is_native = func->meta->is_native,
     });
+    iter = iter->prev_frame;
   }
 
   if (!global_end) {
@@ -1221,11 +1222,15 @@ CallResult NjsVM::exec_call(SPRef sp, int argc, bool has_this, bool is_new, JSVa
     return CallResult::DONE_ERROR;
   }
   JSFunction& func = *func_val.u.as_func;
-  JSValue& actual_this = func.has_this_binding ?
-                             func.this_binding : has_this ? sp[-argc - 1] : global_object;
+  JSValue *This;
+  if (func.has_this_binding) [[unlikely]] {
+    This = &func.this_binding;
+  } else {
+    This = has_this ? &sp[-argc - 1] : &global_object;
+  }
   // call the function
   ArgRef argv(&func_val + 1, argc);
-  auto comp = call_internal(func_val, actual_this, new_target, argv, CallFlags());
+  auto comp = call_internal(func_val, *This, new_target, argv, CallFlags());
 
   // put the return value to the correct place
   if (has_this) {
@@ -1656,8 +1661,7 @@ void NjsVM::exec_halt_err(SPRef sp, Instruction &inst) {
   sp = curr_frame->stack - 1;
 
   curr_frame = curr_frame->move_to_heap();
-  assert(stack_frames.size() == 1);
-  stack_frames.front() = curr_frame;
+  global_frame = curr_frame;
   if (Global::show_vm_exec_steps) {
     printf("\033[33m%-50s sp: %-3ld\033[0m\n\n", inst.description().c_str(), 0l);
   }

@@ -235,8 +235,8 @@ friend class JSArrayIterator;
   // true if the code in the global scope is executed
   bool global_end {false};
 
-  vector<JSStackFrame*> stack_frames;
   JSStackFrame *curr_frame {nullptr};
+  JSStackFrame *global_frame {nullptr};
 
   vector<Instruction> bytecode;
   JSRunLoop runloop;
