@@ -66,7 +66,7 @@ class JSRunLoop {
   // if a macro task has not been completed, it must be in the task pool.
   unordered_map<size_t, JSTask> task_pool;
   // store pointers to the tasks, which are in the task pool.
-  std::deque<JSTask*> macro_task_queue;
+  std::deque<JSTask *> macro_task_queue;
   std::mutex macro_queue_lock;
   std::condition_variable macro_queue_cv;
 

@@ -132,7 +132,7 @@ class JSRegExp : public JSObject {
   }
 
   template<typename ItemCB>
-  ErrorOr<JSObject*> build_group_object(NjsVM& vm, LREWrapper& lre, ItemCB callback) {
+  ErrorOr<JSObject *> build_group_object(NjsVM& vm, LREWrapper& lre, ItemCB callback) {
     JSObject *groups = nullptr;
     const char *group_name_ptr = lre.get_groupnames();
     int capture_cnt = lre.get_capture_cnt();

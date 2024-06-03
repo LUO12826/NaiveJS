@@ -131,7 +131,7 @@ class ASTNode {
 
   template<typename T>
   T *as() {
-    return static_cast<T*>(this);
+    return static_cast<T *>(this);
   }
 
   bool is(Type t) const { return this->type == t; }

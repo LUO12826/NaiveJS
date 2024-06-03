@@ -127,7 +127,7 @@ using byte = int8_t;
 
   size_t object_cnt {0};
   size_t last_gc_object_cnt {0};
-  size_t gc_threshold {20000};
+  size_t gc_threshold {30000};
 
   NjsVM& vm;
 

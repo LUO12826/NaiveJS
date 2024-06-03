@@ -58,10 +58,10 @@ void GCHeap::gc_task() {
     stats.copy_time += copy_time;
 
     last_gc_object_cnt = object_cnt;
-    if (object_cnt > 3 * old_object_cnt  / 4) {
-      gc_threshold *= 1.6;
+    if (object_cnt > 0.7 * old_object_cnt) {
+      gc_threshold *= 3;
     } else {
-      gc_threshold /= 1.6;
+      gc_threshold /= 1.5;
     }
 
     if (Global::show_gc_statistics) {
@@ -94,10 +94,10 @@ void GCHeap::gc_task() {
 void GCHeap::gc_visit_object(JSValue& handle, GCObject *obj) {
   assert(handle.needs_gc());
   GCObject *obj_new = copy_object(obj);
-  handle.u.as_object = static_cast<JSObject*>(obj_new);
+  handle.u.as_object = static_cast<JSObject *>(obj_new);
 }
 
-vector<JSValue*> GCHeap::gather_roots() {
+vector<JSValue *> GCHeap::gather_roots() {
   vector<JSValue *> roots;
 
   // All values on the rt_stack are possible roots
@@ -153,7 +153,7 @@ vector<JSValue*> GCHeap::gather_roots() {
 
 void GCHeap::copy_alive() {
   alloc_point = to_start;
-  vector<JSValue*> roots = gather_roots();
+  vector<JSValue *> roots = gather_roots();
 
   if (false) {
     std::cout << "GC found roots:\n";
@@ -179,7 +179,7 @@ void GCHeap::copy_alive() {
 
 void GCHeap::dealloc_dead(byte *start, byte *end) {
   for (byte *ptr = start; ptr < end; ) {
-    GCObject *obj = reinterpret_cast<GCObject *>(ptr);
+    auto *obj = reinterpret_cast<GCObject *>(ptr);
     ptr += obj->size;
     if (obj->forward_ptr == nullptr) {
 //      if (Global::show_gc_statistics) [[unlikely]] {
@@ -210,7 +210,7 @@ GCObject* GCHeap::copy_object(GCObject *obj) {
 
 void GCHeap::check_fwd_pointer() {
   for (byte *ptr = from_start; ptr < alloc_point; ) {
-    GCObject *obj = reinterpret_cast<GCObject *>(ptr);
+    auto *obj = reinterpret_cast<GCObject *>(ptr);
     if (obj->size % 8 != 0) {
       assert(false);
     }

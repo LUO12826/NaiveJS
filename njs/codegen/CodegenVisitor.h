@@ -524,8 +524,8 @@ class CodegenVisitor {
           }
           emit(OpType::js_typeof);
         } else if (expr.op.text == u"delete") {
-          if (auto *lhs = dynamic_cast<LeftHandSideExpr*>(expr.operand);
-              lhs != nullptr && lhs->postfixs.size() != 0) {
+          if (auto *lhs = dynamic_cast<LeftHandSideExpr *>(expr.operand);
+              lhs != nullptr && not lhs->postfixs.empty()) {
             auto inst_set_prop = visit_left_hand_side_expr(*lhs, true, false);
             if (inst_set_prop.op_type == OpType::set_prop_atom) {
               emit(OpType::push_atom, inst_set_prop.operand.two[0]);

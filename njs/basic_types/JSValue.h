@@ -218,7 +218,7 @@ friend class NjsVM;
 
   template <class T>
   T *as_object() const {
-    return static_cast<T*>(u.as_object);
+    return static_cast<T *>(u.as_object);
   }
 
   JSObject *as_object_or_null() const {

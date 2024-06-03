@@ -12,40 +12,31 @@
 namespace njs {
 
 inline ErrorOr<bool> strict_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
-  bool res;
   if (lhs.tag == rhs.tag) {
     assert(lhs.tag != JSValue::HEAP_VAL && lhs.tag != JSValue::VALUE_HANDLE);
     assert(lhs.tag != JSValue::JS_ATOM);
 
     switch (lhs.tag) {
       case JSValue::BOOLEAN:
-        res = lhs.u.as_bool == rhs.u.as_bool;
-        break;
+        return lhs.u.as_bool == rhs.u.as_bool;
       case JSValue::NUM_FLOAT:
-        res = lhs.u.as_f64 == rhs.u.as_f64;
-        break;
+        return lhs.u.as_f64 == rhs.u.as_f64;
       case JSValue::UNDEFINED:
       case JSValue::JS_NULL:
-        res = true;
-        break;
-      case JSValue::STRING: {
-        res = lhs.u.as_prim_string->str
-              == rhs.u.as_prim_string->str;
-        break;
-      }
+        return true;
+      case JSValue::STRING:
+        return lhs.u.as_prim_string->str == rhs.u.as_prim_string->str;
       default:
         if (lhs.is_object()) {
-          res = lhs.as_object() == rhs.as_object();
+          return lhs.as_object() == rhs.as_object();
         } else {
           assert(false);
         }
     }
   }
   else {
-    res = false;
+    return false;
   }
-
-  return res;
 }
 
 inline ErrorOr<bool> abstract_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {

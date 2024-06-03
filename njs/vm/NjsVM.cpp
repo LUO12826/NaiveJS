@@ -894,7 +894,7 @@ Completion NjsVM::call_function(JSValueRef func, JSValueRef This, JSValueRef new
     actual_this = This.is_undefined() ? &global_object : &This;
   }
 
-  ArgRef args_ref(const_cast<JSValue*>(args.data()), args.size());
+  ArgRef args_ref(const_cast<JSValue *>(args.data()), args.size());
   return call_internal(func, *actual_this, new_target, args_ref, flags);
 }
 

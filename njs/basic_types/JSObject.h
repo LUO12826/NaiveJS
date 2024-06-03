@@ -186,7 +186,7 @@ friend class JSForInIterator;
 
   template <typename T>
   T *as() {
-    return static_cast<T*>(this);
+    return static_cast<T *>(this);
   }
 
   void gc_scan_children(GCHeap& heap) override;

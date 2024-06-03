@@ -40,7 +40,7 @@ inline Completion Object_hasOwn(vm_func_This_args_flags) {
   return JSObjectPrototype::hasOwnProperty(vm, func, args[0], args.subarray(1, 1), flags);
 }
 
-inline ErrorOr<JSObject*> check_argument_and_get_object(NjsVM& vm, ArrayRef<JSValue> args) {
+inline ErrorOr<JSObject *> check_argument_and_get_object(NjsVM& vm, ArrayRef<JSValue> args) {
   JSValue arg;
   if (args.size() >= 1) [[likely]] {
     arg = args[0];

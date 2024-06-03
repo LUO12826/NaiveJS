@@ -559,7 +559,7 @@ error:
             return ast;
           }
           assert(ast->type == ASTNode::EXPR_ARGS);
-          auto* args = static_cast<Arguments*>(ast);
+          auto* args = static_cast<Arguments *>(ast);
           lhs->add_arguments(args);
 
           if (in_new_expr_ctx) return lhs;
@@ -609,7 +609,7 @@ error:
   ASTNode* parse_arguments() {
     START_POS;
     assert(token_match(TokenType::LEFT_PAREN));
-    std::vector<ASTNode*> arguments;
+    std::vector<ASTNode *> arguments;
 
     lexer.next();
     while (!token_match(TokenType::RIGHT_PAREN)) {
@@ -1177,7 +1177,7 @@ error:
     lexer.next();
     while (!token_match(TokenType::RIGHT_BRACE)) {
       ASTNode* case_expr = nullptr;
-      std::vector<ASTNode*> stmts;
+      std::vector<ASTNode *> stmts;
       u16string_view type = lexer.current().text;
       if (type == u"case") {
         lexer.next();  // skip case
@@ -1361,7 +1361,7 @@ error:
               << ", local variables count (accumulated): " << scope->get_var_count() << '\n';
     std::cout << "  local variables in this scope:\n";
 
-    vector<SymbolRecord*> sym_records(scope->get_symbol_table().size() - scope->get_param_count());
+    vector<SymbolRecord *> sym_records(scope->get_symbol_table().size() - scope->get_param_count());
 
     for (auto& entry : scope->get_symbol_table()) {
       if (entry.second.var_kind != VarKind::DECL_FUNC_PARAM) {
