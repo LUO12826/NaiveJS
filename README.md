@@ -2,6 +2,18 @@
 
 NaiveJS is a personal experimental JavaScript engine. My primary goal is to learn the implementation of well-known features in JavaScript such as closures, event loops, objects, etc., rather than implementing the language strictly according to the ECMA specification. Having said that, I do hope to bring NaiveJS closer to the specification as time goes on.
 
+### Update (May 2024)
+
+NaiveJS can now run the Typescript 2.0.0 transpiler ([test_typescript_2.0.0.js](/test_files/test_typescript_2.0.0.js)) ! Although it is still not a rigorous ES5 implementation, it at least produces the same results as QuickJS produces in my tests. 
+
+Running time comparison of running the Typescript transpiler (input is the same piece of Typescript code):
+
+- Node.js v18.15.0 : 0.80 s
+- QuickJS (CMake "Release" build) : 2.73 s
+- NaiveJS (CMake "Release" build) : 3.45 s
+
+This comparison is just for fun. If NaiveJS were implemented strictly according to the ECMA specification, it would be expected to run even slower.
+
 ### Language Feature Checklist
 
 - [x] Lexer, parser, and AST (adapted from [this work](https://github.com/zhuzilin/es))
@@ -26,10 +38,11 @@ NaiveJS is a personal experimental JavaScript engine. My primary goal is to lear
 - [x] `new` operator
 - [x] Prototype chain
 - [x] Global scope (that works like real JS)
-- [x] Object property attributes
-- [ ] Regular expression
+- [x] Object property attributes, Object.defineProperty
+- [x] Regular expression
 - [ ] Template literals
 - [ ] Spread syntax
+- [ ] Destructuring assignment
 
 ### Other To Do
 
@@ -47,7 +60,16 @@ NaiveJS is a personal experimental JavaScript engine. My primary goal is to lear
 
 ### Acknowledgement
 
+- [QuickJS](https://bellard.org/quickjs/)
+
+  A great Javascript engine, small and fast. It supports the [ES2023](https://tc39.github.io/ecma262/2023) specification.
+
 - [zhuzilin/es](https://github.com/zhuzilin/es)
+
+  An ES5 engine written from scratch.
+
 - [martinus/robin-hood-hashing](https://github.com/martinus/robin-hood-hashing)
+
 - [bshoshany/thread-pool](https://github.com/bshoshany/thread-pool)
+
 - [yhirose/cpp-httplib](https://github.com/yhirose/cpp-httplib)
