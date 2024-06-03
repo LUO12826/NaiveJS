@@ -16,7 +16,10 @@ void GCHeap::gc_if_needed() {
 }
 
 void GCHeap::gc() {
-  gc_mutex.lock();
+  gc_message("************ GC triggered ************");
+
+  gc_running.wait(true);
+  gc_running = true;
   {
     std::lock_guard<std::mutex> lock(cond_mutex);
     gc_start = true;
@@ -28,6 +31,8 @@ void GCHeap::gc() {
     std::unique_lock<std::mutex> lock(cond_mutex);
     gc_cond_var.wait(lock, [this] { return copy_done; });
   }
+
+  gc_message("************  execution continue  ************");
 }
 
 void GCHeap::gc_task() {
@@ -37,13 +42,9 @@ void GCHeap::gc_task() {
     if (stop) return;
 
     Timer timer("gc");
-    std::cout << "GC triggered.\n";
-    stats.gc_count += 1;
+    gc_message("GC task start");
 
-    if (Global::show_gc_statistics) {
-      std::cout << "\033[33m";
-      std::cout << "****************** gc starts ******************\n";
-    }
+    stats.gc_count += 1;
 
     byte *start = from_start;
     byte *end = alloc_point;
@@ -53,13 +54,22 @@ void GCHeap::gc_task() {
 
     Timer timer_copy("copy alive");
     copy_alive();
-    stats.copy_time += timer_copy.end(Global::show_gc_statistics);
+    long long copy_time = timer_copy.end(Global::show_gc_statistics);
+    stats.copy_time += copy_time;
 
     last_gc_object_cnt = object_cnt;
     if (object_cnt > 3 * old_object_cnt  / 4) {
       gc_threshold *= 2;
     } else {
       gc_threshold /= 2;
+    }
+
+    if (Global::show_gc_statistics) {
+      std::cout << "GC copy done\n";
+      std::cout << "object count before GC: " << old_object_cnt << '\n';
+      std::cout << "object count after GC: " << object_cnt << '\n';
+      std::cout << "ratio: " << (double)object_cnt / old_object_cnt << '\n';
+      std::cout << "gc threshold: " << gc_threshold << '\n';
     }
 
     gc_start = false;
@@ -71,12 +81,11 @@ void GCHeap::gc_task() {
     dealloc_dead(start, end);
     stats.dealloc_time += timer_dealloc.end(Global::show_gc_statistics);
 
-    gc_mutex.unlock();
+    gc_message("GC dealloc done");
 
-    if (Global::show_gc_statistics) {
-      std::cout << "******************  gc ends  ******************\n";
-      std::cout << "\033[0m";
-    }
+    gc_running = false;
+    gc_running.notify_one();
+
     stats.total_time += timer.end(Global::show_gc_statistics);
   }
 
@@ -145,7 +154,7 @@ void GCHeap::copy_alive() {
   alloc_point = to_start;
   vector<JSValue*> roots = gather_roots();
 
-  if (Global::show_gc_statistics) {
+  if (false) {
     std::cout << "GC found roots:\n";
     if (roots.empty()) std::cout << "(empty)\n";
     for (JSValue *root : roots) {
@@ -172,10 +181,10 @@ void GCHeap::dealloc_dead(byte *start, byte *end) {
     GCObject *obj = reinterpret_cast<GCObject *>(ptr);
     ptr += obj->size;
     if (obj->forward_ptr == nullptr) {
-      if (Global::show_gc_statistics) [[unlikely]] {
-        std::cout << "GC deallocate an object: "
-                  << static_cast<JSObject *>(obj)->description() << '\n';
-      }
+//      if (Global::show_gc_statistics) [[unlikely]] {
+//        std::cout << "GC deallocate an object: "
+//                  << static_cast<JSObject *>(obj)->description() << '\n';
+//      }
       obj->~GCObject();
     }
   }
@@ -185,9 +194,9 @@ GCObject* GCHeap::copy_object(GCObject *obj) {
   GCObject *obj_new = obj->forward_ptr;
   if (obj_new == nullptr) {
     object_cnt += 1;
-    if (Global::show_gc_statistics) [[unlikely]] {
-      std::cout << "Copy object: " << static_cast<JSObject *>(obj)->description() << '\n';
-    }
+//    if (Global::show_gc_statistics) [[unlikely]] {
+//      std::cout << "Copy object: " << static_cast<JSObject *>(obj)->description() << '\n';
+//    }
     obj_new = (GCObject *)alloc_point;
     memcpy((void *)obj_new, (void *)obj, obj->size);
     obj->forward_ptr = obj_new;
@@ -223,6 +232,12 @@ void* GCHeap::allocate(size_t size_byte) {
   void *start_addr = alloc_point;
   alloc_point += size_byte;
   return start_addr;
+}
+
+void GCHeap::gc_message(string_view msg) {
+  if (Global::show_gc_statistics) {
+    std::cout << msg << '\n';
+  }
 }
 
 }

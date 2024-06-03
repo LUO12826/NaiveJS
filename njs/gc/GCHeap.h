@@ -5,6 +5,8 @@
 #include <vector>
 #include <iostream>
 #include <thread>
+#include <atomic>
+#include <string>
 #include <condition_variable>
 
 #include "GCObject.h"
@@ -13,6 +15,7 @@
 
 namespace njs {
 
+using std::string_view;
 using std::vector;
 class NjsVM;
 
@@ -50,7 +53,7 @@ using byte = int8_t;
   }
 
   ~GCHeap() {
-    gc_mutex.lock();
+    gc_running.wait(true);
     {
       std::lock_guard<std::mutex> lock(cond_mutex);
       stop = true;
@@ -59,7 +62,6 @@ using byte = int8_t;
     gc_thread.join();
 
     free(storage);
-    gc_mutex.unlock();
   }
 
   /// @brief Create a new object on heap.
@@ -78,7 +80,6 @@ using byte = int8_t;
 
   void gc();
   void gc_if_needed();
-  void check_fwd_pointer();
   size_t get_heap_usage() {
     return alloc_point - from_start;
   }
@@ -95,11 +96,13 @@ using byte = int8_t;
 
   GCStats stats;
  private:
+  void gc_message(string_view msg);
   vector<JSValue *> gather_roots();
 
   void gc_task();
   void copy_alive();
   void dealloc_dead(byte *start, byte *end);
+  void check_fwd_pointer();
 
   // Copy a single object. Recursively copy its child objects.
   GCObject *copy_object(GCObject *obj);
@@ -130,13 +133,13 @@ using byte = int8_t;
 
   std::thread gc_thread;
 
+  std::atomic<bool> gc_running {false};
   bool gc_start {false};
   bool copy_done {false};
   bool stop {false};
 
   std::condition_variable gc_cond_var;
   std::mutex cond_mutex;
-  std::mutex gc_mutex;
 
 };
 
