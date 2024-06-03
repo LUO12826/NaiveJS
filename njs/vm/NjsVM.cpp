@@ -169,23 +169,9 @@ JSValue NjsVM::new_primitive_string(u16string&& str) {
 
 void NjsVM::run() {
 
-  if (Global::show_vm_state) {
-    std::cout << "### VM starts execution\n";
-    std::cout << "---------------------------------------------------\n";
-  }
-
   execute_global();
   execute_pending_task();
   runloop.loop();
-
-  if (Global::show_vm_state) {
-    std::cout << "### end of execution VM\n";
-    std::cout << "---------------------------------------------------\n";
-  }
-
-  std::cout << "Heap usage: " << memory_usage_readable(heap.get_heap_usage()) << '\n';
-  std::cout << "Heap object count: " << heap.get_object_count() << '\n';
-  heap.stats.print();
 
   if (Global::show_log_buffer && !log_buffer.empty()) {
     std::cout << "------------------------------" << '\n';
@@ -195,6 +181,11 @@ void NjsVM::run() {
     }
   }
 
+  if (Global::show_gc_statistics) {
+    std::cout << "Heap usage: " << memory_usage_readable(heap.get_heap_usage()) << '\n';
+    std::cout << "Heap object count: " << heap.get_object_count() << '\n';
+    heap.stats.print();
+  }
 }
 
 void NjsVM::execute_global() {
