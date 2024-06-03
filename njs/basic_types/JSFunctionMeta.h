@@ -22,16 +22,16 @@ class JSFunction;
 
 // Native function type. A Native function should act like a JavaScript function,
 // accepting an array of arguments and returning a value.
-using NativeFuncType = Completion(*)(NjsVM&, JSFunction&, JSValue, ArrayRef<JSValue>, CallFlags);
+using NativeFuncType = Completion(*)(NjsVM&, JSValueRef, JSValueRef, ArrayRef<JSValue>, CallFlags);
 
 struct JSFunctionMeta {
 
   u32 name_index;
-  bool is_anonymous {false};
-  bool is_arrow_func {false};
-  bool is_native {false};
-  bool is_strict {false};
-  bool prepare_arguments_array {false};
+  bool is_anonymous : 1 {false};
+  bool is_arrow_func : 1 {false};
+  bool is_native : 1 {false};
+  bool is_strict : 1 {false};
+  bool prepare_arguments_array : 1 {false};
 
   u16 param_count;
   u16 local_var_count;
@@ -49,8 +49,8 @@ struct JSFunctionMeta {
   std::string description() const;
 };
 
-inline JSFunctionMeta build_func_meta(NativeFuncType func) {
-  return JSFunctionMeta {
+inline JSFunctionMeta* build_func_meta(NativeFuncType func) {
+  return new JSFunctionMeta {
       .is_anonymous = true,
       .is_native = true,
       .param_count = 0,

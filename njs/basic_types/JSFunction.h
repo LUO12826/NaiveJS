@@ -17,8 +17,8 @@ class NjsVM;
 
 class JSFunction : public JSObject {
  public:
-  JSFunction(NjsVM& vm, u16string name, const JSFunctionMeta& meta);
-  JSFunction(NjsVM& vm, const JSFunctionMeta& meta);
+  JSFunction(NjsVM& vm, u16string_view name, JSFunctionMeta *meta);
+  JSFunction(NjsVM& vm, JSFunctionMeta *meta);
 
   void gc_scan_children(GCHeap& heap) override;
 
@@ -28,8 +28,8 @@ class JSFunction : public JSObject {
 
   std::string description() override;
 
-  std::u16string name;
-  JSFunctionMeta meta;
+  u16string_view name;
+  JSFunctionMeta *meta {nullptr};
 
   bool has_this_binding {false};
   JSValue this_binding;

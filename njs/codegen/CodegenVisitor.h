@@ -71,7 +71,7 @@ class CodegenVisitor {
 
     std::cout << "[[function metadata]]\n";
     for (int i = 0; i < func_meta.size(); i++) {
-      auto& meta = func_meta[i];
+      auto& meta = *func_meta[i].get();
       auto func_name = meta.is_anonymous ? "(anonymous)"
                                          : to_u8string(atom_pool.get_string(meta.name_index));
       std::cout << "index: " << std::setw(3) << i
@@ -169,7 +169,8 @@ class CodegenVisitor {
       }
     }
     // Fix the jump target of the call instructions
-    for (auto& meta : func_meta) {
+    for (auto& m : func_meta) {
+      auto &meta = *m;
       if (meta.is_native) continue;
       meta.bytecode_start += pos_moved[meta.bytecode_start];
 
@@ -414,7 +415,7 @@ class CodegenVisitor {
     }
 
     // create metadata for function
-    u32 func_idx = add_function_meta(JSFunctionMeta {
+    auto *meta = new JSFunctionMeta {
         .name_index = func.has_name() ? add_const(func.name.text) : 0,
         .is_anonymous = !func.has_name() || func.is_arrow_func,
         .is_arrow_func = func.is_arrow_func,
@@ -427,7 +428,9 @@ class CodegenVisitor {
         .bytecode_end = bytecode_pos(),
         .source_line = func.start_line_num(),
         .catch_table = std::move(scope().catch_table)
-    });
+    };
+
+    u32 func_idx = add_function_meta(meta);
 
     // let the VM make a function
     init_code.emplace_back(OpType::make_func, func_idx);
@@ -1950,9 +1953,9 @@ class CodegenVisitor {
     return idx;
   }
 
-  u32 add_function_meta(const JSFunctionMeta& meta) {
+  u32 add_function_meta(JSFunctionMeta *meta) {
     auto idx = func_meta.size();
-    func_meta.push_back(meta);
+    func_meta.emplace_back(meta);
     return idx;
   }
 
@@ -1965,7 +1968,7 @@ class CodegenVisitor {
   // for constant
   AtomPool atom_pool;
   SmallVector<double, 10> num_list;
-  SmallVector<JSFunctionMeta, 10> func_meta;
+  vector<unique_ptr<JSFunctionMeta>> func_meta;
 
   inline static auto _ = [] {};
 };

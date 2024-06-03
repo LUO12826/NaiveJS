@@ -6,13 +6,13 @@
 #include "njs/vm/NjsVM.h"
 
 namespace njs {
-JSFunction::JSFunction(NjsVM& vm, u16string name, const JSFunctionMeta& meta)
+JSFunction::JSFunction(NjsVM& vm, u16string_view name, JSFunctionMeta *meta)
     : JSObject(CLS_FUNCTION, vm.function_prototype)
-    , name(std::move(name))
+    , name(name)
     , meta(meta)
-    , native_func(meta.native_func) {}
+    , native_func(meta->native_func) {}
 
-JSFunction::JSFunction(NjsVM& vm, const JSFunctionMeta& meta)
+JSFunction::JSFunction(NjsVM& vm, JSFunctionMeta *meta)
     : JSFunction(vm, u"", meta) {}
 
 void JSFunction::gc_scan_children(GCHeap& heap) {
@@ -29,14 +29,14 @@ void JSFunction::gc_scan_children(GCHeap& heap) {
 std::string JSFunction::description() {
   std::string desc;
   desc += "JSFunction ";
-  if (meta.is_anonymous) desc += "(anonymous)";
+  if (meta->is_anonymous) desc += "(anonymous)";
   else {
     desc += "named: ";
     desc += to_u8string(name);
   }
 
   desc += ", is native: ";
-  desc += to_u8string(meta.is_native);
+  desc += to_u8string(meta->is_native);
   desc += "  Props: ";
   desc += JSObject::description();
 

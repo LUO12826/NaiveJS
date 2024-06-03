@@ -139,7 +139,7 @@ class JSArrayPrototype : public JSObject {
           if (a.is_undefined()) return false;
           if (b.is_undefined()) return true;
 
-          comp = vm.call_function(args[0].u.as_func, undefined, nullptr, {a, b});
+          comp = vm.call_function(args[0], undefined, undefined, {a, b});
           if (comp.is_throw()) {
             throw std::runtime_error("");
           }

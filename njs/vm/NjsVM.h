@@ -27,6 +27,8 @@ namespace njs {
 using u32 = uint32_t;
 using std::u16string;
 using std::vector;
+using std::deque;
+using std::unique_ptr;
 using llvm::SmallVector;
 using SPRef = JSValue*&;
 using ArgRef = ArrayRef<JSValue>;
@@ -125,7 +127,7 @@ friend class JSArrayIterator;
 
   JSObject* new_object(ObjClass cls = CLS_OBJECT);
   JSObject* new_object(ObjClass cls, JSValue proto);
-  JSFunction* new_function(const JSFunctionMeta& meta);
+  JSFunction* new_function(JSFunctionMeta *meta);
   JSValue new_primitive_string(const u16string& str);
   JSValue new_primitive_string(u16string&& str);
 
@@ -173,13 +175,13 @@ friend class JSArrayIterator;
   void execute_single_task(JSTask& task);
   void execute_pending_task();
 
-  Completion call_function(JSFunction *func, JSValue This, JSFunction *new_target,
+  Completion call_function(JSValueRef func, JSValueRef This, JSValueRef new_target,
                            const vector<JSValue>& args, CallFlags flags = CallFlags());
-  Completion call_internal(JSFunction *callee, JSValue This, JSFunction *new_target,
+  Completion call_internal(JSValueRef callee, JSValueRef This, JSValueRef new_target,
                            ArgRef argv, CallFlags flags);
   // function operation
   void exec_make_func(SPRef sp, int meta_idx, JSValue env_this);
-  CallResult exec_call(SPRef sp, int argc, bool has_this, JSFunction *new_target);
+  CallResult exec_call(SPRef sp, int argc, bool has_this, bool is_new, JSValueRef new_target);
   void exec_js_new(SPRef sp, int arg_count);
   // object operation
   void exec_add_props(SPRef sp, int props_cnt);
@@ -238,12 +240,12 @@ friend class JSArrayIterator;
 
   vector<Instruction> bytecode;
   JSRunLoop runloop;
-  std::deque<JSTask> micro_task_queue;
+  deque<JSTask> micro_task_queue;
 
   // for constant
   AtomPool atom_pool;
   SmallVector<double, 10> num_list;
-  SmallVector<JSFunctionMeta, 10> func_meta;
+  vector<unique_ptr<JSFunctionMeta>> func_meta;
 
   JSValue global_object;
   JSValue global_func;

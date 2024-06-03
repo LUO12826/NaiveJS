@@ -52,7 +52,7 @@ class JSStringPrototype : public JSObject {
 
   static Completion charAt(vm_func_This_args_flags) {
     assert(args.size() > 0 && args[0].is(JSValue::NUM_FLOAT));
-    This = TRY_COMP(js_require_object_coercible(vm, This));
+    TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
 
     double index = args[0].u.as_f64;
@@ -65,7 +65,7 @@ class JSStringPrototype : public JSObject {
 
   static Completion indexOf(vm_func_This_args_flags) {
     assert(args.size() > 0);
-    This = TRY_COMP(js_require_object_coercible(vm, This));
+    TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
     auto *pattern = TRY_COMP(js_to_string(vm, args[0])).u.as_prim_string;
 
@@ -89,7 +89,7 @@ class JSStringPrototype : public JSObject {
 
   static Completion lastIndexOf(vm_func_This_args_flags) {
     assert(args.size() > 0);
-    This = TRY_COMP(js_require_object_coercible(vm, This));
+    TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
     auto *pattern = TRY_COMP(js_to_string(vm, args[0])).u.as_prim_string;
 
@@ -138,7 +138,7 @@ class JSStringPrototype : public JSObject {
 
   // TODO: should also support regexp.
   static Completion split(vm_func_This_args_flags) {
-    This = TRY_COMP(js_require_object_coercible(vm, This));
+    TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
     auto *arr = vm.heap.new_object<JSArray>(vm, 0);
 
@@ -157,8 +157,9 @@ class JSStringPrototype : public JSObject {
     return JSValue(arr);
   }
 
+  // TODO: pause GC here
   static Completion match(vm_func_This_args_flags) {
-    This = TRY_COMP(js_require_object_coercible(vm, This));
+    TRY_COMP(js_require_object_coercible(vm, This));
     JSValue str = TRY_ERR(js_to_string(vm, This));
     
     JSValue match_method;
@@ -173,12 +174,13 @@ class JSStringPrototype : public JSObject {
       return regexp.as_object<JSRegExp>()->exec(vm, str, false);
     }
     else {
-      return vm.call_function(match_method.u.as_func, args[0], nullptr, {str}, flags);
+      return vm.call_function(match_method, args[0], undefined, {str}, flags);
     }
   }
 
+  // TODO: pause GC here
   static Completion replace(vm_func_This_args_flags) {
-    This = TRY_COMP(js_require_object_coercible(vm, This));
+    TRY_COMP(js_require_object_coercible(vm, This));
     // nothing to replace
     if (args.size() < 2) {
       return js_to_string(vm, This);
@@ -192,7 +194,7 @@ class JSStringPrototype : public JSObject {
         goto arg0_is_string;
       } else {
         if (m_replace.is_function()) {
-          return vm.call_function(m_replace.u.as_func, args[0], nullptr, {This, args[1]}, flags);
+          return vm.call_function(m_replace, args[0], undefined, {This, args[1]}, flags);
         } else {
           return CompThrow(vm.build_error_internal(
             JS_TYPE_ERROR, u"[Symbol.replace] method is not callable"));
@@ -211,8 +213,7 @@ class JSStringPrototype : public JSObject {
         // call a function to get the replacement
         if (args[1].is_function()) {
           vector<JSValue> argv{pattern_val, JSFloat(start_pos)};
-          JSFunction *rep_func = args[1].u.as_func;
-          JSValue rep = TRY_COMP(vm.call_function(rep_func, undefined, nullptr, argv));
+          JSValue rep = TRY_COMP(vm.call_function(args[1], undefined, undefined, argv));
           u16string &replacement = TRY_COMP(js_to_string(vm, rep)).u.as_prim_string->str;
 
           res.replace(start_pos, pattern.size(), replacement);
@@ -233,7 +234,7 @@ class JSStringPrototype : public JSObject {
 
   static Completion charCodeAt(vm_func_This_args_flags) {
     assert(args.size() > 0 && args[0].is(JSValue::NUM_FLOAT));
-    This = TRY_COMP(js_require_object_coercible(vm, This));
+    TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
 
     double index = args[0].u.as_f64;
@@ -245,7 +246,7 @@ class JSStringPrototype : public JSObject {
   }
 
   static Completion toLowerCase(vm_func_This_args_flags) {
-    This = TRY_COMP(js_require_object_coercible(vm, This));
+    TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
     u16string res = *str;
     std::transform(res.begin(), res.end(), res.begin(), character::to_lower_case);
@@ -253,7 +254,7 @@ class JSStringPrototype : public JSObject {
   }
 
   static Completion toUpperCase(vm_func_This_args_flags) {
-    This = TRY_COMP(js_require_object_coercible(vm, This));
+    TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
     u16string res = *str;
     std::transform(res.begin(), res.end(), res.begin(), character::to_upper_case);
@@ -261,7 +262,7 @@ class JSStringPrototype : public JSObject {
   }
 
   static Completion substring(vm_func_This_args_flags) {
-    This = TRY_COMP(js_require_object_coercible(vm, This));
+    TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
     int64_t str_len = str->size();
 
@@ -277,7 +278,7 @@ class JSStringPrototype : public JSObject {
   }
 
   static Completion substr(vm_func_This_args_flags) {
-    This = TRY_COMP(js_require_object_coercible(vm, This));
+    TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
     int64_t str_len = str->size();
 
@@ -294,7 +295,7 @@ class JSStringPrototype : public JSObject {
   }
 
   static Completion concat(vm_func_This_args_flags) {
-    This = TRY_COMP(js_require_object_coercible(vm, This));
+    TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
     u16string res = *str;
 

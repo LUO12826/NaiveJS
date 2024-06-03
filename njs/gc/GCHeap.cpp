@@ -9,38 +9,77 @@
 
 namespace njs {
 
-void GCHeap::gc() {
-  check_fwd_pointer();
-  if (Global::show_gc_statistics) {
-    std::cout << "\033[33m";
-    std::cout << "****************** gc starts ******************\n";
+void GCHeap::gc_if_needed() {
+  if (object_cnt - last_gc_object_cnt > gc_threshold) {
+    gc();
   }
-  Timer timer("gc");
-
-  Timer timer_copy("copy alive");
-  byte *start = from_start;
-  byte *end = alloc_point;
-  object_cnt = 0;
-  copy_alive();
-  check_fwd_pointer();
-  last_gc_object_cnt = object_cnt;
-  timer_copy.end(Global::show_gc_statistics);
-
-  Timer timer_dealloc("dealloc dead");
-  dealloc_dead(start, end);
-  timer_dealloc.end(Global::show_gc_statistics);
-
-  if (Global::show_gc_statistics) {
-    std::cout << "******************  gc ends  ******************\n";
-    std::cout << "\033[0m";
-  }
-  timer.end(Global::show_gc_statistics);
 }
 
-void GCHeap::gc_if_needed() {
-  if (object_cnt - last_gc_object_cnt > 10000) {
-//    gc();
+void GCHeap::gc() {
+  gc_mutex.lock();
+  {
+    std::lock_guard<std::mutex> lock(cond_mutex);
+    gc_start = true;
+    copy_done = false;
   }
+  gc_cond_var.notify_one();
+
+  {
+    std::unique_lock<std::mutex> lock(cond_mutex);
+    gc_cond_var.wait(lock, [this] { return copy_done; });
+  }
+}
+
+void GCHeap::gc_task() {
+  while (true) {
+    std::unique_lock<std::mutex> lock(cond_mutex);
+    gc_cond_var.wait(lock, [this] { return gc_start || stop; });
+    if (stop) return;
+
+    Timer timer("gc");
+    std::cout << "GC triggered.\n";
+    stats.gc_count += 1;
+
+    if (Global::show_gc_statistics) {
+      std::cout << "\033[33m";
+      std::cout << "****************** gc starts ******************\n";
+    }
+
+    byte *start = from_start;
+    byte *end = alloc_point;
+
+    size_t old_object_cnt = object_cnt;
+    object_cnt = 0;
+
+    Timer timer_copy("copy alive");
+    copy_alive();
+    stats.copy_time += timer_copy.end(Global::show_gc_statistics);
+
+    last_gc_object_cnt = object_cnt;
+    if (object_cnt > 3 * old_object_cnt  / 4) {
+      gc_threshold *= 2;
+    } else {
+      gc_threshold /= 2;
+    }
+
+    gc_start = false;
+    copy_done = true;
+    lock.unlock();
+    gc_cond_var.notify_one();
+
+    Timer timer_dealloc("dealloc dead");
+    dealloc_dead(start, end);
+    stats.dealloc_time += timer_dealloc.end(Global::show_gc_statistics);
+
+    gc_mutex.unlock();
+
+    if (Global::show_gc_statistics) {
+      std::cout << "******************  gc ends  ******************\n";
+      std::cout << "\033[0m";
+    }
+    stats.total_time += timer.end(Global::show_gc_statistics);
+  }
+
 }
 
 void GCHeap::gc_visit_object(JSValue& handle, GCObject *obj) {
@@ -55,6 +94,9 @@ vector<JSValue*> GCHeap::gather_roots() {
   // All values on the rt_stack are possible roots
   for (JSStackFrame *frame : vm.stack_frames) {
     roots.push_back(&frame->function);
+    if (frame->alloc_cnt == 0) [[unlikely]] {
+      continue;
+    }
     for (JSValue *val = frame->buffer; val <= *frame->sp_ref; val++) {
       if (val->needs_gc()) {
         roots.push_back(val);
@@ -63,6 +105,7 @@ vector<JSValue*> GCHeap::gather_roots() {
   }
 
   roots.push_back(&vm.global_object);
+  roots.push_back(&vm.global_func);
 
   roots.push_back(&vm.object_prototype);
   roots.push_back(&vm.array_prototype);
@@ -115,8 +158,10 @@ void GCHeap::copy_alive() {
   int index = 0;
   for (JSValue *root : roots) {
     assert(root->as_GCObject()->forward_ptr == nullptr);
-    gc_visit_object(*root, root->as_GCObject());
     index += 1;
+  }
+  for (JSValue *root : roots) {
+    gc_visit_object(*root, root->as_GCObject());
   }
 
   std::swap(from_start, to_start);

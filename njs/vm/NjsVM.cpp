@@ -149,12 +149,12 @@ JSObject* NjsVM::new_object(ObjClass cls, JSValue proto) {
   return heap.new_object<JSObject>(cls, proto);
 }
 
-JSFunction* NjsVM::new_function(const JSFunctionMeta& meta) {
+JSFunction* NjsVM::new_function(JSFunctionMeta *meta) {
   JSFunction *func;
-  if (meta.is_anonymous) {
+  if (meta->is_anonymous) {
     func = heap.new_object<JSFunction>(*this, meta);
   } else {
-    func = heap.new_object<JSFunction>(*this, atom_to_str(meta.name_index), meta);
+    func = heap.new_object<JSFunction>(*this, atom_to_str(meta->name_index), meta);
   }
   return func;
 }
@@ -185,6 +185,7 @@ void NjsVM::run() {
 
   std::cout << "Heap usage: " << memory_usage_readable(heap.get_heap_usage()) << '\n';
   std::cout << "Heap object count: " << heap.get_object_count() << '\n';
+  heap.stats.print();
 
   if (Global::show_log_buffer && !log_buffer.empty()) {
     std::cout << "------------------------------" << '\n';
@@ -197,9 +198,8 @@ void NjsVM::run() {
 }
 
 void NjsVM::execute_global() {
-  auto *func = heap.new_object<JSFunction>(*this, global_meta);
-  global_func.set_val(func);
-  call_internal(func, global_object, nullptr, ArgRef(nullptr, 0), CallFlags());
+  global_func.set_val(heap.new_object<JSFunction>(*this, &global_meta));
+  call_internal(global_func, global_object, undefined, ArgRef(nullptr, 0), CallFlags());
 }
 
 // TODO: this is a very simplified implementation.
@@ -211,10 +211,14 @@ JSValue NjsVM::prepare_arguments_array(ArgRef args) {
   return JSValue(arr);
 }
 
-Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
-                                JSFunction *new_target, ArgRef argv, CallFlags flags) {
+Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef new_target,
+                                ArgRef argv, CallFlags flags) {
+#define this_func (callee.u.as_func)
+#define this_func_meta (*(callee.u.as_func->meta))
+
+  assert(callee.is_function());
   if (Global::show_vm_exec_steps) {
-    printf("*** call function: %s\n", to_u8string(callee->name).c_str());
+    printf("*** call function: %s\n", to_u8string(callee.u.as_func->name).c_str());
     printf("*** heap object count: %zu\n", heap.get_object_count());
   }
 
@@ -226,11 +230,11 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
   stack_frames.push_back(&frame);
   curr_frame = &frame;
 
-  bool copy_argv = (argv.size() < callee->meta.param_count) | flags.copy_args;
-  size_t actual_arg_cnt = std::max(argv.size(), (size_t)callee->meta.param_count);
+  bool copy_argv = (argv.size() < this_func_meta.param_count) | flags.copy_args;
+  size_t actual_arg_cnt = std::max(argv.size(), (size_t)this_func_meta.param_count);
   size_t args_buf_cnt = unlikely(copy_argv) ? actual_arg_cnt : 0;
   size_t alloc_cnt = args_buf_cnt + frame_meta_size +
-                     callee->meta.local_var_count + callee->meta.stack_size;
+                     this_func_meta.local_var_count + this_func_meta.stack_size;
 
   JSValue *buffer = (JSValue *)alloca(sizeof(JSValue) * alloc_cnt);
   JSValue *args_buf = unlikely(copy_argv) ? buffer : argv.data();
@@ -242,14 +246,14 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
     }
   }
 
-  if (callee->meta.is_native) {
+  if (this_func_meta.is_native) {
     Completion comp;
     ArgRef args_ref(args_buf, actual_arg_cnt);
-    if (new_target) [[unlikely]] {
+    if (new_target.is_object()) [[unlikely]] {
       flags.this_is_new_target = true;
-      comp = callee->native_func(*this, *callee, JSValue(new_target), args_ref, flags);
+      comp = this_func->native_func(*this, callee, new_target, args_ref, flags);
     } else {
-      comp = callee->native_func(*this, *callee, This, args_ref, flags);
+      comp = this_func->native_func(*this, callee, This, args_ref, flags);
     }
     curr_frame = curr_frame->prev_frame;
     stack_frames.pop_back();
@@ -257,18 +261,18 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
   }
 
   JSValue *local_vars = buffer + args_buf_cnt;
-  JSValue *stack = local_vars + callee->meta.local_var_count + frame_meta_size;
+  JSValue *stack = local_vars + this_func_meta.local_var_count + frame_meta_size;
   // Initialize local variables and operation stack to undefined
   for (JSValue *val = local_vars; val < stack; val++) {
     val->set_undefined();
   }
 
-  if (callee->meta.prepare_arguments_array) [[unlikely]] {
+  if (this_func_meta.prepare_arguments_array) [[unlikely]] {
     local_vars[0] = prepare_arguments_array(argv);
   }
 
   JSValue *sp = stack - 1;
-  u32 pc = callee->meta.bytecode_start;
+  u32 pc = this_func_meta.bytecode_start;
 
   frame.alloc_cnt = alloc_cnt;
   frame.buffer = buffer;
@@ -278,7 +282,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
   frame.sp_ref = &sp;
   frame.pc_ref = &pc;
 
-  auto get_value = [=, this] (ScopeType scope, int index) -> JSValue& {
+  auto get_value = [&, this] (ScopeType scope, int index) -> JSValue& {
     if (scope == ScopeType::FUNC) {
       JSValue &val = local_vars[index];
       return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();
@@ -292,21 +296,19 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
       return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();
     }
     if (scope == ScopeType::CLOSURE) {
-      return callee->captured_var[index].deref_heap();
+      return this_func->captured_var[index].deref_heap();
     }
     __builtin_unreachable();
     assert(false);
   };
 
-  auto exec_capture = [=, &sp, this] (int scope, int index) {
+  auto exec_capture = [&, this] (int scope, int index) {
     auto var_scope = scope_type_from_int(scope);
     assert(sp[0].is(JSValue::FUNCTION));
-    JSFunction& func = *sp[0].u.as_func;
 
-    if (var_scope == ScopeType::CLOSURE) {
-      assert(callee);
-      JSValue& closure_val = callee->captured_var[index];
-      func.captured_var.push_back(closure_val);
+    if (var_scope == ScopeType::CLOSURE) [[unlikely]] {
+      JSValue& closure_val = this_func->captured_var[index];
+      sp[0].u.as_func->captured_var.push_back(closure_val);
     }
     else {
       JSValue* stack_val;
@@ -323,7 +325,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
       if (stack_val->tag != JSValue::HEAP_VAL) {
         stack_val->move_to_heap(*this);
       }
-      func.captured_var.push_back(*stack_val);
+      sp[0].u.as_func->captured_var.push_back(*stack_val);
     }
   };
 
@@ -444,10 +446,10 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         break;
       }
       case OpType::push_closure:
-        *++sp = callee->captured_var[OPR1].deref_heap();
+        *++sp = this_func->captured_var[OPR1].deref_heap();
         break;
       case OpType::push_closure_check:
-        *++sp = callee->captured_var[OPR1].deref_heap();
+        *++sp = this_func->captured_var[OPR1].deref_heap();
         CHECK_UNINIT
         break;
       case OpType::push_i32:
@@ -474,7 +476,6 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         (*++sp).set_bool(OPR1);
         break;
       case OpType::push_func_this:
-        assert(callee);
         *++sp = This;
         break;
       case OpType::push_global_this:
@@ -620,7 +621,7 @@ Completion NjsVM::call_internal(JSFunction *callee, JSValue This,
         if (Global::show_vm_exec_steps) {
           printf("%-50s sp: %-3ld   pc: %-3u\n", inst.description().c_str(), (sp - (stack - 1)), pc);
         }
-        exec_call(sp, OPR1, bool(OPR2), nullptr);
+        exec_call(sp, OPR1, bool(OPR2), false, undefined);
         heap.gc_if_needed();
         break;
       }
@@ -854,9 +855,9 @@ void NjsVM::execute_task(JSTask& task) {
 void NjsVM::execute_single_task(JSTask& task) {
   CallFlags flags { .copy_args = true };
   auto comp = call_function(
-      task.task_func.u.as_func,
+      task.task_func,
       global_object,
-      nullptr,
+      undefined,
       task.args,
       flags
   );
@@ -873,10 +874,13 @@ void NjsVM::execute_pending_task() {
   }
 }
 
-Completion NjsVM::call_function(JSFunction *func, JSValue This, JSFunction *new_target,
+Completion NjsVM::call_function(JSValueRef func, JSValueRef This, JSValueRef new_target,
                                 const vector<JSValue>& args, CallFlags flags) {
-  JSValue& this_obj = This.is_undefined() ? global_object : This;
-  JSValue& actual_this = func->has_this_binding ? func->this_binding : this_obj;
+  JSFunction& f = *func.u.as_func;
+  // forgive me for the only time I've used nested ternary expressions
+  const JSValue& actual_this = f.has_this_binding ?
+                                   f.this_binding : (This.is_undefined() ? global_object : This);
+
   ArgRef args_ref(const_cast<JSValue*>(args.data()), args.size());
   return call_internal(func, actual_this, new_target, args_ref, flags);
 }
@@ -889,9 +893,9 @@ vector<StackTraceItem> NjsVM::capture_stack_trace() {
   for (size_t i = stack_frames.size() - 1; i > 0; i--) {
     auto func = stack_frames[i]->function.u.as_func;
     trace.emplace_back(StackTraceItem {
-        .func_name = func->meta.is_anonymous ? u"(anonymous)" : func->name,
-        .source_line = func->meta.source_line,
-        .is_native = func->meta.is_native,
+        .func_name = func->meta->is_anonymous ? u"(anonymous)" : u16string(func->name),
+        .source_line = func->meta->source_line,
+        .is_native = func->meta->is_native,
     });
   }
 
@@ -1186,47 +1190,52 @@ error:
 }
 
 void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
-  auto& meta = func_meta[meta_idx];
+  auto *meta = func_meta[meta_idx].get();
   auto *func = new_function(meta);
 
   // if a function is an arrow function, it captures the `this` value in the environment
   // where the function is created.
-  if (meta.is_arrow_func) {
+  if (meta->is_arrow_func) {
     func->has_this_binding = true;
     func->this_binding = env_this;
   }
 
-  if (not meta.is_arrow_func) {
+  if (not meta->is_arrow_func) {
     JSObject *new_prototype = new_object(CLS_OBJECT);
     new_prototype->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(AtomPool::k_prototype, JSValue(new_prototype));
   }
 
-  assert(!meta.is_native);
+  assert(!meta->is_native);
 
   sp += 1;
   sp[0].set_val(func);
 }
 
 
-CallResult NjsVM::exec_call(SPRef sp, int argc, bool has_this, JSFunction *new_target) {
+CallResult NjsVM::exec_call(SPRef sp, int argc, bool has_this, bool is_new, JSValueRef new_target) {
   JSValue& func_val = sp[-argc];
   if (func_val.tag != JSValue::FUNCTION
       || func_val.u.as_object->get_class() != CLS_FUNCTION) [[unlikely]] {
     error_throw_handle(sp, JS_TYPE_ERROR, u"value is not callable");
     return CallResult::DONE_ERROR;
   }
-  JSFunction *func = func_val.u.as_func;
-
-  JSValue& this_obj = has_this ? sp[-argc - 1] : global_object;
-  JSValue& actual_this = func->has_this_binding ? func->this_binding : this_obj;
-  JSValue *argv = &func_val + 1;
+  JSFunction& func = *func_val.u.as_func;
+  JSValue& actual_this = func.has_this_binding ?
+                             func.this_binding : has_this ? sp[-argc - 1] : global_object;
   // call the function
-  Completion comp = call_internal(func, actual_this, new_target, ArgRef(argv, argc), CallFlags());
+  ArgRef argv(&func_val + 1, argc);
+  auto comp = call_internal(func_val, actual_this, new_target, argv, CallFlags());
 
   // put the return value to the correct place
   if (has_this) {
-    this_obj = comp.get_value();
+    if (is_new) [[unlikely]] {
+      if (comp.get_value().is_object()) [[unlikely]] {
+        sp[-argc - 1] = comp.get_value();
+      }
+    } else {
+      sp[-argc - 1] = comp.get_value();
+    }
   } else {
     func_val = comp.get_value();
   }
@@ -1255,7 +1264,7 @@ void NjsVM::exec_js_new(SPRef sp, int arg_count) {
   sp += 1;
 
   // run the constructor
-  CallResult res = exec_call(sp, arg_count, true, ctor.u.as_func);
+  CallResult res = exec_call(sp, arg_count, true, true, ctor);
   if (res == CallResult::DONE_ERROR) {
     return;
   }
@@ -1454,6 +1463,7 @@ void NjsVM::exec_dynamic_set_var(SPRef sp, u32 name_atom) {
   assert(comp.is_value());
 }
 
+// TODO: pause GC in this function
 Completion NjsVM::for_of_get_iterator(JSValue obj) {
   auto build_err = [&, this] () {
     JSValue err = build_error_internal(
@@ -1471,9 +1481,10 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
   if (!iter_ctor.is_object() || object_class(iter_ctor) != CLS_FUNCTION) [[unlikely]] {
     return build_err();
   }
-  return call_function(iter_ctor.u.as_func, obj, nullptr, {});
+  return call_function(iter_ctor, obj, undefined, {});
 }
 
+// TODO: pause GC in this function
 Completion NjsVM::for_of_call_next(JSValue iter) {
   assert(iter.is_object());
   auto atom_next = JSAtom(AtomPool::k_next);
@@ -1485,7 +1496,7 @@ Completion NjsVM::for_of_call_next(JSValue iter) {
     return CompThrow(err);
   }
 
-  return call_function(next_func.u.as_func, iter, nullptr, {});
+  return call_function(next_func, iter, undefined, {});
 }
 
 void NjsVM::exec_strict_equality(SPRef sp, bool flip) {
@@ -1582,12 +1593,11 @@ void NjsVM::error_throw(SPRef sp, JSErrorType type, const u16string& msg) {
 }
 
 void NjsVM::error_handle(SPRef sp) {
-  auto this_func = curr_frame->function.u.as_func;
-  auto frame = curr_frame;
+  JSStackFrame *frame = curr_frame;
   u32& pc = *frame->pc_ref;
 
   u32 err_throw_pc = pc - 1;
-  auto& catch_table = this_func->meta.catch_table;
+  auto& catch_table = curr_frame->function.u.as_func->meta->catch_table;
   assert(catch_table.size() >= 1);
 
   if (catch_table.size() == 1) {

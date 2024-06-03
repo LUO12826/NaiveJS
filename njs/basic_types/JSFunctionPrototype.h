@@ -26,17 +26,17 @@ class JSFunctionPrototype : public JSObject {
 
   static Completion call(vm_func_This_args_flags) {
     if (args.size() == 0) [[unlikely]] {
-      return vm.call_internal(This.u.as_func, undefined, nullptr, args, flags);
+      return vm.call_internal(This, undefined, undefined, args, flags);
     } else {
-      return vm.call_internal(This.u.as_func, args[0], nullptr, args.subarray(1), flags);
+      return vm.call_internal(This, args[0], undefined, args.subarray(1), flags);
     }
   }
 
   static Completion apply(vm_func_This_args_flags) {
     if (args.size() == 0) [[unlikely]] {
-      return vm.call_internal(This.u.as_func, undefined, nullptr, args, flags);
+      return vm.call_internal(This, undefined, undefined, args, flags);
     } else if (args.size() == 1) [[unlikely]] {
-      return vm.call_internal(This.u.as_func, args[0], nullptr, args.subarray(1), flags);
+      return vm.call_internal(This, args[0], undefined, args.subarray(1), flags);
     } else {
       if (not args[1].is_object()) [[unlikely]] {
         return CompThrow(vm.build_error_internal(
@@ -51,8 +51,7 @@ class JSFunctionPrototype : public JSObject {
         JSValue idx_atom = JSAtom(vm.atom_pool.atomize_u32(i));
         argv[i] = TRY_COMP(arr->get_property(vm, idx_atom));
       }
-      return vm.call_internal(This.u.as_func, args[0], nullptr,
-                              ArrayRef(argv.data(), length), flags);
+      return vm.call_internal(This, args[0], undefined, ArrayRef(argv.data(), length), flags);
     }
   }
 };

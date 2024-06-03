@@ -215,6 +215,7 @@ class JSRegExp : public JSObject {
     __builtin_unreachable();
   }
 
+  // TODO: pause GC here
   Completion replace(NjsVM& vm, JSValue str, JSValue replacer) {
     str = TRY_COMP(js_to_string(vm, str));
     auto& arg_str = str.u.as_prim_string->str;
@@ -234,11 +235,8 @@ class JSRegExp : public JSObject {
 
     u16string *replacement = nullptr;
     bool should_populate_replacement = false;
-    JSFunction *replace_func = nullptr;
 
-    if (replacer.is_function()) [[unlikely]] {
-      replace_func = replacer.u.as_func;
-    } else {
+    if (not replacer.is_function()) [[likely]] {
       replacement = &TRY_COMP(js_to_string(vm, replacer)).u.as_prim_string->str;
       should_populate_replacement = replacement->find(u'$') != u16string::npos;
     }
@@ -271,7 +269,6 @@ class JSRegExp : public JSObject {
             result += *replacement;
           }
         } else {
-          assert(replace_func);
           // match, p1, p2, /* …, */ pN, offset, full string, groups
           vector<JSValue> func_args(lre.get_capture_cnt());
 
@@ -284,7 +281,7 @@ class JSRegExp : public JSObject {
           func_args.push_back(groups ? JSValue(groups) : undefined);  // groups
 
           JSValue rep_str = TRY_COMP(
-            vm.call_function(replace_func, undefined, nullptr, func_args));
+            vm.call_function(replacer, undefined, undefined, func_args));
           
           rep_str = TRY_COMP(js_to_string(vm, rep_str));
           result += rep_str.u.as_prim_string->str;
@@ -307,7 +304,6 @@ class JSRegExp : public JSObject {
     if (prev_last_index < arg_str.size()) {
       result += arg_str.substr(prev_last_index);
     }
-
     return vm.new_primitive_string(std::move(result));
   }
 

@@ -256,10 +256,10 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
   // is not a data descriptor
   else {
     assert(own_desc.is_accessor_descriptor());
-    JSValue setter = own_desc.data.getset.setter;
+    JSValue& setter = own_desc.data.getset.setter;
     if (setter.is_undefined()) return false;
-
-    auto comp = vm.call_function(setter.u.as_func, JSValue(this), nullptr, {value});
+    // TODO: pause GC here
+    auto comp = vm.call_function(setter, JSValue(this), undefined, {value});
     return likely(comp.is_normal()) ? ErrorOr<bool>(true) : comp.get_value();
   }
 }
@@ -285,12 +285,14 @@ bool JSObject::add_prop_trivial(JSValue key, JSValue value, PFlag flag) {
 
 bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl, PFlag flag) {
   u32 name_idx = vm.str_to_atom(key_str);
-  JSFunctionMeta meta = build_func_meta(funcImpl);
+  JSFunctionMeta *meta = build_func_meta(funcImpl);
+  vm.func_meta.emplace_back(meta);
   return add_prop_trivial(name_idx, JSValue(vm.new_function(meta)), flag);
 }
 
 bool JSObject::add_symbol_method(NjsVM& vm, u32 symbol, NativeFuncType funcImpl, PFlag flag) {
-  JSFunctionMeta meta = build_func_meta(funcImpl);
+  JSFunctionMeta *meta = build_func_meta(funcImpl);
+  vm.func_meta.emplace_back(meta);
   return add_prop_trivial(JSSymbol(symbol), JSValue(vm.new_function(meta)), flag);
 }
 
@@ -311,9 +313,10 @@ Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
     if (prop->flag.is_value()) [[unlikely]] {
       return prop->data.value;
     } else if (prop->flag.has_getter) {
-      JSValue getter = prop->data.getset.getter;
+      JSValue& getter = prop->data.getset.getter;
       assert(not getter.is_undefined());
-      return vm.call_function(getter.u.as_func, JSValue(this), nullptr, {});
+      // TODO: pause GC here
+      return vm.call_function(getter, JSValue(this), undefined, {});
     } else {
       return prop_not_found;
     }
@@ -375,6 +378,7 @@ ErrorOr<JSPropDesc> JSObject::to_property_descriptor(NjsVM& vm) {
     return desc;
 }
 
+// TODO: pause GC here
 Completion JSObject::to_primitive(NjsVM& vm, ToPrimTypeHint preferred_type) {
   JSValue exotic_to_prim = get_prop(vm, AtomPool::k_toPrimitive).get_value();
   if (exotic_to_prim.is_function()) {
@@ -387,7 +391,7 @@ Completion JSObject::to_primitive(NjsVM& vm, ToPrimTypeHint preferred_type) {
       hint_arg = vm.get_string_const(AtomPool::k_string);
     }
     Completion to_prim_res = vm.call_function(
-        exotic_to_prim.u.as_func, JSValue(this), nullptr, {hint_arg});
+        exotic_to_prim, JSValue(this), undefined, {hint_arg});
     if (to_prim_res.is_throw()) {
       return to_prim_res;
     }
@@ -405,6 +409,7 @@ Completion JSObject::to_primitive(NjsVM& vm, ToPrimTypeHint preferred_type) {
 
 }
 
+// TODO: pause GC here
 Completion JSObject::ordinary_to_primitive(NjsVM& vm, ToPrimTypeHint hint) {
   std::array<u32, 2> method_names_atom;
   if (hint == HINT_STRING) {
@@ -417,7 +422,7 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, ToPrimTypeHint hint) {
     JSValue method = get_prop(vm, method_atom).get_value();
     if (not method.is_function()) continue;
 
-    Completion comp = vm.call_function(method.u.as_func, JSValue(this), nullptr, {});
+    Completion comp = vm.call_function(method, JSValue(this), undefined, {});
     if (comp.is_throw()) return comp;
 
     if (not comp.get_value().is_object()) {

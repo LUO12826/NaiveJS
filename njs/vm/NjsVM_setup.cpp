@@ -124,17 +124,18 @@ void NjsVM::setup() {
 }
 
 JSFunction* NjsVM::add_native_func_impl(const u16string& name, NativeFuncType native_func) {
-  JSFunctionMeta meta {
+  auto *meta = new JSFunctionMeta {
       .name_index = str_to_atom(name),
       .is_native = true,
       .param_count = 0,
       .local_var_count = 0,
       .native_func = native_func,
   };
+  func_meta.emplace_back(meta);
 
   auto *func = heap.new_object<JSFunction>(*this, name, meta);
   func->set_proto(function_prototype);
-  global_object.as_object()->add_prop_trivial(meta.name_index, JSValue(func));
+  global_object.as_object()->add_prop_trivial(meta->name_index, JSValue(func));
   return func;
 }
 

@@ -1,9 +1,11 @@
-#ifndef NJS_GCHEAP_H
-#define NJS_GCHEAP_H
+#ifndef NJS_GC_HEAP_H
+#define NJS_GC_HEAP_H
 
 #include <utility>
 #include <vector>
 #include <iostream>
+#include <thread>
+#include <condition_variable>
 
 #include "GCObject.h"
 #include "njs/global_var.h"
@@ -14,20 +16,50 @@ namespace njs {
 using std::vector;
 class NjsVM;
 
+struct GCStats {
+  long long gc_count {0};
+  long long total_time {0};
+  long long copy_time {0};
+  long long dealloc_time {0};
+
+  void print() {
+    std::cout << "GC trigger count: " << gc_count << "\n";
+    std::cout << "GC total time: " << total_time / 1000 << " ms\n";
+    std::cout << "GC copy time: " << copy_time / 1000 << " ms\n";
+    std::cout << "GC dealloc time: " << dealloc_time / 1000 << " ms\n";
+  }
+};
+
 class GCHeap {
 
 using byte = int8_t;
 
  public:
-
   GCHeap(size_t size_mb, NjsVM& vm)
-      : heap_size(size_mb * 1024 * 1024), storage((byte *)malloc(size_mb * 1024 * 1024)),
-        from_start(storage), to_start(storage + heap_size / 2), alloc_point(storage),
-        vm(vm) {
+      : heap_size(size_mb * 1024 * 1024),
+        storage((byte *)malloc(size_mb * 1024 * 1024)),
+        from_start(storage),
+        to_start(storage + heap_size / 2),
+        alloc_point(storage),
+        vm(vm),
+        gc_thread(&GCHeap::gc_task, this) {
 
     if (Global::show_gc_statistics) {
       std::cout << "GCHeap init, from_start == " << (size_t)from_start << '\n';
     }
+  }
+
+  ~GCHeap() {
+    gc_mutex.lock();
+    {
+      std::lock_guard<std::mutex> lock(cond_mutex);
+      stop = true;
+    }
+    gc_cond_var.notify_one();
+    gc_thread.join();
+
+    free(storage);
+    gc_mutex.unlock();
   }
 
   /// @brief Create a new object on heap.
@@ -61,10 +93,11 @@ using byte = int8_t;
   // of the GCObject subclasses.
   void gc_visit_object(JSValue &handle, GCObject *obj);
 
+  GCStats stats;
  private:
   vector<JSValue *> gather_roots();
 
-  // Copying GC
+  void gc_task();
   void copy_alive();
   void dealloc_dead(byte *start, byte *end);
 
@@ -91,11 +124,22 @@ using byte = int8_t;
 
   size_t object_cnt {0};
   size_t last_gc_object_cnt {0};
+  size_t gc_threshold {20000};
 
   NjsVM& vm;
+
+  std::thread gc_thread;
+
+  bool gc_start {false};
+  bool copy_done {false};
+  bool stop {false};
+
+  std::condition_variable gc_cond_var;
+  std::mutex cond_mutex;
+  std::mutex gc_mutex;
 
 };
 
 } // namespace njs
 
-#endif // NJS_GCHEAP_H
+#endif // NJS_GC_HEAP_H

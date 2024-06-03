@@ -3,7 +3,12 @@
 
 #include <cstdint>
 
+namespace njs {
+
 constexpr uint32_t frame_meta_size {0};
+
+struct JSValue;
+using JSValueRef = JSValue const&;
 
 struct CallFlags {
   bool constructor : 1 {false};
@@ -14,8 +19,11 @@ struct CallFlags {
   int magic : 27;
 };
 
-#define JS_NATIVE_FUNC_PARAMS NjsVM& vm, JSFunction& func, JSValue This, ArrayRef<JSValue> args, CallFlags flags
-#define vm_func_This_args_flags NjsVM& vm, JSFunction& func, JSValue This, ArrayRef<JSValue> args, CallFlags flags
+#define JS_NATIVE_FUNC_PARAMS NjsVM& vm, JSValueRef func, JSValueRef This, ArrayRef<JSValue> args, CallFlags flags
+#define vm_func_This_args_flags NjsVM& vm, JSValueRef func, JSValueRef This, ArrayRef<JSValue> args, CallFlags flags
 #define JS_NATIVE_FUNC_ARGS vm, func, This, args, flags
+
+}
+
 
 #endif //NJS_COMMON_DEF_H
