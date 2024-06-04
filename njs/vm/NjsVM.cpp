@@ -1350,10 +1350,9 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
       break;
     case JSValue::STRING: {
       auto *str = obj.u.as_prim_string;
-      Completion comp = js_to_property_key(*this, key);
-      if (comp.is_throw()) return comp;
+      JSValue prop_key = TRYCC(js_to_property_key(*this, key));
 
-      u32 atom = comp.get_value().u.as_atom;
+      u32 atom = prop_key.u.as_atom;
       if (atom_is_int(atom)) {
         u32 idx = atom_get_int(atom);
         if (idx < str->length()) {
@@ -1367,7 +1366,7 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
         return JSFloat(len);
       }
       else {
-        return string_prototype.as_object()->get_prop(*this, comp.get_value());
+        return string_prototype.as_object()->get_prop(*this, prop_key);
       }
       break;
     }

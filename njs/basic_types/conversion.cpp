@@ -42,12 +42,8 @@ Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
       return val;
     default:
       if (val.is_object()) {
-        Completion comp = val.as_object()->to_primitive(vm, HINT_STRING);
-        if (comp.is_throw()) {
-          return comp;
-        } else {
-          return js_to_string(vm, comp.get_value(), to_prop_key);
-        }
+        JSValue prim = TRYCC(val.as_object()->to_primitive(vm, HINT_STRING));
+        return js_to_string(vm, prim, to_prop_key);
       } else {
         assert(false);
       }
@@ -116,9 +112,7 @@ Completion js_to_property_key(NjsVM &vm, JSValue val) {
     case JSValue::STRING:
       return JSAtom(vm.str_to_atom(val.u.as_prim_string->str));
     default: {
-      auto comp = js_to_string(vm, val, true);
-      if (comp.is_throw()) return comp;
-      JSValue str = comp.get_value();
+      JSValue str = TRYCC(js_to_string(vm, val, true));
       assert(str.is_prim_string());
       return JSAtom(vm.str_to_atom(str.u.as_prim_string->str));
     }
@@ -153,10 +147,8 @@ ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {
       return u16string_to_double(val.u.as_prim_string->str);
     default:
       if (val.is_object()) {
-        Completion comp = val.as_object()->to_primitive(vm, HINT_NUMBER);
-        if (comp.is_throw()) return comp.get_value();
-
-        return js_to_number(vm, comp.get_value());
+        JSValue prim = TRY_ERR(val.as_object()->to_primitive(vm, HINT_NUMBER));
+        return js_to_number(vm, prim);
       } else {
         assert(false);
       }

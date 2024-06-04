@@ -20,8 +20,13 @@ struct JSTask {
   size_t task_id;
   JSValue task_func;
   std::vector<JSValue> args;
+
+  bool is_timer;
+  // used on linux
+  int timer_fd;
   size_t timeout;
   bool repeat {false};
+
   bool canceled {false};
 };
 
@@ -70,11 +75,11 @@ class JSRunLoop {
   std::mutex macro_queue_lock;
   std::condition_variable macro_queue_cv;
 
-  int kqueue_id;
+  int mux_fd;
   int pipe_write_fd;
   int pipe_read_fd;
   std::thread timer_thread;
-  BS::thread_pool thread_pool {4};
+  BS::thread_pool thread_pool {2};
 };
 
 }

@@ -41,9 +41,7 @@ Completion JSObject::get_property_impl(NjsVM& vm, JSValue key) {
   if (key.is_atom()) [[likely]] {
     return get_prop(vm, key);
   } else {
-    auto comp = js_to_property_key(vm, key);
-    if (comp.is_throw()) return comp;
-    return get_prop(vm, comp.get_value());
+    return get_prop(vm, TRYCC(js_to_property_key(vm, key)));
   }
 }
 
@@ -73,9 +71,7 @@ ErrorOr<bool> JSObject::delete_property_impl(JSValue key) {
 }
 
 ErrorOr<bool> JSObject::set_property_impl(NjsVM& vm, JSValue key, JSValue value) {
-  auto comp = js_to_property_key(vm, key);
-  if (comp.is_throw()) return comp.get_value();
-  return set_prop(vm, comp.get_value(), value);
+  return set_prop(vm, TRY_ERR(js_to_property_key(vm, key)), value);
 }
 
 Completion JSObject::has_own_property(NjsVM& vm, JSValue key) {
@@ -424,9 +420,7 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, ToPrimTypeHint hint) {
     if (not method.is_function()) continue;
 
     Completion comp = vm.call_function(method, JSValue(this), undefined, {});
-    if (comp.is_throw()) return comp;
-
-    if (not comp.get_value().is_object()) {
+    if (comp.is_throw() || not comp.get_value().is_object()) {
       return comp;
     }
   }

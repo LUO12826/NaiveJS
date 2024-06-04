@@ -50,10 +50,7 @@ class JSObjectPrototype : public JSObject {
     assert(args.size() > 0);
     JSObject *obj = This.as_object();
     JSValue prop_name = args[0];
-    Completion comp = js_to_property_key(vm, prop_name);
-    if (comp.is_throw()) return comp;
-
-    return obj->has_own_property(vm, comp.get_value());
+    return obj->has_own_property(vm, TRYCC(js_to_property_key(vm, prop_name)));
   }
 
 };
