@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <limits>
 #include <cmath>
-#include <sys/_types/_int64_t.h>
+#include <cstdint>
 #include "njs/basic_types/JSBoolean.h"
 #include "njs/basic_types/JSNumber.h"
 #include "njs/basic_types/JSString.h"

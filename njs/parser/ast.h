@@ -117,6 +117,7 @@ class ASTNode {
 
   // for printing the AST
   void add_child(ASTNode *node);
+  vector<ASTNode *> get_children();
   void print_tree(int level);
   virtual std::string description();
 
@@ -381,6 +382,7 @@ class LeftHandSideExpr : public ASTNode {
       if (post.type == CALL) delete post.subtree.args_expr;
       if (post.type == INDEX) delete post.subtree.index_expr;
     }
+    for (auto *node : props) { delete node; }
   }
 
   std::string description() override {
@@ -391,21 +393,19 @@ class LeftHandSideExpr : public ASTNode {
     Postfix post(CALL);
     post.subtree.args_expr = args;
     postfixs.push_back(post);
-    add_child(args);
   }
 
   void add_index(ASTNode *index) {
     Postfix post(INDEX);
     post.subtree.index_expr = index;
     postfixs.push_back(post);
-    add_child(index);
   }
 
   void add_prop(const Token& prop) {
     Postfix post(PROP);
     post.subtree.prop_name = prop.text;
     postfixs.push_back(post);
-    add_child(new ASTNode(TOKEN, prop.text, prop.start, prop.end, prop.line));
+    props.push_back(new ASTNode(TOKEN, prop.text, prop.start, prop.end, prop.line));
   }
 
   bool is_id() {
@@ -413,8 +413,8 @@ class LeftHandSideExpr : public ASTNode {
   }
 
   ASTNode *base;
-
   vector<Postfix> postfixs;
+  vector<ASTNode *> props;
 };
 
 class BinaryExpr : public ASTNode {

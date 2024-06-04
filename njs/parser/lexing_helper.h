@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <optional>
+#include <cmath>
 #include "njs/parser/character.h"
 
 namespace njs {

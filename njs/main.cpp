@@ -7,6 +7,7 @@
 #include <sys/resource.h>
 
 #include "njs/utils/Timer.h"
+#include "njs/common/Defer.h"
 #include "njs/global_var.h"
 #include "njs/parser/Lexer.h"
 #include "njs/parser/Parser.h"
@@ -42,6 +43,7 @@ int main(int argc, char *argv[]) {
 
     Parser parser(std::move(source_code));
     ASTNode *ast = parser.parse_program();
+    Defer defer([ast] { delete ast; });
 
     parser_timer.end();
 

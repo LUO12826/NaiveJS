@@ -1,7 +1,6 @@
 #include "NjsVM.h"
 
 #include <iostream>
-#include <format>
 #include "Completion.h"
 #include "njs/basic_types/JSValue.h"
 #include "njs/utils/helper.h"

@@ -61,6 +61,8 @@ using byte = int8_t;
     gc_cond_var.notify_one();
     gc_thread.join();
 
+    dealloc_dead(from_start, alloc_point);
+
     free(storage);
   }
 

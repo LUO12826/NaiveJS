@@ -242,10 +242,9 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
     // 2.e
     else {
       // CreateDataProperty
-      JSPropDesc desc {
-          .flag = PFlag::VECW,
-          .data.value = value,
-      };
+      JSPropDesc desc;
+      desc.flag = PFlag::VECW;
+      desc.data.value = value;
       desc.to_definition();
       return define_own_property_impl(key, existing_desc, desc);
     }

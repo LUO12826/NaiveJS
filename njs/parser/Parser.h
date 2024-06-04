@@ -415,8 +415,8 @@ error:
 
       for (auto expr : expr_list) {
         if (expr->is_identifier()) continue; // legal formal parameter
-        if (expr->type == ASTNode::EXPR_ASSIGN
-            && static_cast<AssignmentExpr *>(expr)->assign_type == TokenType::ASSIGN) {
+        if (expr->is(ASTNode::EXPR_ASSIGN)
+            && expr->as<AssignmentExpr>()->assign_type == TokenType::ASSIGN) {
           assert(false); // Not supported yet.
           continue; // legal formal parameter with default value
         }
@@ -626,7 +626,7 @@ error:
     }
 
     assert(token_match(TokenType::RIGHT_PAREN));
-    auto* arg_ast = new Arguments(arguments);
+    auto* arg_ast = new Arguments(std::move(arguments));
     arg_ast->set_source(SOURCE_PARSED_EXPR);
     return arg_ast;
   }
@@ -1342,7 +1342,7 @@ error:
   Scope& scope() { return *scope_chain.back(); }
 
   void push_scope(ScopeType scope_type) {
-    Scope *parent = scope_chain.size() > 0 ? scope_chain.back().get() : nullptr;
+    Scope *parent = unlikely(scope_chain.empty()) ? nullptr : scope_chain.back().get();
     scope_chain.emplace_back(std::make_unique<Scope>(scope_type, parent));
 
 #ifdef DBG_SCOPE

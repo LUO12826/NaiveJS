@@ -30,7 +30,7 @@ class GCObject {
     return forward_ptr != (GCObject *)NO_COPY;
   }
 
-  static constexpr size_t NO_COPY {SIZE_T_MAX};
+  static constexpr size_t NO_COPY {SIZE_MAX};
 
   u32 size;
   GCObject *forward_ptr {nullptr};

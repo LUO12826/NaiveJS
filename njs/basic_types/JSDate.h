@@ -4,7 +4,6 @@
 #include <chrono>
 #include <cmath>
 #include <string>
-#include <format>
 #include "JSObject.h"
 #include "qjs_date.h"
 #include "njs/vm/NjsVM.h"

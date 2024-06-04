@@ -113,20 +113,11 @@ struct JSObjectKey {
   JSValue::JSValueTag type;
 };
 
-}
-
-namespace std {
-
-/// @brief std::hash for JSObjectKey. Injected into std namespace.
-template <>
-struct std::hash<njs::JSObjectKey> {
-  std::size_t operator()(const njs::JSObjectKey& obj_key) const {
+struct ObjKeyHasher {
+  std::size_t operator()(const JSObjectKey& obj_key) const {
     return obj_key.atom;
   }
 };
-
-} // namespace std
-namespace njs {
 
 struct JSPropDesc {
   PFlag flag;
@@ -178,7 +169,7 @@ class JSObject : public GCObject {
 
 friend class JSArray;
 friend class JSForInIterator;
-using StorageType = unordered_flat_map<JSObjectKey, JSPropDesc>;
+using StorageType = unordered_flat_map<JSObjectKey, JSPropDesc, ObjKeyHasher>;
  public:
   JSObject() : obj_class(CLS_OBJECT), _proto_(JSValue::null) {}
   explicit JSObject(ObjClass cls) : obj_class(cls), _proto_(JSValue::null) {}

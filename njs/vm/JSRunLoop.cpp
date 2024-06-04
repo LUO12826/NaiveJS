@@ -2,7 +2,13 @@
 
 #include <cstdio>
 #include <unistd.h>
+#ifdef __APPLE__
 #include <sys/event.h>
+#elif __linux__
+#include <sys/epoll.h>
+#include <sys/timerfd.h>
+#include <fcntl.h>
+#endif
 #include <vector>
 #include <thread>
 #include "NjsVM.h"
@@ -87,10 +93,10 @@ void JSRunLoop::setup_pipe() {
   fcntl(pipe_read_fd, F_SETFL, flags | O_NONBLOCK);
 
   epoll_event pipe_event;
-  event.events = EPOLLIN | EPOLLET;
-  event.data.fd = pipe_read_fd;
+  pipe_event.events = EPOLLIN | EPOLLET;
+  pipe_event.data.fd = pipe_read_fd;
 
-  if (epoll_ctl(mux_fd, EPOLL_CTL_ADD, read_fd, &event) == -1) {
+  if (epoll_ctl(mux_fd, EPOLL_CTL_ADD, pipe_read_fd, &pipe_event) == -1) {
     perror("epoll_ctl add fd failed.");
     exit(EXIT_FAILURE);
   }
@@ -130,7 +136,7 @@ void JSRunLoop::timer_loop() {
 
   struct epoll_event event_slot[MAX_EVENTS];
   while (true) {
-    int ret = epoll_wait(mux_fd, events, MAX_EVENTS, -1);
+    int ret = epoll_wait(mux_fd, event_slot, MAX_EVENTS, -1);
     if (ret == -1) {
       perror("epoll poll failed.");
       exit(EXIT_FAILURE);
@@ -139,7 +145,7 @@ void JSRunLoop::timer_loop() {
       if (event_slot[i].data.fd != pipe_read_fd) [[likely]] {
         JSTask *task = (JSTask *)event_slot[i].data.ptr;
 
-        if (task.is_timer) {
+        if (task->is_timer) {
           int timer_fd = task->timer_fd;
           uint64_t expirations;
           read(timer_fd, &expirations, sizeof(uint64_t));
@@ -272,8 +278,8 @@ bool JSRunLoop::remove_timer(size_t timer_id) {
 JSTask *JSRunLoop::add_task(JSFunction* func) {
   JSTask task {
       .task_id = task_counter++,
-      .is_timer = false,
       .task_func = JSValue(func),
+      .is_timer = false,
   };
 
   auto [iter, succeeded] = task_pool.emplace(task.task_id, task);

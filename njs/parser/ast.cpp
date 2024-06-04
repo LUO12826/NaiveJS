@@ -22,6 +22,7 @@ void ASTNode::set_source(const std::u16string_view &source, u32 start, u32 end, 
 }
 
 void ASTNode::add_child(ASTNode *node) { children.push_back(node); }
+vector<ASTNode *> ASTNode::get_children() { return children; }
 
 void ASTNode::print_tree(int level) {
   std::string spaces(level * PRINT_TREE_INDENT, ' ');
