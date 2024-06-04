@@ -147,7 +147,7 @@ Completion NativeFunction::isFinite(vm_func_This_args_flags) {
 
 Completion NativeFunction::parseFloat(vm_func_This_args_flags) {
   if (args.size() == 0) return JSValue(NAN);
-  PrimitiveString *str = TRY_COMP(js_to_string(vm, args[0])).u.as_prim_string;
+  PrimitiveString *str = TRYCC(js_to_string(vm, args[0])).u.as_prim_string;
   double val = u16string_to_double(str->str);
 
   return JSValue(val);
@@ -155,7 +155,7 @@ Completion NativeFunction::parseFloat(vm_func_This_args_flags) {
 
 Completion NativeFunction::parseInt(vm_func_This_args_flags) {
   if (args.size() == 0) return JSValue(NAN);
-  PrimitiveString *str = TRY_COMP(js_to_string(vm, args[0])).u.as_prim_string;
+  PrimitiveString *str = TRYCC(js_to_string(vm, args[0])).u.as_prim_string;
   double val = parse_int(str->str);
 
   return JSValue(val);

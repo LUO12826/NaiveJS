@@ -33,7 +33,7 @@ class JSObjectPrototype : public JSObject {
     if (This.is_object()) [[likely]] {
       obj = This.as_object();
     } else {
-      obj = TRY_COMP(js_to_object(vm, This)).as_object();
+      obj = TRYCC(js_to_object(vm, This)).as_object();
     }
     u16string res = u"[object ";
     res += obj->get_class_name();

@@ -56,7 +56,7 @@ class JSRegExpPrototype : public JSObject {
     if (args.size() >= 1) [[likely]] {
       arg = args[0];
     }
-    JSValue str = TRY_COMP(js_to_string(vm, arg));
+    JSValue str = TRYCC(js_to_string(vm, arg));
     return TRY_COMP(This.as_object<JSRegExp>()->exec(vm, str, true));
   }
 

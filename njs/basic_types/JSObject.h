@@ -178,7 +178,7 @@ class JSObject : public GCObject {
 
 friend class JSArray;
 friend class JSForInIterator;
-
+using StorageType = unordered_flat_map<JSObjectKey, JSPropDesc>;
  public:
   JSObject() : obj_class(CLS_OBJECT), _proto_(JSValue::null) {}
   explicit JSObject(ObjClass cls) : obj_class(cls), _proto_(JSValue::null) {}
@@ -282,10 +282,14 @@ friend class JSForInIterator;
   }
 
   ErrorOr<JSPropDesc> to_property_descriptor(NjsVM& vm);
+  // only for internal use
+  const StorageType& get_storage() {
+    return storage;
+  }
 
  private:
   ObjClass obj_class;
-  unordered_flat_map<JSObjectKey, JSPropDesc> storage;
+  StorageType storage;
   JSValue _proto_;
 
   bool extensible {true};

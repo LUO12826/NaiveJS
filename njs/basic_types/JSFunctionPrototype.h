@@ -43,13 +43,13 @@ class JSFunctionPrototype : public JSObject {
             JS_TYPE_ERROR, u"CreateListFromArrayLike called on non-object"));
       }
       JSObject *arr = args[1].as_object();
-      JSValue len = TRY_COMP(arr->get_property(vm, JSAtom(AtomPool::k_length)));
+      JSValue len = TRYCC(arr->get_property(vm, JSAtom(AtomPool::k_length)));
       assert(len.is_float64());
       size_t length = len.u.as_f64;
       vector<JSValue> argv(length);
       for (int i = 0; i < length; i++) {
         JSValue idx_atom = JSAtom(vm.atom_pool.atomize_u32(i));
-        argv[i] = TRY_COMP(arr->get_property(vm, idx_atom));
+        argv[i] = TRYCC(arr->get_property(vm, idx_atom));
       }
       return vm.call_internal(This, args[0], undefined, ArrayRef(argv.data(), length), flags);
     }

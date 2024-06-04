@@ -97,10 +97,9 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
 }
 
 NjsVM::~NjsVM() {
-  assert(curr_frame);
-  // this should be the buffer for the global scope, and it should be on the heap.
-  free(curr_frame->buffer);
-  delete curr_frame;
+  assert(global_frame);
+  free(global_frame->buffer);
+  delete global_frame;
 }
 
 void NjsVM::init_prototypes() {
@@ -205,9 +204,9 @@ JSValue NjsVM::prepare_arguments_array(ArgRef args) {
 Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef new_target,
                                 ArgRef argv, CallFlags flags) {
 #define this_func (callee.u.as_func)
-#define this_func_meta (*(callee.u.as_func->meta))
 
   assert(callee.is_function());
+
   if (Global::show_vm_exec_steps) {
     printf("*** call function: %s\n", to_u8string(callee.u.as_func->name).c_str());
     printf("*** heap object count: %zu\n", heap.get_object_count());
@@ -219,11 +218,12 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   frame.function = callee;
   curr_frame = &frame;
 
-  bool copy_argv = (argv.size() < this_func_meta.param_count) | flags.copy_args;
-  size_t actual_arg_cnt = std::max(argv.size(), (size_t)this_func_meta.param_count);
+  auto& meta = *callee.u.as_func->meta;
+  bool copy_argv = (argv.size() < meta.param_count) | flags.copy_args;
+
+  size_t actual_arg_cnt = std::max(argv.size(), (size_t)meta.param_count);
   size_t args_buf_cnt = unlikely(copy_argv) ? actual_arg_cnt : 0;
-  size_t alloc_cnt = args_buf_cnt + frame_meta_size +
-                     this_func_meta.local_var_count + this_func_meta.stack_size;
+  size_t alloc_cnt = args_buf_cnt + frame_meta_size + meta.local_var_count + meta.stack_size;
 
   JSValue *buffer = (JSValue *)alloca(sizeof(JSValue) * alloc_cnt);
   JSValue *args_buf = unlikely(copy_argv) ? buffer : argv.data();
@@ -235,32 +235,30 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
     }
   }
 
-  if (this_func_meta.is_native) {
-    Completion comp;
+  if (meta.is_native) {
     ArgRef args_ref(args_buf, actual_arg_cnt);
-    if (new_target.is_object()) [[unlikely]] {
-      flags.this_is_new_target = true;
-      comp = this_func->native_func(*this, callee, new_target, args_ref, flags);
-    } else {
-      comp = this_func->native_func(*this, callee, This, args_ref, flags);
-    }
+    bool has_new_target = new_target.is_object();
+    flags.this_is_new_target = has_new_target;
+    JSValueRef this_arg = unlikely(has_new_target) ? new_target : This;
+    Completion comp = this_func->native_func(*this, callee, this_arg, args_ref, flags);
+
     curr_frame = curr_frame->prev_frame;
     return comp;
   }
 
   JSValue *local_vars = buffer + args_buf_cnt;
-  JSValue *stack = local_vars + this_func_meta.local_var_count + frame_meta_size;
+  JSValue *stack = local_vars + meta.local_var_count + frame_meta_size;
   // Initialize local variables and operation stack to undefined
   for (JSValue *val = local_vars; val < stack; val++) {
     val->set_undefined();
   }
 
-  if (this_func_meta.prepare_arguments_array) [[unlikely]] {
+  if (meta.prepare_arguments_array) [[unlikely]] {
     local_vars[0] = prepare_arguments_array(argv);
   }
 
   JSValue *sp = stack - 1;
-  u32 pc = this_func_meta.bytecode_start;
+  u32 pc = meta.bytecode_start;
 
   frame.alloc_cnt = alloc_cnt;
   frame.buffer = buffer;
@@ -271,23 +269,24 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   frame.pc_ref = &pc;
 
   auto get_value = [&, this] (ScopeType scope, int index) -> JSValue& {
-    if (scope == ScopeType::FUNC) {
-      JSValue &val = local_vars[index];
-      return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();
+    switch (scope) {
+      case ScopeType::GLOBAL: {
+        JSValue &val = global_frame->local_vars[index];
+        return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();
+      }
+      case ScopeType::FUNC: {
+        JSValue &val = local_vars[index];
+        return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();
+      }
+      case ScopeType::FUNC_PARAM: {
+        JSValue &val = args_buf[index];
+        return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();
+      }
+      case ScopeType::CLOSURE:
+        return this_func->captured_var[index].deref_heap();
+      default:
+        __builtin_unreachable();
     }
-    if (scope == ScopeType::FUNC_PARAM) {
-      JSValue &val = args_buf[index];
-      return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();
-    }
-    if (scope == ScopeType::GLOBAL) {
-      JSValue &val = global_frame->local_vars[index];
-      return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();
-    }
-    if (scope == ScopeType::CLOSURE) {
-      return this_func->captured_var[index].deref_heap();
-    }
-    __builtin_unreachable();
-    assert(false);
   };
 
   auto exec_capture = [&, this] (int scope, int index) {
@@ -307,7 +306,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       } else if (var_scope == ScopeType::GLOBAL) {
         stack_val = &global_frame->local_vars[index];
       } else {
-        assert(false);
+        __builtin_unreachable();
       }
 
       if (stack_val->tag != JSValue::HEAP_VAL) {
@@ -1513,7 +1512,7 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
   obj = js_to_object(*this, obj).get_value();
   assert(obj.is_object());
   auto iter_key = JSSymbol(AtomPool::k_sym_iterator);
-  JSValue iter_ctor = TRY_COMP(obj.as_object()->get_property(*this, iter_key));
+  JSValue iter_ctor = TRYCC(obj.as_object()->get_property(*this, iter_key));
 
   if (!iter_ctor.is_object() || object_class(iter_ctor) != CLS_FUNCTION) [[unlikely]] {
     return build_err();
@@ -1525,7 +1524,7 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
 Completion NjsVM::for_of_call_next(JSValue iter) {
   assert(iter.is_object());
   auto atom_next = JSAtom(AtomPool::k_next);
-  JSValue next_func = TRY_COMP(iter.as_object()->get_property(*this, atom_next));
+  JSValue next_func = TRYCC(iter.as_object()->get_property(*this, atom_next));
 
   if (!next_func.is_object() || object_class(next_func) != CLS_FUNCTION) {
     JSValue err = build_error_internal(

@@ -1,7 +1,7 @@
 #include "Instruction.h"
 
-#include "njs/common/enum_strings.h"
 #include <cstdio>
+#include "njs/common/enum_strings.h"
 
 namespace njs {
 

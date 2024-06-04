@@ -40,6 +40,7 @@ void NjsVM::setup() {
     func->add_method(*this, u"preventExtensions", Object_preventExtensions);
     func->add_method(*this, u"isExtensible", Object_isExtensible);
     func->add_method(*this, u"create", Object_create);
+    func->add_method(*this, u"assign", Object_assign);
   }
 
   {

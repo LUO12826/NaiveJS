@@ -10,7 +10,7 @@ Running time comparison of running the Typescript transpiler (input is the same 
 
 - Node.js v18.15.0 : 0.80 s
 - QuickJS (CMake "Release" build) : 2.73 s
-- NaiveJS (CMake "Release" build) : 3.45 s
+- NaiveJS (CMake "Release" build) : 3.35 s
 
 This comparison is just for fun. If NaiveJS were implemented strictly according to the ECMA specification, it would be expected to run even slower.
 
@@ -67,6 +67,10 @@ This comparison is just for fun. If NaiveJS were implemented strictly according 
 - [zhuzilin/es](https://github.com/zhuzilin/es)
 
   An ES5 engine written from scratch.
+
+- [libregexp](https://github.com/bellard/quickjs/blob/master/libregexp.h)
+
+  A regular expression library created by the QuickJS project.
 
 - [martinus/robin-hood-hashing](https://github.com/martinus/robin-hood-hashing)
 

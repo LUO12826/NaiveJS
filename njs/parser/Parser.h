@@ -941,11 +941,10 @@ error:
     START_POS;
     assert(token_match(u"for"));
 
-    ASTNode* init_expr;
-//    VarStatement *var_stmt = nullptr;
     if (lexer.next().type != TokenType::LEFT_PAREN) goto error;
-
     lexer.next();
+
+    ASTNode* init_expr;
     if (lexer.current().is_semicolon()) {
       return parse_for_statement(nullptr, start, line_start);  // for (; expr; expr)
     }

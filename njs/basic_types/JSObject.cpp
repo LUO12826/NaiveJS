@@ -39,7 +39,7 @@ Completion JSObject::get_property(NjsVM& vm, JSValue key) {
 Completion JSObject::get_property_impl(NjsVM& vm, JSValue key) {
   // fast path for atom
   if (key.is_atom()) [[likely]] {
-    return get_prop(vm, key.u.as_atom);
+    return get_prop(vm, key);
   } else {
     auto comp = js_to_property_key(vm, key);
     if (comp.is_throw()) return comp;
@@ -79,7 +79,7 @@ ErrorOr<bool> JSObject::set_property_impl(NjsVM& vm, JSValue key, JSValue value)
 }
 
 Completion JSObject::has_own_property(NjsVM& vm, JSValue key) {
-  JSValue k = TRY_COMP(js_to_property_key(vm, key));
+  JSValue k = TRYCC(js_to_property_key(vm, key));
   return JSValue(has_own_property_atom(k));
 }
 
@@ -218,6 +218,7 @@ ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_d
 }
 
 ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
+  value.flag_bits = 0;
   assert(key.is_atom() || key.is_symbol());
   // 1.
   JSPropDesc own_desc;
@@ -310,7 +311,7 @@ Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
   if (prop == nullptr) [[unlikely]] {
     return prop_not_found;
   } else {
-    if (prop->flag.is_value()) [[unlikely]] {
+    if (prop->flag.is_value()) [[likely]] {
       return prop->data.value;
     } else if (prop->flag.has_getter) {
       JSValue& getter = prop->data.getset.getter;
@@ -325,7 +326,7 @@ Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
 
 Completion JSObject::has_property(NjsVM& vm, JSValue key) {
   if (not key.is_atom()) {
-    key = TRY_COMP(js_to_property_key(vm, key));
+    key = TRYCC(js_to_property_key(vm, key));
   }
   return JSValue(get_exist_prop(key) != nullptr);
 }

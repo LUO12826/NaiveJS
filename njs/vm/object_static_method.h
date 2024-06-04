@@ -26,7 +26,7 @@ inline Completion Object_defineProperty(vm_func_This_args_flags) {
   }
 
   JSPropDesc desc = TRY_COMP(args[2].as_object()->to_property_descriptor(vm));
-  JSValue key = TRY_COMP(js_to_property_key(vm, args[1]));
+  JSValue key = TRYCC(js_to_property_key(vm, args[1]));
   bool succeeded = TRY_COMP(args[0].as_object()->define_own_property(key, desc));
   return JSValue(succeeded);
 }
@@ -82,6 +82,38 @@ inline Completion Object_create(vm_func_This_args_flags) {
     return CompThrow(vm.build_error_internal(JS_TYPE_ERROR,
                                              u"Object prototype may only be an Object or null"));
   }
+}
+
+inline Completion Object_assign(vm_func_This_args_flags) {
+  JSValue arg1;
+  if (args.size() > 0) {
+    arg1 = args[0];
+  }
+
+  TRYCC(js_require_object_coercible(vm, arg1));
+  if (not arg1.is_object()) [[unlikely]] {
+    arg1 = TRYCC(js_to_object(vm, arg1));
+  }
+
+  if (args.size() < 2) [[unlikely]] {
+    return arg1;
+  }
+  JSObject *target_obj = args[0].u.as_object;
+
+  for (int i = 1; i < args.size(); i++) {
+    if (not args[i].is_object()) continue;
+    JSObject *arg_obj = args[i].u.as_object;
+
+    for (auto& [key, prop_desc] : arg_obj->get_storage()) {
+      if (not prop_desc.flag.enumerable) continue;
+      JSValue key_val(key.type);
+      key_val.u.as_atom = key.atom;
+
+      auto res = target_obj->set_prop(vm, key_val, TRYCC(arg_obj->get_prop(vm, key_val)));
+      if (res.is_error()) return CompThrow(res.get_error());
+    }
+  }
+  return arg1;
 }
 
 }

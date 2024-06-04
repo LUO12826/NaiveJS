@@ -324,14 +324,16 @@ class CodegenVisitor {
   }
 
   void visit_single_statement(ASTNode *stmt) {
-    if (not stmt->is(ASTNode::EXPR_ASSIGN)) {
+    if (stmt->is(ASTNode::EXPR_ASSIGN)) {
+      visit_assignment_expr(*stmt->as<AssignmentExpr>(), false);
+    } else if (stmt->is(ASTNode::EXPR_UNARY)) {
+      visit_unary_expr(*stmt->as<UnaryExpr>(), false);
+    } else {
       visit(stmt);
       // pop drop unused result
       if (stmt->is_expression() || stmt->is(ASTNode::FUNC)) {
         emit(OpType::pop_drop);
       }
-    } else {
-      visit_assignment_expr(*stmt->as<AssignmentExpr>(), false);
     }
   }
 
@@ -463,29 +465,25 @@ class CodegenVisitor {
     }
   }
 
-  // note: `need_value` now only works for inc and dec.
   void visit_unary_expr(UnaryExpr& expr, bool need_value = true) {
-
+#define NO_NEED_VALUE_POP_DROP if (not need_value) { emit(OpType::pop_drop); }
     switch (expr.op.type) {
       case Token::ADD:
         visit(expr.operand);
         emit(OpType::js_to_number);
+        NO_NEED_VALUE_POP_DROP
         break;
       case Token::LOGICAL_NOT:
-        if (expr.is_prefix_op) {
-          visit(expr.operand);
-          emit(OpType::logi_not);
-        } else {
-          assert(false);
-        }
+        assert(expr.is_prefix_op);
+        visit(expr.operand);
+        emit(OpType::logi_not);
+        NO_NEED_VALUE_POP_DROP
         break;
       case Token::BIT_NOT:
-        if (expr.is_prefix_op) {
-          visit(expr.operand);
-          emit(OpType::bits_not);
-        } else {
-          assert(false);
-        }
+        assert(expr.is_prefix_op);
+        visit(expr.operand);
+        emit(OpType::bits_not);
+        NO_NEED_VALUE_POP_DROP
         break;
       case Token::SUB:
         assert(expr.is_prefix_op);
@@ -495,6 +493,7 @@ class CodegenVisitor {
           visit(expr.operand);
           emit(OpType::neg);
         }
+        NO_NEED_VALUE_POP_DROP
         break;
       case Token::INC:
       case Token::DEC: {
@@ -511,8 +510,8 @@ class CodegenVisitor {
         // because prefix increment means "increase the value before get its value".
         // Otherwise, we need the old value instead of the value after assignment.
         visit_assignment_expr(*assign, expr.is_prefix_op && need_value);
+        assign->lhs = nullptr;      // otherwise the `expr.operand` will be freed
         delete assign;              // will also delete `num_1`
-        expr.operand = nullptr;     // avoid double free
         break;
       }
       case Token::KEYWORD:
@@ -540,6 +539,7 @@ class CodegenVisitor {
         } else {
           assert(false);
         }
+        NO_NEED_VALUE_POP_DROP
         break;
       default:
         assert(false);
@@ -737,7 +737,6 @@ class CodegenVisitor {
       } // end not use dynamic
       else {
         u32 atom = atom_pool.atomize(expr.lhs->get_source());
-        emit(OpType::push_global_this);
 
         if (assign_op == Token::ADD_ASSIGN) {
           visit(expr.lhs);
@@ -746,8 +745,7 @@ class CodegenVisitor {
         } else {
           codegen_rhs();
         }
-
-        emit(OpType::set_prop_atom, int(atom));
+        emit(OpType::dyn_set_var, int(atom));
         if (!need_value) emit(OpType::pop_drop);
       }
     } // end lhs is id
@@ -1120,15 +1118,6 @@ class CodegenVisitor {
           scope().define_symbol(var_stmt->kind, decl->id.text);
         }
         extra_var_range = scope().get_var_index_range(frame_meta_size);
-      }
-
-      if (init_expr->is(ASTNode::STMT_VAR)) {
-        // TODO: may want to set the last arg to `true` to ensure that we always
-        // have undefined value for new variables. Now `false` is fine because we always
-        // clean the local variables when leaving a scope
-        visit_variable_statement(*init_expr->as<VarStatement>(), false);
-      } else {
-        visit_single_statement(init_expr);
       }
     };
 

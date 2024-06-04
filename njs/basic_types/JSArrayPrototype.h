@@ -47,7 +47,7 @@ class JSArrayPrototype : public JSObject {
         else output += u',';
 
         if (not val.is_nil()) [[likely]] {
-          JSValue s = TRY_COMP(js_to_string(vm, val));
+          JSValue s = TRYCC(js_to_string(vm, val));
           output += s.u.as_prim_string->str;
         }
       }
@@ -63,7 +63,7 @@ class JSArrayPrototype : public JSObject {
 
     u16string delimiter = u",";
     if (args.size() != 0 && !args[0].is_undefined()) [[likely]] {
-      JSValue deli = TRY_COMP(js_to_string(vm, args[0]));
+      JSValue deli = TRYCC(js_to_string(vm, args[0]));
       delimiter = deli.u.as_prim_string->str;
     }
 
@@ -76,7 +76,7 @@ class JSArrayPrototype : public JSObject {
       else output += delimiter;
 
       if (not val.is_nil()) [[likely]] {
-        JSValue s = TRY_COMP(js_to_string(vm, val));
+        JSValue s = TRYCC(js_to_string(vm, val));
         output += s.u.as_prim_string->str;
       }
     }
@@ -195,11 +195,11 @@ class JSArrayPrototype : public JSObject {
 
   static Completion splice(vm_func_This_args_flags) {
     assert(This.is_object() && object_class(This) == CLS_ARRAY);
-    JSArray *arr = This.as_object<JSArray>();
+    auto *arr = This.as_object<JSArray>();
     auto& dense_arr = arr->dense_array;
     int64_t arr_len = arr->get_length();
 
-    JSArray *ret_arr = vm.heap.new_object<JSArray>(vm, 0);
+    auto *ret_arr = vm.heap.new_object<JSArray>(vm, 0);
     // nothing to delete or insert
     if (args.size() == 0) {
       return JSValue(ret_arr);

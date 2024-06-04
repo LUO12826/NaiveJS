@@ -38,7 +38,7 @@ class JSArray: public JSObject {
   void to_json(u16string& output, NjsVM& vm) const override;
 
   Completion get_property_impl(NjsVM& vm, JSValue key) override {
-    JSValue res = TRY_COMP(get_index_or_atom(vm, key));
+    JSValue res = TRYCC(get_index_or_atom(vm, key));
 
     if (res.is(JSValue::NUM_UINT32)) {
       return get_element_fast(res.u.as_u32);

@@ -161,7 +161,7 @@ class JSRegExp : public JSObject {
   }
 
   Completion exec(NjsVM& vm, JSValue arg, bool test_mode) {
-    arg = TRY_COMP(js_to_string(vm, arg));
+    arg = TRYCC(js_to_string(vm, arg));
     auto& arg_str = arg.u.as_prim_string->str;
 
     u32 last_index;
@@ -169,7 +169,7 @@ class JSRegExp : public JSObject {
     if (not (flags & (LRE_FLAG_GLOBAL | LRE_FLAG_STICKY))) {
       last_index = 0;
     } else {
-      JSValue last_idx_prop = TRY_COMP(get_prop(vm, AtomPool::k_lastIndex));
+      JSValue last_idx_prop = TRYCC(get_prop(vm, AtomPool::k_lastIndex));
       last_index = TRY_COMP(js_to_uint32(vm, last_idx_prop));
 
       if (last_index > arg_str.size()) {
@@ -217,14 +217,14 @@ class JSRegExp : public JSObject {
 
   // TODO: pause GC here
   Completion replace(NjsVM& vm, JSValue str, JSValue replacer) {
-    str = TRY_COMP(js_to_string(vm, str));
+    str = TRYCC(js_to_string(vm, str));
     auto& arg_str = str.u.as_prim_string->str;
 
     u32 last_index;
     if (not (flags & (LRE_FLAG_STICKY))) {
       last_index = 0;
     } else { // is sticky
-      JSValue last_idx_prop = TRY_COMP(get_prop(vm, AtomPool::k_lastIndex));
+      JSValue last_idx_prop = TRYCC(get_prop(vm, AtomPool::k_lastIndex));
       last_index = TRY_COMP(js_to_uint32(vm, last_idx_prop));
 
       if (last_index > arg_str.size()) {
@@ -237,7 +237,7 @@ class JSRegExp : public JSObject {
     bool should_populate_replacement = false;
 
     if (not replacer.is_function()) [[likely]] {
-      replacement = &TRY_COMP(js_to_string(vm, replacer)).u.as_prim_string->str;
+      replacement = &TRYCC(js_to_string(vm, replacer)).u.as_prim_string->str;
       should_populate_replacement = replacement->find(u'$') != u16string::npos;
     }
 
@@ -280,10 +280,9 @@ class JSRegExp : public JSObject {
           func_args.push_back(str);                                   // full string
           func_args.push_back(groups ? JSValue(groups) : undefined);  // groups
 
-          JSValue rep_str = TRY_COMP(
-            vm.call_function(replacer, undefined, undefined, func_args));
+          JSValue rep_str = TRYCC(vm.call_function(replacer, undefined, undefined, func_args));
           
-          rep_str = TRY_COMP(js_to_string(vm, rep_str));
+          rep_str = TRYCC(js_to_string(vm, rep_str));
           result += rep_str.u.as_prim_string->str;
         }
 
@@ -308,7 +307,7 @@ class JSRegExp : public JSObject {
   }
 
   Completion prototype_to_string(NjsVM& vm) {
-    JSValue flags_val = TRY_COMP(get_prop(vm, u"flags"));
+    JSValue flags_val = TRYCC(get_prop(vm, u"flags"));
     u16string regexp_str = u"/" + pattern + u"/" + flags_val.u.as_prim_string->str;
     return JSValue(vm.new_primitive_string(std::move(regexp_str)));
   }
