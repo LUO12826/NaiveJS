@@ -7,12 +7,13 @@
 #include "njs/basic_types/String.h"
 #include "njs/basic_types/atom.h"
 #include "njs/include/robin_hood.h"
+#include "njs/include/MurmurHash3.h"
 #include "njs/parser/lexing_helper.h"
 #include "njs/common/conversion_helper.h"
 
 namespace njs {
 
-using robin_hood::unordered_map;
+using robin_hood::unordered_flat_map;
 using u32 = uint32_t;
 using std::u16string;
 using std::vector;
@@ -64,11 +65,15 @@ class AtomPool {
     k_lastIndex = atomize(u"lastIndex");
   }
 
+  AtomPool(const AtomPool& other) = delete;
+  AtomPool(AtomPool&& other);
+  ~AtomPool();
+
   u32 atomize(u16string_view str_view);
   u32 atomize_no_uint(u16string_view str_view);
   u32 atomize_u32(u32 num);
   u32 atomize_symbol();
-  u32 atomize_symbol_desc(u16string_view str_view);
+  u32 atomize_symbol_desc(u16string_view desc);
   u16string_view get_string(u32 atom);
   optional<u16string_view> get_symbol_desc(u32 symbol);
   bool has_string(u16string_view str_view);
@@ -124,18 +129,68 @@ class AtomPool {
     bool is_symbol;
     bool symbol_has_desc;
     bool gc_mark {false};
-    String str;
+    struct {
+      char16_t *data {nullptr};
+      size_t len {0};
+    } str;
 
-    Slot(): is_symbol(true) {}
-    Slot(const u16string& str): is_symbol(false), str(str) {}
-    Slot(u16string_view str_view): is_symbol(false), str(str_view) {}
+    Slot() = default;
+
+    explicit Slot(const u16string& str): is_symbol(false) {
+      init_str(str.data(), str.size());
+    }
+
+    explicit Slot(u16string_view str_view): is_symbol(false) {
+      init_str(str_view.data(), str_view.size());
+    }
+
+    void init_str(const char16_t *data, size_t length) {
+      str.len = length;
+      str.data = new char16_t[length + 1];
+      memcpy(str.data, data, length * sizeof(char16_t));
+      str.data[length] = 0;
+    }
+
+    void dispose() {
+      delete[] str.data;
+      // must set to null to avoid double free (since we didn't implement
+      // the copy constructor or the move constructor)
+      str.data = nullptr;
+    }
+
+    u16string_view str_view() {
+      return {str.data, str.len};
+    }
+  };
+
+  struct KeyHasher {
+    std::size_t operator()(const u16string_view& sv) const {
+      uint64_t output[2];
+      MurmurHash3_x64_128(sv.data(), sv.size() * sizeof(char16_t), 31, &output);
+      return output[0] ^ output[1];
+    }
   };
 
   u32 next_id {0};
   u32 static_atom_count {0};
-  unordered_map<u16string_view, u32> pool;
+  unordered_flat_map<u16string_view, u32, KeyHasher> pool;
   vector<Slot> string_list;
 };
+
+inline AtomPool::AtomPool(AtomPool&& other)
+    : next_id(other.next_id),
+      static_atom_count(other.static_atom_count),
+      pool(std::move(other.pool)),
+      string_list(std::move(other.string_list))
+{
+  other.string_list.clear();
+}
+
+inline AtomPool::~AtomPool() {
+  for (auto& slot : string_list) {
+    slot.dispose();
+  }
+}
 
 inline u32 AtomPool::atomize(u16string_view str_view) {
   if (pool.contains(str_view)) {
@@ -149,7 +204,7 @@ inline u32 AtomPool::atomize(u16string_view str_view) {
       // copy this string and put it in the list.
       string_list.emplace_back(str_view);
       // now the string_view in the pool is viewing the string in the list.
-      pool.emplace(string_list.back().str.view(), next_id);
+      pool.emplace(string_list.back().str_view(), next_id);
       next_id += 1;
       // TODO: in this case, throw an error (although this is not likely to happen)
       assert(next_id <= ATOM_STR_SYM_MAX);
@@ -164,7 +219,7 @@ inline u32 AtomPool::atomize_no_uint(std::u16string_view str_view) {
   }
   else {
     string_list.emplace_back(str_view);
-    pool.emplace(string_list.back().str.view(), next_id);
+    pool.emplace(string_list.back().str_view(), next_id);
     next_id += 1;
     assert(next_id <= ATOM_STR_SYM_MAX);
     return next_id - 1;
@@ -181,7 +236,9 @@ inline u32 AtomPool::atomize_u32(njs::u32 num) {
 }
 
 inline u32 AtomPool::atomize_symbol() {
-  string_list.emplace_back();
+  auto& new_slot = string_list.emplace_back();
+  new_slot.is_symbol = true;
+  new_slot.symbol_has_desc = false;
   next_id += 1;
   return next_id - 1;
 }
@@ -190,7 +247,7 @@ inline u32 AtomPool::atomize_symbol_desc(u16string_view desc) {
   auto& new_slot = string_list.emplace_back();
   new_slot.is_symbol = true;
   new_slot.symbol_has_desc = true;
-  new_slot.str = String(desc);
+  new_slot.init_str(desc.data(), desc.size());
   next_id += 1;
   return next_id - 1;
 }
@@ -198,7 +255,7 @@ inline u32 AtomPool::atomize_symbol_desc(u16string_view desc) {
 inline u16string_view AtomPool::get_string(u32 atom) {
   assert(atom_is_str_sym(atom));
   assert(!string_list[atom].is_symbol);
-  return string_list[atom].str.view();
+  return string_list[atom].str_view();
 }
 
 inline optional<u16string_view> AtomPool::get_symbol_desc(u32 symbol) {
@@ -206,7 +263,7 @@ inline optional<u16string_view> AtomPool::get_symbol_desc(u32 symbol) {
   auto& slot = string_list[symbol];
   assert(slot.is_symbol);
   if (slot.symbol_has_desc) {
-    return slot.str.view();
+    return slot.str_view();
   } else {
     return std::nullopt;
   }
