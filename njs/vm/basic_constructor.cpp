@@ -40,7 +40,7 @@ Completion NativeFunction::String_ctor(vm_func_This_args_flags) {
   } else {
     str = TRYCC(js_to_string(vm, args[0]));
   }
-  auto *obj = vm.heap.new_object<JSString>(vm, *str.u.as_prim_string);
+  auto *obj = vm.heap.new_object<JSString>(vm, *str.as_prim_string);
   return JSValue(obj);
 }
 
@@ -62,16 +62,16 @@ Completion NativeFunction::RegExp_ctor(vm_func_This_args_flags) {
   JSValue pattern = TRYCC(js_to_string(vm, args[0]));
   u16string reflags;
   if (args.size() > 1) {
-    reflags = TRYCC(js_to_string(vm, args[1])).u.as_prim_string->str;
+    reflags = TRYCC(js_to_string(vm, args[1])).as_prim_string->str;
   }
 
-  return JSRegExp::New(vm, pattern.u.as_prim_string->str, reflags);
+  return JSRegExp::New(vm, pattern.as_prim_string->str, reflags);
 }
 
 
 Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
   // call with `new`
-  if (flags.this_is_new_target && This.u.as_func != nullptr) {
+  if (flags.this_is_new_target && This.as_func != nullptr) {
     auto num_arg = args.size();
     auto *date = vm.heap.new_object<JSDate>(vm);
 
@@ -81,14 +81,14 @@ Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
     else if (num_arg == 1) {
       JSValue arg = args[0];
       if (arg.is_float64()) {
-        date->timestamp = arg.u.as_f64;
+        date->timestamp = arg.as_f64;
       }
       else if (arg.is_object()) {
-        date->timestamp = arg.as_object<JSDate>()->timestamp;
+        date->timestamp = arg.as_Object<JSDate>()->timestamp;
       }
       else {
         JSValue ts_str = TRYCC(js_to_string(vm, arg));
-        date->parse_date_str(ts_str.u.as_prim_string->str);
+        date->parse_date_str(ts_str.as_prim_string->str);
       }
     } else {
       // TODO: other cases
@@ -126,7 +126,7 @@ Completion NativeFunction::Symbol(vm_func_This_args_flags) {
   }
 
   if (args.size() > 0 && not args[0].is_undefined()) {
-    auto& str = TRYCC(js_to_string(vm, args[0])).u.as_prim_string->str;
+    auto& str = TRYCC(js_to_string(vm, args[0])).as_prim_string->str;
     return JSSymbol(vm.atom_pool.atomize_symbol_desc(str));
   } else {
     return JSSymbol(vm.atom_pool.atomize_symbol());

@@ -25,9 +25,9 @@ inline Completion Object_defineProperty(vm_func_This_args_flags) {
         JS_TYPE_ERROR, u"Property description must be an object"));
   }
 
-  JSPropDesc desc = TRY_COMP(args[2].as_object()->to_property_descriptor(vm));
+  JSPropDesc desc = TRY_COMP(args[2].as_object->to_property_descriptor(vm));
   JSValue key = TRYCC(js_to_property_key(vm, args[1]));
-  bool succeeded = TRY_COMP(args[0].as_object()->define_own_property(key, desc));
+  bool succeeded = TRY_COMP(args[0].as_object->define_own_property(key, desc));
   return JSValue(succeeded);
 }
 
@@ -47,9 +47,9 @@ inline ErrorOr<JSObject *> check_argument_and_get_object(NjsVM& vm, ArrayRef<JSV
   }
   JSObject *obj;
   if (arg.is_object()) [[likely]] {
-    obj = arg.as_object();
+    obj = arg.as_object;
   } else {
-    obj = TRY_ERR(js_to_object(vm, arg)).as_object();
+    obj = TRY_ERR(js_to_object(vm, arg)).as_object;
   }
   return obj;
 }
@@ -98,16 +98,16 @@ inline Completion Object_assign(vm_func_This_args_flags) {
   if (args.size() < 2) [[unlikely]] {
     return arg1;
   }
-  JSObject *target_obj = args[0].u.as_object;
+  JSObject *target_obj = args[0].as_object;
 
   for (int i = 1; i < args.size(); i++) {
     if (not args[i].is_object()) continue;
-    JSObject *arg_obj = args[i].u.as_object;
+    JSObject *arg_obj = args[i].as_object;
 
     for (auto& [key, prop_desc] : arg_obj->get_storage()) {
       if (not prop_desc.flag.enumerable) continue;
       JSValue key_val(key.type);
-      key_val.u.as_atom = key.atom;
+      key_val.as_atom = key.atom;
 
       auto res = target_obj->set_prop(vm, key_val, TRYCC(arg_obj->get_prop(vm, key_val)));
       if (res.is_error()) return CompThrow(res.get_error());

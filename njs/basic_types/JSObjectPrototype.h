@@ -31,9 +31,9 @@ class JSObjectPrototype : public JSObject {
   static Completion toString(vm_func_This_args_flags) {
     JSObject *obj;
     if (This.is_object()) [[likely]] {
-      obj = This.as_object();
+      obj = This.as_object;
     } else {
-      obj = TRYCC(js_to_object(vm, This)).as_object();
+      obj = TRYCC(js_to_object(vm, This)).as_object;
     }
     u16string res = u"[object ";
     res += obj->get_class_name();
@@ -48,7 +48,7 @@ class JSObjectPrototype : public JSObject {
 
   static Completion hasOwnProperty(vm_func_This_args_flags) {
     assert(args.size() > 0);
-    JSObject *obj = This.as_object();
+    JSObject *obj = This.as_object;
     JSValue prop_name = args[0];
     return obj->has_own_property(vm, TRYCC(js_to_property_key(vm, prop_name)));
   }

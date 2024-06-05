@@ -94,7 +94,7 @@ void GCHeap::gc_task() {
 void GCHeap::gc_visit_object(JSValue& handle, GCObject *obj) {
   assert(handle.needs_gc());
   GCObject *obj_new = copy_object(obj);
-  handle.u.as_object = static_cast<JSObject *>(obj_new);
+  handle.as_object = static_cast<JSObject *>(obj_new);
 }
 
 vector<JSValue *> GCHeap::gather_roots() {
@@ -159,7 +159,7 @@ void GCHeap::copy_alive() {
     std::cout << "GC found roots:\n";
     if (roots.empty()) std::cout << "(empty)\n";
     for (JSValue *root : roots) {
-      std::cout << root->as_GCObject()->description() << '\n';
+      std::cout << root->as_GCObject->description() << '\n';
     }
     std::cout << "---------------\n";
   }
@@ -167,11 +167,11 @@ void GCHeap::copy_alive() {
   // for checking the index of this root in case the `forward_ptr` is not null
   int index = 0;
   for (JSValue *root : roots) {
-    assert(root->as_GCObject()->forward_ptr == nullptr);
+    assert(root->as_GCObject->forward_ptr == nullptr);
     index += 1;
   }
   for (JSValue *root : roots) {
-    gc_visit_object(*root, root->as_GCObject());
+    gc_visit_object(*root, root->as_GCObject);
   }
 
   std::swap(from_start, to_start);

@@ -42,10 +42,10 @@ class JSFunctionPrototype : public JSObject {
         return CompThrow(vm.build_error_internal(
             JS_TYPE_ERROR, u"CreateListFromArrayLike called on non-object"));
       }
-      JSObject *arr = args[1].as_object();
+      JSObject *arr = args[1].as_object;
       JSValue len = TRYCC(arr->get_property(vm, JSAtom(AtomPool::k_length)));
       assert(len.is_float64());
-      size_t length = len.u.as_f64;
+      size_t length = len.as_f64;
       vector<JSValue> argv(length);
       for (int i = 0; i < length; i++) {
         JSValue idx_atom = JSAtom(vm.atom_pool.atomize_u32(i));

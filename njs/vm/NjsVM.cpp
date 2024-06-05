@@ -107,25 +107,25 @@ void NjsVM::init_prototypes() {
   func_proto->add_methods(*this);
 
   object_prototype.set_val(heap.new_object<JSObjectPrototype>(*this));
-  function_prototype.as_object()->set_proto(object_prototype);
+  function_prototype.as_object->set_proto(object_prototype);
 
   number_prototype.set_val(heap.new_object<JSNumberPrototype>(*this));
-  number_prototype.as_object()->set_proto(object_prototype);
+  number_prototype.as_object->set_proto(object_prototype);
 
   boolean_prototype.set_val(heap.new_object<JSBooleanPrototype>(*this));
-  boolean_prototype.as_object()->set_proto(object_prototype);
+  boolean_prototype.as_object->set_proto(object_prototype);
 
   string_prototype.set_val(heap.new_object<JSStringPrototype>(*this));
-  string_prototype.as_object()->set_proto(object_prototype);
+  string_prototype.as_object->set_proto(object_prototype);
 
   array_prototype.set_val(heap.new_object<JSArrayPrototype>(*this));
-  array_prototype.as_object()->set_proto(object_prototype);
+  array_prototype.as_object->set_proto(object_prototype);
 
   regexp_prototype.set_val(heap.new_object<JSRegExpPrototype>(*this));
-  regexp_prototype.as_object()->set_proto(object_prototype);
+  regexp_prototype.as_object->set_proto(object_prototype);
 
   date_prototype.set_val(heap.new_object<JSDatePrototype>(*this));
-  date_prototype.as_object()->set_proto(object_prototype);
+  date_prototype.as_object->set_proto(object_prototype);
 
   native_error_protos.reserve(JSErrorType::JS_NATIVE_ERROR_COUNT);
   for (int i = 0; i < JSErrorType::JS_NATIVE_ERROR_COUNT; i++) {
@@ -136,7 +136,7 @@ void NjsVM::init_prototypes() {
   error_prototype = native_error_protos[0];
 
   iterator_prototype.set_val(heap.new_object<JSIteratorPrototype>(*this));
-  iterator_prototype.as_object()->set_proto(object_prototype);
+  iterator_prototype.as_object->set_proto(object_prototype);
 }
 
 JSObject* NjsVM::new_object(ObjClass cls) {
@@ -202,12 +202,12 @@ JSValue NjsVM::prepare_arguments_array(ArgRef args) {
 
 Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef new_target,
                                 ArgRef argv, CallFlags flags) {
-#define this_func (callee.u.as_func)
+#define this_func (callee.as_func)
 
   assert(callee.is_function());
 
   if (Global::show_vm_exec_steps) {
-    printf("*** call function: %s\n", to_u8string(callee.u.as_func->name).c_str());
+    printf("*** call function: %s\n", to_u8string(callee.as_func->name).c_str());
     printf("*** heap object count: %zu\n", heap.get_object_count());
   }
 
@@ -217,7 +217,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   frame.function = callee;
   curr_frame = &frame;
 
-  auto& meta = *callee.u.as_func->meta;
+  auto& meta = *callee.as_func->meta;
   bool copy_argv = (argv.size() < meta.param_count) | flags.copy_args;
 
   size_t actual_arg_cnt = std::max(argv.size(), (size_t)meta.param_count);
@@ -294,7 +294,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
     if (var_scope == ScopeType::CLOSURE) [[unlikely]] {
       JSValue& closure_val = this_func->captured_var[index];
-      sp[0].u.as_func->captured_var.push_back(closure_val);
+      sp[0].as_func->captured_var.push_back(closure_val);
     }
     else {
       JSValue* stack_val;
@@ -311,7 +311,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       if (stack_val->tag != JSValue::HEAP_VAL) {
         stack_val->move_to_heap(*this);
       }
-      sp[0].u.as_func->captured_var.push_back(*stack_val);
+      sp[0].as_func->captured_var.push_back(*stack_val);
     }
   };
 
@@ -328,7 +328,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         break;
       case OpType::neg:
         assert(sp[0].is_float64());
-        sp[0].u.as_f64 = -sp[0].u.as_f64;
+        sp[0].as_f64 = -sp[0].as_f64;
         break;
       case OpType::add:
         exec_add(sp);
@@ -342,13 +342,13 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       case OpType::inc: {
         JSValue& value = get_value(GET_SCOPE, OPR2);
         assert(value.is_float64());
-        value.u.as_f64 += 1;
+        value.as_f64 += 1;
         break;
       }
       case OpType::dec: {
         JSValue& value = get_value(GET_SCOPE, OPR2);
         assert(value.is_float64());
-        value.u.as_f64 -= 1;
+        value.as_f64 -= 1;
         break;
       }
       case OpType::add_assign:
@@ -360,9 +360,9 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         JSValue& l = sp[0];
         JSValue& r = sp[1];
         if (l.is_float64() && r.is_float64()) {
-          l.u.as_f64 += r.u.as_f64;
+          l.as_f64 += r.as_f64;
         } else if (l.is_prim_string() && r.is_prim_string()) {
-          l.u.as_prim_string->str += r.u.as_prim_string->str;
+          l.as_prim_string->str += r.as_prim_string->str;
         } else {
           bool succeeded;
           exec_add_common(sp, l, l, r, succeeded);
@@ -417,7 +417,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         }
 
 #define DEREF_HEAP_IF_NEEDED \
-          *++sp = (val.tag == JSValue::HEAP_VAL ? val.u.as_heap_val->wrapped_val : val);
+          *++sp = (val.tag == JSValue::HEAP_VAL ? val.as_heap_val->wrapped_val : val);
 
       case OpType::push_local: {
         JSValue val = local_vars[OPR1];
@@ -462,7 +462,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       case OpType::push_i32:
         sp += 1;
         sp[0].tag = JSValue::NUM_INT32;
-        sp[0].u.as_i32 = OPR1;
+        sp[0].as_i32 = OPR1;
         break;
       case OpType::push_f64:
         sp += 1;
@@ -471,13 +471,13 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       case OpType::push_str:
         sp += 1;
         sp[0].tag = JSValue::STRING;
-        sp[0].u.as_prim_string =
+        sp[0].as_prim_string =
             heap.new_object<PrimitiveString>(atom_to_str(OPR1));
         break;
       case OpType::push_atom:
         sp += 1;
         sp[0].tag = JSValue::JS_ATOM;
-        sp[0].u.as_atom = OPR1;
+        sp[0].as_atom = OPR1;
         break;
       case OpType::push_bool:
         (*++sp).set_bool(OPR1);
@@ -752,7 +752,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         assert(sp[0].is_object());
         assert(object_class(sp[0]) == CLS_FOR_IN_ITERATOR);
         
-        auto *iter = sp[0].as_object<JSForInIterator>();
+        auto *iter = sp[0].as_Object<JSForInIterator>();
         sp[1] = iter->next(*this);
         sp[2] = JSValue(sp[1].is_uninited());
         sp += 2;
@@ -777,12 +777,12 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
           sp[0] = build_error_internal(JS_TYPE_ERROR, u"iterator result is not an object.");
           goto for_of_next_err;
         } else {
-          auto res_val = res.as_object()->get_property_impl(*this, JSAtom(AtomPool::k_value));
+          auto res_val = res.as_object->get_property_impl(*this, JSAtom(AtomPool::k_value));
           if (res_val.is_throw()) {
             sp[0] = res_val.get_value();
             goto for_of_next_err;
           }
-          auto res_done = res.as_object()->get_property_impl(*this, JSAtom(AtomPool::k_done));
+          auto res_done = res.as_object->get_property_impl(*this, JSAtom(AtomPool::k_done));
           if (res_done.is_throw()) {
             sp[0] = res_done.get_value();
             goto for_of_next_err;
@@ -798,7 +798,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       }
       case OpType::iter_end_jmp:
         assert(sp[0].is_bool());
-        if (sp[0].u.as_bool) {
+        if (sp[0].as_bool) {
           pc = OPR1;
           // this instruction drops the `done` and `value` produced by the iterator
           // when the iteration ends.
@@ -875,7 +875,7 @@ void NjsVM::execute_pending_task() {
 
 Completion NjsVM::call_function(JSValueRef func, JSValueRef This, JSValueRef new_target,
                                 const vector<JSValue>& args, CallFlags flags) {
-  JSFunction& f = *func.u.as_func;
+  JSFunction& f = *func.as_func;
   const JSValue *actual_this;
   if (f.has_this_binding) {
     actual_this = &f.this_binding;
@@ -894,7 +894,7 @@ vector<StackTraceItem> NjsVM::capture_stack_trace() {
 
   auto iter = curr_frame;
   while (iter != global_frame) {
-    auto func = iter->function.u.as_func;
+    auto func = iter->function.as_func;
     trace.emplace_back(StackTraceItem {
         .func_name = func->meta->is_anonymous ? u"(anonymous)" : u16string(func->name),
         .source_line = func->meta->source_line,
@@ -1004,7 +1004,7 @@ void NjsVM::exec_in(SPRef sp) {
     return;
   }
 
-  sp[0] = VM_TRY_COMP(sp[1].as_object()->has_property(*this, sp[0]));
+  sp[0] = VM_TRY_COMP(sp[1].as_object->has_property(*this, sp[0]));
 }
 
 void NjsVM::exec_instanceof(SPRef sp) {
@@ -1022,8 +1022,8 @@ void NjsVM::exec_instanceof(SPRef sp) {
   }
 
   bool is_instance = false;
-  JSValue proto = o.as_object()->get_proto();
-  JSValue func_prototype = VM_TRY_COMP(cls.as_object()->get_prop(*this, AtomPool::k_prototype));
+  JSValue proto = o.as_object->get_proto();
+  JSValue func_prototype = VM_TRY_COMP(cls.as_object->get_prop(*this, AtomPool::k_prototype));
 
   if (not func_prototype.is_object()) {
     error_throw_handle(sp, JS_TYPE_ERROR, u"");
@@ -1034,7 +1034,7 @@ void NjsVM::exec_instanceof(SPRef sp) {
     if (same_value(proto, func_prototype)) {
       is_instance = true;
     } else if (proto.is_object()) {
-      proto = proto.as_object()->get_proto();
+      proto = proto.as_object->get_proto();
     } else {
       break;
     }
@@ -1047,7 +1047,7 @@ void NjsVM::exec_delete(SPRef sp) {
   sp -= 1;
   if (sp[0].is_object()) [[likely]] {
     JSValue key = VM_TRY_COMP(js_to_property_key(*this, sp[1]));
-    bool succeeded = VM_TRY_ERR(sp[0].as_object()->delete_property(key));
+    bool succeeded = VM_TRY_ERR(sp[0].as_object->delete_property(key));
     sp[0].set_bool(succeeded);
   } else {
     sp[0].set_bool(true);
@@ -1072,7 +1072,7 @@ void NjsVM::exec_add_common(SPRef sp, JSValue& dest, JSValue& l, JSValue& r, boo
     JSValue lhs_s = VM_TRY_COMP(js_to_string(*this, lhs));
     JSValue rhs_s = VM_TRY_COMP(js_to_string(*this, rhs));
     auto *new_str = heap.new_object<PrimitiveString>(
-        lhs_s.u.as_prim_string->str + rhs_s.u.as_prim_string->str
+        lhs_s.as_prim_string->str + rhs_s.as_prim_string->str
     );
     dest.set_val(new_str);
   } else {
@@ -1089,11 +1089,11 @@ void NjsVM::exec_add(SPRef sp) {
   JSValue& r = sp[1];
 
   if (l.is_float64() && r.is_float64()) {
-    l.u.as_f64 += r.u.as_f64;
+    l.as_f64 += r.as_f64;
   }
   else if (l.is_prim_string() && r.is_prim_string()) {
     auto *new_str = heap.new_object<PrimitiveString>(
-        l.u.as_prim_string->str + r.u.as_prim_string->str
+        l.as_prim_string->str + r.as_prim_string->str
     );
     l.set_val(new_str);
   }
@@ -1108,9 +1108,9 @@ void NjsVM::exec_add_assign(SPRef sp, JSValue& target, bool keep_value) {
   JSValue& r = sp[1];
 
   if (target.is_float64() && r.is_float64()) {
-    target.u.as_f64 += r.u.as_f64;
+    target.as_f64 += r.as_f64;
   } else if (target.is_prim_string() && r.is_prim_string()) {
-    target.u.as_prim_string->str += r.u.as_prim_string->str;
+    target.as_prim_string->str += r.as_prim_string->str;
   } else {
     bool succeeded;
     exec_add_common(sp, target, target, r, succeeded);
@@ -1142,7 +1142,7 @@ void NjsVM::exec_binary(SPRef sp, OpType op_type) {
   };
   sp -= 1;
   if (sp[0].is_float64() && sp[1].is_float64()) [[likely]] {
-    sp[0].u.as_f64 = calc(op_type, sp[0].u.as_f64, sp[1].u.as_f64);
+    sp[0].as_f64 = calc(op_type, sp[0].as_f64, sp[1].as_f64);
   }
   else {
     double lhs = VM_TRY_ERR(js_to_number(*this, sp[0]));
@@ -1247,11 +1247,11 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
 CallResult NjsVM::exec_call(SPRef sp, int argc, bool has_this, bool is_new, JSValueRef new_target) {
   JSValue& func_val = sp[-argc];
   if (func_val.tag != JSValue::FUNCTION
-      || func_val.u.as_object->get_class() != CLS_FUNCTION) [[unlikely]] {
+      || func_val.as_object->get_class() != CLS_FUNCTION) [[unlikely]] {
     error_throw_handle(sp, JS_TYPE_ERROR, u"value is not callable");
     return CallResult::DONE_ERROR;
   }
-  JSFunction& func = *func_val.u.as_func;
+  JSFunction& func = *func_val.as_func;
   JSValue *This;
   if (func.has_this_binding) [[unlikely]] {
     This = &func.this_binding;
@@ -1288,7 +1288,7 @@ void NjsVM::exec_js_new(SPRef sp, int arg_count) {
   JSValue& ctor = sp[-arg_count];
   assert(ctor.is(JSValue::FUNCTION));
   // prepare `this` object
-  JSValue proto = ctor.u.as_func->get_prop_trivial(AtomPool::k_prototype);
+  JSValue proto = ctor.as_func->get_prop_trivial(AtomPool::k_prototype);
   proto = proto.is_object() ? proto : object_prototype;
   auto *this_obj = heap.new_object<JSObject>(CLS_OBJECT, proto);
 
@@ -1315,11 +1315,11 @@ void NjsVM::exec_js_new(SPRef sp, int arg_count) {
 void NjsVM::exec_add_props(SPRef sp, int props_cnt) {
   JSValue& val_obj = sp[-props_cnt * 2];
   assert(val_obj.is_object());
-  JSObject *object = val_obj.u.as_object;
+  JSObject *object = val_obj.as_object;
 
   for (JSValue *key = sp - props_cnt * 2 + 1; key <= sp; key += 2) {
     assert(key[0].is_atom());
-    object->add_prop_trivial(key[0].u.as_atom, key[1], PFlag::VECW);
+    object->add_prop_trivial(key[0].as_atom, key[1], PFlag::VECW);
   }
 
   sp = sp - props_cnt * 2;
@@ -1328,7 +1328,7 @@ void NjsVM::exec_add_props(SPRef sp, int props_cnt) {
 void NjsVM::exec_add_elements(SPRef sp, int elements_cnt) {
   JSValue& val_array = sp[-elements_cnt];
   assert(val_array.tag == JSValue::ARRAY);
-  JSArray *array = val_array.u.as_array;
+  JSArray *array = val_array.as_array;
 
   u32 ele_idx = 0;
   for (JSValue *val = sp - elements_cnt + 1; val <= sp; val++, ele_idx++) {
@@ -1341,17 +1341,17 @@ void NjsVM::exec_add_elements(SPRef sp, int elements_cnt) {
 Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
   switch (obj.tag) {
     case JSValue::BOOLEAN:
-      return boolean_prototype.as_object()->get_property(*this, key);
+      return boolean_prototype.as_object->get_property(*this, key);
     case JSValue::NUM_FLOAT:
-      return number_prototype.as_object()->get_property(*this, key);
+      return number_prototype.as_object->get_property(*this, key);
     case JSValue::SYMBOL:
       return undefined;
       break;
     case JSValue::STRING: {
-      auto *str = obj.u.as_prim_string;
+      auto *str = obj.as_prim_string;
       JSValue prop_key = TRYCC(js_to_property_key(*this, key));
 
-      u32 atom = prop_key.u.as_atom;
+      u32 atom = prop_key.as_atom;
       if (atom_is_int(atom)) {
         u32 idx = atom_get_int(atom);
         if (idx < str->length()) {
@@ -1361,11 +1361,11 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
         }
       }
       else if (atom == AtomPool::k_length) {
-        auto len = obj.u.as_prim_string->length();
+        auto len = obj.as_prim_string->length();
         return JSFloat(len);
       }
       else {
-        return string_prototype.as_object()->get_prop(*this, prop_key);
+        return string_prototype.as_object->get_prop(*this, prop_key);
       }
       break;
     }
@@ -1377,7 +1377,7 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
 
 Completion NjsVM::get_prop_common(JSValue obj, JSValue key) {
   if(obj.is_object()) [[likely]] {
-    return obj.as_object()->get_property(*this, key);
+    return obj.as_object->get_property(*this, key);
   }
   else if (not obj.is_nil()) {
     return get_prop_on_primitive(obj, key);
@@ -1386,11 +1386,11 @@ Completion NjsVM::get_prop_common(JSValue obj, JSValue key) {
     u16string prop_name;
 
     if (key.is_atom()) {
-      prop_name = atom_to_str(key.u.as_atom);
+      prop_name = atom_to_str(key.as_atom);
     } else {
       Completion comp = js_to_string(*this, key);
       assert(comp.is_normal());
-      prop_name = comp.get_value().u.as_prim_string->str;
+      prop_name = comp.get_value().as_prim_string->str;
     }
     u16string msg = u"cannot read property '" + prop_name + u"' of "
                     + to_u16string(obj.to_string(*this));
@@ -1424,18 +1424,18 @@ void NjsVM::exec_get_prop_index(SPRef sp, int keep_obj) {
 
 Completion NjsVM::set_prop_common(JSValue obj, JSValue key, JSValue value) {
   if (obj.is_object()) {
-    auto res = TRY_COMP(obj.as_object()->set_property(*this, key, value));
+    auto res = TRY_COMP(obj.as_object->set_property(*this, key, value));
     return undefined;
   }
   else if (obj.is_nil()) {
     u16string prop_name;
 
     if (key.is_atom()) {
-      prop_name = atom_to_str(key.u.as_atom);
+      prop_name = atom_to_str(key.as_atom);
     } else {
       Completion comp = js_to_string(*this, key);
       assert(comp.is_normal());
-      prop_name = comp.get_value().u.as_prim_string->str;
+      prop_name = comp.get_value().as_prim_string->str;
     }
     u16string msg = u"cannot set property '" + prop_name + u"' of "
                     + to_u16string(obj.to_string(*this));
@@ -1480,7 +1480,7 @@ void NjsVM::exec_set_prop_index(SPRef sp) {
 }
 
 void NjsVM::exec_dynamic_get_var(SPRef sp, u32 name_atom, bool no_throw) {
-  auto comp = global_object.as_object()->get_property_impl(*this, JSAtom(name_atom));
+  auto comp = global_object.as_object->get_property_impl(*this, JSAtom(name_atom));
   sp[1] = comp.get_value();
   sp += 1;
 
@@ -1493,7 +1493,7 @@ void NjsVM::exec_dynamic_get_var(SPRef sp, u32 name_atom, bool no_throw) {
 }
 
 void NjsVM::exec_dynamic_set_var(SPRef sp, u32 name_atom) {
-  auto comp = global_object.as_object()->set_prop(*this, JSAtom(name_atom), sp[0]);
+  auto comp = global_object.as_object->set_prop(*this, JSAtom(name_atom), sp[0]);
   assert(comp.is_value());
 }
 
@@ -1510,7 +1510,7 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
   obj = js_to_object(*this, obj).get_value();
   assert(obj.is_object());
   auto iter_key = JSSymbol(AtomPool::k_sym_iterator);
-  JSValue iter_ctor = TRYCC(obj.as_object()->get_property(*this, iter_key));
+  JSValue iter_ctor = TRYCC(obj.as_object->get_property(*this, iter_key));
 
   if (!iter_ctor.is_object() || object_class(iter_ctor) != CLS_FUNCTION) [[unlikely]] {
     return build_err();
@@ -1522,7 +1522,7 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
 Completion NjsVM::for_of_call_next(JSValue iter) {
   assert(iter.is_object());
   auto atom_next = JSAtom(AtomPool::k_next);
-  JSValue next_func = TRYCC(iter.as_object()->get_property(*this, atom_next));
+  JSValue next_func = TRYCC(iter.as_object->get_property(*this, atom_next));
 
   if (!next_func.is_object() || object_class(next_func) != CLS_FUNCTION) {
     JSValue err = build_error_internal(
@@ -1591,16 +1591,16 @@ void NjsVM::exec_comparison(SPRef sp, OpType type) {
 
   bool res;
   if (lhs.is_float64() && rhs.is_float64()) {
-    res = double_compare(type, lhs.u.as_f64, rhs.u.as_f64);
+    res = double_compare(type, lhs.as_f64, rhs.as_f64);
   }
   else if (lhs.is(JSValue::STRING) && rhs.is(JSValue::STRING)) {
-    res = string_compare(type, lhs.u.as_prim_string, rhs.u.as_prim_string);
+    res = string_compare(type, lhs.as_prim_string, rhs.as_prim_string);
   }
   else {
     JSValue prim_lhs = VM_TRY_COMP(js_to_primitive(*this, lhs));
     JSValue prim_rhs = VM_TRY_COMP(js_to_primitive(*this, rhs));
     if (prim_lhs.is(JSValue::STRING) && prim_rhs.is(JSValue::STRING)) {
-      res = string_compare(type, prim_lhs.u.as_prim_string, prim_rhs.u.as_prim_string);
+      res = string_compare(type, prim_lhs.as_prim_string, prim_rhs.as_prim_string);
     } else {
       double f_lhs = VM_TRY_ERR(js_to_number(*this, prim_lhs));
       double f_rhs = VM_TRY_ERR(js_to_number(*this, prim_rhs));
@@ -1631,7 +1631,7 @@ void NjsVM::error_handle(SPRef sp) {
   u32& pc = *frame->pc_ref;
 
   u32 err_throw_pc = pc - 1;
-  auto& catch_table = curr_frame->function.u.as_func->meta->catch_table;
+  auto& catch_table = curr_frame->function.as_func->meta->catch_table;
   assert(catch_table.size() >= 1);
 
   if (catch_table.size() == 1) {
@@ -1668,7 +1668,7 @@ void NjsVM::error_handle(SPRef sp) {
 
 void NjsVM::print_unhandled_error(JSValue err) {
   if (err.is_object() && object_class(err) == CLS_ERROR) {
-    auto err_obj = err.as_object();
+    auto err_obj = err.as_object;
     // TODO: should not use `get_prop_trivial` here
     std::string err_msg = err_obj->get_prop_trivial(str_to_atom(u"message")).to_string(*this);
     std::string stack = err_obj->get_prop_trivial(str_to_atom(u"stack")).to_string(*this);

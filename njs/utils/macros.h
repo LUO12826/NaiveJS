@@ -7,7 +7,7 @@ namespace njs {
 
 using u32 = uint32_t;
 
-#define object_class(x) (x.as_object()->get_class())
+#define object_class(x) ((x).as_object->get_class())
 
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)

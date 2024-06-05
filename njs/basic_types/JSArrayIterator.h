@@ -21,7 +21,7 @@ class JSArrayIterator : public JSObject {
     assert(This.is_object());
     assert(object_class(This) == CLS_ARRAY_ITERATOR);
 
-    auto *iter = This.as_object<JSArrayIterator>();
+    auto *iter = This.as_Object<JSArrayIterator>();
     return iter->next(vm);
   }
 
@@ -38,11 +38,11 @@ class JSArrayIterator : public JSObject {
 
   void gc_scan_children(njs::GCHeap &heap) override {
     JSObject::gc_scan_children(heap);
-    heap.gc_visit_object(array, array.as_GCObject());
+    heap.gc_visit_object(array, array.as_GCObject);
   }
 
   Completion next(NjsVM& vm) {
-    JSArray& arr = *array.as_object<JSArray>();
+    JSArray& arr = *array.as_Object<JSArray>();
     JSValue value;
     bool done;
 

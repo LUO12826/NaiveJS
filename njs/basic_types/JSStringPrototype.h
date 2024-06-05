@@ -41,12 +41,12 @@ class JSStringPrototype : public JSObject {
 
   static ErrorOr<u16string*> get_string_from_value(NjsVM& vm, JSValue value) {
     if (value.is_prim_string()) {
-      return &value.u.as_prim_string->str;
+      return &value.as_prim_string->str;
     } else if (value.is(JSValue::STRING_OBJ)) {
-      return &value.u.as_string->value.str;
+      return &value.as_string->value.str;
     } else {
       JSValue prim_str = TRY_ERR(js_to_string(vm, value));
-      return &prim_str.u.as_prim_string->str;
+      return &prim_str.as_prim_string->str;
     }
   }
 
@@ -55,7 +55,7 @@ class JSStringPrototype : public JSObject {
     TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
 
-    double index = args[0].u.as_f64;
+    double index = args[0].as_f64;
     if (index < 0 || index > str->size()) {
       return vm.new_primitive_string(u"");
     }
@@ -67,7 +67,7 @@ class JSStringPrototype : public JSObject {
     assert(args.size() > 0);
     TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
-    auto *pattern = TRYCC(js_to_string(vm, args[0])).u.as_prim_string;
+    auto *pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string;
 
     int64_t start = 0;
     if (args.size() > 1) {
@@ -91,7 +91,7 @@ class JSStringPrototype : public JSObject {
     assert(args.size() > 0);
     TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
-    auto *pattern = TRYCC(js_to_string(vm, args[0])).u.as_prim_string;
+    auto *pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string;
 
     int64_t end = INT64_MAX;
     if (args.size() > 1) {
@@ -146,7 +146,7 @@ class JSStringPrototype : public JSObject {
       arr->set_element_fast(0, vm.new_primitive_string(*str));
     }
     else {
-      auto *pattern = TRYCC(js_to_string(vm, args[0])).u.as_prim_string;
+      auto *pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string;
       vector<u16string> split_res = cpp_split(*str, pattern->str);
 
       for (auto& substr : split_res) {
@@ -166,12 +166,12 @@ class JSStringPrototype : public JSObject {
     // get @@match from that object
     if (args.size() > 0 && args[0].is_object()) [[likely]] {
       JSValue key = JSSymbol(AtomPool::k_sym_match);
-      match_method = TRYCC(args[0].as_object()->get_property(vm, key));
+      match_method = TRYCC(args[0].as_object->get_property(vm, key));
     }
     
     if (match_method.is_undefined() || not match_method.is_function()) [[unlikely]] {
       JSValue regexp = TRYCC(JSRegExp::New(vm, u"", u""));
-      return regexp.as_object<JSRegExp>()->exec(vm, str, false);
+      return regexp.as_Object<JSRegExp>()->exec(vm, str, false);
     }
     else {
       return vm.call_function(match_method, args[0], undefined, {str}, flags);
@@ -189,7 +189,7 @@ class JSStringPrototype : public JSObject {
     // get @@replace from that object (this is basically for the RegExp)
     if (args[0].is_object()) {
       JSValue key = JSSymbol(AtomPool::k_sym_replace);
-      JSValue m_replace = TRYCC(args[0].as_object()->get_property(vm, key));
+      JSValue m_replace = TRYCC(args[0].as_object->get_property(vm, key));
       if (m_replace.is_undefined()) [[unlikely]] {
         goto arg0_is_string;
       } else {
@@ -202,9 +202,9 @@ class JSStringPrototype : public JSObject {
       }
     } else {
     arg0_is_string:
-      u16string& str = TRYCC(js_to_string(vm, This)).u.as_prim_string->str;
+      u16string& str = TRYCC(js_to_string(vm, This)).as_prim_string->str;
       JSValue pattern_val = TRYCC(js_to_string(vm, args[0]));
-      u16string& pattern = pattern_val.u.as_prim_string->str;
+      u16string& pattern = pattern_val.as_prim_string->str;
       u16string res = str;
 
       auto start_pos = res.find(pattern);
@@ -214,12 +214,12 @@ class JSStringPrototype : public JSObject {
         if (args[1].is_function()) {
           vector<JSValue> argv{pattern_val, JSFloat(start_pos)};
           JSValue rep = TRYCC(vm.call_function(args[1], undefined, undefined, argv));
-          u16string &replacement = TRYCC(js_to_string(vm, rep)).u.as_prim_string->str;
+          u16string &replacement = TRYCC(js_to_string(vm, rep)).as_prim_string->str;
 
           res.replace(start_pos, pattern.size(), replacement);
         }
         else {
-          u16string& replacement = TRYCC(js_to_string(vm, args[1])).u.as_prim_string->str;
+          u16string& replacement = TRYCC(js_to_string(vm, args[1])).as_prim_string->str;
           u16string_view matched(str.begin() + start_pos,
                                  str.begin() + start_pos + pattern.size());
           u16string populated = prepare_replacer_string(str, replacement, matched,
@@ -237,7 +237,7 @@ class JSStringPrototype : public JSObject {
     TRY_COMP(js_require_object_coercible(vm, This));
     u16string *str = TRY_COMP(get_string_from_value(vm, This));
 
-    double index = args[0].u.as_f64;
+    double index = args[0].as_f64;
     if (index < 0 || index > str->size()) {
       return JSValue(nan(""));
     }
@@ -314,8 +314,8 @@ class JSStringPrototype : public JSObject {
       return This;
     }
     else if (This.is_object() && object_class(This) == CLS_STRING) {
-      assert(dynamic_cast<JSString*>(This.as_object()));
-      auto *str_obj = static_cast<JSString*>(This.as_object());
+      assert(dynamic_cast<JSString*>(This.as_object));
+      auto *str_obj = static_cast<JSString*>(This.as_object);
       return vm.new_primitive_string(str_obj->value.str);
     }
     else {

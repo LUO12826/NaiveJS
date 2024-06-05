@@ -25,7 +25,7 @@ class JSForInIterator : public JSObject {
 
     set<u32> visited;
     vector<u32> keys;
-    JSObject *obj = object.as_object();
+    JSObject *obj = object.as_object;
 
     while (true) {
       if (obj->get_class() == CLS_ARRAY) [[unlikely]] {
@@ -53,7 +53,7 @@ class JSForInIterator : public JSObject {
 
       JSValue proto = obj->get_proto();
       if (proto.is_null()) break;
-      obj = proto.as_object();
+      obj = proto.as_object;
     }
 
     iter->object = object;
@@ -71,7 +71,7 @@ class JSForInIterator : public JSObject {
   void gc_scan_children(njs::GCHeap &heap) override {
     JSObject::gc_scan_children(heap);
     if (object.needs_gc()) [[likely]] {
-      heap.gc_visit_object(object, object.as_GCObject());
+      heap.gc_visit_object(object, object.as_GCObject);
     }
   }
 

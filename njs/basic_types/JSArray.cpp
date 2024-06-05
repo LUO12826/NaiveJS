@@ -10,7 +10,7 @@ void JSArray::gc_scan_children(GCHeap& heap) {
   JSObject::gc_scan_children(heap);
   for (auto& val : dense_array) {
     if (val.needs_gc()) {
-      heap.gc_visit_object(val, val.as_GCObject());
+      heap.gc_visit_object(val, val.as_GCObject);
     }
   }
 }

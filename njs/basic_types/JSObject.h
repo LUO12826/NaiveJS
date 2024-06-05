@@ -93,7 +93,7 @@ struct JSObjectKey {
 
   explicit JSObjectKey(u32 atom) : type(JSValue::STRING), atom(atom) {}
 
-  explicit JSObjectKey(JSValue val) : type(val.tag), atom(val.u.as_atom) {
+  explicit JSObjectKey(JSValue val) : type(val.tag), atom(val.as_atom) {
     assert(val.is_symbol() || val.is_atom());
   }
 
@@ -126,14 +126,14 @@ struct JSPropDesc {
     struct {
       JSValue getter;
       JSValue setter;
-    } getset;
+    };
 
     Data() {}
-    Data(const Data& other) { getset = other.getset; }
-    Data(Data&& other) { getset = other.getset; }
+    Data(const Data& other) : getter(other.getter), setter(other.setter) {}
 
     Data& operator=(const Data& other) {
-      getset = other.getset;
+      setter = other.setter;
+      getter = other.getter;
       return *this;
     }
   } data;
@@ -254,7 +254,7 @@ using StorageType = unordered_flat_map<JSObjectKey, JSPropDesc, ObjKeyHasher>;
       if (res != the_obj->storage.end()) {
         return &res->second;
       } else if (the_obj->_proto_.is_object()) {
-        the_obj = the_obj->_proto_.as_object();
+        the_obj = the_obj->_proto_.as_object;
       } else {
         return nullptr;
       }

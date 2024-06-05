@@ -41,7 +41,7 @@ class JSRegExpPrototype : public JSObject {
 
   static Completion toString(vm_func_This_args_flags) {
     if (This.is_object() && object_class(This) == CLS_REGEXP) [[likely]] {
-      return This.as_object<JSRegExp>()->prototype_to_string(vm);
+      return This.as_Object<JSRegExp>()->prototype_to_string(vm);
     } else {
       JSValue err = vm.build_error_internal(JS_TYPE_ERROR,
         u"RegExp.prototype.toString can only be called by RegExp object");
@@ -57,7 +57,7 @@ class JSRegExpPrototype : public JSObject {
       arg = args[0];
     }
     JSValue str = TRYCC(js_to_string(vm, arg));
-    return TRY_COMP(This.as_object<JSRegExp>()->exec(vm, str, true));
+    return TRY_COMP(This.as_Object<JSRegExp>()->exec(vm, str, true));
   }
 
   static Completion re_exec(vm_func_This_args_flags) {
@@ -67,7 +67,7 @@ class JSRegExpPrototype : public JSObject {
     if (args.size() >= 1) [[likely]] {
       str = args[0];
     }
-    return This.as_object<JSRegExp>()->exec(vm, str, false);
+    return This.as_Object<JSRegExp>()->exec(vm, str, false);
   }
 
   static Completion re_match_all(vm_func_This_args_flags) {
@@ -84,7 +84,7 @@ class JSRegExpPrototype : public JSObject {
     if (args.size() >= 2) [[likely]] {
       replacer = args[1];
     }
-    return This.as_object<JSRegExp>()->replace(vm, str, replacer);
+    return This.as_Object<JSRegExp>()->replace(vm, str, replacer);
   }
 
   static Completion re_search(vm_func_This_args_flags) {

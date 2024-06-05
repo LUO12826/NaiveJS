@@ -112,7 +112,7 @@ friend class JSArrayIterator;
         }
     );
 
-    native_error_protos[type].as_object()
+    native_error_protos[type].as_object
         ->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(AtomPool::k_prototype, error_prototype);
   }

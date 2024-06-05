@@ -23,8 +23,8 @@ class JSNumberPrototype : public JSObject {
 
   static Completion valueOf(vm_func_This_args_flags) {
     if (This.is_object() && object_class(This) == CLS_NUMBER) [[likely]] {
-      assert(dynamic_cast<JSNumber*>(This.as_object()));
-      auto *num_obj = static_cast<JSNumber*>(This.as_object());
+      assert(dynamic_cast<JSNumber*>(This.as_object));
+      auto *num_obj = static_cast<JSNumber*>(This.as_object);
       return JSValue(num_obj->value);
     }
     else if (This.is(JSValue::NUM_FLOAT)) {
@@ -39,12 +39,12 @@ class JSNumberPrototype : public JSObject {
 
   static Completion toString(vm_func_This_args_flags) {
     if (This.is_object() && object_class(This) == CLS_NUMBER) [[likely]] {
-      assert(dynamic_cast<JSNumber*>(This.as_object()));
-      auto *num_obj = static_cast<JSNumber*>(This.as_object());
+      assert(dynamic_cast<JSNumber*>(This.as_object));
+      auto *num_obj = static_cast<JSNumber*>(This.as_object);
       return vm.new_primitive_string(double_to_u16string(num_obj->value));
     }
     else if (This.is(JSValue::NUM_FLOAT)) {
-      return vm.new_primitive_string(double_to_u16string(This.u.as_f64));
+      return vm.new_primitive_string(double_to_u16string(This.as_f64));
     }
     else {
       return JSObjectPrototype::toString(JS_NATIVE_FUNC_ARGS);

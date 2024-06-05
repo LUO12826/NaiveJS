@@ -22,8 +22,8 @@ class JSBooleanPrototype : public JSObject {
 
   static Completion valueOf(vm_func_This_args_flags) {
     if (This.is_object() && object_class(This) == CLS_BOOLEAN) [[likely]] {
-      assert(dynamic_cast<JSBoolean*>(This.as_object()));
-      auto *bool_obj = static_cast<JSBoolean*>(This.as_object());
+      assert(dynamic_cast<JSBoolean*>(This.as_object));
+      auto *bool_obj = static_cast<JSBoolean*>(This.as_object);
       return JSValue(bool_obj->value);
     }
     else if (This.is(JSValue::BOOLEAN)) {
@@ -38,12 +38,12 @@ class JSBooleanPrototype : public JSObject {
 
   static Completion toString(vm_func_This_args_flags) {
     if (This.is_object() && object_class(This) == CLS_BOOLEAN) [[likely]] {
-      assert(dynamic_cast<JSBoolean*>(This.as_object()));
-      auto *bool_obj = static_cast<JSBoolean*>(This.as_object());
+      assert(dynamic_cast<JSBoolean*>(This.as_object));
+      auto *bool_obj = static_cast<JSBoolean*>(This.as_object);
       return vm.get_string_const(bool_obj->value ? AtomPool::k_true : AtomPool::k_false);
     }
     else if (This.is(JSValue::BOOLEAN)) {
-      return vm.get_string_const(This.u.as_bool ? AtomPool::k_true : AtomPool::k_false);
+      return vm.get_string_const(This.as_bool ? AtomPool::k_true : AtomPool::k_false);
     }
     else {
       return JSObjectPrototype::toString(JS_NATIVE_FUNC_ARGS);
