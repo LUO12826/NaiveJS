@@ -374,6 +374,7 @@ error:
           params.push_back(expr->get_source());
         }
       }
+      delete lhs;
       // end gather formal parameters, begin parsing function body
       lexer.next();
       ASTNode *func_body;
