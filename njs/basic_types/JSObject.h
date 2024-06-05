@@ -126,14 +126,14 @@ struct JSPropDesc {
     struct {
       JSValue getter;
       JSValue setter;
-    };
+    } getset;
 
     Data() {}
-    Data(const Data& other) : getter(other.getter), setter(other.setter) {}
+    Data(const Data& other) { getset = other.getset; }
+    Data(Data&& other) { getset = other.getset; }
 
     Data& operator=(const Data& other) {
-      setter = other.setter;
-      getter = other.getter;
+      getset = other.getset;
       return *this;
     }
   } data;

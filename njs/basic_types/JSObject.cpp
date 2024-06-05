@@ -21,8 +21,8 @@ bool JSPropDesc::operator==(const JSPropDesc& other) const {
   if (flag.is_value()) {
     return same_value(data.value, other.data.value);
   } else if (flag.is_getset()) {
-    return (!flag.has_getter || same_value(data.getter, other.data.getter)) &&
-           (!flag.has_setter || same_value(data.setter, other.data.setter));
+    return (!flag.has_getter || same_value(data.getset.getter, other.data.getset.getter)) &&
+           (!flag.has_setter || same_value(data.getset.setter, other.data.getset.setter));
   } else {
     return true;
   }
@@ -111,11 +111,11 @@ ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_d
   auto setup_getset = [] (JSPropDesc& target, JSPropDesc& desc) {
     bool has_getter = desc.flag.has_getter;
     target.flag.has_getter = has_getter;
-    target.data.getter = has_getter ? desc.data.getter : undefined;
+    target.data.getset.getter = has_getter ? desc.data.getset.getter : undefined;
 
     bool has_setter = desc.flag.has_setter;
     target.flag.has_setter = has_setter;
-    target.data.setter = has_setter ? desc.data.setter : undefined;
+    target.data.getset.setter = has_setter ? desc.data.getset.setter : undefined;
   };
 
   if (curr_desc == nullptr) [[likely]] {
@@ -185,21 +185,21 @@ ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_d
     } else if (curr_desc->is_accessor_descriptor()) {
       if (not curr_desc->flag.configurable) {
         if (desc.flag.has_getter
-            && !same_value(desc.data.getter, curr_desc->data.getter)) {
+            && !same_value(desc.data.getset.getter, curr_desc->data.getset.getter)) {
           return false;
         }
         if (desc.flag.has_setter
-            && !same_value(desc.data.setter, curr_desc->data.setter)) {
+            && !same_value(desc.data.getset.setter, curr_desc->data.getset.setter)) {
           return false;
         }
       }
       if (desc.flag.has_getter) {
         curr_desc->flag.has_getter = true;
-        curr_desc->data.getter = desc.data.getter;
+        curr_desc->data.getset.getter = desc.data.getset.getter;
       }
       if (desc.flag.has_setter) {
         curr_desc->flag.has_setter = true;
-        curr_desc->data.setter = desc.data.setter;
+        curr_desc->data.getset.setter = desc.data.getset.setter;
       }
     }
     // For each field of Desc that is present,
@@ -252,7 +252,7 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
   // is not a data descriptor
   else {
     assert(own_desc.is_accessor_descriptor());
-    JSValue& setter = own_desc.data.setter;
+    JSValue& setter = own_desc.data.getset.setter;
     if (setter.is_undefined()) return false;
     // TODO: pause GC here
     auto comp = vm.call_function(setter, JSValue(this), undefined, {value});
@@ -309,7 +309,7 @@ Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
     if (prop->flag.is_value()) [[likely]] {
       return prop->data.value;
     } else if (prop->flag.has_getter) {
-      JSValue& getter = prop->data.getter;
+      JSValue& getter = prop->data.getset.getter;
       assert(not getter.is_undefined());
       // TODO: pause GC here
       return vm.call_function(getter, JSValue(this), undefined, {});
@@ -357,13 +357,13 @@ ErrorOr<JSPropDesc> JSObject::to_property_descriptor(NjsVM& vm) {
     if (has_prop(AtomPool::k_get)) {
       desc.flag.has_getter = true;
       auto res = TRY_ERR(get_prop(vm, AtomPool::k_get));
-      desc.data.getter = res;
+      desc.data.getset.getter = res;
     }
 
     if (has_prop(AtomPool::k_set)) {
       desc.flag.has_setter = true;
       auto res = TRY_ERR(get_prop(vm, AtomPool::k_set));
-      desc.data.setter = res;
+      desc.data.getset.setter = res;
     }
 
     if (desc.is_data_descriptor() && desc.is_accessor_descriptor()) {
@@ -434,11 +434,11 @@ void JSObject::gc_scan_children(GCHeap& heap) {
       heap.gc_visit_object(prop.data.value, prop.data.value.as_GCObject);
     }
     if (prop.flag.is_getset()) {
-      if (prop.data.getter.needs_gc()) {
-        heap.gc_visit_object(prop.data.getter, prop.data.getter.as_GCObject);
+      if (prop.data.getset.getter.needs_gc()) {
+        heap.gc_visit_object(prop.data.getset.getter, prop.data.getset.getter.as_GCObject);
       }
-      if (prop.data.setter.needs_gc()) {
-        heap.gc_visit_object(prop.data.setter, prop.data.setter.as_GCObject);
+      if (prop.data.getset.setter.needs_gc()) {
+        heap.gc_visit_object(prop.data.getset.setter, prop.data.getset.setter.as_GCObject);
       }
     }
 
