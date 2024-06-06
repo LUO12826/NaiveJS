@@ -95,7 +95,7 @@ static int get_timezone_offset(int64_t time) {
 
 static void get_date_fields(double dval, double fields[9], int is_local) {
   int64_t d, days, wd, y, i, md, h, m, s, ms, tz = 0;
-  assert(not isnan(dval));
+  assert(not std::isnan(dval));
 
   d = dval;
   if (is_local) {
