@@ -15,6 +15,7 @@ class NativeFunction {
   static Completion log(JS_NATIVE_FUNC_PARAMS);
   static Completion debug_log(JS_NATIVE_FUNC_PARAMS);
   static Completion debug_trap(JS_NATIVE_FUNC_PARAMS);
+  static Completion dummy(JS_NATIVE_FUNC_PARAMS);
   static Completion js_gc(JS_NATIVE_FUNC_PARAMS);
   static Completion set_timeout(JS_NATIVE_FUNC_PARAMS);
   static Completion set_interval(JS_NATIVE_FUNC_PARAMS);
@@ -32,6 +33,7 @@ class NativeFunction {
   static Completion Array_ctor(JS_NATIVE_FUNC_PARAMS);
   static Completion RegExp_ctor(JS_NATIVE_FUNC_PARAMS);
   static Completion Date_ctor(JS_NATIVE_FUNC_PARAMS);
+  static Completion Function_ctor(JS_NATIVE_FUNC_PARAMS);
   static Completion error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type);
 
   static Completion Symbol(JS_NATIVE_FUNC_PARAMS);

@@ -44,6 +44,10 @@ Completion NativeFunction::debug_trap(vm_func_This_args_flags) {
   }
 }
 
+Completion NativeFunction::dummy(vm_func_This_args_flags) {
+  return undefined;
+}
+
 Completion NativeFunction::js_gc(vm_func_This_args_flags) {
   vm.heap.gc();
   return undefined;

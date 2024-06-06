@@ -104,6 +104,10 @@ Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
   }
 }
 
+Completion NativeFunction::Function_ctor(vm_func_This_args_flags) {
+  u32 key = vm.str_to_atom(u16string_view(u"___dummy"));
+  return vm.global_object.as_object->get_prop_trivial(key);
+}
 
 Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArgRef args, JSErrorType type) {
   auto *err_obj = vm.new_object(CLS_ERROR, vm.native_error_protos[type]);

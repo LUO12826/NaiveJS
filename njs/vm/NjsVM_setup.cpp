@@ -9,7 +9,8 @@ namespace njs {
 
 void NjsVM::setup() {
   add_native_func_impl(u"log", NativeFunction::debug_log);
-  add_native_func_impl(u"trap__", NativeFunction::debug_trap);
+  add_native_func_impl(u"___trap", NativeFunction::debug_trap);
+  add_native_func_impl(u"___dummy", NativeFunction::debug_trap);
   add_native_func_impl(u"$gc", NativeFunction::js_gc);
   add_native_func_impl(u"setTimeout", NativeFunction::set_timeout);
   add_native_func_impl(u"setInterval", NativeFunction::set_interval);
@@ -87,6 +88,12 @@ void NjsVM::setup() {
     func->add_prop_trivial(AtomPool::k_replace, JSSymbol(AtomPool::k_sym_replace));
     func->add_prop_trivial(AtomPool::k_search, JSSymbol(AtomPool::k_sym_search));
     func->add_prop_trivial(AtomPool::k_split, JSSymbol(AtomPool::k_sym_split));
+  }
+
+  {
+    JSFunction *func = add_native_func_impl(u"Function", NativeFunction::Function_ctor);
+    function_prototype.as_object->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(AtomPool::k_prototype, function_prototype);
   }
 
   {
