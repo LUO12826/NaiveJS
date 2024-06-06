@@ -45,10 +45,10 @@ inline ErrorOr<bool> abstract_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
     return strict_equals(vm, lhs, rhs);
   }
   if (lhs.is_float64() && rhs.is_prim_string()) {
-    return lhs.as_f64 == u16string_to_double(rhs.as_prim_string->str);
+    return lhs.as_f64 == u16string_to_double(rhs.as_prim_string->str.view());
   }
   else if (lhs.is_prim_string() && rhs.is_float64()) {
-    return rhs.as_f64 == u16string_to_double(lhs.as_prim_string->str);
+    return rhs.as_f64 == u16string_to_double(lhs.as_prim_string->str.view());
   }
   else if (lhs.is_nil() && rhs.is_nil()) {
     return true;

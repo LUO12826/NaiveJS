@@ -41,10 +41,10 @@ class JSNumberPrototype : public JSObject {
     if (This.is_object() && object_class(This) == CLS_NUMBER) [[likely]] {
       assert(dynamic_cast<JSNumber*>(This.as_object));
       auto *num_obj = static_cast<JSNumber*>(This.as_object);
-      return vm.new_primitive_string(double_to_u16string(num_obj->value));
+      return vm.new_primitive_string(New::double_to_u16string(num_obj->value));
     }
     else if (This.is(JSValue::NUM_FLOAT)) {
-      return vm.new_primitive_string(double_to_u16string(This.as_f64));
+      return vm.new_primitive_string(New::double_to_u16string(This.as_f64));
     }
     else {
       return JSObjectPrototype::toString(JS_NATIVE_FUNC_ARGS);

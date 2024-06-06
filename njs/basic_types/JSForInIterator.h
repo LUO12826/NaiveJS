@@ -77,7 +77,7 @@ class JSForInIterator : public JSObject {
 
   JSValue next(NjsVM& vm) {
     if (index < collected_keys.size()) [[likely]] {
-      u16string key_str = vm.atom_to_str(collected_keys[index]);
+      String key_str(vm.atom_to_str(collected_keys[index]));
       index += 1;
       return vm.new_primitive_string(std::move(key_str));
     } else {

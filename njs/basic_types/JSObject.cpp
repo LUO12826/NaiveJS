@@ -490,7 +490,7 @@ std::string JSObject::to_string(NjsVM& vm) const {
   return output;
 }
 
-void JSObject::to_json(u16string& output, NjsVM& vm) const {
+void JSObject::to_json(String& output, NjsVM& vm) const {
   output += u"{";
 
   bool first = true;

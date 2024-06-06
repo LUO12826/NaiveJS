@@ -184,7 +184,7 @@ using StorageType = unordered_flat_map<JSObjectKey, JSPropDesc, ObjKeyHasher>;
   std::string description() override;
 
   virtual std::string to_string(NjsVM& vm) const;
-  virtual void to_json(u16string& output, NjsVM& vm) const;
+  virtual void to_json(String& output, NjsVM& vm) const;
 
   virtual u16string_view get_class_name() { return u"Object"; }
   ObjClass get_class() { return obj_class; }

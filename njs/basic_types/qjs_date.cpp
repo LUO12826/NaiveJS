@@ -5,8 +5,7 @@
 #include <ctime>
 #include <cassert>
 #include "njs/utils/helper.h"
-
-using std::u16string;
+#include "njs/basic_types/String.h"
 
 static int const month_days[] = {31, 28, 31, 30, 31, 30,
                                  31, 31, 30, 31, 30, 31};
@@ -143,7 +142,7 @@ static void get_date_fields(double dval, double fields[9], int is_local) {
    part: 1=date, 2=time 3=all
    XXX: should use a variant of strftime().
  */
-u16string get_date_string(double ts, int magic) {
+njs::String get_date_string(double ts, int magic) {
   // _string(obj, fmt, part)
   char buf[64];
   double fields[9];
@@ -233,5 +232,5 @@ u16string get_date_string(double ts, int magic) {
 
   char16_t u16buf[64];
   njs::u8_to_u16_buffer(buf, u16buf);
-  return u16string(u16buf);
+  return njs::String(u16buf);
 }

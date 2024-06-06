@@ -8,6 +8,7 @@
 #include "REByteCode.h"
 #include "njs/vm/NjsVM.h"
 #include "njs/basic_types/conversion.h"
+#include "njs/basic_types/String.h"
 #include "njs/basic_types/JSArray.h"
 #include "njs/utils/helper.h"
 #include "njs/include/libregexp/lre_helper.h"
@@ -47,8 +48,8 @@ class JSRegExp : public JSObject {
     return comp.is_throw() ? comp : JSValue(regexp);
   }
 
-  static Completion New(NjsVM& vm, const u16string& pattern, const u16string& flags_str) {
-    auto maybe_flags = str_to_regexp_flags(flags_str);
+  static Completion New(NjsVM& vm, const String& pattern, const String& flags_str) {
+    auto maybe_flags = str_to_regexp_flags(flags_str.view());
 
     if (maybe_flags.has_value()) [[likely]] {
       auto *regexp = vm.heap.new_object<JSRegExp>(vm, pattern, flags_str, maybe_flags.value());
@@ -60,7 +61,7 @@ class JSRegExp : public JSObject {
     }
   }
 
-  JSRegExp(NjsVM& vm, const u16string& pattern, const u16string& flags_str, int flags)
+  JSRegExp(NjsVM& vm, const String& pattern, const String& flags_str, int flags)
     : JSObject(CLS_REGEXP, vm.regexp_prototype),
       pattern_atom(vm.str_to_atom(pattern)),
       pattern(pattern),
@@ -80,9 +81,9 @@ class JSRegExp : public JSObject {
   {
     add_regexp_object_props(vm, flags);
 
-    u16string flag_str = regexp_flags_to_str(flags);
+    String flag_str = regexp_flags_to_str(flags);
     add_prop_trivial(vm, u"source", JSValue(vm.new_primitive_string(this->pattern)), PFlag::V);
-    add_prop_trivial(vm, u"flags", JSValue(vm.new_primitive_string(std::move(flag_str))), PFlag::V);
+    add_prop_trivial(vm, u"flags", JSValue(vm.new_primitive_string(flag_str)), PFlag::V);
   }
 
   void add_regexp_object_props(NjsVM& vm, int fl) {
@@ -110,13 +111,13 @@ class JSRegExp : public JSObject {
     char error_msg[64];
     uint8_t *re_bytecode_buf = lre_compile(&this->bytecode_len,
                                            error_msg, sizeof(error_msg),
-                                           to_u8string(pattern).c_str(), pattern.size(),
+                                           New::to_u8string(pattern).c_str(), pattern.size(),
                                            flags, nullptr);
     if (re_bytecode_buf == nullptr) {
       char16_t u16_msg[64];
       u8_to_u16_buffer(error_msg, u16_msg);
 
-      JSValue err = vm.build_error_internal(JS_SYNTAX_ERROR, u16string(u16_msg));
+      JSValue err = vm.build_error_internal(JS_SYNTAX_ERROR, String(u16_msg));
       return CompThrow(err);
     }
     // set to cache
@@ -233,16 +234,16 @@ class JSRegExp : public JSObject {
       }
     }
 
-    u16string *replacement = nullptr;
+    String *replacement = nullptr;
     bool should_populate_replacement = false;
 
     if (not replacer.is_function()) [[likely]] {
       replacement = &TRYCC(js_to_string(vm, replacer)).as_prim_string->str;
-      should_populate_replacement = replacement->find(u'$') != u16string::npos;
+      should_populate_replacement = replacement->find(u'$') != String::npos;
     }
 
     LREWrapper lre(this->bytecode, arg_str);
-    u16string result;
+    String result;
     u32 prev_last_index = last_index;
 
     while (last_index < arg_str.size()) {
@@ -261,9 +262,9 @@ class JSRegExp : public JSObject {
 
         if (replacement) {
           if (should_populate_replacement) [[unlikely]] {
-            u16string_view matched(arg_str.begin() + first_index, arg_str.begin() + last_index);
-            u16string populated = prepare_replacer_string(arg_str, *replacement, matched,
-                                                          first_index, last_index);
+            u16string_view matched(arg_str.data() + first_index, arg_str.data() + last_index);
+            String populated = prepare_replacer_string(arg_str.view(), replacement->view(),
+                                                        matched, first_index, last_index);
             result += populated;
           } else {
             result += *replacement;
@@ -308,7 +309,7 @@ class JSRegExp : public JSObject {
 
   Completion prototype_to_string(NjsVM& vm) {
     JSValue flags_val = TRYCC(get_prop(vm, u"flags"));
-    u16string regexp_str = u"/" + pattern + u"/" + flags_val.as_prim_string->str;
+    String regexp_str = u"/" + pattern + u"/" + flags_val.as_prim_string->str;
     return JSValue(vm.new_primitive_string(std::move(regexp_str)));
   }
 
@@ -317,11 +318,11 @@ class JSRegExp : public JSObject {
   }
 
   std::string to_string(njs::NjsVM &vm) const override {
-    return to_u8string(pattern);
+    return New::to_u8string(pattern);
   }
 
   u32 pattern_atom;
-  u16string pattern;
+  String pattern;
   int flags;
   int bytecode_len;
   uint8_t *bytecode;

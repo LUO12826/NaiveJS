@@ -35,7 +35,7 @@ class JSArray: public JSObject {
   }
   std::string description() override;
   std::string to_string(NjsVM& vm) const override;
-  void to_json(u16string& output, NjsVM& vm) const override;
+  void to_json(String& output, NjsVM& vm) const override;
 
   Completion get_property_impl(NjsVM& vm, JSValue key) override {
     JSValue res = TRYCC(get_index_or_atom(vm, key));

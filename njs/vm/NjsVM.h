@@ -16,6 +16,7 @@
 #include "njs/common/common_def.h"
 #include "njs/common/AtomPool.h"
 #include "njs/basic_types/JSFunction.h"
+#include "njs/basic_types/String.h"
 #include "njs/basic_types/JSErrorPrototype.h"
 #include "njs/basic_types/JSValue.h"
 #include "njs/basic_types/REByteCode.h"
@@ -121,15 +122,15 @@ friend class JSArrayIterator;
   void run();
 
   vector<StackTraceItem> capture_stack_trace();
-  u16string build_trace_str(bool remove_top = false);
-  JSValue build_error_internal(JSErrorType type, const u16string& msg);
-  JSValue build_error_internal(JSErrorType type, u16string&& msg);
+  String build_trace_str(bool remove_top = false);
+  JSValue build_error_internal(JSErrorType type, const String& msg);
+  JSValue build_error_internal(JSErrorType type, String&& msg);
 
   JSObject* new_object(ObjClass cls = CLS_OBJECT);
   JSObject* new_object(ObjClass cls, JSValue proto);
   JSFunction* new_function(JSFunctionMeta *meta);
-  JSValue new_primitive_string(const u16string& str);
-  JSValue new_primitive_string(u16string&& str);
+  JSValue new_primitive_string(const String& str);
+  JSValue new_primitive_string(String&& str);
 
   bool has_atom_str(u16string_view str_view) {
     return atom_pool.has_string(str_view);
@@ -137,6 +138,10 @@ friend class JSArrayIterator;
 
   u32 str_to_atom(u16string_view str_view) {
     return atom_pool.atomize(str_view);
+  }
+
+  u32 str_to_atom(const String& str) {
+    return atom_pool.atomize(str.view());
   }
 
   u32 str_to_atom_no_uint(u16string_view str_view) {
@@ -155,11 +160,13 @@ friend class JSArrayIterator;
     return atom_pool.atomize_symbol_desc(desc);
   }
 
-  u16string atom_to_str(u32 atom) {
+  /// warning: do NOT keep the returned view for long. It will be invalidated at the next call.
+  u16string_view atom_to_str(u32 atom) {
     if (atom_is_int(atom)) [[unlikely]] {
-      return to_u16string(atom_get_int(atom));
+      temp_int_atom_string = New::to_u16string(atom_get_int(atom));
+      return temp_int_atom_string.view();
     } else {
-      return u16string(atom_pool.get_string(atom));
+      return atom_pool.get_string(atom);
     }
   }
 
@@ -221,9 +228,9 @@ friend class JSArrayIterator;
   Completion for_of_get_iterator(JSValue obj);
   Completion for_of_call_next(JSValue iter);
 
-  void error_throw(SPRef sp, const u16string& msg);
-  void error_throw(SPRef sp, JSErrorType type, const u16string& msg);
-  void error_throw_handle(SPRef sp, JSErrorType type, const u16string& msg);
+  void error_throw(SPRef sp, const String& msg);
+  void error_throw(SPRef sp, JSErrorType type, const String& msg);
+  void error_throw_handle(SPRef sp, JSErrorType type, const String& msg);
   void error_handle(SPRef sp);
   void print_unhandled_error(JSValue err);
 
@@ -270,6 +277,7 @@ friend class JSArrayIterator;
 
   vector<JSValue> string_const;
   unordered_flat_map<u32, REByteCode> regexp_bytecode;
+  String temp_int_atom_string;
 };
 
 } // namespace njs

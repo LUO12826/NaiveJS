@@ -6,6 +6,7 @@
 #include <string>
 #include <cstdint>
 #include <cassert>
+#include "njs/basic_types/String.h"
 extern "C" {
 #include "libregexp.h"
 }
@@ -17,7 +18,7 @@ using std::pair;
 using std::optional;
 using std::u16string;
 
-inline optional<int> str_to_regexp_flags(const u16string& flags) {
+inline optional<int> str_to_regexp_flags(u16string_view flags) {
   int re_flags = 0;
   for (char16_t flag : flags) {
     int mask;
@@ -55,8 +56,8 @@ inline optional<int> str_to_regexp_flags(const u16string& flags) {
   return re_flags;
 }
 
-inline u16string regexp_flags_to_str(int flags) {
-  u16string flag_str;
+inline String regexp_flags_to_str(int flags) {
+  String flag_str;
   if (flags & LRE_FLAG_GLOBAL) flag_str += u'g';
   if (flags & LRE_FLAG_IGNORECASE) flag_str += u'i';
   if (flags & LRE_FLAG_MULTILINE) flag_str += u'm';
@@ -70,10 +71,10 @@ inline u16string regexp_flags_to_str(int flags) {
 
 class LREWrapper {
  public:
-  LREWrapper(uint8_t *bytecode, const u16string& input)
+  LREWrapper(uint8_t *bytecode, const String& input)
     : bytecode(bytecode)
     , input(input)
-    , input_buf((uint8_t*)input.c_str())
+    , input_buf((uint8_t*)input.data())
     , input_len(input.size())
   {
     capture_cnt = lre_get_capture_count(bytecode);
@@ -117,7 +118,7 @@ class LREWrapper {
     return {start, end};
   }
 
-  u16string get_group_match_result(int index) {
+  String get_group_match_result(int index) {
     auto [start, end] = capture_group_get_start_end(index);
     return input.substr(start, end - start);
   }
@@ -130,7 +131,7 @@ class LREWrapper {
  private:
   uint8_t *bytecode {nullptr};
 
-  const u16string& input;
+  const String& input;
   uint8_t *input_buf {nullptr};
   int input_len {0};
   bool is_wchar {true};

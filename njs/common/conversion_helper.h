@@ -13,6 +13,7 @@
 #include "njs/utils/helper.h"
 #include "njs/parser/unicode.h"
 #include "njs/parser/lexing_helper.h"
+#include "njs/basic_types/String.h"
 
 namespace njs {
 
@@ -212,7 +213,7 @@ inline u16string double_to_u16string(double n) {
   return u16string(u16buf);
 }
 
-inline double u16string_to_double(const u16string &str) {
+inline double u16string_to_double(u16string_view str) {
 
   auto start = std::find_if_not(str.begin(), str.end(), [](char16_t ch) {
     return character::is_white_space(ch) || character::is_line_terminator(ch);
@@ -250,7 +251,7 @@ inline double u16string_to_double(const u16string &str) {
   }
 }
 
-inline double parse_int(const u16string &str) {
+inline double parse_int(u16string_view str) {
 
   auto start = std::find_if_not(str.begin(), str.end(), [](char16_t ch) {
     return character::is_white_space(ch) || character::is_line_terminator(ch);
@@ -298,6 +299,82 @@ inline double parse_int(const u16string &str) {
   } else {
     return NAN;
   }
+}
+
+namespace New {
+
+inline String to_u16string(u32 value) {
+  char16_t buffer[10];
+  char16_t *pos = buffer + 10;
+
+  do {
+    *--pos = static_cast<char16_t>(u'0' + (value % 10));
+    value /= 10;
+  } while (value != 0);
+
+  return String(pos, buffer + 10 - pos);
+}
+
+inline String to_u16string(int32_t value) {
+  char16_t buffer[11];
+  char16_t *pos = buffer + 11;
+  int neg = value < 0;
+  if (neg) value = -value;
+
+  do {
+    *--pos = static_cast<char16_t>(u'0' + ((u32)value % 10));
+    value = (u32)value / 10;
+  } while (value != 0);
+
+  if (neg) { *--pos = u'-'; }
+
+  return String(pos, buffer + 11 - pos);
+}
+
+inline String to_u16string(int64_t value) {
+  char16_t buffer[20];
+  char16_t *pos = buffer + 20;
+  int neg = value < 0;
+  if (neg) value = -value;
+
+  do {
+    *--pos = static_cast<char16_t>(u'0' + ((uint64_t)value % 10));
+    value = (uint64_t)value / 10;
+  } while (value != 0);
+
+  if (neg) { *--pos = u'-'; }
+
+  return String(pos, buffer + 20 - pos);
+}
+
+inline String to_u16string(const string& str) {
+  std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> converter;
+  u16string res = converter.from_bytes(str);
+  return String(res);
+}
+
+inline String to_u16string(bool b) {
+  return b ? u"true" : u"false";
+}
+
+inline u16string to_escaped_u16string(const String& str) {
+  return njs::to_escaped_u16string(str.view());
+}
+
+inline string to_u8string(const String& str) {
+  static std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+  return convert.to_bytes(str.data(), str.data() + str.size());
+}
+
+inline String double_to_u16string(double n) {
+  char buf[JS_DTOA_BUF_SIZE];
+  js_dtoa(buf, n, 10, 0, JS_DTOA_VAR_FORMAT);
+  
+  char16_t u16buf[JS_DTOA_BUF_SIZE];
+  u8_to_u16_buffer(buf, u16buf);
+  return String(u16buf);
+}
+
 }
 
 }

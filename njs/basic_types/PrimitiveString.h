@@ -3,17 +3,22 @@
 
 #include <string>
 #include "njs/gc/GCObject.h"
+#include "njs/basic_types/String.h"
 #include "njs/common/conversion_helper.h"
 
 namespace njs {
+
+using std::u16string;
 
 /// @brief PrimitiveString: string that is not wrapped as objects in JavaScript
 struct PrimitiveString: public GCObject {
 
   PrimitiveString() = default;
 
-  explicit PrimitiveString(const std::u16string& str);
-  explicit PrimitiveString(std::u16string&& str);
+  explicit PrimitiveString(u16string_view str_view);
+  explicit PrimitiveString(const u16string& str);
+  explicit PrimitiveString(const String& str);
+  explicit PrimitiveString(String&& str);
 
   bool operator == (const PrimitiveString& other) const;
   bool operator != (const PrimitiveString& other) const;
@@ -25,18 +30,20 @@ struct PrimitiveString: public GCObject {
   void gc_scan_children(njs::GCHeap &heap) override {}
 
   std::string description() override {
-    return "PrimitiveString(" + to_u8string(str) + ")";
+    return "PrimitiveString(" + str.to_std_u8string() + ")";
   }
 
   size_t length() const {
-    return str.length();
+    return str.size();
   }
 
-  std::u16string str;
+  String str;
 };
 
-inline PrimitiveString::PrimitiveString(const std::u16string& str): str(str) {}
-inline PrimitiveString::PrimitiveString(std::u16string&& str): str(std::move(str)) {}
+inline PrimitiveString::PrimitiveString(u16string_view str_view): str(str_view) {}
+inline PrimitiveString::PrimitiveString(const u16string& str): str(str) {}
+inline PrimitiveString::PrimitiveString(const String& str): str(str) {}
+inline PrimitiveString::PrimitiveString(String&& str): str(std::move(str)) {}
 
 inline bool PrimitiveString::operator == (const PrimitiveString& other) const {
   return str == other.str;

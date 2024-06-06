@@ -242,7 +242,7 @@ friend class NjsVM;
   /// `to_string(NjsVM&)` is for console.log.
   std::string to_string(NjsVM& vm) const;
   /// `to_json(u16string&, NjsVM&)` is for JSON.stringify.
-  void to_json(u16string& output, NjsVM& vm) const;
+  void to_json(String& output, NjsVM& vm) const;
 
   union {
     uint64_t data;

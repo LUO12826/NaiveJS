@@ -39,7 +39,7 @@ class JSArrayPrototype : public JSObject {
   static Completion toString(vm_func_This_args_flags) {
     if (This.is_object() && object_class(This) == CLS_ARRAY) [[likely]] {
       auto *arr = This.as_Object<JSArray>();
-      u16string output;
+      String output;
       bool first = true;
 
       for (auto& val : arr->dense_array) {
@@ -61,14 +61,14 @@ class JSArrayPrototype : public JSObject {
   static Completion join(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
 
-    u16string delimiter = u",";
+    String delimiter = u",";
     if (args.size() != 0 && !args[0].is_undefined()) [[likely]] {
       JSValue deli = TRYCC(js_to_string(vm, args[0]));
       delimiter = deli.as_prim_string->str;
     }
 
     auto *arr = This.as_Object<JSArray>();
-    u16string output;
+    String output;
     bool first = true;
 
     for (auto& val : arr->dense_array) {

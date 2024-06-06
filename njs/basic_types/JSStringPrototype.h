@@ -9,6 +9,7 @@
 #include "njs/parser/unicode.h"
 #include "njs/common/ArrayRef.h"
 #include "njs/vm/Completion.h"
+#include "njs/basic_types/String.h"
 
 namespace njs {
 
@@ -39,7 +40,7 @@ class JSStringPrototype : public JSObject {
     return u"StringPrototype";
   }
 
-  static ErrorOr<u16string*> get_string_from_value(NjsVM& vm, JSValue value) {
+  static ErrorOr<String*> get_string_from_value(NjsVM& vm, JSValue value) {
     if (value.is_prim_string()) {
       return &value.as_prim_string->str;
     } else if (value.is(JSValue::STRING_OBJ)) {
@@ -53,20 +54,20 @@ class JSStringPrototype : public JSObject {
   static Completion charAt(vm_func_This_args_flags) {
     assert(args.size() > 0 && args[0].is(JSValue::NUM_FLOAT));
     TRY_COMP(js_require_object_coercible(vm, This));
-    u16string *str = TRY_COMP(get_string_from_value(vm, This));
+    String *str = TRY_COMP(get_string_from_value(vm, This));
 
     double index = args[0].as_f64;
     if (index < 0 || index > str->size()) {
       return vm.new_primitive_string(u"");
     }
-    u16string res = u16string{(*str)[(size_t)index]};
+    String res = String{(*str)[(size_t)index]};
     return vm.new_primitive_string(std::move(res));
   }
 
   static Completion indexOf(vm_func_This_args_flags) {
     assert(args.size() > 0);
     TRY_COMP(js_require_object_coercible(vm, This));
-    u16string *str = TRY_COMP(get_string_from_value(vm, This));
+    String *str = TRY_COMP(get_string_from_value(vm, This));
     auto *pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string;
 
     int64_t start = 0;
@@ -80,7 +81,7 @@ class JSStringPrototype : public JSObject {
     }
 
     size_t find_res = str->find(pattern->str, start);
-    if (find_res != u16string::npos) {
+    if (find_res != String::npos) {
       return JSFloat(find_res);
     } else {
       return JSFloat(-1);
@@ -90,7 +91,7 @@ class JSStringPrototype : public JSObject {
   static Completion lastIndexOf(vm_func_This_args_flags) {
     assert(args.size() > 0);
     TRY_COMP(js_require_object_coercible(vm, This));
-    u16string *str = TRY_COMP(get_string_from_value(vm, This));
+    String *str = TRY_COMP(get_string_from_value(vm, This));
     auto *pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string;
 
     int64_t end = INT64_MAX;
@@ -104,29 +105,27 @@ class JSStringPrototype : public JSObject {
     }
 
     size_t find_res = str->rfind(pattern->str, end);
-    if (find_res != u16string::npos) {
+    if (find_res != String::npos) {
       return JSFloat(find_res);
     } else {
       return JSFloat(-1);
     }
   }
 
-  static vector<u16string> cpp_split(const u16string& str, const u16string& delimiter) {
-    vector<u16string> tokens;
+  static vector<String> cpp_split(const String& str, const String& delimiter) {
+    vector<String> tokens;
     if (delimiter.empty()) [[unlikely]] {
-      for (auto ch : str) {
-        u16string s;
-        s += ch;
-        tokens.push_back(std::move(s));
+      for (auto ch : str.view()) {
+        tokens.emplace_back(ch);
       }
       return tokens;
     }
     size_t start = 0;
     size_t end = str.find(delimiter);
 
-    while (end != u16string::npos) {
+    while (end != String::npos) {
       tokens.push_back(str.substr(start, end - start));
-      start = end + delimiter.length();
+      start = end + delimiter.size();
       end = str.find(delimiter, start);
     }
 
@@ -139,7 +138,7 @@ class JSStringPrototype : public JSObject {
   // TODO: should also support regexp.
   static Completion split(vm_func_This_args_flags) {
     TRY_COMP(js_require_object_coercible(vm, This));
-    u16string *str = TRY_COMP(get_string_from_value(vm, This));
+    String *str = TRY_COMP(get_string_from_value(vm, This));
     auto *arr = vm.heap.new_object<JSArray>(vm, 0);
 
     if (args.size() == 0 || args[0].is_undefined()) [[unlikely]] {
@@ -147,7 +146,7 @@ class JSStringPrototype : public JSObject {
     }
     else {
       auto *pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string;
-      vector<u16string> split_res = cpp_split(*str, pattern->str);
+      vector<String> split_res = cpp_split(*str, pattern->str);
 
       for (auto& substr : split_res) {
         arr->dense_array.push_back(vm.new_primitive_string(std::move(substr)));
@@ -202,27 +201,27 @@ class JSStringPrototype : public JSObject {
       }
     } else {
     arg0_is_string:
-      u16string& str = TRYCC(js_to_string(vm, This)).as_prim_string->str;
+      String& str = TRYCC(js_to_string(vm, This)).as_prim_string->str;
       JSValue pattern_val = TRYCC(js_to_string(vm, args[0]));
-      u16string& pattern = pattern_val.as_prim_string->str;
-      u16string res = str;
+      String& pattern = pattern_val.as_prim_string->str;
+      String res = str;
 
       auto start_pos = res.find(pattern);
 
-      if (start_pos != u16string::npos) {
+      if (start_pos != String::npos) {
         // call a function to get the replacement
         if (args[1].is_function()) {
           vector<JSValue> argv{pattern_val, JSFloat(start_pos)};
           JSValue rep = TRYCC(vm.call_function(args[1], undefined, undefined, argv));
-          u16string &replacement = TRYCC(js_to_string(vm, rep)).as_prim_string->str;
+          String &replacement = TRYCC(js_to_string(vm, rep)).as_prim_string->str;
 
           res.replace(start_pos, pattern.size(), replacement);
         }
         else {
-          u16string& replacement = TRYCC(js_to_string(vm, args[1])).as_prim_string->str;
-          u16string_view matched(str.begin() + start_pos,
-                                 str.begin() + start_pos + pattern.size());
-          u16string populated = prepare_replacer_string(str, replacement, matched,
+          String& replacement = TRYCC(js_to_string(vm, args[1])).as_prim_string->str;
+          u16string_view matched(str.data() + start_pos,
+                                 str.data() + start_pos + pattern.size());
+          String populated = prepare_replacer_string(str.view(), replacement.view(), matched,
                                                         start_pos, start_pos + pattern.size());
           res.replace(start_pos, pattern.size(), populated);
         }
@@ -235,7 +234,7 @@ class JSStringPrototype : public JSObject {
   static Completion charCodeAt(vm_func_This_args_flags) {
     assert(args.size() > 0 && args[0].is(JSValue::NUM_FLOAT));
     TRY_COMP(js_require_object_coercible(vm, This));
-    u16string *str = TRY_COMP(get_string_from_value(vm, This));
+    String *str = TRY_COMP(get_string_from_value(vm, This));
 
     double index = args[0].as_f64;
     if (index < 0 || index > str->size()) {
@@ -247,27 +246,30 @@ class JSStringPrototype : public JSObject {
 
   static Completion toLowerCase(vm_func_This_args_flags) {
     TRY_COMP(js_require_object_coercible(vm, This));
-    u16string *str = TRY_COMP(get_string_from_value(vm, This));
-    u16string res = *str;
+    String *str = TRY_COMP(get_string_from_value(vm, This));
+    String res = *str;
     std::transform(res.begin(), res.end(), res.begin(), character::to_lower_case);
     return vm.new_primitive_string(std::move(res));
   }
 
   static Completion toUpperCase(vm_func_This_args_flags) {
     TRY_COMP(js_require_object_coercible(vm, This));
-    u16string *str = TRY_COMP(get_string_from_value(vm, This));
-    u16string res = *str;
+    String *str = TRY_COMP(get_string_from_value(vm, This));
+    String res = *str;
     std::transform(res.begin(), res.end(), res.begin(), character::to_upper_case);
     return vm.new_primitive_string(std::move(res));
   }
 
   static Completion substring(vm_func_This_args_flags) {
     TRY_COMP(js_require_object_coercible(vm, This));
-    u16string *str = TRY_COMP(get_string_from_value(vm, This));
+    String *str = TRY_COMP(get_string_from_value(vm, This));
     int64_t str_len = str->size();
 
     int64_t start = TRY_COMP(js_to_int64sat(vm, args.size() > 0 ? args[0] : undefined));
-    int64_t end = TRY_COMP(js_to_int64sat(vm, args.size() > 1 ? args[1] : undefined));
+    int64_t end = INT64_MAX;
+    if (args.size() > 1) {
+      end = TRY_COMP(js_to_int64sat(vm, args[1]));
+    }
 
     start = std::clamp(start, int64_t(0), str_len);
     end = std::clamp(end, int64_t(0), str_len);
@@ -279,7 +281,7 @@ class JSStringPrototype : public JSObject {
 
   static Completion substr(vm_func_This_args_flags) {
     TRY_COMP(js_require_object_coercible(vm, This));
-    u16string *str = TRY_COMP(get_string_from_value(vm, This));
+    String *str = TRY_COMP(get_string_from_value(vm, This));
     int64_t str_len = str->size();
 
     int64_t start = TRY_COMP(js_to_int64sat(vm, args.size() > 0 ? args[0] : undefined));
@@ -296,12 +298,12 @@ class JSStringPrototype : public JSObject {
 
   static Completion concat(vm_func_This_args_flags) {
     TRY_COMP(js_require_object_coercible(vm, This));
-    u16string *str = TRY_COMP(get_string_from_value(vm, This));
-    u16string res = *str;
+    String *str = TRY_COMP(get_string_from_value(vm, This));
+    String res = *str;
 
     if (args.size() > 0) [[likely]] {
       for (int i = 0; i < args.size(); i++) {
-        u16string *arg_str = TRY_COMP(get_string_from_value(vm, args[i]));
+        String *arg_str = TRY_COMP(get_string_from_value(vm, args[i]));
         res.append(*arg_str);
       }
     }
@@ -328,7 +330,7 @@ class JSStringPrototype : public JSObject {
   static Completion String_fromCharCode(vm_func_This_args_flags) {
     assert(args.size() == 1);
     int16_t code = TRY_COMP(js_to_uint16(vm, args[0]));
-    return JSValue(vm.new_primitive_string(u16string(1, code)));
+    return JSValue(vm.new_primitive_string(String(code)));
   }
 
 };

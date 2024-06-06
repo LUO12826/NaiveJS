@@ -62,7 +62,7 @@ std::string JSArray::to_string(NjsVM& vm) const {
   return output;
 }
 
-void JSArray::to_json(u16string& output, NjsVM& vm) const {
+void JSArray::to_json(String& output, NjsVM& vm) const {
   output += u"[";
 
   bool first = true;

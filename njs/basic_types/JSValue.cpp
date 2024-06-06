@@ -49,7 +49,7 @@ std::string JSValue::description() const {
     stream << ", obj: " << as_GCObject->description();
   }
   else if (tag == STRING) {
-    stream << ", value: " << to_u8string(as_prim_string->str);
+    stream << ", value: " << New::to_u8string(as_prim_string->str);
   }
   stream << ")";
 
@@ -81,7 +81,7 @@ std::string JSValue::to_string(NjsVM& vm) const {
       output += deref().to_string(vm);
       break;
     case STRING:
-      output += to_u8string(as_prim_string->str);
+      output += New::to_u8string(as_prim_string->str);
       break;
     case SYMBOL:
       output += "Symbol(" + std::to_string(as_symbol) + ')';
@@ -95,7 +95,7 @@ std::string JSValue::to_string(NjsVM& vm) const {
   return output;
 }
 
-void JSValue::to_json(u16string& output, NjsVM& vm) const {
+void JSValue::to_json(String& output, NjsVM& vm) const {
 
   switch (tag) {
     case NUM_FLOAT: {
@@ -112,7 +112,7 @@ void JSValue::to_json(u16string& output, NjsVM& vm) const {
       break;
     case STRING:
       output += u'"';
-      output += to_escaped_u16string(as_prim_string->str);
+      output += New::to_escaped_u16string(as_prim_string->str);
       output += u'"';
       break;
     case ARRAY:

@@ -46,7 +46,7 @@ class JSDate : public JSObject {
     timestamp = get_curr_millis();
   }
 
-  void parse_date_str(const u16string& date_str) {
+  void parse_date_str(const String& str) {
     // TODO
     timestamp = 0;
   }

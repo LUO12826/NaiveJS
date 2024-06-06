@@ -35,7 +35,7 @@ class JSObjectPrototype : public JSObject {
     } else {
       obj = TRYCC(js_to_object(vm, This)).as_object;
     }
-    u16string res = u"[object ";
+    String res = u"[object ";
     res += obj->get_class_name();
     res += u"]";
     return vm.new_primitive_string(std::move(res));

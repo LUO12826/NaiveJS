@@ -4,7 +4,6 @@
 #include <cassert>
 #include <string>
 #include <unordered_map>
-#include "njs/basic_types/String.h"
 #include "njs/basic_types/atom.h"
 #include "njs/include/robin_hood.h"
 #include "njs/include/MurmurHash3.h"
@@ -63,6 +62,8 @@ class AtomPool {
     k_get = atomize(u"get");
     k_set = atomize(u"set");
     k_lastIndex = atomize(u"lastIndex");
+    k_message = atomize(u"message");
+    k_stack = atomize(u"stack");
   }
 
   AtomPool(const AtomPool& other) = delete;
@@ -123,6 +124,8 @@ class AtomPool {
   inline static u32 k_get;
   inline static u32 k_set;
   inline static u32 k_lastIndex;
+  inline static u32 k_message;
+  inline static u32 k_stack;
 
  private:
   struct Slot {
@@ -197,7 +200,7 @@ inline u32 AtomPool::atomize(u16string_view str_view) {
     return pool[str_view];
   }
   else {
-    uint64_t idx = scan_index_literal(str_view);
+    int64_t idx = scan_index_literal(str_view);
     if (idx != -1 && idx <= ATOM_INT_MAX) [[unlikely]] {
       return ATOM_INT_TAG | (u32)idx;
     } else {

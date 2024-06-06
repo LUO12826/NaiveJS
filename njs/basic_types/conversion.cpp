@@ -31,11 +31,11 @@ Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
     case JSValue::BOOLEAN:
       return vm.get_string_const(val.as_bool ? AtomPool::k_true : AtomPool::k_false);
     case JSValue::NUM_UINT32:
-      return vm.new_primitive_string(to_u16string(val.as_u32));
+      return vm.new_primitive_string(New::to_u16string(val.as_u32));
     case JSValue::NUM_INT32:
-      return vm.new_primitive_string(to_u16string(val.as_i32));
+      return vm.new_primitive_string(New::to_u16string(val.as_i32));
     case JSValue::NUM_FLOAT: {
-      u16string str = double_to_u16string(val.as_f64);
+      String str = New::double_to_u16string(val.as_f64);
       return vm.new_primitive_string(std::move(str));
     }
     case JSValue::STRING:
@@ -144,7 +144,7 @@ ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {
     case JSValue::SYMBOL:
       return vm.build_error_internal(JS_TYPE_ERROR, u"TypeError");
     case JSValue::STRING:
-      return u16string_to_double(val.as_prim_string->str);
+      return u16string_to_double(val.as_prim_string->str.view());
     default:
       if (val.is_object()) {
         JSValue prim = TRY_ERR(val.as_object->to_primitive(vm, HINT_NUMBER));

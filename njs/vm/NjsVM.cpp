@@ -1,6 +1,7 @@
 #include "NjsVM.h"
 
 #include <iostream>
+#include <string_view>
 #include "Completion.h"
 #include "njs/basic_types/JSValue.h"
 #include "njs/utils/helper.h"
@@ -157,11 +158,11 @@ JSFunction* NjsVM::new_function(JSFunctionMeta *meta) {
   return func;
 }
 
-JSValue NjsVM::new_primitive_string(const u16string& str) {
+JSValue NjsVM::new_primitive_string(const String& str) {
   return JSValue(heap.new_object<PrimitiveString>(str));
 }
 
-JSValue NjsVM::new_primitive_string(u16string&& str) {
+JSValue NjsVM::new_primitive_string(String&& str) {
   return JSValue(heap.new_object<PrimitiveString>(std::move(str)));
 }
 
@@ -914,9 +915,9 @@ vector<StackTraceItem> NjsVM::capture_stack_trace() {
   return trace;
 }
 
-u16string NjsVM::build_trace_str(bool remove_top) {
+String NjsVM::build_trace_str(bool remove_top) {
   std::vector<NjsVM::StackTraceItem> trace = capture_stack_trace();
-  u16string trace_str;
+  String trace_str;
   bool first = true;
 
   for (auto& tr : trace) {
@@ -928,7 +929,7 @@ u16string NjsVM::build_trace_str(bool remove_top) {
     trace_str += tr.func_name;
     if (not tr.is_native) {
       trace_str += u"  @ line ";
-      trace_str += to_u16string(tr.source_line);
+      trace_str += New::to_u16string(tr.source_line);
     }
     else {
       trace_str += u"  (native)";
@@ -938,21 +939,21 @@ u16string NjsVM::build_trace_str(bool remove_top) {
   return trace_str;
 }
 
-JSValue NjsVM::build_error_internal(JSErrorType type, const u16string& msg) {
+JSValue NjsVM::build_error_internal(JSErrorType type, const String& msg) {
   auto *err_obj = new_object(CLS_ERROR, native_error_protos[type]);
   err_obj->set_prop(*this, u"message", new_primitive_string(msg));
 
-  u16string trace_str = build_trace_str();
+  String trace_str = build_trace_str();
   err_obj->set_prop(*this, u"stack", new_primitive_string(std::move(trace_str)));
 
   return JSValue(err_obj);
 }
 
-JSValue NjsVM::build_error_internal(JSErrorType type, u16string&& msg) {
+JSValue NjsVM::build_error_internal(JSErrorType type, String&& msg) {
   auto *err_obj = new_object(CLS_ERROR, native_error_protos[type]);
   err_obj->set_prop(*this, u"message", new_primitive_string(std::move(msg)));
 
-  u16string trace_str = build_trace_str();
+  String trace_str = build_trace_str();
   err_obj->set_prop(*this, u"stack", new_primitive_string(std::move(trace_str)));
 
   return JSValue(err_obj);
@@ -1355,7 +1356,7 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
       if (atom_is_int(atom)) {
         u32 idx = atom_get_int(atom);
         if (idx < str->length()) {
-          return JSValue(new_primitive_string(u16string(1, str->str[idx])));
+          return JSValue(new_primitive_string(String(str->str[idx])));
         } else {
           return undefined; 
         }
@@ -1383,17 +1384,18 @@ Completion NjsVM::get_prop_common(JSValue obj, JSValue key) {
     return get_prop_on_primitive(obj, key);
   }
   else {
-    u16string prop_name;
+    String msg = u"cannot read property '";
 
     if (key.is_atom()) {
-      prop_name = atom_to_str(key.as_atom);
+      msg += atom_to_str(key.as_atom);
     } else {
       Completion comp = js_to_string(*this, key);
       assert(comp.is_normal());
-      prop_name = comp.get_value().as_prim_string->str;
+      msg += comp.get_value().as_prim_string->str;
     }
-    u16string msg = u"cannot read property '" + prop_name + u"' of "
-                    + to_u16string(obj.to_string(*this));
+
+    msg += u"' of ";
+    msg += New::to_u16string(obj.to_string(*this));
     return CompThrow(build_error_internal(JS_TYPE_ERROR, std::move(msg)));
   }
 }
@@ -1428,18 +1430,18 @@ Completion NjsVM::set_prop_common(JSValue obj, JSValue key, JSValue value) {
     return undefined;
   }
   else if (obj.is_nil()) {
-    u16string prop_name;
+    String msg = u"cannot set property '";
 
     if (key.is_atom()) {
-      prop_name = atom_to_str(key.as_atom);
+      msg += atom_to_str(key.as_atom);
     } else {
       Completion comp = js_to_string(*this, key);
       assert(comp.is_normal());
-      prop_name = comp.get_value().as_prim_string->str;
+      msg += comp.get_value().as_prim_string->str;
     }
-    u16string msg = u"cannot set property '" + prop_name + u"' of "
-                    + to_u16string(obj.to_string(*this));
 
+    msg += u"' of ";
+    msg += New::to_u16string(obj.to_string(*this));
     return CompThrow(build_error_internal(JS_TYPE_ERROR, std::move(msg)));
   }
   // else the obj is a primitive type. do nothing.
@@ -1488,7 +1490,9 @@ void NjsVM::exec_dynamic_get_var(SPRef sp, u32 name_atom, bool no_throw) {
     error_handle(sp);
   } else if (!no_throw && sp[0].flag_bits == FLAG_NOT_FOUND) [[unlikely]] {
     sp -= 1;
-    error_throw_handle(sp, JS_REFERENCE_ERROR, atom_to_str(name_atom) + u" is undefined");
+    String msg(atom_to_str(name_atom));
+    msg += u" is undefined";
+    error_throw_handle(sp, JS_REFERENCE_ERROR, msg);
   }
 }
 
@@ -1501,7 +1505,7 @@ void NjsVM::exec_dynamic_set_var(SPRef sp, u32 name_atom) {
 Completion NjsVM::for_of_get_iterator(JSValue obj) {
   auto build_err = [&, this] () {
     JSValue err = build_error_internal(
-        JS_TYPE_ERROR, to_u16string(obj.to_string(*this)) + u" is not iterable");
+        JS_TYPE_ERROR, New::to_u16string(obj.to_string(*this)) + u" is not iterable");
     return CompThrow(err);
   };
   if (obj.is_nil()) [[unlikely]] {
@@ -1526,7 +1530,7 @@ Completion NjsVM::for_of_call_next(JSValue iter) {
 
   if (!next_func.is_object() || object_class(next_func) != CLS_FUNCTION) {
     JSValue err = build_error_internal(
-        JS_TYPE_ERROR, to_u16string(next_func.to_string(*this)) + u" is not a function.");
+        JS_TYPE_ERROR, New::to_u16string(next_func.to_string(*this)) + u" is not a function.");
     return CompThrow(err);
   }
 
@@ -1611,17 +1615,17 @@ void NjsVM::exec_comparison(SPRef sp, OpType type) {
   lhs.set_bool(res);
 }
 
-void NjsVM::error_throw(SPRef sp, const u16string& msg) {
+void NjsVM::error_throw(SPRef sp, const String& msg) {
   error_throw(sp, JS_ERROR, msg);
 }
 
-void NjsVM::error_throw_handle(SPRef sp, JSErrorType type, const u16string& msg) {
+void NjsVM::error_throw_handle(SPRef sp, JSErrorType type, const String& msg) {
   JSValue err_obj = build_error_internal(type, msg);
   *++sp = err_obj;
   error_handle(sp);
 }
 
-void NjsVM::error_throw(SPRef sp, JSErrorType type, const u16string& msg) {
+void NjsVM::error_throw(SPRef sp, JSErrorType type, const String& msg) {
   JSValue err_obj = build_error_internal(type, msg);
   *++sp = err_obj;
 }
@@ -1670,8 +1674,8 @@ void NjsVM::print_unhandled_error(JSValue err) {
   if (err.is_object() && object_class(err) == CLS_ERROR) {
     auto err_obj = err.as_object;
     // TODO: should not use `get_prop_trivial` here
-    std::string err_msg = err_obj->get_prop_trivial(str_to_atom(u"message")).to_string(*this);
-    std::string stack = err_obj->get_prop_trivial(str_to_atom(u"stack")).to_string(*this);
+    std::string err_msg = err_obj->get_prop_trivial(AtomPool::k_message).to_string(*this);
+    std::string stack = err_obj->get_prop_trivial(AtomPool::k_stack).to_string(*this);
     printf("\033[31mUnhandled error: %s, at\n", err_msg.c_str());
     printf("%s\033[0m\n", stack.c_str());
   }

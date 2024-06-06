@@ -3,7 +3,7 @@
 #include "object_static_method.h"
 #include "njs/common/common_def.h"
 #include "njs/basic_types/JSErrorPrototype.h"
-// #include "njs/basic_types/JSStringPrototype.h"
+#include "njs/basic_types/String.h"
 
 namespace njs {
 
@@ -58,7 +58,7 @@ void NjsVM::setup() {
     func->add_method(*this, u"fromCharCode", [] (vm_func_This_args_flags) -> Completion {
       assert(args.size() == 1);
       int16_t code = TRY_COMP(js_to_uint16(vm, args[0]));
-      return JSValue(vm.new_primitive_string(u16string(1, code)));
+      return JSValue(vm.new_primitive_string(String(code)));
     });
   }
 

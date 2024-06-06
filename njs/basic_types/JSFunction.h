@@ -28,7 +28,7 @@ class JSFunction : public JSObject {
 
   std::string description() override;
 
-  u16string_view name;
+  u16string_view name {u""};
   JSFunctionMeta *meta {nullptr};
 
   bool has_this_binding {false};

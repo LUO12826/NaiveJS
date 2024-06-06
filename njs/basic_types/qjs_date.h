@@ -1,8 +1,9 @@
 #ifndef NJS_QJS_DATE_H
 #define NJS_QJS_DATE_H
 
-#include <math.h>
+#include <cmath>
 #include <string>
+#include "njs/basic_types/String.h"
 
 inline double time_clip(double t) {
   if (t >= -8.64e15 && t <= 8.64e15)
@@ -11,6 +12,6 @@ inline double time_clip(double t) {
     return NAN;
 }
 
-std::u16string get_date_string(double ts, int magic);
+njs::String get_date_string(double ts, int magic);
 
 #endif // NJS_QJS_DATE_H
