@@ -4,7 +4,7 @@ NaiveJS is a personal experimental JavaScript engine. My primary goal is to lear
 
 ### Update (May 2024)
 
-NaiveJS can now run the Typescript 2.0.0 transpiler ([test_typescript_2.0.0.js](/test_files/test_typescript_2.0.0.js)) ! Although it is still not a rigorous ES5 implementation, it at least produces the same results as QuickJS produces in my tests. 
+NaiveJS can now run the Typescript 2.0.10 transpiler ([test_typescript_2.0.10.js](/test_files/test_typescript_2.0.10.js)) ! Although it is still not a rigorous ES5 implementation, it at least produces the same results as QuickJS produces in my tests. 
 
 Running time comparison of running the Typescript transpiler (input is the same piece of Typescript code):
 
