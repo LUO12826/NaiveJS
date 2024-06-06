@@ -51,7 +51,11 @@ class Parser {
         }
         goto error;
       case TokenType::STRICT_FUTURE_KW:
-        return new ASTNode(ASTNode::EXPR_STRICT_FUTURE, TOKEN_SOURCE_EXPR);
+        if (scope().get_outer_func()->is_strict) {
+          return new ASTNode(ASTNode::EXPR_STRICT_FUTURE, TOKEN_SOURCE_EXPR);
+        } else {
+          return new ASTNode(ASTNode::EXPR_ID, TOKEN_SOURCE_EXPR);
+        }
       case TokenType::IDENTIFIER:
         return new ASTNode(ASTNode::EXPR_ID, TOKEN_SOURCE_EXPR);
       case TokenType::TK_NULL:
