@@ -122,7 +122,7 @@ class JSRegExp : public JSObject {
     // set to cache
     auto& bc = vm.regexp_bytecode[pattern_atom];
     bc.length = bytecode_len;
-    bc.code.reset((uint8_t*)malloc(bytecode_len));
+    bc.code.reset(new uint8_t[bytecode_len]);
     
     memcpy(bc.code.get(), re_bytecode_buf, bytecode_len);
     free(re_bytecode_buf);
