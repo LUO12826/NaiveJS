@@ -220,7 +220,7 @@ friend class NjsVM;
     if (tag == BOOLEAN) return !as_bool;
     if (tag == JS_NULL || tag == UNDEFINED || tag == UNINIT) return true;
     if (tag == NUM_FLOAT) return as_f64 == 0 || std::isnan(as_f64);
-    if (tag == STRING) return as_prim_string->str.empty();
+    if (tag == STRING) return as_prim_string->empty();
     return false;
   }
 

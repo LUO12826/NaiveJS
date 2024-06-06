@@ -1,13 +1,24 @@
 #include <cstring>
 #include <iostream>
+#include <cstdint>
 
 #include "GCHeap.h"
 #include "njs/vm/NjsVM.h"
 #include "njs/global_var.h"
 #include "njs/utils/Timer.h"
-
+#include "njs/basic_types/PrimitiveString.h"
+#include "njs/common/common_def.h"
 
 namespace njs {
+
+using u32 = uint32_t;
+
+inline size_t next_multiple_of_8(size_t num) {
+  if (num % 8 == 0) {
+    return num;
+  }
+  return (num + 7) & ~7;
+}
 
 void GCHeap::gc_if_needed() {
   if (object_cnt - last_gc_object_cnt > gc_threshold) {
@@ -220,6 +231,29 @@ void GCHeap::check_fwd_pointer() {
     ptr += obj->size;
   }
 }
+
+PrimitiveString* GCHeap::new_prim_string(const char16_t *str, size_t length) {
+  auto prim_str = new_prim_string_impl(length);
+  prim_str->init(str, length);
+  return prim_str;
+}
+
+PrimitiveString* GCHeap::new_prim_string(size_t length) {
+  return new_prim_string_impl(length);
+}
+
+PrimitiveString* GCHeap::new_prim_string_impl(size_t length) {
+  assert(length < UINT32_MAX);
+  size_t payload_size = sizeof(PrimitiveString) + (length + 1) * CHAR_SIZE;
+  size_t alloc_size = next_multiple_of_8(payload_size);
+  
+  void *ptr = allocate(alloc_size);
+  auto *prim_str = new (ptr) PrimitiveString(length + 1);
+  prim_str->size = alloc_size;
+  object_cnt += 1;
+  return prim_str;
+}
+
 // Allocate memory for a new object.
 void* GCHeap::allocate(size_t size_byte) {
   if (lacking_free_memory(size_byte)) [[unlikely]] {

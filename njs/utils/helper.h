@@ -105,8 +105,8 @@ inline void u8_to_u16_buffer(char input[], char16_t output[]) {
   *output = '\0';
 }
 
-inline u16string prepare_replacer_string(const u16string& entire_str,
-                                         const u16string& replacer,
+inline u16string prepare_replacer_string(u16string_view entire_str,
+                                         u16string_view replacer,
                                          u16string_view matched,
                                          size_t match_start,
                                          size_t match_end) {

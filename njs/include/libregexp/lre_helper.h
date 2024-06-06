@@ -17,7 +17,7 @@ using std::pair;
 using std::optional;
 using std::u16string;
 
-inline optional<int> str_to_regexp_flags(const u16string& flags) {
+inline optional<int> str_to_regexp_flags(u16string_view flags) {
   int re_flags = 0;
   for (char16_t flag : flags) {
     int mask;
@@ -117,9 +117,9 @@ class LREWrapper {
     return {start, end};
   }
 
-  u16string get_group_match_result(int index) {
+  u16string_view get_group_match_result(int index) {
     auto [start, end] = capture_group_get_start_end(index);
-    return input.substr(start, end - start);
+    return {input.data() + start, end - start};
   }
 
   bool captured_at_group_index(int index) {

@@ -47,7 +47,7 @@ class JSRegExp : public JSObject {
     return comp.is_throw() ? comp : JSValue(regexp);
   }
 
-  static Completion New(NjsVM& vm, const u16string& pattern, const u16string& flags_str) {
+  static Completion New(NjsVM& vm, u16string_view pattern, u16string_view flags_str) {
     auto maybe_flags = str_to_regexp_flags(flags_str);
 
     if (maybe_flags.has_value()) [[likely]] {
@@ -60,7 +60,7 @@ class JSRegExp : public JSObject {
     }
   }
 
-  JSRegExp(NjsVM& vm, const u16string& pattern, const u16string& flags_str, int flags)
+  JSRegExp(NjsVM& vm, u16string_view pattern, u16string_view flags_str, int flags)
     : JSObject(CLS_REGEXP, vm.regexp_prototype),
       pattern_atom(vm.str_to_atom(pattern)),
       pattern(pattern),
@@ -82,7 +82,7 @@ class JSRegExp : public JSObject {
 
     u16string flag_str = regexp_flags_to_str(flags);
     add_prop_trivial(vm, u"source", JSValue(vm.new_primitive_string(this->pattern)), PFlag::V);
-    add_prop_trivial(vm, u"flags", JSValue(vm.new_primitive_string(std::move(flag_str))), PFlag::V);
+    add_prop_trivial(vm, u"flags", JSValue(vm.new_primitive_string(flag_str)), PFlag::V);
   }
 
   void add_regexp_object_props(NjsVM& vm, int fl) {
@@ -162,7 +162,7 @@ class JSRegExp : public JSObject {
 
   Completion exec(NjsVM& vm, JSValue arg, bool test_mode) {
     arg = TRYCC(js_to_string(vm, arg));
-    auto& arg_str = arg.as_prim_string->str;
+    auto arg_str = arg.as_prim_string->to_std_u16string();
 
     u32 last_index;
     // last_index is only effective when in `global` or `sticky` mode.
@@ -218,7 +218,7 @@ class JSRegExp : public JSObject {
   // TODO: pause GC here
   Completion replace(NjsVM& vm, JSValue str, JSValue replacer) {
     str = TRYCC(js_to_string(vm, str));
-    auto& arg_str = str.as_prim_string->str;
+    auto arg_str = str.as_prim_string->to_std_u16string();
 
     u32 last_index;
     if (not (flags & (LRE_FLAG_STICKY))) {
@@ -233,12 +233,14 @@ class JSRegExp : public JSObject {
       }
     }
 
-    u16string *replacement = nullptr;
+    u16string replacement;
+    bool replacement_is_string = false;
     bool should_populate_replacement = false;
 
     if (not replacer.is_function()) [[likely]] {
-      replacement = &TRYCC(js_to_string(vm, replacer)).as_prim_string->str;
-      should_populate_replacement = replacement->find(u'$') != u16string::npos;
+      replacement = TRYCC(js_to_string(vm, replacer)).as_prim_string->to_std_u16string();
+      replacement_is_string = true;
+      should_populate_replacement = replacement.find(u'$') != u16string::npos;
     }
 
     LREWrapper lre(this->bytecode, arg_str);
@@ -259,14 +261,14 @@ class JSRegExp : public JSObject {
         // the part that is unchanged
         result += arg_str.substr(prev_last_index, first_index - prev_last_index);
 
-        if (replacement) {
+        if (replacement_is_string) {
           if (should_populate_replacement) [[unlikely]] {
             u16string_view matched(arg_str.begin() + first_index, arg_str.begin() + last_index);
-            u16string populated = prepare_replacer_string(arg_str, *replacement, matched,
+            u16string populated = prepare_replacer_string(arg_str, replacement, matched,
                                                           first_index, last_index);
             result += populated;
           } else {
-            result += *replacement;
+            result += replacement;
           }
         } else {
           // match, p1, p2, /* …, */ pN, offset, full string, groups
@@ -283,7 +285,7 @@ class JSRegExp : public JSObject {
           JSValue rep_str = TRYCC(vm.call_function(replacer, undefined, undefined, func_args));
           
           rep_str = TRYCC(js_to_string(vm, rep_str));
-          result += rep_str.as_prim_string->str;
+          result += rep_str.as_prim_string->view();
         }
 
         prev_last_index = last_index;
@@ -303,13 +305,18 @@ class JSRegExp : public JSObject {
     if (prev_last_index < arg_str.size()) {
       result += arg_str.substr(prev_last_index);
     }
-    return vm.new_primitive_string(std::move(result));
+    return vm.new_primitive_string(result);
   }
 
   Completion prototype_to_string(NjsVM& vm) {
     JSValue flags_val = TRYCC(get_prop(vm, u"flags"));
-    u16string regexp_str = u"/" + pattern + u"/" + flags_val.as_prim_string->str;
-    return JSValue(vm.new_primitive_string(std::move(regexp_str)));
+    u16string regexp_str;
+    regexp_str.reserve(pattern.size() + 2 + flags_val.as_prim_string->length());
+    regexp_str = u'/';
+    regexp_str += pattern;
+    regexp_str += u'/';
+    regexp_str += flags_val.as_prim_string->view();
+    return JSValue(vm.new_primitive_string(regexp_str));
   }
 
   u16string_view get_class_name() override {

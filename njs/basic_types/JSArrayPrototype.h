@@ -48,10 +48,10 @@ class JSArrayPrototype : public JSObject {
 
         if (not val.is_nil()) [[likely]] {
           JSValue s = TRYCC(js_to_string(vm, val));
-          output += s.as_prim_string->str;
+          output += s.as_prim_string->view();
         }
       }
-      return vm.new_primitive_string(std::move(output));
+      return vm.new_primitive_string(output);
 
     } else {
       return JSObjectPrototype::toString(JS_NATIVE_FUNC_ARGS);
@@ -64,7 +64,7 @@ class JSArrayPrototype : public JSObject {
     u16string delimiter = u",";
     if (args.size() != 0 && !args[0].is_undefined()) [[likely]] {
       JSValue deli = TRYCC(js_to_string(vm, args[0]));
-      delimiter = deli.as_prim_string->str;
+      delimiter = deli.as_prim_string->view();
     }
 
     auto *arr = This.as_Object<JSArray>();
@@ -77,10 +77,10 @@ class JSArrayPrototype : public JSObject {
 
       if (not val.is_nil()) [[likely]] {
         JSValue s = TRYCC(js_to_string(vm, val));
-        output += s.as_prim_string->str;
+        output += s.as_prim_string->view();
       }
     }
-    return vm.new_primitive_string(std::move(output));
+    return vm.new_primitive_string(output);
   }
 
   static Completion get_iter(vm_func_This_args_flags) {

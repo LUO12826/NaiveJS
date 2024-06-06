@@ -11,13 +11,14 @@
 
 #include "GCObject.h"
 #include "njs/global_var.h"
-#include "njs/basic_types/JSValue.h"
 
 namespace njs {
 
 using std::string_view;
 using std::vector;
 class NjsVM;
+struct JSValue;
+struct PrimitiveString;
 
 struct GCStats {
   long long gc_count {0};
@@ -80,6 +81,9 @@ using byte = int8_t;
     return object;
   }
 
+  PrimitiveString* new_prim_string(const char16_t *str, size_t length);
+  PrimitiveString* new_prim_string(size_t length);
+
   void gc();
   void gc_if_needed();
   size_t get_heap_usage() {
@@ -98,6 +102,7 @@ using byte = int8_t;
 
   GCStats stats;
  private:
+  PrimitiveString* new_prim_string_impl(size_t length);
   void gc_message(string_view msg);
   vector<JSValue *> gather_roots();
 

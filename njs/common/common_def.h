@@ -6,6 +6,7 @@
 namespace njs {
 
 constexpr uint32_t frame_meta_size {0};
+constexpr u32 CHAR_SIZE {sizeof(char16_t)};
 
 struct JSValue;
 using JSValueRef = JSValue const&;

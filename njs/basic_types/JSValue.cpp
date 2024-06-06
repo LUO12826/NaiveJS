@@ -49,7 +49,7 @@ std::string JSValue::description() const {
     stream << ", obj: " << as_GCObject->description();
   }
   else if (tag == STRING) {
-    stream << ", value: " << to_u8string(as_prim_string->str);
+    stream << ", value: " << to_u8string(as_prim_string->view());
   }
   stream << ")";
 
@@ -81,7 +81,7 @@ std::string JSValue::to_string(NjsVM& vm) const {
       output += deref().to_string(vm);
       break;
     case STRING:
-      output += to_u8string(as_prim_string->str);
+      output += to_u8string(as_prim_string->view());
       break;
     case SYMBOL:
       output += "Symbol(" + std::to_string(as_symbol) + ')';
@@ -112,7 +112,7 @@ void JSValue::to_json(u16string& output, NjsVM& vm) const {
       break;
     case STRING:
       output += u'"';
-      output += to_escaped_u16string(as_prim_string->str);
+      output += to_escaped_u16string(as_prim_string->view());
       output += u'"';
       break;
     case ARRAY:

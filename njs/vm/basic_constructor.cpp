@@ -40,7 +40,7 @@ Completion NativeFunction::String_ctor(vm_func_This_args_flags) {
   } else {
     str = TRYCC(js_to_string(vm, args[0]));
   }
-  auto *obj = vm.heap.new_object<JSString>(vm, *str.as_prim_string);
+  auto *obj = vm.heap.new_object<JSString>(vm, str.as_prim_string);
   return JSValue(obj);
 }
 
@@ -56,16 +56,17 @@ Completion NativeFunction::Array_ctor(vm_func_This_args_flags) {
   return JSValue(arr);
 }
 
+// TODO: pause GC here
 Completion NativeFunction::RegExp_ctor(vm_func_This_args_flags) {
   // TODO
   assert(args.size() > 0);
   JSValue pattern = TRYCC(js_to_string(vm, args[0]));
-  u16string reflags;
+  u16string_view reflags(u"");
   if (args.size() > 1) {
-    reflags = TRYCC(js_to_string(vm, args[1])).as_prim_string->str;
+    reflags = TRYCC(js_to_string(vm, args[1])).as_prim_string->view();
   }
 
-  return JSRegExp::New(vm, pattern.as_prim_string->str, reflags);
+  return JSRegExp::New(vm, pattern.as_prim_string->view(), reflags);
 }
 
 
@@ -88,7 +89,7 @@ Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
       }
       else {
         JSValue ts_str = TRYCC(js_to_string(vm, arg));
-        date->parse_date_str(ts_str.as_prim_string->str);
+        date->parse_date_str(ts_str.as_prim_string->view());
       }
     } else {
       // TODO: other cases
@@ -100,7 +101,7 @@ Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
   else {
     double ts = JSDate::get_curr_millis();
     u16string date_str = get_date_string(ts, 0x13);
-    return vm.new_primitive_string(std::move(date_str));
+    return vm.new_primitive_string(date_str);
   }
 }
 
@@ -118,7 +119,7 @@ Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArgRef args, JSErrorTy
   }
 
   u16string trace_str = vm.build_trace_str(true);
-  err_obj->set_prop(vm, u"stack", vm.new_primitive_string(std::move(trace_str)));
+  err_obj->set_prop(vm, u"stack", vm.new_primitive_string(trace_str));
 
   return JSValue(err_obj);
 }
@@ -130,7 +131,7 @@ Completion NativeFunction::Symbol(vm_func_This_args_flags) {
   }
 
   if (args.size() > 0 && not args[0].is_undefined()) {
-    auto& str = TRYCC(js_to_string(vm, args[0])).as_prim_string->str;
+    auto str = TRYCC(js_to_string(vm, args[0])).as_prim_string->view();
     return JSSymbol(vm.atom_pool.atomize_symbol_desc(str));
   } else {
     return JSSymbol(vm.atom_pool.atomize_symbol());

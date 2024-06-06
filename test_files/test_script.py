@@ -6,7 +6,7 @@ test_ignored = [
     "jquery-1.4.2.js",
     "temp_test.js",
     "test_typescript.js",
-    "test_typescript_2.0.0.js",
+    "test_typescript_2.0.10.js",
     "test_typescript_3.8.3.js",
     "test_string_lit.js",
     "test_number_lit.js",

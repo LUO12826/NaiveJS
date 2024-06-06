@@ -158,11 +158,19 @@ JSFunction* NjsVM::new_function(JSFunctionMeta *meta) {
 }
 
 JSValue NjsVM::new_primitive_string(const u16string& str) {
-  return JSValue(heap.new_object<PrimitiveString>(str));
+  return JSValue(heap.new_prim_string(str.data(), str.size()));
 }
 
-JSValue NjsVM::new_primitive_string(u16string&& str) {
-  return JSValue(heap.new_object<PrimitiveString>(std::move(str)));
+JSValue NjsVM::new_primitive_string(u16string_view str) {
+  return JSValue(heap.new_prim_string(str.data(), str.size()));
+}
+
+JSValue NjsVM::new_primitive_string(const char16_t *str) {
+  return JSValue(heap.new_prim_string(str, std::char_traits<char16_t>::length(str)));
+}
+
+JSValue NjsVM::new_primitive_string(char16_t ch) {
+  return JSValue(heap.new_prim_string(&ch, 1));
 }
 
 void NjsVM::run() {
@@ -362,7 +370,8 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         if (l.is_float64() && r.is_float64()) {
           l.as_f64 += r.as_f64;
         } else if (l.is_prim_string() && r.is_prim_string()) {
-          l.as_prim_string->str += r.as_prim_string->str;
+          auto *res = l.as_prim_string->concat(heap, r.as_prim_string);
+          l.set_val(res);
         } else {
           bool succeeded;
           exec_add_common(sp, l, l, r, succeeded);
@@ -470,9 +479,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         break;
       case OpType::push_str:
         sp += 1;
-        sp[0].tag = JSValue::STRING;
-        sp[0].as_prim_string =
-            heap.new_object<PrimitiveString>(atom_to_str(OPR1));
+        sp[0] = new_primitive_string(atom_to_str(OPR1));
         break;
       case OpType::push_atom:
         sp += 1;
@@ -943,19 +950,33 @@ JSValue NjsVM::build_error_internal(JSErrorType type, const u16string& msg) {
   err_obj->set_prop(*this, u"message", new_primitive_string(msg));
 
   u16string trace_str = build_trace_str();
-  err_obj->set_prop(*this, u"stack", new_primitive_string(std::move(trace_str)));
+  err_obj->set_prop(*this, u"stack", new_primitive_string(trace_str));
 
   return JSValue(err_obj);
 }
 
 JSValue NjsVM::build_error_internal(JSErrorType type, u16string&& msg) {
   auto *err_obj = new_object(CLS_ERROR, native_error_protos[type]);
-  err_obj->set_prop(*this, u"message", new_primitive_string(std::move(msg)));
+  err_obj->set_prop(*this, u"message", new_primitive_string(msg));
 
   u16string trace_str = build_trace_str();
-  err_obj->set_prop(*this, u"stack", new_primitive_string(std::move(trace_str)));
+  err_obj->set_prop(*this, u"stack", new_primitive_string(trace_str));
 
   return JSValue(err_obj);
+}
+
+JSValue NjsVM::build_cannot_access_prop_error(JSValue key, JSValue obj, bool is_set) {
+  u16string msg = is_set ? u"cannot set property '" : u"cannot read property '";
+  if (key.is_atom()) {
+    msg += atom_to_str(key.as_atom);
+  } else {
+    Completion comp = js_to_string(*this, key);
+    assert(comp.is_normal());
+    msg += comp.get_value().as_prim_string->view();
+  }
+  msg += u"' of ";
+  msg += to_u16string(obj.to_string(*this));
+  return build_error_internal(JS_TYPE_ERROR, std::move(msg));
 }
 
 JSValue NjsVM::exec_typeof(JSValue val) {
@@ -1071,9 +1092,7 @@ void NjsVM::exec_add_common(SPRef sp, JSValue& dest, JSValue& l, JSValue& r, boo
   if (lhs.is_prim_string() || rhs.is_prim_string()) {
     JSValue lhs_s = VM_TRY_COMP(js_to_string(*this, lhs));
     JSValue rhs_s = VM_TRY_COMP(js_to_string(*this, rhs));
-    auto *new_str = heap.new_object<PrimitiveString>(
-        lhs_s.as_prim_string->str + rhs_s.as_prim_string->str
-    );
+    auto *new_str = lhs_s.as_prim_string->concat(heap, rhs_s.as_prim_string);
     dest.set_val(new_str);
   } else {
     double lhs_n = VM_TRY_ERR(js_to_number(*this, lhs));
@@ -1092,10 +1111,8 @@ void NjsVM::exec_add(SPRef sp) {
     l.as_f64 += r.as_f64;
   }
   else if (l.is_prim_string() && r.is_prim_string()) {
-    auto *new_str = heap.new_object<PrimitiveString>(
-        l.as_prim_string->str + r.as_prim_string->str
-    );
-    l.set_val(new_str);
+    auto *res = l.as_prim_string->concat(heap, r.as_prim_string);
+    l.set_val(res);
   }
   else {
     bool succeeded;
@@ -1110,7 +1127,8 @@ void NjsVM::exec_add_assign(SPRef sp, JSValue& target, bool keep_value) {
   if (target.is_float64() && r.is_float64()) {
     target.as_f64 += r.as_f64;
   } else if (target.is_prim_string() && r.is_prim_string()) {
-    target.as_prim_string->str += r.as_prim_string->str;
+    auto *res = target.as_prim_string->concat(heap, r.as_prim_string);
+    target.set_val(res);
   } else {
     bool succeeded;
     exec_add_common(sp, target, target, r, succeeded);
@@ -1348,14 +1366,14 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
       return undefined;
       break;
     case JSValue::STRING: {
-      auto *str = obj.as_prim_string;
+      auto& str = *obj.as_prim_string;
       JSValue prop_key = TRYCC(js_to_property_key(*this, key));
 
       u32 atom = prop_key.as_atom;
       if (atom_is_int(atom)) {
         u32 idx = atom_get_int(atom);
-        if (idx < str->length()) {
-          return JSValue(new_primitive_string(u16string(1, str->str[idx])));
+        if (idx < str.length()) {
+          return JSValue(new_primitive_string(str[idx]));
         } else {
           return undefined; 
         }
@@ -1383,18 +1401,7 @@ Completion NjsVM::get_prop_common(JSValue obj, JSValue key) {
     return get_prop_on_primitive(obj, key);
   }
   else {
-    u16string prop_name;
-
-    if (key.is_atom()) {
-      prop_name = atom_to_str(key.as_atom);
-    } else {
-      Completion comp = js_to_string(*this, key);
-      assert(comp.is_normal());
-      prop_name = comp.get_value().as_prim_string->str;
-    }
-    u16string msg = u"cannot read property '" + prop_name + u"' of "
-                    + to_u16string(obj.to_string(*this));
-    return CompThrow(build_error_internal(JS_TYPE_ERROR, std::move(msg)));
+    return CompThrow(build_cannot_access_prop_error(key, obj, false));
   }
 }
 
@@ -1428,19 +1435,7 @@ Completion NjsVM::set_prop_common(JSValue obj, JSValue key, JSValue value) {
     return undefined;
   }
   else if (obj.is_nil()) {
-    u16string prop_name;
-
-    if (key.is_atom()) {
-      prop_name = atom_to_str(key.as_atom);
-    } else {
-      Completion comp = js_to_string(*this, key);
-      assert(comp.is_normal());
-      prop_name = comp.get_value().as_prim_string->str;
-    }
-    u16string msg = u"cannot set property '" + prop_name + u"' of "
-                    + to_u16string(obj.to_string(*this));
-
-    return CompThrow(build_error_internal(JS_TYPE_ERROR, std::move(msg)));
+    return CompThrow(build_cannot_access_prop_error(key, obj, true));
   }
   // else the obj is a primitive type. do nothing.
   return undefined;
@@ -1488,7 +1483,8 @@ void NjsVM::exec_dynamic_get_var(SPRef sp, u32 name_atom, bool no_throw) {
     error_handle(sp);
   } else if (!no_throw && sp[0].flag_bits == FLAG_NOT_FOUND) [[unlikely]] {
     sp -= 1;
-    error_throw_handle(sp, JS_REFERENCE_ERROR, atom_to_str(name_atom) + u" is undefined");
+    error_throw_handle(sp, JS_REFERENCE_ERROR,
+                       u16string(atom_to_str(name_atom)) + u" is undefined");
   }
 }
 

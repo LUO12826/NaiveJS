@@ -38,7 +38,7 @@ class JSObjectPrototype : public JSObject {
     u16string res = u"[object ";
     res += obj->get_class_name();
     res += u"]";
-    return vm.new_primitive_string(std::move(res));
+    return vm.new_primitive_string(res);
   }
 
   static Completion toLocaleString(vm_func_This_args_flags) {

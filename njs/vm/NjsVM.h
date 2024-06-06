@@ -125,11 +125,15 @@ friend class JSArrayIterator;
   JSValue build_error_internal(JSErrorType type, const u16string& msg);
   JSValue build_error_internal(JSErrorType type, u16string&& msg);
 
+  JSValue build_cannot_access_prop_error(JSValue key, JSValue obj, bool is_set);
+
   JSObject* new_object(ObjClass cls = CLS_OBJECT);
   JSObject* new_object(ObjClass cls, JSValue proto);
   JSFunction* new_function(JSFunctionMeta *meta);
   JSValue new_primitive_string(const u16string& str);
-  JSValue new_primitive_string(u16string&& str);
+  JSValue new_primitive_string(u16string_view str);
+  JSValue new_primitive_string(const char16_t *str);
+  JSValue new_primitive_string(char16_t str);
 
   bool has_atom_str(u16string_view str_view) {
     return atom_pool.has_string(str_view);
@@ -155,11 +159,13 @@ friend class JSArrayIterator;
     return atom_pool.atomize_symbol_desc(desc);
   }
 
-  u16string atom_to_str(u32 atom) {
+  /// warning: do NOT keep the returned view for long. It will be invalidated at the next call.
+  u16string_view atom_to_str(u32 atom) {
     if (atom_is_int(atom)) [[unlikely]] {
-      return to_u16string(atom_get_int(atom));
+      temp_int_atom_string = to_u16string(atom_get_int(atom));
+      return temp_int_atom_string;
     } else {
-      return u16string(atom_pool.get_string(atom));
+      return atom_pool.get_string(atom);
     }
   }
 
@@ -270,6 +276,7 @@ friend class JSArrayIterator;
 
   vector<JSValue> string_const;
   unordered_flat_map<u32, REByteCode> regexp_bytecode;
+  u16string temp_int_atom_string;
 };
 
 } // namespace njs

@@ -38,7 +38,7 @@ class JSForInIterator : public JSObject {
         }
       } else if (obj->get_class() == CLS_STRING) {
         auto *str = obj->as<JSString>();
-        size_t len = str->value.length();
+        size_t len = str->value.as_prim_string->length();
         for (size_t i = 0; i < len; i++) {
           keys.push_back(vm.u32_to_atom(u32(i)));
         }
@@ -77,9 +77,9 @@ class JSForInIterator : public JSObject {
 
   JSValue next(NjsVM& vm) {
     if (index < collected_keys.size()) [[likely]] {
-      u16string key_str = vm.atom_to_str(collected_keys[index]);
+      u16string_view key_str = vm.atom_to_str(collected_keys[index]);
       index += 1;
-      return vm.new_primitive_string(std::move(key_str));
+      return vm.new_primitive_string(key_str);
     } else {
       return JSValue::uninited;
     }

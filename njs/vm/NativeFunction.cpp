@@ -106,7 +106,7 @@ Completion NativeFunction::fetch(vm_func_This_args_flags) {
   assert(args[0].is(JSValue::STRING));
   assert(args[1].is(JSValue::FUNCTION));
 
-  std::string url = to_u8string(args[0].as_prim_string->str);
+  std::string url = to_u8string(args[0].as_prim_string->view());
   JSTask *task = vm.runloop.add_task(args[1].as_func);
 
   vm.runloop.get_thread_pool().push_task([&vm, task] (const std::string& url) {
@@ -117,7 +117,7 @@ Completion NativeFunction::fetch(vm_func_This_args_flags) {
 
     if (auto res = cli.Get(path)) {
       task->args.emplace_back((double)res->status);
-      task->args.emplace_back(vm.heap.new_object<PrimitiveString>(to_u16string(res->body)));
+      task->args.emplace_back(vm.new_primitive_string(to_u16string(res->body)));
     } else {
       auto err = res.error();
       std::cout << "HTTP error: " << httplib::to_string(err) << '\n';
@@ -134,7 +134,7 @@ Completion NativeFunction::json_stringify(vm_func_This_args_flags) {
   assert(args.size() >= 1);
   u16string json_string;
   args[0].to_json(json_string, vm);
-  return vm.new_primitive_string(std::move(json_string));
+  return vm.new_primitive_string(json_string);
 }
 
 Completion NativeFunction::isFinite(vm_func_This_args_flags) {
@@ -152,7 +152,7 @@ Completion NativeFunction::isFinite(vm_func_This_args_flags) {
 Completion NativeFunction::parseFloat(vm_func_This_args_flags) {
   if (args.size() == 0) return JSValue(NAN);
   PrimitiveString *str = TRYCC(js_to_string(vm, args[0])).as_prim_string;
-  double val = u16string_to_double(str->str);
+  double val = u16string_to_double(str->view());
 
   return JSValue(val);
 }
@@ -160,7 +160,7 @@ Completion NativeFunction::parseFloat(vm_func_This_args_flags) {
 Completion NativeFunction::parseInt(vm_func_This_args_flags) {
   if (args.size() == 0) return JSValue(NAN);
   PrimitiveString *str = TRYCC(js_to_string(vm, args[0])).as_prim_string;
-  double val = parse_int(str->str);
+  double val = parse_int(str->view());
 
   return JSValue(val);
 }

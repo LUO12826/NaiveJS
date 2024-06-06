@@ -19,7 +19,7 @@ class GCObject {
   GCObject(const GCObject& obj) = delete;
   GCObject(GCObject&& obj) = delete;
 
-  virtual void gc_scan_children(GCHeap &heap) = 0;
+  virtual void gc_scan_children(GCHeap &heap) {}
   virtual std::string description() = 0;
 
   void set_nocopy() {
