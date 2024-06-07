@@ -77,19 +77,19 @@ class JSStringPrototype : public JSObject {
     assert(args.size() > 0);
     TRY_COMP(js_require_object_coercible(vm, This));
     u16string_view str = TRY_COMP(get_string_from_value(vm, This));
-    auto *pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string;
+    u16string_view pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string->view();
 
     int64_t start = 0;
     if (args.size() > 1) {
       start = std::max(TRY_COMP(js_to_int64sat(vm, args[1])), int64_t(0));
     }
 
-    if (pattern->length() == 0) [[unlikely]] {
+    if (pattern.length() == 0) [[unlikely]] {
       size_t res = std::min(str.size(), (size_t)start);
       return JSFloat(res);
     }
 
-    size_t find_res = str.find(pattern->view(), start);
+    size_t find_res = str.find(pattern, start);
     if (find_res != u16string::npos) {
       return JSFloat(find_res);
     } else {
@@ -101,19 +101,19 @@ class JSStringPrototype : public JSObject {
     assert(args.size() > 0);
     TRY_COMP(js_require_object_coercible(vm, This));
     u16string_view str = TRY_COMP(get_string_from_value(vm, This));
-    auto *pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string;
+    u16string_view pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string->view();
 
     int64_t end = INT64_MAX;
     if (args.size() > 1) {
       end = std::min(TRY_COMP(js_to_int64sat(vm, args[1])), INT64_MAX);
     }
 
-    if (pattern->length() == 0) [[unlikely]] {
+    if (pattern.length() == 0) [[unlikely]] {
       size_t res = std::min(str.size(), (size_t)end);
       return JSFloat(res);
     }
 
-    size_t find_res = str.rfind(pattern->view(), end);
+    size_t find_res = str.rfind(pattern, end);
     if (find_res != u16string::npos) {
       return JSFloat(find_res);
     } else {
@@ -151,16 +151,15 @@ class JSStringPrototype : public JSObject {
     auto *arr = vm.heap.new_object<JSArray>(vm, 0);
 
     if (args.size() == 0 || args[0].is_undefined()) [[unlikely]] {
-      arr->set_element_fast(0, vm.new_primitive_string(str));
+      arr->push(vm.new_primitive_string(str));
     }
     else {
       auto *pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string;
       vector<u16string_view> split_res = cpp_split(str, pattern->view());
 
       for (auto& substr : split_res) {
-        arr->dense_array.push_back(vm.new_primitive_string(substr));
+        arr->push(vm.new_primitive_string(substr));
       }
-      arr->update_length();
     }
     return JSValue(arr);
   }
@@ -272,7 +271,7 @@ class JSStringPrototype : public JSObject {
   static Completion substring(vm_func_This_args_flags) {
     TRY_COMP(js_require_object_coercible(vm, This));
     PrimitiveString *str = TRY_COMP(get_prim_string_from_value(vm, This));
-    int64_t str_len = str->length();
+    int64_t str_len = str->view().length();
 
     int64_t start = TRY_COMP(js_to_int64sat(vm, args.size() > 0 ? args[0] : undefined));
     int64_t end = INT64_MAX;
@@ -291,7 +290,7 @@ class JSStringPrototype : public JSObject {
   static Completion substr(vm_func_This_args_flags) {
     TRY_COMP(js_require_object_coercible(vm, This));
     PrimitiveString *str = TRY_COMP(get_prim_string_from_value(vm, This));
-    int64_t str_len = str->length();
+    int64_t str_len = str->view().length();
 
     int64_t start = TRY_COMP(js_to_int64sat(vm, args.size() > 0 ? args[0] : undefined));
     int64_t length = INT64_MAX;
@@ -323,7 +322,7 @@ class JSStringPrototype : public JSObject {
       return vm.new_primitive_string(res); 
     }
     else {
-      return JSValue(vm.heap.new_prim_string(str->data(), str->length()));
+      return vm.new_primitive_string(str->view());
     }
   }
 

@@ -191,8 +191,8 @@ class JSRegExp : public JSObject {
 
       auto *arr = vm.heap.new_object<JSArray>(vm, lre.get_capture_cnt());
 
-      JSObject *groups = TRY_COMP(build_group_object(vm, lre, [arr] (int i, JSValue item) {
-        arr->set_element_fast(i, item);
+      JSObject *groups = TRY_COMP(build_group_object(vm, lre, [&vm, arr] (int i, JSValue item) {
+        arr->set_property_impl(vm, JSFloat(i), item);
       }));
 
       TRY_COMP(arr->set_prop(vm, u"groups", groups ? JSValue(groups) : undefined));
@@ -309,13 +309,13 @@ class JSRegExp : public JSObject {
   }
 
   Completion prototype_to_string(NjsVM& vm) {
-    JSValue flags_val = TRYCC(get_prop(vm, u"flags"));
+    auto flags_str = TRYCC(get_prop(vm, u"flags")).as_prim_string->view();
     u16string regexp_str;
-    regexp_str.reserve(pattern.size() + 2 + flags_val.as_prim_string->length());
+    regexp_str.reserve(pattern.size() + 2 + flags_str.length());
     regexp_str = u'/';
     regexp_str += pattern.view();
     regexp_str += u'/';
-    regexp_str += flags_val.as_prim_string->view();
+    regexp_str += flags_str;
     return JSValue(vm.new_primitive_string(regexp_str));
   }
 

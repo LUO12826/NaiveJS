@@ -57,7 +57,6 @@ class JSArrayIterator : public JSObject {
       }
       else {
         JSArray& tmp_arr = *vm.heap.new_object<JSArray>(vm, 2);
-        tmp_arr.dense_array.resize(2);
 
         JSValue idx_atom = JSAtom(vm.u32_to_atom(index));
         tmp_arr.dense_array[0] = JSFloat(index);

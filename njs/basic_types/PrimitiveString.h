@@ -16,6 +16,11 @@ struct PrimitiveString: public GCObject {
 
 friend class GCHeap;
 
+  static inline uint64_t concat_count {0};
+  static inline uint64_t alloc_count {0};
+  static inline uint64_t concat_length {0};
+  static inline uint64_t fast_concat_count {0};
+
   static constexpr u32 npos = UINT32_MAX;
 
   PrimitiveString(const PrimitiveString& other) = delete;
@@ -40,18 +45,31 @@ friend class GCHeap;
   }
 
   PrimitiveString* concat(GCHeap& heap, PrimitiveString *str) {
-    return concat(heap, str->data(), str->length());
+    return concat(heap, str->storage, str->len);
   }
 
-  PrimitiveString* concat(GCHeap& heap, const char16_t* str, u32 length) const {
+  PrimitiveString* concat(GCHeap& heap, const char16_t* str, u32 length) {
     u32 new_length = len + length;
     assert(new_length < UINT32_MAX);
-    PrimitiveString *new_str = heap.new_prim_string(new_length);
 
+    concat_count += 1;
+    concat_length += new_length;
+
+    // This optimization doesn't look very effective
+//    PrimitiveString *new_str;
+//    if (not referenced && new_length <= cap) {
+//      fast_concat_count += 1;
+//      new_str = this;
+//    } else {
+//      new_str = heap.new_prim_string(new_length);
+//      std::memcpy(new_str->storage, storage, len * CHAR_SIZE);
+//    }
+
+    PrimitiveString *new_str = heap.new_prim_string(new_length);
     std::memcpy(new_str->storage, storage, len * CHAR_SIZE);
     std::memcpy(new_str->storage + len, str, length * CHAR_SIZE);
-    new_str->storage[new_length] = 0;
 
+    new_str->storage[new_length] = 0;
     new_str->len = new_length;
     return new_str;
   }
@@ -164,24 +182,26 @@ friend class GCHeap;
     return !(*this < other);
   }
 
-  u32 length() const {
-    return len;
-  }
+  // u32 length() const {
+  //   return len;
+  // }
 
-  const char16_t* data() const {
-    return storage;
-  }
+  // const char16_t* data() const {
+  //   return storage;
+  // }
 
-  char16_t* data() {
-    return storage;
-  }
+  // char16_t* data() {
+  //   return storage;
+  // }
 
   bool empty() {
     return len == 0;
   }
 
  private:
-  explicit PrimitiveString(u32 capacity) : cap(capacity) {}
+  explicit PrimitiveString(u32 capacity) : cap(capacity) {
+    alloc_count += 1;
+  }
   ~PrimitiveString() override = default;
 
   void init(u16string_view str) {

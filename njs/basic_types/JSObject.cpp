@@ -47,6 +47,7 @@ Completion JSObject::get_property_impl(NjsVM& vm, JSValue key) {
 
 ErrorOr<bool> JSObject::set_property(NjsVM& vm, JSValue key, JSValue value) {
   if (key.is_atom() && key.as_atom == AtomPool::k___proto__) [[unlikely]] {
+    set_referenced(value);
     return set_proto(value);
   } else {
     return set_property_impl(vm, key, value);
@@ -214,6 +215,7 @@ ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_d
 }
 
 ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
+  set_referenced(value);
   value.flag_bits = 0;
   assert(key.is_atom() || key.is_symbol());
   // 1.
@@ -273,6 +275,7 @@ bool JSObject::add_prop_trivial(u32 key_atom, JSValue value, PFlag flag) {
 }
 
 bool JSObject::add_prop_trivial(JSValue key, JSValue value, PFlag flag) {
+  set_referenced(value);
   JSPropDesc& prop = storage[JSObjectKey(key)];
   prop.flag = flag;
   prop.data.value = value;

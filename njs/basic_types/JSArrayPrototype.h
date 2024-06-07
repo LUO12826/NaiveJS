@@ -240,6 +240,7 @@ class JSArrayPrototype : public JSObject {
 
       for (size_t i = start; i < start + (args.size() - 2); i++) {
         dense_arr[i] = args[i - start + 2];
+        set_referenced(dense_arr[i]);
       }
     }
     arr->update_length();

@@ -196,7 +196,7 @@ friend class NjsVM;
   }
 
   bool is_object() const {
-    return tag > OBJECT_BEGIN && tag < NEED_GC_END;
+    return tag > OBJECT_BEGIN;
   }
 
   bool is_function() const {
@@ -204,7 +204,7 @@ friend class NjsVM;
   }
 
   bool needs_gc() const {
-    return tag > NEED_GC_BEGIN && tag < NEED_GC_END;
+    return tag > NEED_GC_BEGIN;
   }
 
   template <class T>

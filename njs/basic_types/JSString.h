@@ -26,7 +26,7 @@ class JSString : public JSObject {
   Completion get_property_impl(NjsVM &vm, JSValue key) override {
     JSValue k = TRY_COMP(js_to_property_key(vm, key));
     if (k.is_atom() && k.as_atom == AtomPool::k_length) {
-      return JSFloat(value.as_prim_string->length());
+      return JSFloat(value.as_prim_string->view().length());
     } else {
       return get_prop(vm, k);
     }

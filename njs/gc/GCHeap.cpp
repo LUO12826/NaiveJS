@@ -13,10 +13,7 @@ namespace njs {
 
 using u32 = uint32_t;
 
-inline size_t next_multiple_of_8(size_t num) {
-  if (num % 8 == 0) {
-    return num;
-  }
+force_inline size_t next_multiple_of_8(size_t num) {
   return (num + 7) & ~7;
 }
 
@@ -26,7 +23,7 @@ void GCHeap::gc_if_needed() {
     gc();
   } else if (object_cnt - last_gc_object_cnt > gc_threshold) {
     gc();
-  } else if ((alloc_point - from_start) - last_gc_heap_usage > (4 * heap_size / 10)) {
+  } else if ((alloc_point - from_start) - last_gc_heap_usage > (5 * heap_size / 12)) {
     gc();
   }
 }
@@ -120,6 +117,7 @@ void GCHeap::gc_visit_object(JSValue& handle, GCObject *obj) {
 
 vector<JSValue *> GCHeap::gather_roots() {
   vector<JSValue *> roots;
+  roots.reserve(last_gc_root_count);
 
   // All values on the rt_stack are possible roots
   JSStackFrame *frame = vm.curr_frame;
@@ -169,6 +167,7 @@ vector<JSValue *> GCHeap::gather_roots() {
   auto task_roots = vm.runloop.gc_gather_roots();
   roots.insert(roots.end(), task_roots.begin(), task_roots.end());
 
+  last_gc_root_count = roots.size();
   return roots;
 }
 
@@ -266,17 +265,18 @@ PrimitiveString* GCHeap::new_prim_string_impl(size_t length) {
 
 // Allocate memory for a new object.
 void* GCHeap::allocate(size_t size_byte) {
-  if (lacking_free_memory(size_byte)) [[unlikely]] {
+  byte *new_alloc_point = alloc_point + size_byte;
+  if (new_alloc_point > from_start + low_mem_threshold) [[unlikely]] {
     gc_requested = true;
-    if (alloc_point + size_byte > from_start + heap_size) [[unlikely]] {
+    if (new_alloc_point > from_start + heap_size) [[unlikely]] {
       assert(false);
       fprintf(stderr, "allocation failed\n");
       exit(1);
     }
-    if (lacking_free_memory(size_byte)) [[unlikely]]  {
-      fprintf(stderr, "memory allocation failed\n");
-      exit(EXIT_FAILURE);
-    }
+//    if (lacking_free_memory(size_byte)) [[unlikely]]  {
+//      fprintf(stderr, "memory allocation failed\n");
+//      exit(EXIT_FAILURE);
+//    }
   }
 
   void *start_addr = alloc_point;

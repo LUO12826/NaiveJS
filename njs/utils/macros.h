@@ -7,10 +7,19 @@ namespace njs {
 
 using u32 = uint32_t;
 
-#define object_class(x) ((x).as_object->get_class())
-
+#if defined(__GNUC__) || defined(__clang__)
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
+#define force_inline inline __attribute__((always_inline))
+#else
+#define js_likely(x) (x)
+#define js_unlikely(x) (x)
+#define force_inline inline
+#endif
+
+#define object_class(x) ((x).as_object->get_class())
+//#define set_referenced(x) if (x.needs_gc()) { x.as_GCObject->referenced = true; }
+#define set_referenced(x)
 
 /// try something that produces `ErrorOr<>`, return `CompThrow` if get an error.
 #define TRYCC(expression)                                                                     \

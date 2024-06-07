@@ -33,6 +33,7 @@ class GCObject {
   static constexpr size_t NO_COPY {SIZE_MAX};
 
   u32 size;
+  bool referenced {false};
   GCObject *forward_ptr {nullptr};
 };
 

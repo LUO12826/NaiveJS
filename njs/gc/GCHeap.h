@@ -41,7 +41,7 @@ using byte = int8_t;
  public:
   GCHeap(size_t size_mb, NjsVM& vm)
       : heap_size(size_mb * 1024 * 1024),
-        low_mem_threshold(heap_size / 2 - heap_size / 2 / 8),
+        low_mem_threshold(0.95 * heap_size / 2),
         storage((byte *)malloc(size_mb * 1024 * 1024)),
         from_start(storage),
         to_start(storage + heap_size / 2),
@@ -103,8 +103,8 @@ using byte = int8_t;
 
   GCStats stats;
  private:
+  static void gc_message(string_view msg);
   PrimitiveString* new_prim_string_impl(size_t length);
-  void gc_message(string_view msg);
   vector<JSValue *> gather_roots();
 
   void gc_task();
@@ -114,10 +114,6 @@ using byte = int8_t;
 
   // Copy a single object. Recursively copy its child objects.
   GCObject *copy_object(GCObject *obj);
-
-  bool lacking_free_memory(size_t size_byte) {
-    return (alloc_point + size_byte) > (from_start + low_mem_threshold);
-  }
 
   // Allocate memory for a new object.
   void *allocate(size_t size_byte);
@@ -136,6 +132,7 @@ using byte = int8_t;
   size_t object_cnt {0};
   size_t last_gc_object_cnt {0};
   size_t last_gc_heap_usage {0};
+  size_t last_gc_root_count {50};
   size_t gc_threshold {15000};
 
   bool gc_requested {false};

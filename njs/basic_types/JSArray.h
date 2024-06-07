@@ -54,6 +54,7 @@ class JSArray: public JSObject {
   }
 
   ErrorOr<bool> set_property_impl(NjsVM& vm, JSValue key, JSValue val) override {
+    set_referenced(val);
     JSValue idx = TRY_ERR(get_index_or_atom(vm, key));
 
     if (idx.is(JSValue::NUM_UINT32)) {
@@ -139,7 +140,6 @@ class JSArray: public JSObject {
     if (index < dense_array.size()) {
       dense_array[index] = val;
     } else {
-
       // since sparse arrays are not implemented, an assertion failure is
       // raised if the array is too large.
       if (index > 100000 && index > dense_array.size() * 100) [[unlikely]] {
@@ -182,8 +182,16 @@ class JSArray: public JSObject {
     }
   }
 
+  size_t push(JSValue value) {
+    set_referenced(value);
+    dense_array.push_back(value);
+    update_length();
+    return dense_array.size();
+  }
+
   size_t push(ArrayRef<JSValue> values) {
     for (size_t i = 0; i < values.size(); i++) {
+      set_referenced(values[i]);
       dense_array.push_back(values[i]);
     }
     update_length();

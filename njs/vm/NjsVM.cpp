@@ -191,6 +191,11 @@ void NjsVM::run() {
     std::cout << "Heap usage: " << memory_usage_readable(heap.get_heap_usage()) << '\n';
     std::cout << "Heap object count: " << heap.get_object_count() << '\n';
     heap.stats.print();
+
+    std::cout << "String alloc count: " << PrimitiveString::alloc_count << '\n';
+    std::cout << "String concat count: " << PrimitiveString::concat_count << '\n';
+    std::cout << "fast concat count: " << PrimitiveString::fast_concat_count << '\n';
+    std::cout << "After concat length total: " << PrimitiveString::concat_length << '\n';
   }
 }
 
@@ -490,6 +495,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         (*++sp).tag = JSValue::UNINIT;
         break;
       case OpType::pop: {
+        set_referenced(sp[0]);
         get_value(GET_SCOPE, OPR2).assign(sp[0]);
         sp -= 1;
         break;
@@ -501,6 +507,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
           error_throw_handle(sp, JS_REFERENCE_ERROR,
                              u"Cannot access a variable before initialization");
         } else {
+          set_referenced(sp[1]);
           val.assign(sp[1]);
         }
         break;
@@ -509,6 +516,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         sp -= 1;
         break;
       case OpType::store: {
+        set_referenced(sp[0]);
         get_value(GET_SCOPE, OPR2).assign(sp[0]);
         break;
       }
@@ -518,6 +526,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
           error_throw_handle(sp, JS_REFERENCE_ERROR,
                              u"Cannot access a variable before initialization");
         } else {
+          set_referenced(sp[0]);
           val.assign(sp[0]);
         }
         break;
@@ -1118,9 +1127,11 @@ void NjsVM::exec_add_assign(SPRef sp, JSValue& target, bool keep_value) {
     bool succeeded;
     exec_add_common(sp, target, target, r, succeeded);
     if (not succeeded) [[unlikely]] {
+      // `exec_add_common` has handled the error. so just return.
       return;
     }
   }
+  set_referenced(target);
   if (keep_value) [[unlikely]] {
     *++sp = target;
   }
@@ -1351,7 +1362,7 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
       return undefined;
       break;
     case JSValue::STRING: {
-      auto& str = *obj.as_prim_string;
+      u16string_view str = obj.as_prim_string->view();
       JSValue prop_key = TRYCC(js_to_property_key(*this, key));
 
       u32 atom = prop_key.as_atom;
@@ -1364,8 +1375,7 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
         }
       }
       else if (atom == AtomPool::k_length) {
-        auto len = obj.as_prim_string->length();
-        return JSFloat(len);
+        return JSFloat(str.length());
       }
       else {
         return string_prototype.as_object->get_prop(*this, prop_key);
