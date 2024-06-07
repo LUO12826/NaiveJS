@@ -19,7 +19,6 @@ struct PrimitiveString: public GCObject {
 friend class GCHeap;
 
   static inline uint64_t concat_count {0};
-  static inline uint64_t atom_concat_count {0};
   static inline uint64_t alloc_count {0};
   static inline uint64_t concat_length {0};
   static inline uint64_t fast_concat_count {0};
@@ -44,7 +43,7 @@ friend class GCHeap;
   }
 
   bool is_atom_string() {
-    return is_atom;
+    return atom;
   }
 
   u32 get_atom() {
@@ -72,9 +71,6 @@ friend class GCHeap;
 
     concat_count += 1;
     concat_length += new_length;
-    if (is_atom) {
-      atom_concat_count += 1;
-    }
 
     // This optimization doesn't look very effective
 //    PrimitiveString *new_str;

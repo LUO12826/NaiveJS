@@ -5,7 +5,6 @@
 #include <optional>
 #include <cctype>
 #include <cstdarg>
-#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <iomanip>

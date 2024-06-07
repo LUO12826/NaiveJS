@@ -192,10 +192,8 @@ void NjsVM::run() {
     std::cout << "Heap object count: " << heap.get_object_count() << '\n';
     heap.stats.print();
 
-    std::cout << '\n';
     std::cout << "String alloc count: " << PrimitiveString::alloc_count << '\n';
     std::cout << "String concat count: " << PrimitiveString::concat_count << '\n';
-    std::cout << "String atom concat count: " << PrimitiveString::atom_concat_count << '\n';
     std::cout << "fast concat count: " << PrimitiveString::fast_concat_count << '\n';
     std::cout << "After concat length total: " << PrimitiveString::concat_length << '\n';
   }
@@ -471,11 +469,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         break;
       case OpType::push_str:
         sp += 1;
-        if (atom_is_str_sym(OPR1)) {
-          sp[0].set_val(heap.new_prim_atom_string(OPR1));
-        } else {
-          sp[0] = new_primitive_string(atom_to_str(OPR1));
-        }
+        sp[0].set_val(heap.new_prim_atom_string(OPR1));
         break;
       case OpType::push_atom:
         sp += 1;
