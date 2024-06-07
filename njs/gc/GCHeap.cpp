@@ -21,7 +21,12 @@ inline size_t next_multiple_of_8(size_t num) {
 }
 
 void GCHeap::gc_if_needed() {
-  if (object_cnt - last_gc_object_cnt > gc_threshold) {
+  if (gc_requested) {
+    gc_requested = false;
+    gc();
+  } else if (object_cnt - last_gc_object_cnt > gc_threshold) {
+    gc();
+  } else if ((alloc_point - from_start) - last_gc_heap_usage > (4 * heap_size / 10)) {
     gc();
   }
 }
@@ -61,6 +66,7 @@ void GCHeap::gc_task() {
     byte *end = alloc_point;
 
     size_t old_object_cnt = object_cnt;
+    size_t old_usage = alloc_point - from_start;
     object_cnt = 0;
 
     Timer timer_copy("copy alive");
@@ -69,6 +75,8 @@ void GCHeap::gc_task() {
     stats.copy_time += copy_time;
 
     last_gc_object_cnt = object_cnt;
+    last_gc_heap_usage = alloc_point - from_start;
+
     if (object_cnt > 0.7 * old_object_cnt) {
       gc_threshold *= 3;
     } else {
@@ -77,6 +85,8 @@ void GCHeap::gc_task() {
 
     if (Global::show_gc_statistics) {
       std::cout << "GC copy done\n";
+      std::cout << "heap usage before GC: " << old_usage / (1024 * 1024) << '\n';
+      std::cout << "heap usage after GC: " << last_gc_heap_usage / (1024 * 1024) << '\n';
       std::cout << "object count before GC: " << old_object_cnt << '\n';
       std::cout << "object count after GC: " << object_cnt << '\n';
       std::cout << "ratio: " << (double)object_cnt / old_object_cnt << '\n';
@@ -257,7 +267,12 @@ PrimitiveString* GCHeap::new_prim_string_impl(size_t length) {
 // Allocate memory for a new object.
 void* GCHeap::allocate(size_t size_byte) {
   if (lacking_free_memory(size_byte)) [[unlikely]] {
-    gc();
+    gc_requested = true;
+    if (alloc_point + size_byte > from_start + heap_size) [[unlikely]] {
+      assert(false);
+      fprintf(stderr, "allocation failed\n");
+      exit(1);
+    }
     if (lacking_free_memory(size_byte)) [[unlikely]]  {
       fprintf(stderr, "memory allocation failed\n");
       exit(EXIT_FAILURE);

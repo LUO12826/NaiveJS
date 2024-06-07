@@ -138,6 +138,9 @@ void JSRunLoop::timer_loop() {
   while (true) {
     int ret = epoll_wait(mux_fd, event_slot, MAX_EVENTS, -1);
     if (ret == -1) {
+      if (errno == EINTR) {
+        continue;
+      }
       perror("epoll poll failed.");
       exit(EXIT_FAILURE);
     }

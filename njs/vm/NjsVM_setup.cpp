@@ -131,7 +131,7 @@ void NjsVM::setup() {
   string_const[AtomPool::k_function] = new_primitive_string(u"function");
 }
 
-JSFunction* NjsVM::add_native_func_impl(const u16string& name, NativeFuncType native_func) {
+JSFunction* NjsVM::add_native_func_impl(u16string_view name, NativeFuncType native_func) {
   auto *meta = new JSFunctionMeta {
       .name_index = str_to_atom(name),
       .is_native = true,

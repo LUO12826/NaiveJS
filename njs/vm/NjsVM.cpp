@@ -62,7 +62,7 @@ void *lre_realloc(void *opaque, void *ptr, size_t size) {
 namespace njs {
 
 NjsVM::NjsVM(CodegenVisitor& visitor)
-  : heap(600, *this)
+  : heap(1600, *this)
   , bytecode(std::move(visitor.bytecode))
   , runloop(*this)
   , atom_pool(std::move(visitor.atom_pool))
@@ -363,21 +363,6 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       case OpType::add_assign_keep:
         exec_add_assign(sp, get_value(GET_SCOPE, OPR2), inst.op_type == OpType::add_assign_keep);
         break;
-      case OpType::add_to_left: {
-        sp -= 1;
-        JSValue& l = sp[0];
-        JSValue& r = sp[1];
-        if (l.is_float64() && r.is_float64()) {
-          l.as_f64 += r.as_f64;
-        } else if (l.is_prim_string() && r.is_prim_string()) {
-          auto *res = l.as_prim_string->concat(heap, r.as_prim_string);
-          l.set_val(res);
-        } else {
-          bool succeeded;
-          exec_add_common(sp, l, l, r, succeeded);
-        }
-        break;
-      }
       case OpType::logi_and:
         sp -= 1;
         if (sp[0].bool_value()) {

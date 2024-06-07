@@ -97,7 +97,7 @@ friend class JSArrayIterator;
   explicit NjsVM(CodegenVisitor& visitor);
   ~NjsVM();
 
-  JSFunction* add_native_func_impl(const u16string& name, NativeFuncType func);
+  JSFunction* add_native_func_impl(u16string_view name, NativeFuncType func);
   JSObject* add_builtin_object(const u16string& name);
   void add_builtin_global_var(const u16string& name, JSValue val);
 

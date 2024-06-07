@@ -9,6 +9,7 @@
 #include "njs/vm/NjsVM.h"
 #include "njs/basic_types/conversion.h"
 #include "njs/basic_types/JSArray.h"
+#include "njs/basic_types/SimpleString.h"
 #include "njs/utils/helper.h"
 #include "njs/include/libregexp/lre_helper.h"
 extern "C" {
@@ -68,7 +69,7 @@ class JSRegExp : public JSObject {
   {
     add_regexp_object_props(vm, flags);
 
-    add_prop_trivial(vm, u"source", JSValue(vm.new_primitive_string(this->pattern)), PFlag::V);
+    add_prop_trivial(vm, u"source", JSValue(vm.new_primitive_string(pattern)), PFlag::V);
     add_prop_trivial(vm, u"flags", JSValue(vm.new_primitive_string(flags_str)), PFlag::V);
   }
 
@@ -81,7 +82,7 @@ class JSRegExp : public JSObject {
     add_regexp_object_props(vm, flags);
 
     u16string flag_str = regexp_flags_to_str(flags);
-    add_prop_trivial(vm, u"source", JSValue(vm.new_primitive_string(this->pattern)), PFlag::V);
+    add_prop_trivial(vm, u"source", JSValue(vm.new_primitive_string(pattern.view())), PFlag::V);
     add_prop_trivial(vm, u"flags", JSValue(vm.new_primitive_string(flag_str)), PFlag::V);
   }
 
@@ -108,9 +109,8 @@ class JSRegExp : public JSObject {
     }
 
     char error_msg[64];
-    uint8_t *re_bytecode_buf = lre_compile(&this->bytecode_len,
-                                           error_msg, sizeof(error_msg),
-                                           to_u8string(pattern).c_str(), pattern.size(),
+    uint8_t *re_bytecode_buf = lre_compile(&this->bytecode_len, error_msg, sizeof(error_msg),
+                                           to_u8string(pattern.view()).c_str(), pattern.size(),
                                            flags, nullptr);
     if (re_bytecode_buf == nullptr) {
       char16_t u16_msg[64];
@@ -313,7 +313,7 @@ class JSRegExp : public JSObject {
     u16string regexp_str;
     regexp_str.reserve(pattern.size() + 2 + flags_val.as_prim_string->length());
     regexp_str = u'/';
-    regexp_str += pattern;
+    regexp_str += pattern.view();
     regexp_str += u'/';
     regexp_str += flags_val.as_prim_string->view();
     return JSValue(vm.new_primitive_string(regexp_str));
@@ -324,11 +324,11 @@ class JSRegExp : public JSObject {
   }
 
   std::string to_string(njs::NjsVM &vm) const override {
-    return to_u8string(pattern);
+    return to_u8string(pattern.view());
   }
 
   u32 pattern_atom;
-  u16string pattern;
+  SimpleString pattern;
   int flags;
   int bytecode_len;
   uint8_t *bytecode;

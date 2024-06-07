@@ -736,15 +736,8 @@ class CodegenVisitor {
         }
       } // end not use dynamic
       else {
+        codegen_rhs();
         u32 atom = atom_pool.atomize(expr.lhs->get_source());
-
-        if (assign_op == Token::ADD_ASSIGN) {
-          visit(expr.lhs);
-          visit(expr.rhs);
-          emit(OpType::add_to_left);
-        } else {
-          codegen_rhs();
-        }
         emit(OpType::dyn_set_var, int(atom));
         if (!need_value) emit(OpType::pop_drop);
       }
@@ -755,15 +748,8 @@ class CodegenVisitor {
         inst_set_prop = visit_left_hand_side_expr(*expr.lhs->as_lhs_expr(), true, false);
       }
       assert(inst_set_prop.op_type != OpType::nop);
-
-      if (assign_op == Token::ADD_ASSIGN) {
-        visit(expr.lhs);
-        visit(expr.rhs);
-        emit(OpType::add_to_left);
-      } else {
-        codegen_rhs();
-      }
-
+      
+      codegen_rhs();
       emit(inst_set_prop);
       if (!need_value) emit(OpType::pop_drop);
     }

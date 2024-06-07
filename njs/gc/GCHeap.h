@@ -41,6 +41,7 @@ using byte = int8_t;
  public:
   GCHeap(size_t size_mb, NjsVM& vm)
       : heap_size(size_mb * 1024 * 1024),
+        low_mem_threshold(heap_size / 2 - heap_size / 2 / 8),
         storage((byte *)malloc(size_mb * 1024 * 1024)),
         from_start(storage),
         to_start(storage + heap_size / 2),
@@ -115,14 +116,14 @@ using byte = int8_t;
   GCObject *copy_object(GCObject *obj);
 
   bool lacking_free_memory(size_t size_byte) {
-    size_t threshold = heap_size - heap_size / 4;
-    return alloc_point + size_byte > (from_start + threshold);
+    return (alloc_point + size_byte) > (from_start + low_mem_threshold);
   }
 
   // Allocate memory for a new object.
   void *allocate(size_t size_byte);
 
   size_t heap_size;
+  size_t low_mem_threshold;
   // heap data
   byte *storage;
   // The start address of the first part
@@ -134,7 +135,10 @@ using byte = int8_t;
 
   size_t object_cnt {0};
   size_t last_gc_object_cnt {0};
-  size_t gc_threshold {30000};
+  size_t last_gc_heap_usage {0};
+  size_t gc_threshold {15000};
+
+  bool gc_requested {false};
 
   NjsVM& vm;
 
