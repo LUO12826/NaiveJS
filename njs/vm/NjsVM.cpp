@@ -370,18 +370,18 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         break;
       case OpType::logi_and:
         sp -= 1;
-        if (sp[0].bool_value(atom_pool)) {
+        if (sp[0].bool_value()) {
           sp[0] = sp[1];
         }
         break;
       case OpType::logi_or:
         sp -= 1;
-        if (sp[0].is_falsy(atom_pool)) {
+        if (sp[0].is_falsy()) {
           sp[0] = sp[1];
         }
         break;
       case OpType::logi_not: {
-        bool bool_val = sp[0].bool_value(atom_pool);
+        bool bool_val = sp[0].bool_value();
         sp[0].set_bool(!bool_val);
         break;
       }
@@ -469,7 +469,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         break;
       case OpType::push_str:
         sp += 1;
-        sp[0].set_val(heap.new_prim_atom_string(OPR1));
+        sp[0] = new_primitive_string(atom_to_str(OPR1));
         break;
       case OpType::push_atom:
         sp += 1;
@@ -567,17 +567,17 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         pc = OPR1;
         break;
       case OpType::jmp_true:
-        if (sp[0].bool_value(atom_pool)) {
+        if (sp[0].bool_value()) {
           pc = OPR1;
         }
         break;
       case OpType::jmp_false:
-        if (sp[0].is_falsy(atom_pool)) {
+        if (sp[0].is_falsy()) {
           pc = OPR1;
         }
         break;
       case OpType::jmp_cond:
-        if (sp[0].bool_value(atom_pool)) {
+        if (sp[0].bool_value()) {
           pc = OPR1;
         } else {
           pc = OPR2;
@@ -588,19 +588,19 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         sp -= 1;
         break;
       case OpType::jmp_true_pop:
-        if (sp[0].bool_value(atom_pool)) {
+        if (sp[0].bool_value()) {
           pc = OPR1;
         }
         sp -= 1;
         break;
       case OpType::jmp_false_pop:
-        if (sp[0].is_falsy(atom_pool)) {
+        if (sp[0].is_falsy()) {
           pc = OPR1;
         }
         sp -= 1;
         break;
       case OpType::jmp_cond_pop:
-        if (sp[0].bool_value(atom_pool)) {
+        if (sp[0].bool_value()) {
           pc = OPR1;
         } else {
           pc = OPR2;
@@ -966,7 +966,7 @@ JSValue NjsVM::build_cannot_access_prop_error(JSValue key, JSValue obj, bool is_
   } else {
     Completion comp = js_to_string(*this, key);
     assert(comp.is_normal());
-    msg += comp.get_value().as_prim_string->view(atom_pool);
+    msg += comp.get_value().as_prim_string->view();
   }
   msg += u"' of ";
   msg += to_u16string(obj.to_string(*this));
@@ -1046,7 +1046,7 @@ void NjsVM::exec_instanceof(SPRef sp) {
   }
 
   while (!is_instance) {
-    if (same_value(*this, proto, func_prototype)) {
+    if (same_value(proto, func_prototype)) {
       is_instance = true;
     } else if (proto.is_object()) {
       proto = proto.as_object->get_proto();
@@ -1362,7 +1362,7 @@ Completion NjsVM::get_prop_on_primitive(JSValue& obj, JSValue key) {
       return undefined;
       break;
     case JSValue::STRING: {
-      u16string_view str = obj.as_prim_string->view(atom_pool);
+      u16string_view str = obj.as_prim_string->view();
       JSValue prop_key = TRYCC(js_to_property_key(*this, key));
 
       u32 atom = prop_key.as_atom;
@@ -1569,12 +1569,12 @@ void NjsVM::exec_comparison(SPRef sp, OpType type) {
     __builtin_unreachable();
   };
 
-  auto string_compare = [this] (OpType type, PrimitiveString *lhs, PrimitiveString *rhs) {
+  auto string_compare = [] (OpType type, PrimitiveString *lhs, PrimitiveString *rhs) {
     switch (type) {
-      case OpType::lt: return lhs->lt(atom_pool, rhs);
-      case OpType::gt: return lhs->gt(atom_pool, rhs);
-      case OpType::le: return lhs->le(atom_pool, rhs);
-      case OpType::ge: return lhs->ge(atom_pool, rhs);
+      case OpType::lt: return *lhs < *rhs;
+      case OpType::gt: return *lhs > *rhs;
+      case OpType::le: return *lhs <= *rhs;
+      case OpType::ge: return *lhs >= *rhs;
       default: assert(false);
     }
     __builtin_unreachable();

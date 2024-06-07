@@ -35,7 +35,7 @@ struct GCStats {
 };
 
 class GCHeap {
-friend struct PrimitiveString;
+
 using byte = int8_t;
 
  public:
@@ -82,7 +82,6 @@ using byte = int8_t;
     return object;
   }
 
-  PrimitiveString* new_prim_atom_string(u32 atom);
   PrimitiveString* new_prim_string(const char16_t *str, size_t length);
   PrimitiveString* new_prim_string(size_t length);
 

@@ -110,15 +110,11 @@ Completion js_to_property_key(NjsVM &vm, JSValue val) {
       }
     }
     case JSValue::STRING:
-      if (val.as_prim_string->is_atom_string()) {
-        return JSAtom(val.as_prim_string->get_atom());
-      } else {
-        return JSAtom(vm.str_to_atom(val.as_prim_string->view(vm.atom_pool)));
-      }
+      return JSAtom(vm.str_to_atom(val.as_prim_string->view()));
     default: {
       JSValue str = TRYCC(js_to_string(vm, val, true));
       assert(str.is_prim_string());
-      return JSAtom(vm.str_to_atom(str.as_prim_string->view(vm.atom_pool)));
+      return JSAtom(vm.str_to_atom(str.as_prim_string->view()));
     }
   }
 }
@@ -129,6 +125,10 @@ Completion js_require_object_coercible(NjsVM &vm, JSValue val) {
   } else {
     return val;
   }
+}
+
+bool js_to_boolean(JSValue val) {
+  return val.bool_value();
 }
 
 ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {
@@ -144,7 +144,7 @@ ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {
     case JSValue::SYMBOL:
       return vm.build_error_internal(JS_TYPE_ERROR, u"TypeError");
     case JSValue::STRING:
-      return u16string_to_double(val.as_prim_string->view(vm.atom_pool));
+      return u16string_to_double(val.as_prim_string->view());
     default:
       if (val.is_object()) {
         JSValue prim = TRY_ERR(val.as_object->to_primitive(vm, HINT_NUMBER));

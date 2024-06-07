@@ -5,21 +5,12 @@
 #include "njs/basic_types/JSObject.h"
 #include "njs/basic_types/JSArray.h"
 #include "njs/basic_types/JSFunction.h"
-#include "njs/basic_types/PrimitiveString.h"
 #include "JSHeapValue.h"
 #include "njs/common/enum_strings.h"
 #include "njs/utils/helper.h"
 #include "njs/vm/NjsVM.h"
 
 namespace njs {
-
-bool JSValue::is_falsy(AtomPool& pool) const {
-  if (tag == BOOLEAN) return !as_bool;
-  if (tag == JS_NULL || tag == UNDEFINED || tag == UNINIT) return true;
-  if (tag == NUM_FLOAT) return as_f64 == 0 || std::isnan(as_f64);
-  if (tag == STRING) return as_prim_string->empty(pool);
-  return false;
-}
 
 void JSValue::move_to_heap(NjsVM& vm) {
   auto *heap_val = vm.heap.new_object<JSHeapValue>(*this);
@@ -48,16 +39,17 @@ JSValue& JSValue::deref_heap_if_needed() {
 
 
 std::string JSValue::description() const {
-  std::ostringstream stream;
-  stream << "JSValue(tag: " << js_value_tag_names[tag];
 
+  std::ostringstream stream;
+
+  stream << "JSValue(tag: " << js_value_tag_names[tag];
   if (tag == BOOLEAN) stream << ", value: " << as_bool;
   else if (tag == NUM_FLOAT) stream << ", value: " << as_f64;
   else if (is_object()) {
     stream << ", obj: " << as_GCObject->description();
   }
   else if (tag == STRING) {
-    stream << ", value: (fixme)";
+    stream << ", value: " << to_u8string(as_prim_string->view());
   }
   stream << ")";
 
@@ -89,7 +81,7 @@ std::string JSValue::to_string(NjsVM& vm) const {
       output += deref().to_string(vm);
       break;
     case STRING:
-      output += to_u8string(as_prim_string->view(vm.atom_pool));
+      output += to_u8string(as_prim_string->view());
       break;
     case SYMBOL:
       output += "Symbol(" + std::to_string(as_symbol) + ')';
@@ -120,7 +112,7 @@ void JSValue::to_json(u16string& output, NjsVM& vm) const {
       break;
     case STRING:
       output += u'"';
-      output += to_escaped_u16string(as_prim_string->view(vm.atom_pool));
+      output += to_escaped_u16string(as_prim_string->view());
       output += u'"';
       break;
     case ARRAY:

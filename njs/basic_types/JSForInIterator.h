@@ -38,7 +38,7 @@ class JSForInIterator : public JSObject {
         }
       } else if (obj->get_class() == CLS_STRING) {
         auto *str = obj->as<JSString>();
-        size_t len = str->value.as_prim_string->view(vm.atom_pool).length();
+        size_t len = str->value.as_prim_string->view().length();
         for (size_t i = 0; i < len; i++) {
           keys.push_back(vm.u32_to_atom(u32(i)));
         }

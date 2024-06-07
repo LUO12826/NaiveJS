@@ -4,18 +4,17 @@
 #include <cstdint>
 #include <string>
 #include <cassert>
+#include "PrimitiveString.h"
 
 namespace njs {
 
 class NjsVM;
-class AtomPool;
 class JSObject;
 class GCObject;
 class JSFunction;
 class JSArray;
 class JSString;
 struct JSHeapValue;
-struct PrimitiveString;
 
 using std::u16string;
 using u32 = uint32_t;
@@ -217,10 +216,16 @@ friend class NjsVM;
     return is_object() ? as_object : nullptr;
   }
 
-  bool is_falsy(AtomPool& pool) const;
+  bool is_falsy() const {
+    if (tag == BOOLEAN) return !as_bool;
+    if (tag == JS_NULL || tag == UNDEFINED || tag == UNINIT) return true;
+    if (tag == NUM_FLOAT) return as_f64 == 0 || std::isnan(as_f64);
+    if (tag == STRING) return as_prim_string->empty();
+    return false;
+  }
 
-  bool bool_value(AtomPool& pool) const {
-    return !is_falsy(pool);
+  bool bool_value() const {
+    return !is_falsy();
   }
 
   bool is(JSValueTag val_tag) const {

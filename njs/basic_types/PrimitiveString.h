@@ -2,12 +2,10 @@
 #define NJS_PRIMITIVE_STRING_H
 
 #include <string>
-#include "njs/vm/NjsVM.h"
 #include "njs/gc/GCObject.h"
 #include "njs/gc/GCHeap.h"
 #include "njs/common/conversion_helper.h"
 #include "njs/common/common_def.h"
-#include "njs/common/AtomPool.h"
 
 namespace njs {
 
@@ -31,42 +29,27 @@ friend class GCHeap;
   PrimitiveString& operator=(const PrimitiveString& other) = delete;
 
   std::string description() override {
-    return "PrimitiveString";
+    return "PrimitiveString(" + to_std_string() + ")";
   }
 
-  u16string_view view(AtomPool& pool) const {
-    if (not is_atom) {
-      return {storage, (size_t)len};
-    } else {
-      return pool.get_string(atom);
-    }
+  u16string_view view() const {
+    return {storage, (size_t)len};
   }
 
-  bool is_atom_string() {
-    return atom;
+  u16string to_std_u16string() const {
+    return {storage, (size_t)len};
   }
 
-  u32 get_atom() {
-    return atom;
-  }
-
-  u16string to_std_u16string(AtomPool& pool) const {
-    return u16string(view(pool));
-  }
-
-  string to_std_string(AtomPool& pool) const {
-    return to_u8string(view(pool));
+  string to_std_string() const {
+    return to_u8string(view());
   }
 
   PrimitiveString* concat(GCHeap& heap, PrimitiveString *str) {
-    u16string_view str_view = str->view(heap.vm.atom_pool);
-    return concat(heap, str_view.data(), str_view.length());
+    return concat(heap, str->storage, str->len);
   }
 
   PrimitiveString* concat(GCHeap& heap, const char16_t* str, u32 length) {
-    u16string_view this_str = view(heap.vm.atom_pool);
-    u32 this_len = this_str.length();
-    u32 new_length = this_len + length;
+    u32 new_length = len + length;
     assert(new_length < UINT32_MAX);
 
     concat_count += 1;
@@ -83,8 +66,8 @@ friend class GCHeap;
 //    }
 
     PrimitiveString *new_str = heap.new_prim_string(new_length);
-    std::memcpy(new_str->storage, this_str.data(), this_len * CHAR_SIZE);
-    std::memcpy(new_str->storage + this_len, str, length * CHAR_SIZE);
+    std::memcpy(new_str->storage, storage, len * CHAR_SIZE);
+    std::memcpy(new_str->storage + len, str, length * CHAR_SIZE);
 
     new_str->storage[new_length] = 0;
     new_str->len = new_length;
@@ -92,88 +75,73 @@ friend class GCHeap;
   }
 
   PrimitiveString* substr(GCHeap& heap, u32 pos, u32 length = npos) const {
-    u16string_view this_str = view(heap.vm.atom_pool);
-    u32 this_len = this_str.length();
-
-    pos = std::min(pos, this_len);
-    length = std::min(length, this_len - pos);
+    pos = std::min(pos, len);
+    length = std::min(length, len - pos);
 
     PrimitiveString *sub_str = heap.new_prim_string(length);
-    std::memcpy(sub_str->storage, this_str.data() + pos, length * CHAR_SIZE);
+    std::memcpy(sub_str->storage, storage + pos, length * CHAR_SIZE);
 
     sub_str->storage[length] = 0;
     sub_str->len = length;
     return sub_str;
   }
 
-  u32 find(AtomPool& pool, char16_t ch, u32 pos = 0) const {
-    u16string_view this_str = view(pool);
-    u32 this_len = this_str.length();
-
-    if (pos >= this_len) return npos;
-    auto res = char16_traits::find(this_str.data() + pos, this_len - pos, ch);
-    return res ? res - this_str.data() : npos;
+  u32 find(char16_t ch, u32 pos = 0) const {
+    if (pos >= len) return npos;
+    auto res = char16_traits::find(storage + pos, len - pos, ch);
+    return res ? res - storage : npos;
   }
 
-  u32 find(AtomPool& pool, const char16_t* str, u32 length, u32 pos = 0) const {
-    u16string_view this_str = view(pool);
-    u32 this_len = this_str.length();
-
-    if (!str || pos >= this_len || length > this_len - pos) [[unlikely]] {
+  u32 find(const char16_t* str, u32 length, u32 pos = 0) const {
+    if (!str || pos >= len || length > len - pos) [[unlikely]] {
       return npos;
     }
     if (length == 0) [[unlikely]] {
       return pos;
     }
 
-    const char16_t* data_start = this_str.data() + pos;
-    const char16_t* data_end = this_str.end();
+    const char16_t* data_start = storage + pos;
+    const char16_t* data_end = storage + len;
     const std::boyer_moore_searcher searcher(str, str + length);
     const auto it = std::search(data_start, data_end, searcher);
 
-    return it != data_end ? it - this_str.data() : npos;
+    return it != data_end ? it - storage : npos;
   }
 
-  u32 rfind(AtomPool& pool, const char16_t* str, u32 length, u32 pos = 0) const {
+  u32 rfind(const char16_t* str, u32 length, u32 pos = 0) const {
     if (!str) [[unlikely]] return npos;
 
-    u16string_view this_str = view(pool);
-    u32 this_len = this_str.length();
-
-    pos = std::min(pos, this_len);
+    pos = std::min(pos, len);
     if (length == 0) [[unlikely]] return pos;
 
-    const char16_t* data_start = this_str.data();
-    const char16_t* data_end = data_start + std::min(pos + length, this_len);
+    const char16_t* data_start = storage;
+    const char16_t* data_end = storage + std::min(pos + length, len);
     const auto it = std::find_end(data_start, data_end, str, str + length);
 
-    return it != data_end ? it - data_start : npos;
+    return it != data_end ? it - storage : npos;
   }
 
   PrimitiveString* replace(GCHeap& heap, u32 pos, u32 length, u16string_view replacement) {
-    u16string_view this_str = view(heap.vm.atom_pool);
-    u32 this_len = this_str.length();
+    if (pos > len) return nullptr;
 
-    if (pos > this_len) return nullptr;
-
-    if (pos + length > this_len) {
-      length = this_len - pos;
+    if (pos + length > len) {
+      length = len - pos;
     }
 
     u32 rep_length = replacement.size();
-    u32 new_length = this_len - length + rep_length;
+    u32 new_length = len - length + rep_length;
     PrimitiveString* new_str = heap.new_prim_string(new_length);
 
     // Copy the part before the replaced segment
     if (pos > 0) {
-      std::memcpy(new_str->storage, this_str.data(), pos * CHAR_SIZE);
+      std::memcpy(new_str->storage, storage, pos * CHAR_SIZE);
     }
     // Copy the replacement segment
     std::memcpy(new_str->storage + pos, replacement.data(), rep_length * CHAR_SIZE);
     // Copy the part after the replaced segment
-    if (pos + length < this_len) {
-      std::memcpy(new_str->storage + pos + rep_length, this_str.data() + pos + length,
-                  (this_len - pos - length) * CHAR_SIZE);
+    if (pos + length < len) {
+      std::memcpy(new_str->storage + pos + rep_length, storage + pos + length,
+                  (len - pos - length) * CHAR_SIZE);
     }
 
     new_str->storage[new_length] = 0;
@@ -182,62 +150,37 @@ friend class GCHeap;
     return new_str;
   }
 
-  char16_t char_at(AtomPool& pool, size_t index) {
-    u16string_view this_str = view(pool);
-    return this_str[index];
+  char16_t char_at(size_t index) {
+    return storage[index];
   }
 
-  bool equals(AtomPool& pool, PrimitiveString *other) {
-    return view(pool) == other->view(pool);
+  char16_t operator[](size_t index) const {
+    return storage[index];
   }
 
-  bool ne(AtomPool& pool, PrimitiveString *other) {
-    return view(pool) != other->view(pool);
+  bool operator==(const PrimitiveString& other) const {
+    return (len == other.len) && (std::memcmp(storage, other.storage, len * CHAR_SIZE) == 0);
   }
 
-  bool lt(AtomPool& pool, PrimitiveString *other) const {
-    return view(pool) < other->view(pool);
+  bool operator!=(const PrimitiveString& other) const {
+    return !(*this == other);
   }
 
-  bool le(AtomPool& pool, PrimitiveString *other) const {
-    return view(pool) <= other->view(pool);
+  bool operator<(const PrimitiveString& other) const {
+    return this->view() < other.view();
   }
 
-  bool ge(AtomPool& pool, PrimitiveString *other) const {
-    return view(pool) >= other->view(pool);
+  bool operator>(const PrimitiveString& other) const {
+    return other < *this;
   }
 
-  bool gt(AtomPool& pool, PrimitiveString *other) const {
-    return view(pool) > other->view(pool);
+  bool operator<=(const PrimitiveString& other) const {
+    return !(other < *this);
   }
 
-//  char16_t operator[](size_t index) const {
-//    return storage[index];
-//  }
-
-//  bool operator==(const PrimitiveString& other) const {
-//    return (len == other.len) && (std::memcmp(storage, other.storage, len * CHAR_SIZE) == 0);
-//  }
-
-//  bool operator!=(const PrimitiveString& other) const {
-//    return !(*this == other);
-//  }
-
-//  bool operator<(const PrimitiveString& other) const {
-//    return this->view() < other.view();
-//  }
-//
-//  bool operator>(const PrimitiveString& other) const {
-//    return other < *this;
-//  }
-//
-//  bool operator<=(const PrimitiveString& other) const {
-//    return !(other < *this);
-//  }
-//
-//  bool operator>=(const PrimitiveString& other) const {
-//    return !(*this < other);
-//  }
+  bool operator>=(const PrimitiveString& other) const {
+    return !(*this < other);
+  }
 
   // u32 length() const {
   //   return len;
@@ -251,8 +194,8 @@ friend class GCHeap;
   //   return storage;
   // }
 
-  bool empty(AtomPool& pool) {
-    return view(pool).empty();
+  bool empty() {
+    return len == 0;
   }
 
  private:
@@ -275,8 +218,6 @@ friend class GCHeap;
     storage[len] = 0;
   }
 
-  bool is_atom {false};
-  u32 atom;
   u32 len;
   u32 cap;
   char16_t storage[0];

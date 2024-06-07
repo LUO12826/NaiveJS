@@ -27,7 +27,7 @@ inline Completion Object_defineProperty(vm_func_This_args_flags) {
 
   JSPropDesc desc = TRY_COMP(args[2].as_object->to_property_descriptor(vm));
   JSValue key = TRYCC(js_to_property_key(vm, args[1]));
-  bool succeeded = TRY_COMP(args[0].as_object->define_own_property(vm, key, desc));
+  bool succeeded = TRY_COMP(args[0].as_object->define_own_property(key, desc));
   return JSValue(succeeded);
 }
 
