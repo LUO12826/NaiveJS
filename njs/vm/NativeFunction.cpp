@@ -2,6 +2,7 @@
 
 #include "NjsVM.h"
 #include "njs/basic_types/conversion.h"
+#include "njs/basic_types/PrimitiveString.h"
 #include "njs/include/httplib.h"
 
 namespace njs {
@@ -37,7 +38,7 @@ Completion NativeFunction::debug_log(vm_func_This_args_flags) {
 }
 
 Completion NativeFunction::debug_trap(vm_func_This_args_flags) {
-  if (args.size() > 0 && args[0].bool_value()) {
+  if (args.size() > 0 && args[0].bool_value(vm.atom_pool)) {
     return CompThrow(vm.build_error_internal(JS_INTERNAL_ERROR, u"Trap"));
   } else {
     return undefined;
@@ -106,7 +107,7 @@ Completion NativeFunction::fetch(vm_func_This_args_flags) {
   assert(args[0].is(JSValue::STRING));
   assert(args[1].is(JSValue::FUNCTION));
 
-  std::string url = to_u8string(args[0].as_prim_string->view());
+  std::string url = to_u8string(args[0].as_prim_string->view(vm.atom_pool));
   JSTask *task = vm.runloop.add_task(args[1].as_func);
 
   vm.runloop.get_thread_pool().push_task([&vm, task] (const std::string& url) {
@@ -152,7 +153,7 @@ Completion NativeFunction::isFinite(vm_func_This_args_flags) {
 Completion NativeFunction::parseFloat(vm_func_This_args_flags) {
   if (args.size() == 0) return JSValue(NAN);
   PrimitiveString *str = TRYCC(js_to_string(vm, args[0])).as_prim_string;
-  double val = u16string_to_double(str->view());
+  double val = u16string_to_double(str->view(vm.atom_pool));
 
   return JSValue(val);
 }
@@ -160,7 +161,7 @@ Completion NativeFunction::parseFloat(vm_func_This_args_flags) {
 Completion NativeFunction::parseInt(vm_func_This_args_flags) {
   if (args.size() == 0) return JSValue(NAN);
   PrimitiveString *str = TRYCC(js_to_string(vm, args[0])).as_prim_string;
-  double val = parse_int(str->view());
+  double val = parse_int(str->view(vm.atom_pool));
 
   return JSValue(val);
 }

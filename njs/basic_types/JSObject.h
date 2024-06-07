@@ -138,7 +138,7 @@ struct JSPropDesc {
     }
   } data;
 
-  bool operator==(const JSPropDesc& other) const;
+  bool equals(NjsVM& vm, const JSPropDesc& other) const;
 
   bool is_data_descriptor() { return flag.has_value || flag.has_write; }
   bool is_accessor_descriptor() {return flag.has_getter || flag.has_setter; }
@@ -215,8 +215,9 @@ using StorageType = unordered_flat_map<JSObjectKey, JSPropDesc, ObjKeyHasher>;
   bool set_proto(JSValue proto);
   JSValue get_proto() const { return _proto_; }
 
-  ErrorOr<bool> define_own_property(JSValue key, JSPropDesc& desc);
-  ErrorOr<bool> define_own_property_impl(JSValue key, JSPropDesc *curr_desc, JSPropDesc& desc);
+  ErrorOr<bool> define_own_property(NjsVM& vm, JSValue key, JSPropDesc& desc);
+  ErrorOr<bool> define_own_property_impl(NjsVM& vm, JSValue key,
+                                         JSPropDesc *curr_desc, JSPropDesc& desc);
 
   /*
    * The following methods only accept atom or symbol as the key

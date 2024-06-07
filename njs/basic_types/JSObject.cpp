@@ -16,13 +16,13 @@ PFlag PFlag::VCW {  .configurable = true,
                           .writable = true, .has_value = true };
 PFlag PFlag::V { .has_value = true };
 
-bool JSPropDesc::operator==(const JSPropDesc& other) const {
+bool JSPropDesc::equals(NjsVM& vm, const JSPropDesc& other) const {
   if (flag != other.flag) return false;
   if (flag.is_value()) {
-    return same_value(data.value, other.data.value);
+    return same_value(vm, data.value, other.data.value);
   } else if (flag.is_getset()) {
-    return (!flag.has_getter || same_value(data.getset.getter, other.data.getset.getter)) &&
-           (!flag.has_setter || same_value(data.getset.setter, other.data.getset.setter));
+    return (!flag.has_getter || same_value(vm, data.getset.getter, other.data.getset.getter)) &&
+           (!flag.has_setter || same_value(vm, data.getset.setter, other.data.getset.setter));
   } else {
     return true;
   }
@@ -101,11 +101,11 @@ bool JSObject::set_proto(JSValue proto) {
   return true;
 }
 
-ErrorOr<bool> JSObject::define_own_property(JSValue key, JSPropDesc& desc) {
-  return define_own_property_impl(key, get_own_property(key), desc);
+ErrorOr<bool> JSObject::define_own_property(NjsVM& vm, JSValue key, JSPropDesc& desc) {
+  return define_own_property_impl(vm, key, get_own_property(key), desc);
 }
 
-ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_desc,
+ErrorOr<bool> JSObject::define_own_property_impl(NjsVM& vm, JSValue key, JSPropDesc *curr_desc,
                                                  JSPropDesc& desc) {
   assert(desc.flag.in_def_mode);
 
@@ -139,7 +139,7 @@ ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_d
   } // end curr_desc == nullptr
   else {
     if (desc.flag.is_empty()) return true;
-    if (desc == *curr_desc) return true;
+    if (desc.equals(vm, *curr_desc)) return true;
 
     if (not curr_desc->flag.configurable) {
       if (desc.flag.has_config & desc.flag.configurable) return false;
@@ -174,7 +174,7 @@ ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_d
           return false;
         }
         if (not curr_desc->flag.writable) {
-          if ((desc.flag.has_value && not same_value(desc.data.value, curr_desc->data.value))) {
+          if ((desc.flag.has_value && not same_value(vm, desc.data.value, curr_desc->data.value))) {
             return false;
           }
         }
@@ -186,11 +186,11 @@ ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_d
     } else if (curr_desc->is_accessor_descriptor()) {
       if (not curr_desc->flag.configurable) {
         if (desc.flag.has_getter
-            && !same_value(desc.data.getset.getter, curr_desc->data.getset.getter)) {
+            && !same_value(vm, desc.data.getset.getter, curr_desc->data.getset.getter)) {
           return false;
         }
         if (desc.flag.has_setter
-            && !same_value(desc.data.getset.setter, curr_desc->data.getset.setter)) {
+            && !same_value(vm, desc.data.getset.setter, curr_desc->data.getset.setter)) {
           return false;
         }
       }
@@ -248,7 +248,7 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
       desc.flag = PFlag::VECW;
       desc.data.value = value;
       desc.to_definition();
-      return define_own_property_impl(key, existing_desc, desc);
+      return define_own_property_impl(vm, key, existing_desc, desc);
     }
   }
   // is not a data descriptor
@@ -336,13 +336,13 @@ ErrorOr<JSPropDesc> JSObject::to_property_descriptor(NjsVM& vm) {
     if (has_prop(AtomPool::k_enumerable)) {
       desc.flag.has_enum = true;
       auto res = TRY_ERR(get_prop(vm, AtomPool::k_enumerable));
-      desc.flag.enumerable = res.bool_value();
+      desc.flag.enumerable = res.bool_value(vm.atom_pool);
     }
 
     if (has_prop(AtomPool::k_configurable)) {
       desc.flag.has_config = true;
       auto res = TRY_ERR(get_prop(vm, AtomPool::k_configurable));
-      desc.flag.configurable = res.bool_value();
+      desc.flag.configurable = res.bool_value(vm.atom_pool);
     }
 
     if (has_prop(AtomPool::k_value)) {
@@ -353,7 +353,7 @@ ErrorOr<JSPropDesc> JSObject::to_property_descriptor(NjsVM& vm) {
     if (has_prop(AtomPool::k_writable)) {
       desc.flag.has_write = true;
       auto res = TRY_ERR(get_prop(vm, AtomPool::k_writable));
-      desc.flag.writable = res.bool_value();
+      desc.flag.writable = res.bool_value(vm.atom_pool);
     }
 
     // TODO: check whether the getter is callable.

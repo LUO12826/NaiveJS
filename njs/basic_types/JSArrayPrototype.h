@@ -48,7 +48,7 @@ class JSArrayPrototype : public JSObject {
 
         if (not val.is_nil()) [[likely]] {
           JSValue s = TRYCC(js_to_string(vm, val));
-          output += s.as_prim_string->view();
+          output += s.as_prim_string->view(vm.atom_pool);
         }
       }
       return vm.new_primitive_string(output);
@@ -64,7 +64,7 @@ class JSArrayPrototype : public JSObject {
     u16string delimiter = u",";
     if (args.size() != 0 && !args[0].is_undefined()) [[likely]] {
       JSValue deli = TRYCC(js_to_string(vm, args[0]));
-      delimiter = deli.as_prim_string->view();
+      delimiter = deli.as_prim_string->view(vm.atom_pool);
     }
 
     auto *arr = This.as_Object<JSArray>();
@@ -77,7 +77,7 @@ class JSArrayPrototype : public JSObject {
 
       if (not val.is_nil()) [[likely]] {
         JSValue s = TRYCC(js_to_string(vm, val));
-        output += s.as_prim_string->view();
+        output += s.as_prim_string->view(vm.atom_pool);
       }
     }
     return vm.new_primitive_string(output);
@@ -124,7 +124,7 @@ class JSArrayPrototype : public JSObject {
 
           auto prim_a = comp_a.get_value().as_prim_string;
           auto prim_b = comp_b.get_value().as_prim_string;
-          return *prim_a < *prim_b;
+          return prim_a->lt(vm.atom_pool, prim_b);
         });
       }
       catch (std::runtime_error& err) {

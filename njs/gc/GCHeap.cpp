@@ -241,6 +241,16 @@ void GCHeap::check_fwd_pointer() {
   }
 }
 
+PrimitiveString* GCHeap::new_prim_atom_string(njs::u32 atom) {
+  void *ptr = allocate(sizeof(PrimitiveString));
+  auto *prim_str = new (ptr) PrimitiveString(0);
+  prim_str->size = sizeof(PrimitiveString);
+  prim_str->is_atom = true;
+  prim_str->atom = atom;
+  object_cnt += 1;
+  return prim_str;
+}
+
 PrimitiveString* GCHeap::new_prim_string(const char16_t *str, size_t length) {
   auto prim_str = new_prim_string_impl(length);
   prim_str->init(str, length);

@@ -9,7 +9,6 @@ namespace njs {
 
 using u32 = uint32_t;
 
-bool                    js_to_boolean(JSValue val);
 ErrorOr<double>         js_to_number(NjsVM &vm, JSValue val);
 ErrorOr<int64_t>        js_to_int64sat(NjsVM &vm, JSValue val);
 ErrorOr<u32>            js_to_uint32(NjsVM &vm, JSValue val);

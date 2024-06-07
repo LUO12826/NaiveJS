@@ -162,7 +162,7 @@ class JSRegExp : public JSObject {
 
   Completion exec(NjsVM& vm, JSValue arg, bool test_mode) {
     arg = TRYCC(js_to_string(vm, arg));
-    auto arg_str = arg.as_prim_string->to_std_u16string();
+    auto arg_str = arg.as_prim_string->to_std_u16string(vm.atom_pool);
 
     u32 last_index;
     // last_index is only effective when in `global` or `sticky` mode.
@@ -218,7 +218,7 @@ class JSRegExp : public JSObject {
   // TODO: pause GC here
   Completion replace(NjsVM& vm, JSValue str, JSValue replacer) {
     str = TRYCC(js_to_string(vm, str));
-    auto arg_str = str.as_prim_string->to_std_u16string();
+    auto arg_str = str.as_prim_string->to_std_u16string(vm.atom_pool);
 
     u32 last_index;
     if (not (flags & (LRE_FLAG_STICKY))) {
@@ -238,7 +238,7 @@ class JSRegExp : public JSObject {
     bool should_populate_replacement = false;
 
     if (not replacer.is_function()) [[likely]] {
-      replacement = TRYCC(js_to_string(vm, replacer)).as_prim_string->to_std_u16string();
+      replacement = TRYCC(js_to_string(vm, replacer)).as_prim_string->to_std_u16string(vm.atom_pool);
       replacement_is_string = true;
       should_populate_replacement = replacement.find(u'$') != u16string::npos;
     }
@@ -285,7 +285,7 @@ class JSRegExp : public JSObject {
           JSValue rep_str = TRYCC(vm.call_function(replacer, undefined, undefined, func_args));
           
           rep_str = TRYCC(js_to_string(vm, rep_str));
-          result += rep_str.as_prim_string->view();
+          result += rep_str.as_prim_string->view(vm.atom_pool);
         }
 
         prev_last_index = last_index;
@@ -309,7 +309,7 @@ class JSRegExp : public JSObject {
   }
 
   Completion prototype_to_string(NjsVM& vm) {
-    auto flags_str = TRYCC(get_prop(vm, u"flags")).as_prim_string->view();
+    auto flags_str = TRYCC(get_prop(vm, u"flags")).as_prim_string->view(vm.atom_pool);
     u16string regexp_str;
     regexp_str.reserve(pattern.size() + 2 + flags_str.length());
     regexp_str = u'/';

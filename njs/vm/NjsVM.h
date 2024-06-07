@@ -174,6 +174,7 @@ friend class JSArrayIterator;
   }
 
   GCHeap heap;
+  AtomPool atom_pool;
   
  private:
   void execute_global();
@@ -251,7 +252,6 @@ friend class JSArrayIterator;
   deque<JSTask> micro_task_queue;
 
   // for constant
-  AtomPool atom_pool;
   SmallVector<double, 10> num_list;
   vector<unique_ptr<JSFunctionMeta>> func_meta;
 

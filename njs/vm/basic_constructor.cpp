@@ -63,10 +63,10 @@ Completion NativeFunction::RegExp_ctor(vm_func_This_args_flags) {
   JSValue pattern = TRYCC(js_to_string(vm, args[0]));
   u16string_view reflags(u"");
   if (args.size() > 1) {
-    reflags = TRYCC(js_to_string(vm, args[1])).as_prim_string->view();
+    reflags = TRYCC(js_to_string(vm, args[1])).as_prim_string->view(vm.atom_pool);
   }
 
-  return JSRegExp::New(vm, pattern.as_prim_string->view(), reflags);
+  return JSRegExp::New(vm, pattern.as_prim_string->view(vm.atom_pool), reflags);
 }
 
 
@@ -89,7 +89,7 @@ Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
       }
       else {
         JSValue ts_str = TRYCC(js_to_string(vm, arg));
-        date->parse_date_str(ts_str.as_prim_string->view());
+        date->parse_date_str(ts_str.as_prim_string->view(vm.atom_pool));
       }
     } else {
       // TODO: other cases
@@ -131,7 +131,7 @@ Completion NativeFunction::Symbol(vm_func_This_args_flags) {
   }
 
   if (args.size() > 0 && not args[0].is_undefined()) {
-    auto str = TRYCC(js_to_string(vm, args[0])).as_prim_string->view();
+    auto str = TRYCC(js_to_string(vm, args[0])).as_prim_string->view(vm.atom_pool);
     return JSSymbol(vm.atom_pool.atomize_symbol_desc(str));
   } else {
     return JSSymbol(vm.atom_pool.atomize_symbol());
