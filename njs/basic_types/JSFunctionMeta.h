@@ -35,6 +35,7 @@ struct JSFunctionMeta {
 
   u16 param_count;
   u16 local_var_count;
+  u16 capture_count;
   u16 stack_size;
   u32 bytecode_start;
   u32 bytecode_end;

@@ -33,11 +33,15 @@ friend class GCHeap;
   }
 
   u16string_view view() const {
-    return {storage, (size_t)len};
+    if (str_ref != nullptr) {
+      return {str_ref, (size_t)len};
+    } else {
+      return {storage, (size_t)len};
+    }
   }
 
   u16string to_std_u16string() const {
-    return {storage, (size_t)len};
+    return u16string(view());
   }
 
   string to_std_string() const {
@@ -45,28 +49,19 @@ friend class GCHeap;
   }
 
   PrimitiveString* concat(GCHeap& heap, PrimitiveString *str) {
-    return concat(heap, str->storage, str->len);
+    return concat(heap, str->data(), str->length());
   }
 
   PrimitiveString* concat(GCHeap& heap, const char16_t* str, u32 length) {
+    u16string_view this_str = view();
     u32 new_length = len + length;
     assert(new_length < UINT32_MAX);
 
     concat_count += 1;
     concat_length += new_length;
 
-    // This optimization doesn't look very effective
-//    PrimitiveString *new_str;
-//    if (not referenced && new_length <= cap) {
-//      fast_concat_count += 1;
-//      new_str = this;
-//    } else {
-//      new_str = heap.new_prim_string(new_length);
-//      std::memcpy(new_str->storage, storage, len * CHAR_SIZE);
-//    }
-
     PrimitiveString *new_str = heap.new_prim_string(new_length);
-    std::memcpy(new_str->storage, storage, len * CHAR_SIZE);
+    std::memcpy(new_str->storage, this_str.data(), len * CHAR_SIZE);
     std::memcpy(new_str->storage + len, str, length * CHAR_SIZE);
 
     new_str->storage[new_length] = 0;
@@ -75,11 +70,13 @@ friend class GCHeap;
   }
 
   PrimitiveString* substr(GCHeap& heap, u32 pos, u32 length = npos) const {
+    u16string_view this_str = view();
+
     pos = std::min(pos, len);
     length = std::min(length, len - pos);
 
     PrimitiveString *sub_str = heap.new_prim_string(length);
-    std::memcpy(sub_str->storage, storage + pos, length * CHAR_SIZE);
+    std::memcpy(sub_str->storage, this_str.data() + pos, length * CHAR_SIZE);
 
     sub_str->storage[length] = 0;
     sub_str->len = length;
@@ -87,12 +84,16 @@ friend class GCHeap;
   }
 
   u32 find(char16_t ch, u32 pos = 0) const {
+    u16string_view this_str = view();
+
     if (pos >= len) return npos;
-    auto res = char16_traits::find(storage + pos, len - pos, ch);
-    return res ? res - storage : npos;
+    auto res = char16_traits::find(this_str.data() + pos, len - pos, ch);
+    return res ? res - this_str.data() : npos;
   }
 
   u32 find(const char16_t* str, u32 length, u32 pos = 0) const {
+    u16string_view this_str = view();
+
     if (!str || pos >= len || length > len - pos) [[unlikely]] {
       return npos;
     }
@@ -100,25 +101,27 @@ friend class GCHeap;
       return pos;
     }
 
-    const char16_t* data_start = storage + pos;
-    const char16_t* data_end = storage + len;
+    const char16_t* data_start = this_str.data() + pos;
+    const char16_t* data_end = this_str.end();
     const std::boyer_moore_searcher searcher(str, str + length);
     const auto it = std::search(data_start, data_end, searcher);
 
-    return it != data_end ? it - storage : npos;
+    return it != data_end ? it - this_str.data() : npos;
   }
 
   u32 rfind(const char16_t* str, u32 length, u32 pos = 0) const {
     if (!str) [[unlikely]] return npos;
 
+    u16string_view this_str = view();
+
     pos = std::min(pos, len);
     if (length == 0) [[unlikely]] return pos;
 
-    const char16_t* data_start = storage;
-    const char16_t* data_end = storage + std::min(pos + length, len);
+    const char16_t* data_start = this_str.data();
+    const char16_t* data_end = data_start + std::min(pos + length, len);
     const auto it = std::find_end(data_start, data_end, str, str + length);
 
-    return it != data_end ? it - storage : npos;
+    return it != data_end ? it - data_start : npos;
   }
 
   PrimitiveString* replace(GCHeap& heap, u32 pos, u32 length, u16string_view replacement) {
@@ -127,6 +130,7 @@ friend class GCHeap;
     if (pos + length > len) {
       length = len - pos;
     }
+    u16string_view this_str = view();
 
     u32 rep_length = replacement.size();
     u32 new_length = len - length + rep_length;
@@ -134,13 +138,13 @@ friend class GCHeap;
 
     // Copy the part before the replaced segment
     if (pos > 0) {
-      std::memcpy(new_str->storage, storage, pos * CHAR_SIZE);
+      std::memcpy(new_str->storage, this_str.data(), pos * CHAR_SIZE);
     }
     // Copy the replacement segment
     std::memcpy(new_str->storage + pos, replacement.data(), rep_length * CHAR_SIZE);
     // Copy the part after the replaced segment
     if (pos + length < len) {
-      std::memcpy(new_str->storage + pos + rep_length, storage + pos + length,
+      std::memcpy(new_str->storage + pos + rep_length, this_str.data() + pos + length,
                   (len - pos - length) * CHAR_SIZE);
     }
 
@@ -150,49 +154,42 @@ friend class GCHeap;
     return new_str;
   }
 
-  char16_t char_at(size_t index) {
-    return storage[index];
-  }
-
   char16_t operator[](size_t index) const {
-    return storage[index];
+    return view()[index];
   }
 
+  // after c++20: can use operator <=> here
   bool operator==(const PrimitiveString& other) const {
-    return (len == other.len) && (std::memcmp(storage, other.storage, len * CHAR_SIZE) == 0);
+    return view() == other.view();
   }
 
   bool operator!=(const PrimitiveString& other) const {
-    return !(*this == other);
+    return view() != other.view();
   }
 
   bool operator<(const PrimitiveString& other) const {
-    return this->view() < other.view();
+    return view() < other.view();
   }
 
   bool operator>(const PrimitiveString& other) const {
-    return other < *this;
+    return view() > other.view();
   }
 
   bool operator<=(const PrimitiveString& other) const {
-    return !(other < *this);
+    return view() <= other.view();
   }
 
   bool operator>=(const PrimitiveString& other) const {
-    return !(*this < other);
+    return view() >= other.view();
   }
 
-  // u32 length() const {
-  //   return len;
-  // }
+   u32 length() const {
+     return len;
+   }
 
-  // const char16_t* data() const {
-  //   return storage;
-  // }
-
-  // char16_t* data() {
-  //   return storage;
-  // }
+   const char16_t* data() const {
+     return str_ref == nullptr ? storage : str_ref;
+   }
 
   bool empty() {
     return len == 0;
@@ -217,8 +214,15 @@ friend class GCHeap;
     storage[len] = 0;
   }
 
+  void init_with_ref(const char16_t *str, size_t length) {
+    assert(length < UINT32_MAX);
+    len = length;
+    str_ref = str;
+  }
+
   u32 len;
   u32 cap;
+  const char16_t *str_ref {nullptr};
   char16_t storage[0];
 };
 

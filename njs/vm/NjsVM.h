@@ -187,7 +187,6 @@ friend class JSArrayIterator;
                            ArgRef argv, CallFlags flags);
   // function operation
   void exec_make_func(SPRef sp, int meta_idx, JSValue env_this);
-  CallResult exec_call(SPRef sp, int argc, bool has_this, bool is_new, JSValueRef new_target);
   void exec_js_new(SPRef sp, int arg_count);
   // object operation
   void exec_add_props(SPRef sp, int props_cnt);

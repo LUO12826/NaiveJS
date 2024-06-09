@@ -10,6 +10,12 @@
 #include "njs/common/ArrayRef.h"
 #include "njs/vm/Completion.h"
 
+#define REQUIRE_COERCIBLE(x)                                                                      \
+  if ((x).is_nil()) [[unlikely]] {                                                                \
+    return CompThrow(vm.build_error_internal(JS_TYPE_ERROR,                                       \
+                                             u"undefined or null is not coercible"));             \
+  }
+
 namespace njs {
 
 using std::vector;
@@ -63,19 +69,19 @@ class JSStringPrototype : public JSObject {
 
   static Completion charAt(vm_func_This_args_flags) {
     assert(args.size() > 0 && args[0].is(JSValue::NUM_FLOAT));
-    TRY_COMP(js_require_object_coercible(vm, This));
-    u16string_view str = TRY_COMP(get_string_from_value(vm, This));
+    REQUIRE_COERCIBLE(This);
+    PrimitiveString *str = TRY_COMP(get_prim_string_from_value(vm, This));
 
     double index = args[0].as_f64;
-    if (index < 0 || index > str.size()) {
+    if (index < 0 || index > str->length()) [[unlikely]] {
       return vm.new_primitive_string(u"");
     }
-    return vm.new_primitive_string(str[(size_t)index]);
+    return vm.new_primitive_string((*str)[(size_t)index]);
   }
 
   static Completion indexOf(vm_func_This_args_flags) {
     assert(args.size() > 0);
-    TRY_COMP(js_require_object_coercible(vm, This));
+    REQUIRE_COERCIBLE(This);
     u16string_view str = TRY_COMP(get_string_from_value(vm, This));
     u16string_view pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string->view();
 
@@ -99,7 +105,7 @@ class JSStringPrototype : public JSObject {
 
   static Completion lastIndexOf(vm_func_This_args_flags) {
     assert(args.size() > 0);
-    TRY_COMP(js_require_object_coercible(vm, This));
+    REQUIRE_COERCIBLE(This);
     u16string_view str = TRY_COMP(get_string_from_value(vm, This));
     u16string_view pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string->view();
 
@@ -146,7 +152,7 @@ class JSStringPrototype : public JSObject {
 
   // TODO: should also support regexp.
   static Completion split(vm_func_This_args_flags) {
-    TRY_COMP(js_require_object_coercible(vm, This));
+    REQUIRE_COERCIBLE(This);
     u16string_view str = TRY_COMP(get_string_from_value(vm, This));
     auto *arr = vm.heap.new_object<JSArray>(vm, 0);
 
@@ -166,7 +172,7 @@ class JSStringPrototype : public JSObject {
 
   // TODO: pause GC here
   static Completion match(vm_func_This_args_flags) {
-    TRY_COMP(js_require_object_coercible(vm, This));
+    REQUIRE_COERCIBLE(This);
     JSValue str = TRY_ERR(js_to_string(vm, This));
     
     JSValue match_method;
@@ -187,7 +193,7 @@ class JSStringPrototype : public JSObject {
 
   // TODO: pause GC here
   static Completion replace(vm_func_This_args_flags) {
-    TRY_COMP(js_require_object_coercible(vm, This));
+    REQUIRE_COERCIBLE(This);
     // nothing to replace
     if (args.size() < 2) {
       return js_to_string(vm, This);
@@ -241,19 +247,19 @@ class JSStringPrototype : public JSObject {
 
   static Completion charCodeAt(vm_func_This_args_flags) {
     assert(args.size() > 0 && args[0].is(JSValue::NUM_FLOAT));
-    TRY_COMP(js_require_object_coercible(vm, This));
-    u16string_view str = TRY_COMP(get_string_from_value(vm, This));
+    REQUIRE_COERCIBLE(This);
+    PrimitiveString *str = TRY_COMP(get_prim_string_from_value(vm, This));
 
     double index = args[0].as_f64;
-    if (index < 0 || index > str.size()) {
+    if (index < 0 || index > str->length()) {
       return JSValue(nan(""));
     }
-    char16_t ch = str[(size_t)index];
+    char16_t ch = (*str)[(size_t)index];
     return JSFloat(ch);
   }
 
   static Completion toLowerCase(vm_func_This_args_flags) {
-    TRY_COMP(js_require_object_coercible(vm, This));
+    REQUIRE_COERCIBLE(This);
     u16string_view str = TRY_COMP(get_string_from_value(vm, This));
     u16string res(str);
     std::transform(res.begin(), res.end(), res.begin(), character::to_lower_case);
@@ -261,7 +267,7 @@ class JSStringPrototype : public JSObject {
   }
 
   static Completion toUpperCase(vm_func_This_args_flags) {
-    TRY_COMP(js_require_object_coercible(vm, This));
+    REQUIRE_COERCIBLE(This);
     u16string_view str = TRY_COMP(get_string_from_value(vm, This));
     u16string res(str);
     std::transform(res.begin(), res.end(), res.begin(), character::to_upper_case);
@@ -269,9 +275,9 @@ class JSStringPrototype : public JSObject {
   }
 
   static Completion substring(vm_func_This_args_flags) {
-    TRY_COMP(js_require_object_coercible(vm, This));
+    REQUIRE_COERCIBLE(This);
     PrimitiveString *str = TRY_COMP(get_prim_string_from_value(vm, This));
-    int64_t str_len = str->view().length();
+    int64_t str_len = str->length();
 
     int64_t start = TRY_COMP(js_to_int64sat(vm, args.size() > 0 ? args[0] : undefined));
     int64_t end = INT64_MAX;
@@ -288,9 +294,9 @@ class JSStringPrototype : public JSObject {
   }
 
   static Completion substr(vm_func_This_args_flags) {
-    TRY_COMP(js_require_object_coercible(vm, This));
+    REQUIRE_COERCIBLE(This);
     PrimitiveString *str = TRY_COMP(get_prim_string_from_value(vm, This));
-    int64_t str_len = str->view().length();
+    int64_t str_len = str->length();
 
     int64_t start = TRY_COMP(js_to_int64sat(vm, args.size() > 0 ? args[0] : undefined));
     int64_t length = INT64_MAX;
@@ -305,7 +311,7 @@ class JSStringPrototype : public JSObject {
   }
 
   static Completion concat(vm_func_This_args_flags) {
-    TRY_COMP(js_require_object_coercible(vm, This));
+    REQUIRE_COERCIBLE(This);
     PrimitiveString *str = TRY_COMP(get_prim_string_from_value(vm, This));
 
     if (args.size() == 1) [[likely]] {

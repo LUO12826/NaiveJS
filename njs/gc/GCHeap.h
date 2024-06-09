@@ -17,6 +17,7 @@
 namespace njs {
 
 using std::string_view;
+using std::u16string_view;
 using std::vector;
 using std::array;
 using std::deque;
@@ -56,7 +57,7 @@ struct GCStats {
 class GCHeap {
 
 using byte = int8_t;
-constexpr static int AGE_MAX = 2;
+constexpr static int AGE_MAX = 1;
 
  public:
   GCHeap(size_t size_mb, NjsVM& vm);
@@ -74,6 +75,7 @@ constexpr static int AGE_MAX = 2;
     return object;
   }
 
+  PrimitiveString* new_prim_string_ref(u16string_view str);
   PrimitiveString* new_prim_string(const char16_t *str, size_t length);
   PrimitiveString* new_prim_string(size_t length);
 

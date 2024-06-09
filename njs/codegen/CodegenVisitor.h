@@ -425,6 +425,7 @@ class CodegenVisitor {
         .prepare_arguments_array = prepare_arguments,
         .param_count = (u16)scope().get_param_count(),
         .local_var_count = (u16)scope().get_var_count(),
+        .capture_count = (u16)scope().capture_list.size(),
         .stack_size = u16(scope().get_max_stack_size() + 1), // 1 more slot for error, maybe ?
         .bytecode_start = func_start_pos,
         .bytecode_end = bytecode_pos(),

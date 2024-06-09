@@ -457,6 +457,15 @@ void GCHeap::check_fwd_pointer(byte *start, byte *end) {
   }
 }
 
+PrimitiveString* GCHeap::new_prim_string_ref(u16string_view str) {
+  GCObject *ptr = newgen_alloc(sizeof(PrimitiveString));
+  auto *prim_str = new (ptr) PrimitiveString(0);
+  prim_str->init_with_ref(str.data(), str.size());
+
+  stats.newgen_object_cnt += 1;
+  return prim_str;
+}
+
 PrimitiveString* GCHeap::new_prim_string(const char16_t *str, size_t length) {
   auto prim_str = new_prim_string_impl(length);
   prim_str->init(str, length);

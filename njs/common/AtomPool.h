@@ -20,6 +20,11 @@ using std::vector;
 using std::u16string_view;
 using std::optional;
 
+struct AtomStats {
+  size_t atomize_str_count {0};
+  size_t static_atomize_str_count {0};
+};
+
 class AtomPool {
  public:
   AtomPool() {
@@ -124,6 +129,7 @@ class AtomPool {
   inline static u32 k_set;
   inline static u32 k_lastIndex;
 
+  AtomStats stats;
  private:
   struct Slot {
     bool is_symbol;
@@ -193,6 +199,7 @@ inline AtomPool::~AtomPool() {
 }
 
 inline u32 AtomPool::atomize(u16string_view str_view) {
+  stats.atomize_str_count += 1;
   if (pool.contains(str_view)) {
     return pool[str_view];
   }
@@ -214,6 +221,7 @@ inline u32 AtomPool::atomize(u16string_view str_view) {
 }
 
 inline u32 AtomPool::atomize_no_uint(std::u16string_view str_view) {
+  stats.atomize_str_count += 1;
   if (pool.contains(str_view)) {
     return pool[str_view];
   }
@@ -282,6 +290,7 @@ inline bool AtomPool::has_string(u16string_view str_view) {
 
 inline void AtomPool::record_static_atom_count() {
   static_atom_count = string_list.size();
+  stats.static_atomize_str_count = stats.atomize_str_count;
 }
 
 } // namespace njs
