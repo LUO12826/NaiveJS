@@ -227,7 +227,7 @@ JSValue NjsVM::prepare_arguments_array(ArgRef args) {
 Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef new_target,
                                 ArgRef argv, CallFlags flags) {
 
-  static const void * const dispatch_table[static_cast<int>(OpType::opcode_count) + 1] = {
+  static void * dispatch_table[static_cast<int>(OpType::opcode_count) + 1] = {
 #define DEF(opc) && case_op_ ## opc,
 #include "opcode.h"
 #undef DEF

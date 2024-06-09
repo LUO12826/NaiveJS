@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <optional>
 #include <cctype>
+#include <cmath>
 #include <cstdarg>
 #include <cstdlib>
 #include <iostream>
