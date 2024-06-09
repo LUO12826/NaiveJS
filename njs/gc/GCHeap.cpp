@@ -38,7 +38,6 @@ force_inline int size_to_index(u32 size) {
 GCHeap::GCHeap(size_t size_mb, NjsVM& vm)
     : vm(vm),
       heap_size(size_mb * 1024 * 1024),
-      low_mem_threshold(0.95 * heap_size / 2),
       storage((byte *)malloc(size_mb * 1024 * 1024)),
       gc_thread(&GCHeap::minor_gc_task, this)
 {
@@ -54,9 +53,7 @@ GCHeap::GCHeap(size_t size_mb, NjsVM& vm)
   survivor_from_start = survivor1_start;
   survivor_to_start = survivor2_start;
 
-  if (Global::show_gc_statistics) {
-    std::cout << "GCHeap init, from_start == " << (size_t)newgen_start << '\n';
-  }
+  dealloc_progress = survivor1_start;
 }
 
 GCHeap::~GCHeap() {
@@ -68,16 +65,15 @@ GCHeap::~GCHeap() {
   gc_cond_var.notify_one();
   gc_thread.join();
 
+  newgen_dealloc_dead(newgen_start, alloc_point);
+  newgen_dealloc_dead(survivor_from_start, survivor_alloc_point);
+
   free(storage);
 }
 
 void GCHeap::gc_if_needed() {
   if (gc_requested) {
     gc_requested = false;
-    gc();
-  } else if (object_cnt - last_gc_object_cnt > gc_threshold) {
-    gc();
-  } else if (alloc_point - newgen_start > 0.36 * heap_size) {
     gc();
   }
 }
@@ -123,60 +119,56 @@ void GCHeap::minor_gc_task() {
     Timer timer("gc");
     gc_message("GC task start");
 
-    stats.gc_count += 1;
+    stats.newgen_gc_count += 1;
 
     byte *prev_survivor_start = survivor_from_start;
     byte *prev_survivor_end = survivor_alloc_point;
 
-    size_t prev_object_cnt = object_cnt;
+    size_t prev_object_cnt = stats.newgen_object_cnt;
     size_t prev_usage = (alloc_point - newgen_start) + (survivor_alloc_point - survivor_from_start);
-    object_cnt = 0;
-
+    stats.newgen_object_cnt = 0;
+    // copy alive
     Timer timer_copy("copy alive");
-    check_fwd_pointer();
     newgen_copy_alive();
-    for (byte *ptr = survivor_from_start; ptr < survivor_alloc_point; ) {
-      auto *obj = reinterpret_cast<GCObject *>(ptr);
-      assert(obj->size % 8 == 0);
-      assert(obj->forward_ptr == nullptr);
-      assert(obj->gc_age <= AGE_MAX);
-      ptr += obj->size;
-    }
     auto copy_time = timer_copy.end(Global::show_gc_statistics);
     stats.copy_time += copy_time;
 
-    gc_start = false;
-    copy_done = true;
-    lock.unlock();
-    gc_cond_var.notify_one();
+    stats.newgen_last_gc_object_cnt = stats.newgen_object_cnt;
+    stats.newgen_last_gc_usage = survivor_alloc_point - survivor_from_start;
 
-    last_gc_object_cnt = object_cnt;
-    last_gc_heap_usage = survivor_alloc_point - survivor_from_start;
-
-    if (object_cnt > 0.7 * prev_object_cnt) {
-      gc_threshold *= 3;
+    if (stats.newgen_object_cnt > 0.7 * prev_object_cnt) {
+      gc_threshold *= 2;
     } else {
-      gc_threshold /= 1.5;
+      gc_threshold /= 2;
     }
 
     if (Global::show_gc_statistics) {
       std::cout << "GC copy done\n";
-      std::cout << "heap usage before GC: " << prev_usage / (1024 * 1024) << '\n';
-      std::cout << "heap usage after GC: " << last_gc_heap_usage / (1024 * 1024) << '\n';
-      std::cout << "object count before GC: " << prev_object_cnt << '\n';
-      std::cout << "object count after GC: " << object_cnt << '\n';
-      std::cout << "ratio: " << (double)object_cnt / prev_object_cnt << '\n';
+      std::cout << "newgen usage before GC: " << prev_usage / (1024 * 1024) << '\n';
+      std::cout << "newgen usage after GC: " << stats.newgen_last_gc_usage / (1024 * 1024) << '\n';
+      std::cout << "newgen object count before GC: " << prev_object_cnt << '\n';
+      std::cout << "newgen object count after GC: " << stats.newgen_object_cnt << '\n';
+      std::cout << "ratio: " << (double)stats.newgen_object_cnt / prev_object_cnt << '\n';
       std::cout << "gc threshold: " << gc_threshold << '\n';
     }
 
     Timer timer_dealloc("dealloc dead");
-    newgen_dealloc_dead(prev_survivor_start, prev_survivor_end);
-    newgen_dealloc_dead(newgen_start, alloc_point);
+    byte *prev_alloc_point = alloc_point;
     alloc_point = newgen_start;
+    dealloc_progress = newgen_start;
+
+    // let the mutator go
+    gc_start = false;
+    copy_done = true;
+    lock.unlock();
+    gc_cond_var.notify_one();
+    // dealloc
+    newgen_dealloc_dead_with_progress(newgen_start, prev_alloc_point);
+    newgen_dealloc_dead(prev_survivor_start, prev_survivor_end);
+
     stats.dealloc_time += timer_dealloc.end(Global::show_gc_statistics);
 
     gc_message("GC dealloc done");
-
     gc_running = false;
     gc_running.notify_one();
 
@@ -200,11 +192,11 @@ void GCHeap::major_gc() {
 }
 
 // return if this object is in the new generation area.
-bool GCHeap::gc_visit_object2(JSValue& handle, GCObject *obj) {
+bool GCHeap::gc_visit_object(JSValue& handle) {
   assert(handle.needs_gc());
+  GCObject *obj = handle.as_GCObject;
   if (obj < reinterpret_cast<GCObject *>(oldgen_start)) {
     GCObject *obj_new = copy_object(obj);
-    assert(obj_new >= (GCObject *)survivor1_start);
     handle.as_GCObject = obj_new;
     return obj_new < reinterpret_cast<GCObject *>(oldgen_start);
   } else {
@@ -214,6 +206,29 @@ bool GCHeap::gc_visit_object2(JSValue& handle, GCObject *obj) {
 
 void GCHeap::gather_roots() {
   roots.clear();
+  if (const_roots.empty()) [[unlikely]] {
+    const_roots.push_back(&vm.global_object);
+    const_roots.push_back(&vm.global_func);
+
+    const_roots.push_back(&vm.object_prototype);
+    const_roots.push_back(&vm.array_prototype);
+    const_roots.push_back(&vm.number_prototype);
+    const_roots.push_back(&vm.boolean_prototype);
+    const_roots.push_back(&vm.string_prototype);
+    const_roots.push_back(&vm.function_prototype);
+    const_roots.push_back(&vm.error_prototype);
+    const_roots.push_back(&vm.regexp_prototype);
+    const_roots.push_back(&vm.date_prototype);
+    const_roots.push_back(&vm.iterator_prototype);
+
+    for (auto& val : vm.native_error_protos) {
+      const_roots.push_back(&val);
+    }
+
+    for (auto& val : vm.string_const) {
+      const_roots.push_back(&val);
+    }
+  }
 
   // All values on the rt_stack are possible roots
   JSStackFrame *frame = vm.curr_frame;
@@ -229,28 +244,6 @@ void GCHeap::gather_roots() {
     frame = frame->prev_frame;
   }
 
-  roots.push_back(&vm.global_object);
-  roots.push_back(&vm.global_func);
-
-  roots.push_back(&vm.object_prototype);
-  roots.push_back(&vm.array_prototype);
-  roots.push_back(&vm.number_prototype);
-  roots.push_back(&vm.boolean_prototype);
-  roots.push_back(&vm.string_prototype);
-  roots.push_back(&vm.function_prototype);
-  roots.push_back(&vm.error_prototype);
-  roots.push_back(&vm.regexp_prototype);
-  roots.push_back(&vm.date_prototype);
-  roots.push_back(&vm.iterator_prototype);
-
-  for (auto& val : vm.native_error_protos) {
-    roots.push_back(&val);
-  }
-
-  for (auto& val : vm.string_const) {
-    roots.push_back(&val);
-  }
-
   for (auto& task : vm.micro_task_queue) {
     roots.push_back(&task.task_func);
     for (auto& val : task.args) {
@@ -262,16 +255,20 @@ void GCHeap::gather_roots() {
 
   auto task_roots = vm.runloop.gc_gather_roots();
   roots.insert(roots.end(), task_roots.begin(), task_roots.end());
-
-  last_gc_root_count = roots.size();
 }
 
 void GCHeap::newgen_copy_alive() {
   survivor_alloc_point = survivor_to_start;
   gather_roots();
 
-  for (JSValue *root : roots) {
+  for (JSValue *root : const_roots) {
     // only copy those in the new generation area
+    if (root->as_GCObject < reinterpret_cast<GCObject *>(oldgen_start)) {
+      root->as_GCObject = copy_object(root->as_GCObject);
+    }
+  }
+
+  for (JSValue *root : roots) {
     if (root->as_GCObject < reinterpret_cast<GCObject *>(oldgen_start)) {
       root->as_GCObject = copy_object(root->as_GCObject);
     }
@@ -302,10 +299,22 @@ void GCHeap::newgen_dealloc_dead(byte *start, byte *end) {
   }
 }
 
+void GCHeap::newgen_dealloc_dead_with_progress(byte *start, byte *end) {
+  for (byte *ptr = start; ptr < end; ) {
+    auto *obj = reinterpret_cast<GCObject *>(ptr);
+    ptr += obj->size;
+    if (obj->forward_ptr == nullptr) {
+      obj->~GCObject();
+    }
+    dealloc_progress = ptr;
+  }
+  dealloc_progress = survivor1_start;
+}
+
 GCObject* GCHeap::copy_object(GCObject *obj) {
   GCObject *obj_new = obj->forward_ptr;
   if (obj_new == nullptr) {
-    object_cnt += 1;
+    stats.newgen_object_cnt += 1;
     if (obj->gc_age < AGE_MAX) {
       obj_new = (GCObject *)survivor_alloc_point;
       survivor_alloc_point += obj->size;
@@ -315,12 +324,9 @@ GCObject* GCHeap::copy_object(GCObject *obj) {
 
       obj_new->gc_age += 1;
       obj_new->gc_scan_children(*this);
-      assert(obj_new->forward_ptr == nullptr);
-      assert(obj_new >= (GCObject *)survivor_to_start);
     }
     else {
       obj_new = promote(obj);
-      assert(obj_new >= (GCObject *)oldgen_start);
     }
   }
   assert(obj_new >= (GCObject *)survivor1_start);
@@ -328,21 +334,26 @@ GCObject* GCHeap::copy_object(GCObject *obj) {
 }
 
 GCObject* GCHeap::promote(GCObject *obj) {
+  assert(obj->forward_ptr == nullptr);
+
   GCObject *obj_new = oldgen_alloc(obj->size);
   size_t actual_size = obj_new->size;
-  assert(obj->forward_ptr == nullptr);
+
+  stats.oldgen_object_cnt += 1;
+  stats.oldgen_usage += actual_size;
+
   memcpy((void *)obj_new, (void *)obj, obj->size);
   obj_new->size = actual_size;
   obj_new->gc_free = false;
   obj_new->gc_visited = false;
   obj_new->gc_remembered = false;
-  obj_new->forward_ptr = nullptr;
+  obj->forward_ptr = obj_new;
 
   if (obj_new->gc_has_young_child(reinterpret_cast<GCObject *>(oldgen_start))) {
     record_set.push_back(obj_new);
     obj_new->gc_remembered = true;
   }
-  obj->forward_ptr = obj_new;
+
   return obj_new;
 }
 
@@ -404,6 +415,14 @@ void GCHeap::mark_phase() {
       gc_object->gc_mark_children();
     }
   }
+
+  for (JSValue *root : const_roots) {
+    auto *gc_object = root->as_GCObject;
+    if (not gc_object->gc_visited) {
+      gc_object->set_visited();
+      gc_object->gc_mark_children();
+    }
+  }
 }
 
 void GCHeap::sweep_phase() {
@@ -417,6 +436,9 @@ void GCHeap::sweep_phase() {
         obj->gc_free = true;
         int index = size_to_index(obj->size);
         free_list[index].push_back(obj);
+
+        stats.oldgen_object_cnt -= 1;
+        stats.oldgen_usage -= obj->size;
       }
     } else {
       obj->gc_visited = false;
@@ -424,23 +446,13 @@ void GCHeap::sweep_phase() {
 
     current += obj->size;
   }
-
 }
 
-void GCHeap::check_fwd_pointer() {
-  for (byte *ptr = survivor_from_start; ptr < survivor_alloc_point; ) {
+void GCHeap::check_fwd_pointer(byte *start, byte *end) {
+  for (byte *ptr = start; ptr < end; ) {
     auto *obj = reinterpret_cast<GCObject *>(ptr);
     assert(obj->size % 8 == 0);
     assert(obj->forward_ptr == nullptr);
-    assert(obj->gc_age <= AGE_MAX);
-    ptr += obj->size;
-  }
-
-  for (byte *ptr = newgen_start; ptr < alloc_point; ) {
-    auto *obj = reinterpret_cast<GCObject *>(ptr);
-    assert(obj->size % 8 == 0);
-    assert(obj->forward_ptr == nullptr);
-    assert(obj->gc_age <= AGE_MAX);
     ptr += obj->size;
   }
 }
@@ -462,14 +474,17 @@ PrimitiveString* GCHeap::new_prim_string_impl(size_t length) {
   
   GCObject *ptr = newgen_alloc(alloc_size);
   auto *prim_str = new (ptr) PrimitiveString(length + 1);
-  object_cnt += 1;
+  stats.newgen_object_cnt += 1;
   return prim_str;
 }
 
 // Allocate memory for a new object.
 GCObject* GCHeap::newgen_alloc(size_t size_byte) {
   byte *alloc_end = alloc_point + size_byte;
-  if (alloc_end - newgen_start > 0.35 * heap_size) [[unlikely]] {
+  // wait for the dealloc process to finish
+  while (alloc_end > dealloc_progress) [[unlikely]] {}
+
+  if (alloc_end - newgen_start > 0.36 * heap_size) [[unlikely]] {
     gc_requested = true;
     if (alloc_end > survivor1_start) [[unlikely]] {
       assert(false);
@@ -477,12 +492,10 @@ GCObject* GCHeap::newgen_alloc(size_t size_byte) {
       exit(1);
     }
   }
-  assert(size_byte % 8 == 0);
 
   auto *obj = reinterpret_cast<GCObject *>(alloc_point);
   obj->size = size_byte;
   obj->gc_age = 0;
-  obj->forward_ptr = nullptr;
   alloc_point += size_byte;
   return obj;
 }

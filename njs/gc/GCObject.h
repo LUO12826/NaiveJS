@@ -3,8 +3,6 @@
 
 #include <cstdint>
 
-#include "njs/include/robin_hood.h"
-
 namespace njs {
 
 class GCHeap;
@@ -32,19 +30,9 @@ friend class GCHeap;
   virtual bool gc_has_young_child(GCObject *oldgen_start) { return false; }
   virtual std::string description() = 0;
 
-  void set_nocopy() {
-    forward_ptr = (GCObject *)NO_COPY;
-  }
-
-  bool need_copy() {
-    return forward_ptr != (GCObject *)NO_COPY;
-  }
-
   void set_visited() {
     gc_visited = true;
   }
-
-  static constexpr size_t NO_COPY {SIZE_MAX};
 
  private:
   u32 size;

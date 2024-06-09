@@ -44,7 +44,7 @@ class JSStringPrototype : public JSObject {
     if (value.is_prim_string()) {
       return value.as_prim_string->view();
     } else if (value.is(JSValue::STRING_OBJ)) {
-      return value.as_string->value.as_prim_string->view();
+      return value.as_string->get_prim_value()->view();
     } else {
       JSValue prim_str = TRY_ERR(js_to_string(vm, value));
       return prim_str.as_prim_string->view();
@@ -55,7 +55,7 @@ class JSStringPrototype : public JSObject {
     if (value.is_prim_string()) {
       return value.as_prim_string;
     } else if (value.is(JSValue::STRING_OBJ)) {
-      return value.as_string->value.as_prim_string;
+      return value.as_string->get_prim_value();
     } else {
       return TRY_ERR(js_to_string(vm, value)).as_prim_string;
     }
@@ -333,7 +333,7 @@ class JSStringPrototype : public JSObject {
     else if (This.is_object() && object_class(This) == CLS_STRING) {
       assert(dynamic_cast<JSString*>(This.as_object));
       auto *str_obj = static_cast<JSString*>(This.as_object);
-      return str_obj->value;
+      return JSValue(str_obj->get_prim_value());
     }
     else {
       JSValue err = vm.build_error_internal(JS_TYPE_ERROR,

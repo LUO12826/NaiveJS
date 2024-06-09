@@ -1,7 +1,6 @@
 #ifndef NJS_GC_HEAP_H
 #define NJS_GC_HEAP_H
 
-#include <utility>
 #include <vector>
 #include <deque>
 #include <array>
@@ -12,6 +11,7 @@
 #include <condition_variable>
 
 #include "GCObject.h"
+#include "njs/utils/helper.h"
 #include "njs/global_var.h"
 
 namespace njs {
@@ -27,23 +27,36 @@ struct JSValue;
 struct PrimitiveString;
 
 struct GCStats {
-  size_t gc_count {0};
+  size_t newgen_last_gc_object_cnt {0};
+  size_t newgen_object_cnt {0};
+  size_t newgen_last_gc_usage {0};
+  size_t newgen_gc_count {0};
+
+  size_t oldgen_object_cnt {0};
+  size_t oldgen_usage {0};
+
   size_t total_time {0};
   size_t copy_time {0};
   size_t dealloc_time {0};
 
   void print() {
-    std::cout << "GC trigger count: " << gc_count << "\n";
+    std::cout << "GC trigger count: " << newgen_gc_count << "\n";
     std::cout << "GC total time: " << total_time / 1000 << " ms\n";
     std::cout << "GC copy time: " << copy_time / 1000 << " ms\n";
     std::cout << "GC dealloc time: " << dealloc_time / 1000 << " ms\n";
+
+    std::cout << "newgen last gc usage: " << memory_usage_readable(newgen_last_gc_usage) << "\n";
+    std::cout << "newgen last gc object count: " << newgen_last_gc_object_cnt << "\n";
+
+    std::cout << "oldgen usage: " << memory_usage_readable(oldgen_usage) << "\n";
+    std::cout << "oldgen object count: " << oldgen_object_cnt << "\n";
   }
 };
 
 class GCHeap {
 
 using byte = int8_t;
-constexpr static int AGE_MAX = 3;
+constexpr static int AGE_MAX = 2;
 
  public:
   GCHeap(size_t size_mb, NjsVM& vm);
@@ -57,7 +70,7 @@ constexpr static int AGE_MAX = 3;
     // initialize
     T *object = new (meta) T(std::forward<Args>(args)...);
 
-    object_cnt += 1;
+    stats.newgen_object_cnt += 1;
     return object;
   }
 
@@ -73,15 +86,12 @@ constexpr static int AGE_MAX = 3;
   // point to the new address. The `copy_object` method copies the child object recursively.
   // This method will be called not only in this class, but also in the `gc_scan_children` method
   // of the GCObject subclasses.
-  bool gc_visit_object2(JSValue &handle, GCObject *obj);
+  bool gc_visit_object(JSValue &handle);
 
   void write_barrier(GCObject *obj, JSValue& field);
   bool object_in_newgen(GCObject *obj) {
     return obj < reinterpret_cast<GCObject *>(oldgen_start);
   }
-
-  size_t get_heap_usage() { return alloc_point - newgen_start; }
-  size_t get_object_count() { return object_cnt; }
 
   GCStats stats;
  private:
@@ -98,20 +108,20 @@ constexpr static int AGE_MAX = 3;
   void minor_gc_task();
   GCObject* promote(GCObject *obj);
   void newgen_copy_alive();
-  void newgen_dealloc_dead(byte *start, byte *end);
+  static void newgen_dealloc_dead(byte *start, byte *end);
+  void newgen_dealloc_dead_with_progress(byte *start, byte *end);
 
   GCObject* oldgen_alloc(size_t size);
   void mark_phase();
   void sweep_phase();
 
-  void check_fwd_pointer();
+  static void check_fwd_pointer(byte *start, byte *end);
 
   NjsVM& vm;
   vector<JSValue *> roots;
+  vector<JSValue *> const_roots;
 
   size_t heap_size;
-  size_t low_mem_threshold;
-  // heap data
   byte *storage;
 
   byte *newgen_start;
@@ -128,10 +138,7 @@ constexpr static int AGE_MAX = 3;
   byte *survivor_from_start;
   byte *survivor_to_start;
 
-  size_t object_cnt {0};
-  size_t last_gc_object_cnt {0};
-  size_t last_gc_heap_usage {0};
-  size_t last_gc_root_count {50};
+  std::atomic<byte *> dealloc_progress;
   size_t gc_threshold {15000};
 
   bool gc_requested {false};

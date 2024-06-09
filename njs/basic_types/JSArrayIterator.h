@@ -39,7 +39,7 @@ class JSArrayIterator : public JSObject {
 
   bool gc_scan_children(njs::GCHeap &heap) override {
     return JSObject::gc_scan_children(heap)
-           | heap.gc_visit_object2(array, array.as_GCObject);
+           | heap.gc_visit_object(array);
   }
 
   void gc_mark_children() override {
@@ -48,6 +48,7 @@ class JSArrayIterator : public JSObject {
   }
 
   bool gc_has_young_child(GCObject *oldgen_start) override {
+    assert(array.is_object());
     return JSObject::gc_has_young_child(oldgen_start)
            || array.as_GCObject < oldgen_start;
   }

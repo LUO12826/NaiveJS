@@ -20,10 +20,10 @@ bool JSFunction::gc_scan_children(GCHeap& heap) {
   child_young |= JSObject::gc_scan_children(heap);
   for (auto& var : captured_var) {
     assert(var.is(JSValue::HEAP_VAL));
-    child_young |= heap.gc_visit_object2(var, var.as_GCObject);
+    child_young |= heap.gc_visit_object(var);
   }
   if (this_binding.needs_gc()) {
-    child_young |= heap.gc_visit_object2(this_binding, this_binding.as_GCObject);
+    child_young |= heap.gc_visit_object(this_binding);
   }
   return child_young;
 }

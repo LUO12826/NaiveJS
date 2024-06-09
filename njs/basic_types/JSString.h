@@ -23,7 +23,7 @@ class JSString : public JSObject {
   bool gc_scan_children(njs::GCHeap &heap) override {
     bool child_young = false;
     child_young |= JSObject::gc_scan_children(heap);
-    child_young |= heap.gc_visit_object2(value, value.as_GCObject);
+    child_young |= heap.gc_visit_object(value);
     return child_young;
   }
 
@@ -49,17 +49,20 @@ class JSString : public JSObject {
   ErrorOr<bool> set_property_impl(NjsVM &vm, JSValue key, JSValue val) override {
     JSValue k = TRY_ERR(js_to_property_key(vm, key));
     if (k.is_atom() && k.as_atom == AtomPool::k_length) {
-      // do nothing. TODO: check this
       return true;
     } else {
       return set_prop(vm, k, val);
     }
   }
 
+  PrimitiveString* get_prim_value() {
+    return value.as_prim_string;
+  }
+
 //  std::string description() override;
 //  std::string to_string(NjsVM& vm) override;
 //  void to_json(u16string& output, NjsVM& vm) const override;
-
+ private:
   JSValue value;
 };
 

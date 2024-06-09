@@ -1,17 +1,20 @@
 #ifndef NJS_JS_HEAP_VALUE_H
 #define NJS_JS_HEAP_VALUE_H
 
-#include "njs//gc/GCObject.h"
 #include "JSValue.h"
+#include "njs/vm/NjsVM.h"
+#include "njs/utils/macros.h"
 
 namespace njs {
 
 struct JSHeapValue: public GCObject {
-  explicit JSHeapValue(JSValue val): wrapped_val(val) {}
+  explicit JSHeapValue(NjsVM& vm, JSValue val): wrapped_val(val) {
+    WRITE_BARRIER(val);
+  }
 
   bool gc_scan_children(njs::GCHeap &heap) override {
     if (wrapped_val.needs_gc()) {
-      return heap.gc_visit_object2(wrapped_val, wrapped_val.as_GCObject);
+      return heap.gc_visit_object(wrapped_val);
     }
     return false;
   }

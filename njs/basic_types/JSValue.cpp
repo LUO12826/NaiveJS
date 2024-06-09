@@ -13,15 +13,14 @@
 namespace njs {
 
 void JSValue::move_to_heap(NjsVM& vm) {
-  auto *heap_val = vm.heap.new_object<JSHeapValue>(*this);
+  auto *heap_val = vm.heap.new_object<JSHeapValue>(vm, *this);
   this->as_heap_val = heap_val;
   this->tag = HEAP_VAL;
 }
 
 void JSValue::move_to_stack() {
   assert(tag == HEAP_VAL);
-  JSValue the_val = as_heap_val->wrapped_val;
-  *this = the_val;
+  *this = as_heap_val->wrapped_val;
 }
 
 JSValue& JSValue::deref_heap() const {

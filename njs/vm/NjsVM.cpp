@@ -50,6 +50,8 @@
         _temp_result.get_value();                                                             \
     })
 
+#define VM_WRITE_BARRIER(obj, field) heap.write_barrier(obj, field)
+
 // required by libregexp
 BOOL lre_check_stack_overflow(void *opaque, size_t alloca_size) {
   return FALSE;
@@ -188,8 +190,6 @@ void NjsVM::run() {
   }
 
   if (Global::show_gc_statistics) {
-    std::cout << "Heap usage: " << memory_usage_readable(heap.get_heap_usage()) << '\n';
-    std::cout << "Heap object count: " << heap.get_object_count() << '\n';
     heap.stats.print();
 
     std::cout << "String alloc count: " << PrimitiveString::alloc_count << '\n';
@@ -228,7 +228,6 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
   if (Global::show_vm_exec_steps) {
     printf("*** call function: %s\n", to_u8string(callee.as_func->name).c_str());
-    printf("*** heap object count: %zu\n", heap.get_object_count());
   }
 
   // setup call stack
@@ -314,6 +313,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
     if (var_scope == ScopeType::CLOSURE) [[unlikely]] {
       JSValue& closure_val = this_func->captured_var[index];
+      VM_WRITE_BARRIER(sp[0].as_func, closure_val);
       sp[0].as_func->captured_var.push_back(closure_val);
     }
     else {
@@ -331,6 +331,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       if (stack_val->tag != JSValue::HEAP_VAL) {
         stack_val->move_to_heap(*this);
       }
+      VM_WRITE_BARRIER(sp[0].as_func, *stack_val);
       sp[0].as_func->captured_var.push_back(*stack_val);
     }
   };
@@ -1249,7 +1250,7 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
   // where the function is created.
   if (meta->is_arrow_func) {
     func->has_this_binding = true;
-    heap.write_barrier(func, env_this);
+    VM_WRITE_BARRIER(func, env_this);
     func->this_binding = env_this;
   }
 

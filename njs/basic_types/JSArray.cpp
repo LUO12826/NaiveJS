@@ -11,7 +11,7 @@ bool JSArray::gc_scan_children(GCHeap& heap) {
   child_young |= JSObject::gc_scan_children(heap);
   for (auto& val : dense_array) {
     if (val.needs_gc()) {
-      child_young |= heap.gc_visit_object2(val, val.as_GCObject);
+      child_young |= heap.gc_visit_object(val);
     }
   }
   return child_young;

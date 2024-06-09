@@ -36,7 +36,7 @@ class JSForInIterator : public JSObject {
         }
       } else if (obj->get_class() == CLS_STRING) {
         auto *str = obj->as<JSString>();
-        size_t len = str->value.as_prim_string->view().length();
+        size_t len = str->get_prim_value()->view().length();
         for (size_t i = 0; i < len; i++) {
           keys.push_back(vm.u32_to_atom(u32(i)));
         }
@@ -71,7 +71,7 @@ class JSForInIterator : public JSObject {
     bool child_young = false;
     child_young |= JSObject::gc_scan_children(heap);
     if (object.needs_gc()) [[likely]] {
-      child_young |= heap.gc_visit_object2(object, object.as_GCObject);
+      child_young |= heap.gc_visit_object(object);
     }
     return child_young;
   }

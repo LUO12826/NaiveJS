@@ -448,19 +448,19 @@ bool JSObject::gc_scan_children(GCHeap& heap) {
   bool child_young = false;
   for (auto& [key, prop]: storage) {
     if (prop.flag.is_value() && prop.data.value.needs_gc()) {
-      child_young |= heap.gc_visit_object2(prop.data.value, prop.data.value.as_GCObject);
+      child_young |= heap.gc_visit_object(prop.data.value);
     }
     if (prop.flag.is_getset()) {
       if (prop.data.getset.getter.needs_gc()) {
-        child_young |= heap.gc_visit_object2(prop.data.getset.getter, prop.data.getset.getter.as_GCObject);
+        child_young |= heap.gc_visit_object(prop.data.getset.getter);
       }
       if (prop.data.getset.setter.needs_gc()) {
-        child_young |= heap.gc_visit_object2(prop.data.getset.setter, prop.data.getset.setter.as_GCObject);
+        child_young |= heap.gc_visit_object(prop.data.getset.setter);
       }
     }
   }
   if (_proto_.needs_gc()) {
-    child_young |= heap.gc_visit_object2(_proto_, _proto_.as_GCObject);
+    child_young |= heap.gc_visit_object(_proto_);
   }
   return child_young;
 }

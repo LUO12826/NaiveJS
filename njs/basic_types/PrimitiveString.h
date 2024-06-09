@@ -202,7 +202,6 @@ friend class GCHeap;
   explicit PrimitiveString(u32 capacity) : cap(capacity) {
     alloc_count += 1;
   }
-  ~PrimitiveString() override = default;
 
   void init(u16string_view str) {
     assert(str.size() < UINT32_MAX);
