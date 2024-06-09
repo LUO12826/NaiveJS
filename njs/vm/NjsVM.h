@@ -207,6 +207,7 @@ friend class JSArrayIterator;
   void exec_binary(SPRef sp, OpType op_type);
   void exec_bits(SPRef sp, OpType op_type);
   void exec_shift(SPRef sp, OpType op_type);
+  void exec_shift_imm(SPRef sp, OpType op_type, u32 imm);
   void exec_strict_equality(SPRef sp, bool flip);
   void exec_abstract_equality(SPRef sp, bool flip);
 

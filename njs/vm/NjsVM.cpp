@@ -226,7 +226,33 @@ JSValue NjsVM::prepare_arguments_array(ArgRef args) {
 
 Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef new_target,
                                 ArgRef argv, CallFlags flags) {
+
+  static const void * const dispatch_table[static_cast<int>(OpType::opcode_count) + 1] = {
+#define DEF(opc) && case_op_ ## opc,
+#include "opcode.h"
+#undef DEF
+    &&case_default,
+  };
+
+#define Switch(pc) {                                                                      \
+  inst = bytecode[(pc)++];                                                                \
+  int op_index = static_cast<int>(inst.op_type);                                          \
+  goto *dispatch_table[op_index];                                                         \
+}
+
+#define Case(opc)    case_op_ ## opc
+#define Default     case_default
+#define Break {                                                                           \
+  if (Global::show_vm_exec_steps) [[unlikely]] show_step(inst);                           \
+  inst = bytecode[(pc)++];                                                                \
+  int op_index = static_cast<int>(inst.op_type);                                          \
+  goto *dispatch_table[op_index];                                                         \
+}
+  
 #define this_func (callee.as_func)
+#define get_scope (scope_type_from_int(inst.operand.two[0]))
+#define opr1 (inst.operand.two[0])
+#define opr2 (inst.operand.two[1])
 
   assert(callee.is_function());
 
@@ -310,23 +336,41 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         __builtin_unreachable();
     }
   };
-
-#define GET_SCOPE (scope_type_from_int(inst.operand.two[0]))
-#define OPR1 (inst.operand.two[0])
-#define OPR2 (inst.operand.two[1])
+  
+  auto show_step = [&, this] (Instruction& inst) {
+    if (inst.op_type != OpType::call) {
+      auto desc = inst.description();
+      if (inst.op_type == OpType::get_prop_atom || inst.op_type == OpType::get_prop_atom2) {
+        desc += " (" + to_u8string(atom_to_str(inst.operand.two[0])) + ")";
+      }
+      printf("%-50s sp: %-3ld   pc: %-3u\n", desc.c_str(), (sp - (stack - 1)), pc);
+    }
+  };
 
   while (true) {
-    Instruction& inst = bytecode[pc++];
+    
+#define check_uninit {                                                                             \
+  if (sp[0].is_uninited()) [[unlikely]] {                                                          \
+    sp -= 1;                                                                                       \
+    error_throw(sp, JS_REFERENCE_ERROR, u"Cannot access a variable before initialization");        \
+    error_handle(sp);                                                                              \
+  }                                                                                                \
+}
 
-    switch (inst.op_type) {
-      case OpType::init:
+#define deref_heap_if_needed \
+  *++sp = (val.tag == JSValue::HEAP_VAL ? val.as_heap_val->wrapped_val : val);
+    
+    Instruction inst;
+
+    Switch (pc) {
+      Case(init):
         global_frame = curr_frame;
-        break;
-      case OpType::neg:
+        Break;
+      Case(neg):
         assert(sp[0].is_float64());
         sp[0].as_f64 = -sp[0].as_f64;
-        break;
-      case OpType::add: {
+        Break;
+      Case(add): {
         sp -= 1;
         JSValue& l = sp[0];
         JSValue& r = sp[1];
@@ -342,53 +386,53 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
           bool succeeded;
           exec_add_common(sp, l, l, r, succeeded);
         }
-        break;
+        Break;
       }
-      case OpType::sub:
-      case OpType::mul:
-      case OpType::div:
-      case OpType::mod:
+      Case(sub):
+      Case(mul):
+      Case(div):
+      Case(mod):
         exec_binary(sp, inst.op_type);
-        break;
-      case OpType::inc: {
-        JSValue& value = get_value(GET_SCOPE, OPR2);
+        Break;
+      Case(inc): {
+        JSValue& value = get_value(get_scope, opr2);
         assert(value.is_float64());
         value.as_f64 += 1;
-        break;
+        Break;
       }
-      case OpType::dec: {
-        JSValue& value = get_value(GET_SCOPE, OPR2);
+      Case(dec): {
+        JSValue& value = get_value(get_scope, opr2);
         assert(value.is_float64());
         value.as_f64 -= 1;
-        break;
+        Break;
       }
-      case OpType::add_assign:
-      case OpType::add_assign_keep:
-        exec_add_assign(sp, get_value(GET_SCOPE, OPR2), inst.op_type == OpType::add_assign_keep);
-        break;
-      case OpType::logi_and:
+      Case(add_assign):
+      Case(add_assign_keep):
+        exec_add_assign(sp, get_value(get_scope, opr2), inst.op_type == OpType::add_assign_keep);
+        Break;
+      Case(logi_and):
         sp -= 1;
         if (sp[0].bool_value()) {
           sp[0] = sp[1];
         }
-        break;
-      case OpType::logi_or:
+        Break;
+      Case(logi_or):
         sp -= 1;
         if (sp[0].is_falsy()) {
           sp[0] = sp[1];
         }
-        break;
-      case OpType::logi_not: {
+        Break;
+      Case(logi_not): {
         bool bool_val = sp[0].bool_value();
         sp[0].set_bool(!bool_val);
-        break;
+        Break;
       }
-      case OpType::bits_and:
-      case OpType::bits_or:
-      case OpType::bits_xor:
+      Case(bits_and):
+      Case(bits_or):
+      Case(bits_xor):
         exec_bits(sp, inst.op_type);
-        break;
-      case OpType::bits_not: {
+        Break;
+      Case(bits_not): {
         auto res = js_to_int32(*this, sp[0]);
         if (res.is_value()) {
           int v = ~res.get_value();
@@ -397,113 +441,108 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
           sp[0] = res.get_error();
           error_handle(sp);
         }
-        break;
+        Break;
       }
-      case OpType::lsh:
-      case OpType::rsh:
-      case OpType::ursh:
+
+      Case(lsh):
+      Case(rsh):
+      Case(ursh):
         exec_shift(sp, inst.op_type);
-        break;
+        Break;
+      Case(lshi):
+      Case(rshi):
+      Case(urshi):
+        exec_shift_imm(sp, inst.op_type, opr1);
+        Break;
 
-#define CHECK_UNINIT {                                                                             \
-          if (sp[0].is_uninited()) [[unlikely]] {                                                  \
-            sp -= 1;                                                                               \
-            error_throw(sp, JS_REFERENCE_ERROR, u"Cannot access a variable before initialization");\
-            error_handle(sp);                                                                      \
-          }                                                                                        \
-        }
-
-#define DEREF_HEAP_IF_NEEDED \
-          *++sp = (val.tag == JSValue::HEAP_VAL ? val.as_heap_val->wrapped_val : val);
-
-      case OpType::push_local: {
-        JSValue val = local_vars[OPR1];
-        DEREF_HEAP_IF_NEEDED
-        break;
+      Case(push_local): {
+        JSValue val = local_vars[opr1];
+        deref_heap_if_needed
+        Break;
       }
-      case OpType::push_local_check: {
-        JSValue val = local_vars[OPR1];
-        DEREF_HEAP_IF_NEEDED
-        CHECK_UNINIT
-        break;
+      Case(push_local_check): {
+        JSValue val = local_vars[opr1];
+        deref_heap_if_needed
+        check_uninit
+        Break;
       }
-      case OpType::push_global: {
-        JSValue val = global_frame->local_vars[OPR1];
-        DEREF_HEAP_IF_NEEDED
-        break;
+      Case(push_global): {
+        JSValue val = global_frame->local_vars[opr1];
+        deref_heap_if_needed
+        Break;
       }
-      case OpType::push_global_check: {
-        JSValue val = global_frame->local_vars[OPR1];
-        DEREF_HEAP_IF_NEEDED
-        CHECK_UNINIT
-        break;
+      Case(push_global_check): {
+        JSValue val = global_frame->local_vars[opr1];
+        deref_heap_if_needed
+        check_uninit
+        Break;
       }
-      case OpType::push_arg: {
-        JSValue val = args_buf[OPR1];
-        DEREF_HEAP_IF_NEEDED
-        break;
+      Case(push_arg): {
+        JSValue val = args_buf[opr1];
+        deref_heap_if_needed
+        Break;
       }
-      case OpType::push_arg_check: {
-        JSValue val = args_buf[OPR1];
-        DEREF_HEAP_IF_NEEDED
-        CHECK_UNINIT
-        break;
+      Case(push_arg_check): {
+        JSValue val = args_buf[opr1];
+        deref_heap_if_needed
+        check_uninit
+        Break;
       }
-      case OpType::push_closure:
-        *++sp = this_func->captured_var[OPR1].deref_heap();
-        break;
-      case OpType::push_closure_check:
-        *++sp = this_func->captured_var[OPR1].deref_heap();
-        CHECK_UNINIT
-        break;
-      case OpType::push_i32:
+      Case(push_closure):
+        *++sp = this_func->captured_var[opr1].deref_heap();
+        Break;
+      Case(push_closure_check):
+        *++sp = this_func->captured_var[opr1].deref_heap();
+        check_uninit
+        Break;
+      Case(push_i32):
         sp += 1;
         sp[0].tag = JSValue::NUM_INT32;
-        sp[0].as_i32 = OPR1;
-        break;
-      case OpType::push_f64:
+        sp[0].as_i32 = opr1;
+        Break;
+      Case(push_f64):
         sp += 1;
         sp[0].set_float(inst.operand.num_float);
-        break;
-      case OpType::push_str:
+        Break;
+      Case(push_str):
         sp += 1;
-        if (atom_is_str_sym(OPR1)) [[likely]] {
-          sp[0].set_val(heap.new_prim_string_ref(atom_pool.get_string(OPR1)));
+        if (atom_is_str_sym(opr1)) [[likely]] {
+          sp[0].set_val(heap.new_prim_string_ref(atom_pool.get_string(opr1)));
         } else {
-          sp[0] = new_primitive_string(atom_to_str(OPR1));
+          sp[0] = new_primitive_string(atom_to_str(opr1));
         }
-        break;
-      case OpType::push_atom:
+        Break;
+      Case(push_atom):
         sp += 1;
         sp[0].tag = JSValue::JS_ATOM;
-        sp[0].as_atom = OPR1;
-        break;
-      case OpType::push_bool:
-        (*++sp).set_bool(OPR1);
-        break;
-      case OpType::push_func_this:
+        sp[0].as_atom = opr1;
+        Break;
+      Case(push_bool):
+        (*++sp).set_bool(opr1);
+        Break;
+      Case(push_func_this):
         *++sp = This;
-        break;
-      case OpType::push_global_this:
+        Break;
+      Case(push_global_this):
         *++sp = global_object;
-        break;
-      case OpType::push_null:
+        Break;
+      Case(push_null):
         (*++sp).tag = JSValue::JS_NULL;
-        break;
-      case OpType::push_undef:
+        Break;
+      Case(push_undef):
         (*++sp).tag = JSValue::UNDEFINED;
-        break;
-      case OpType::push_uninit:
+        Break;
+      Case(push_uninit):
         (*++sp).tag = JSValue::UNINIT;
-        break;
-      case OpType::pop: {
+        Break;
+      Case(pop): {
         set_referenced(sp[0]);
-        get_value(GET_SCOPE, OPR2).assign(sp[0]);
+        get_value(get_scope, opr2).assign(sp[0]);
         sp -= 1;
-        break;
+        Break;
       }
-      case OpType::pop_check: {
-        JSValue& val = get_value(GET_SCOPE, OPR2);
+      Case(pop_check): {
+        JSValue& val = get_value(get_scope, opr2);
         sp -= 1;
         if (val.is_uninited()) [[unlikely]] {
           error_throw_handle(sp, JS_REFERENCE_ERROR,
@@ -512,18 +551,18 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
           set_referenced(sp[1]);
           val.assign(sp[1]);
         }
-        break;
+        Break;
       }
-      case OpType::pop_drop:
+      Case(pop_drop):
         sp -= 1;
-        break;
-      case OpType::store: {
+        Break;
+      Case(store): {
         set_referenced(sp[0]);
-        get_value(GET_SCOPE, OPR2).assign(sp[0]);
-        break;
+        get_value(get_scope, opr2).assign(sp[0]);
+        Break;
       }
-      case OpType::store_check: {
-        JSValue &val = get_value(GET_SCOPE, OPR2);
+      Case(store_check): {
+        JSValue &val = get_value(get_scope, opr2);
         if (val.is_uninited()) [[unlikely]] {
           error_throw_handle(sp, JS_REFERENCE_ERROR,
                              u"Cannot access a variable before initialization");
@@ -531,114 +570,114 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
           set_referenced(sp[0]);
           val.assign(sp[0]);
         }
-        break;
+        Break;
       }
-      case OpType::store_curr_func:
-        local_vars[OPR1] = JSValue(callee);
-        break;
-      case OpType::var_deinit:
-        local_vars[OPR1].tag = JSValue::UNINIT;
-        break;
-      case OpType::var_deinit_range:
-        for (int i = OPR1; i < OPR2; i++) {
+      Case(store_curr_func):
+        local_vars[opr1] = JSValue(callee);
+        Break;
+      Case(var_deinit):
+        local_vars[opr1].tag = JSValue::UNINIT;
+        Break;
+      Case(var_deinit_range):
+        for (int i = opr1; i < opr2; i++) {
           local_vars[i].tag = JSValue::UNINIT;
         }
-        break;
-      case OpType::var_undef:
-        assert(get_value(ScopeType::FUNC, OPR1).tag == JSValue::UNINIT);
-        get_value(ScopeType::FUNC, OPR1).set_undefined();
-        break;
-      case OpType::loop_var_renew: {
-        JSValue &val = local_vars[OPR1];
+        Break;
+      Case(var_undef):
+        assert(get_value(ScopeType::FUNC, opr1).tag == JSValue::UNINIT);
+        get_value(ScopeType::FUNC, opr1).set_undefined();
+        Break;
+      Case(loop_var_renew): {
+        JSValue &val = local_vars[opr1];
         if (val.is(JSValue::HEAP_VAL)) {
           val.move_to_stack();
         }
-        break;
+        Break;
       }
-      case OpType::var_dispose: {
-        int index = OPR1;
+      Case(var_dispose): {
+        int index = opr1;
         local_vars[index].set_undefined();
-        break;
+        Break;
       }
-      case OpType::var_dispose_range:
-        for (int i = OPR1; i < OPR2; i++) {
+      Case(var_dispose_range):
+        for (int i = opr1; i < opr2; i++) {
           local_vars[i].set_undefined();
         }
-        break;
-      case OpType::jmp:
-        pc = OPR1;
-        break;
-      case OpType::jmp_true:
+        Break;
+      Case(jmp):
+        pc = opr1;
+        Break;
+      Case(jmp_true):
         if (sp[0].bool_value()) {
-          pc = OPR1;
+          pc = opr1;
         }
-        break;
-      case OpType::jmp_false:
+        Break;
+      Case(jmp_false):
         if (sp[0].is_falsy()) {
-          pc = OPR1;
+          pc = opr1;
         }
-        break;
-      case OpType::jmp_cond:
+        Break;
+      Case(jmp_cond):
         if (sp[0].bool_value()) {
-          pc = OPR1;
+          pc = opr1;
         } else {
-          pc = OPR2;
+          pc = opr2;
         }
-        break;
-      case OpType::jmp_pop:
-        pc = OPR1;
+        Break;
+      Case(jmp_pop):
+        pc = opr1;
         sp -= 1;
-        break;
-      case OpType::jmp_true_pop:
+        Break;
+      Case(jmp_true_pop):
         if (sp[0].bool_value()) {
-          pc = OPR1;
+          pc = opr1;
         }
         sp -= 1;
-        break;
-      case OpType::jmp_false_pop:
+        Break;
+      Case(jmp_false_pop):
         if (sp[0].is_falsy()) {
-          pc = OPR1;
+          pc = opr1;
         }
         sp -= 1;
-        break;
-      case OpType::jmp_cond_pop:
+        Break;
+      Case(jmp_cond_pop):
         if (sp[0].bool_value()) {
-          pc = OPR1;
+          pc = opr1;
         } else {
-          pc = OPR2;
+          pc = opr2;
         }
         sp -= 1;
-        break;
-      case OpType::gt:
-      case OpType::lt:
-      case OpType::ge:
-      case OpType::le:
+        Break;
+      Case(gt):
+      Case(lt):
+      Case(ge):
+      Case(le):
         exec_comparison(sp, inst.op_type);
-        break;
-      case OpType::ne:
+        Break;
+      Case(ne):
         exec_abstract_equality(sp, true);
-        break;
-      case OpType::eq:
+        Break;
+      Case(eq):
         exec_abstract_equality(sp, false);
-        break;
-      case OpType::ne3:
+        Break;
+      Case(ne3):
         exec_strict_equality(sp, true);
-        break;
-      case OpType::eq3:
+        Break;
+      Case(eq3):
         exec_strict_equality(sp, false);
-        break;
-      case OpType::call: {
+        Break;
+      Case(call): {
         if (Global::show_vm_exec_steps) {
           printf("%-50s sp: %-3ld   pc: %-3u\n", inst.description().c_str(), (sp - (stack - 1)), pc);
         }
-        int argc = OPR1;
-        bool has_this = OPR2;
+        int argc = opr1;
+        bool has_this = opr2;
         JSValue& func = sp[-argc];
 
         if (func.tag != JSValue::FUNCTION
             || func.as_object->get_class() != CLS_FUNCTION) [[unlikely]] {
           error_throw_handle(sp, JS_TYPE_ERROR, u"value is not callable");
-          break;
+          Break;
         }
 
         JSValue *invoker;
@@ -658,30 +697,30 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         if (comp.is_throw()) [[unlikely]] {
           error_handle(sp);
         }
-        break;
+        Break;
       }
-      case OpType::proc_call:
+      Case(proc_call):
         sp[1].tag = JSValue::PROC_META;
         sp[1].flag_bits = pc;
         sp += 1;
-        pc = OPR1;
-        break;
-      case OpType::proc_ret:
+        pc = opr1;
+        Break;
+      Case(proc_ret):
         assert(sp[0].is(JSValue::PROC_META));
         pc = sp[0].flag_bits;
         sp -= 1;
-        break;
-      case OpType::js_new:
-        exec_js_new(sp, OPR1);
-        break;
-      case OpType::make_func:
-        exec_make_func(sp, OPR1, This);
-        break;
-      case OpType::capture: {
+        Break;
+      Case(js_new):
+        exec_js_new(sp, opr1);
+        Break;
+      Case(make_func):
+        exec_make_func(sp, opr1, This);
+        Break;
+      Case(capture): {
         assert(sp[0].is(JSValue::FUNCTION));
 
-        auto var_scope = scope_type_from_int(OPR1);
-        int index = OPR2;
+        auto var_scope = scope_type_from_int(opr1);
+        int index = opr2;
 
         if (var_scope == ScopeType::CLOSURE) [[unlikely]] {
           JSValue& closure_val = this_func->captured_var[index];
@@ -706,38 +745,38 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
           VM_WRITE_BARRIER(sp[0].as_func, *stack_val);
           sp[0].as_func->captured_var.push_back(*stack_val);
         }
-        break;
+        Break;
       }
-      case OpType::make_obj:
+      Case(make_obj):
         sp += 1;
         sp[0].set_val(new_object());
-        break;
-      case OpType::make_array:
+        Break;
+      Case(make_array):
         sp += 1;
-        sp[0].set_val(heap.new_object<JSArray>(*this, OPR1));
-        break;
-      case OpType::add_props:
-        exec_add_props(sp, OPR1);
-        break;
-      case OpType::add_elements:
-        exec_add_elements(sp, OPR1);
-        break;
-      case OpType::ret: {
+        sp[0].set_val(heap.new_object<JSArray>(*this, opr1));
+        Break;
+      Case(add_props):
+        exec_add_props(sp, opr1);
+        Break;
+      Case(add_elements):
+        exec_add_elements(sp, opr1);
+        Break;
+      Case(ret): {
         if (Global::show_vm_exec_steps) printf("ret\n");
         curr_frame = curr_frame->prev_frame;
         return sp[0];
       }
-      case OpType::ret_undef: {
+      Case(ret_undef): {
         if (Global::show_vm_exec_steps) printf("ret_undef\n");
         curr_frame = curr_frame->prev_frame;
         return undefined;
       }
-      case OpType::ret_err: {
+      Case(ret_err): {
         if (Global::show_vm_exec_steps) printf("ret_err\n");
         curr_frame = curr_frame->prev_frame;
         return CompThrow(sp[0]);
       }
-      case OpType::halt:
+      Case(halt):
         if (!global_end) {
           global_end = true;
           curr_frame = curr_frame->move_to_heap();
@@ -751,60 +790,60 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         else {
           assert(false);
         }
-      case OpType::halt_err:
+      Case(halt_err):
         exec_halt_err(sp, inst);
         return undefined;
-      case OpType::nop:
-        break;
-      case OpType::get_prop_atom:
-      case OpType::get_prop_atom2:
-        exec_get_prop_atom(sp, OPR1, inst.op_type == OpType::get_prop_atom2);
-        break;
-      case OpType::get_prop_index:
-      case OpType::get_prop_index2:
+      Case(nop):
+        Break;
+      Case(get_prop_atom):
+      Case(get_prop_atom2):
+        exec_get_prop_atom(sp, opr1, inst.op_type == OpType::get_prop_atom2);
+        Break;
+      Case(get_prop_index):
+      Case(get_prop_index2):
         exec_get_prop_index(sp, inst.op_type == OpType::get_prop_index2);
-        break;
-      case OpType::set_prop_atom:
-        exec_set_prop_atom(sp, OPR1);
-        break;
-      case OpType::set_prop_index:
+        Break;
+      Case(set_prop_atom):
+        exec_set_prop_atom(sp, opr1);
+        Break;
+      Case(set_prop_index):
         exec_set_prop_index(sp);
-        break;
-      case OpType::dyn_get_var:
-      case OpType::dyn_get_var_undef: {
+        Break;
+      Case(dyn_get_var):
+      Case(dyn_get_var_undef): {
         int no_throw = static_cast<int>(inst.op_type) - static_cast<int>(OpType::dyn_get_var);
-        exec_dynamic_get_var(sp, OPR1, no_throw);
-        break;
+        exec_dynamic_get_var(sp, opr1, no_throw);
+        Break;
       }
-      case OpType::dyn_set_var:
-        exec_dynamic_set_var(sp, OPR1);
-        break;
-      case OpType::dup_stack_top:
+      Case(dyn_set_var):
+        exec_dynamic_set_var(sp, opr1);
+        Break;
+      Case(dup_stack_top):
         sp[1] = sp[0];
         sp += 1;
-        break;
-      case OpType::move_to_top1: {
+        Break;
+      Case(move_to_top1): {
         JSValue tmp = sp[-1];
         sp[-1] = sp[0];
         sp[0] = tmp;
-        break;
+        Break;
       }
-      case OpType::move_to_top2: {
+      Case(move_to_top2): {
         JSValue tmp = sp[-2];
         sp[-2] = sp[-1];
         sp[-1] = sp[0];
         sp[0] = tmp;
-        break;
+        Break;
       }
-      case OpType::for_in_init: {
+      Case(for_in_init): {
         if (!sp[0].is_nil()) {
           sp[0] = js_to_object(*this, sp[0]).get_value();
         }
         // `build_for_object` can handle null and undefined.
         sp[0] = JSForInIterator::build_for_object(*this, sp[0]);
-        break;
+        Break;
       }
-      case OpType::for_in_next: {
+      Case(for_in_next): {
         assert(sp[0].is_object());
         assert(object_class(sp[0]) == CLS_FOR_IN_ITERATOR);
         
@@ -812,17 +851,17 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         sp[1] = iter->next(*this);
         sp[2] = JSValue(sp[1].is_uninited());
         sp += 2;
-        break;
+        Break;
       }
-      case OpType::for_of_init: {
+      Case(for_of_init): {
         auto comp = for_of_get_iterator(sp[0]);
         sp[0] = comp.get_value();
         if (comp.is_throw()) [[unlikely]] {
           error_handle(sp);
         }
-        break;
+        Break;
       }
-      case OpType::for_of_next: {
+      Case(for_of_next): {
         assert(sp[0].is_object());
         auto comp = for_of_call_next(sp[0]);
         JSValue res = comp.get_value();
@@ -847,35 +886,35 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
           sp[2] = res_done.get_value();
           sp += 2;
         }
-        break;
+        Break;
         for_of_next_err:
           error_handle(sp);
-        break;
+        Break;
       }
-      case OpType::iter_end_jmp:
+      Case(iter_end_jmp):
         assert(sp[0].is_bool());
         if (sp[0].as_bool) {
-          pc = OPR1;
+          pc = opr1;
           // this instruction drops the `done` and `value` produced by the iterator
           // when the iteration ends.
           sp -= 2;
         } else {
           sp -= 1;
         }
-        break;
-      case OpType::js_in:
+        Break;
+      Case(js_in):
         exec_in(sp);
-        break;
-      case OpType::js_instanceof:
+        Break;
+      Case(js_instanceof):
         exec_instanceof(sp);
-        break;
-      case OpType::js_typeof:
+        Break;
+      Case(js_typeof):
         sp[0] = exec_typeof(sp[0]);
-        break;
-      case OpType::js_delete:
+        Break;
+      Case(js_delete):
         exec_delete(sp);
-        break;
-      case OpType::js_to_number: {
+        Break;
+      Case(js_to_number): {
         auto res = js_to_number(*this, sp[0]);
         if (res.is_error()) {
           sp[0] = res.get_error();
@@ -883,21 +922,13 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         } else {
           sp[0].set_float(res.get_value());
         }
-        break;
+        Break;
       }
-      case OpType::regexp_build:
-        exec_regexp_build(sp, OPR1, OPR2);
-        break;
-      default:
+      Case(regexp_build):
+        exec_regexp_build(sp, opr1, opr2);
+        Break;
+      Default:
         assert(false);
-    }
-    if (Global::show_vm_exec_steps && inst.op_type != OpType::call) {
-      auto desc = inst.description();
-      if (inst.op_type == OpType::get_prop_atom || inst.op_type == OpType::get_prop_atom2) {
-        desc += " (" + to_u8string(atom_to_str(OPR1)) + ")";
-      }
-      printf("%-50s sp: %-3ld   pc: %-3u\n", desc.c_str(), (sp - (stack - 1)), pc);
-
     }
   }
 }
@@ -1287,6 +1318,31 @@ error:
   else sp[-1] = rhs.get_error();
   sp -= 1;
   error_handle(sp);
+}
+
+void NjsVM::exec_shift_imm(SPRef sp, OpType op_type, u32 imm) {
+  uint32_t shift_len = imm & 0x1f;
+  ErrorOr<int32_t> lhs = js_to_int32(*this, sp[0]);
+
+  if (lhs.is_error()) {
+    sp[0] = lhs.get_error();
+    error_handle(sp);
+    return;
+  }
+
+  switch (op_type) {
+    case OpType::lsh:
+      sp[0].set_float(lhs.get_value() << shift_len);
+      break;
+    case OpType::rsh:
+      sp[0].set_float(lhs.get_value() >> shift_len);
+      break;
+    case OpType::ursh:
+      sp[0].set_float(u32(lhs.get_value()) >> shift_len);
+      break;
+    default:
+      assert(false);
+  }
 }
 
 void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {

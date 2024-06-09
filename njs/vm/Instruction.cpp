@@ -100,13 +100,6 @@ std::string Instruction::description() const {
     case OpType::ursh: sprintf(buffer, "ursh"); break;
     case OpType::urshi: sprintf(buffer, "urshi %u", (u32)OPR1); break;
 
-    case OpType::push:
-      sprintf(buffer, "push  %s %d", scope_type_names_alt[OPR1], OPR2);
-      break;
-    case OpType::push_check:
-      sprintf(buffer, "push_check  %s %d", scope_type_names_alt[OPR1], OPR2);
-      break;
-
     case OpType::push_local: sprintf(buffer, "push_local  %d", OPR1); break;
     case OpType::push_local_check: sprintf(buffer, "push_local_check  %d", OPR1); break;
     case OpType::push_global: sprintf(buffer, "push_global  %d", OPR1); break;
@@ -351,11 +344,11 @@ static int op_stack_usage[] = {
     0,  // bits_not
 
     -1, // lsh
-    -1, // lshi
+    0, // lshi
     -1, // rsh
-    -1, // rshi
+    0, // rshi
     -1, // ursh
-    -1, // urshi
+    0, // urshi
 
     -1, // gt
     -1, // lt
@@ -372,8 +365,6 @@ static int op_stack_usage[] = {
     -1, // add_assign,
     0,  // add_assign_keep,
 
-    1,  // push
-    1,  // push_check
     1,  // push_local
     1,  // push_local_check
     1,  // push_global
