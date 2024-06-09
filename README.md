@@ -8,9 +8,9 @@ NaiveJS can now run the Typescript 2.0.10 transpiler ([test_typescript_2.0.10.js
 
 Running time comparison of running the Typescript transpiler (input is the same piece of Typescript code):
 
-- Node.js v18.15.0 : 0.80 s
+- Node.js v18.15.0 : 0.52 s
 - QuickJS (CMake "Release" build) : 2.73 s
-- NaiveJS (CMake "Release" build) : 3.35 s
+- NaiveJS (CMake "Release" build) : 5.17 s
 
 This comparison is just for fun. If NaiveJS were implemented strictly according to the ECMA specification, it would be expected to run even slower.
 
@@ -46,17 +46,23 @@ This comparison is just for fun. If NaiveJS were implemented strictly according 
 
 ### Other To Do
 
-- [ ] Make eventloop work on Linux (using epoll)
+- [x] Make eventloop work on Linux (using epoll)
+- [x] Utilizing the "label as value" technique in the VM
 - [ ] Reorganize the parser code
 - [ ] Compactly stored bytecode
 - [ ] Eliminates redundant jump instructions
 - [ ] Improve error handling in the parser and code generator
 - [ ] Use smart pointers instead of raw pointers in AST nodes. (This was previously found to cause performance degradation on macOS with Clang)
 - [ ] GC and object system optimization: allowing GC to move objects safely
-- [ ] Atom strings GC
 - [ ] fully managed memory: all memory is allocated on the GC Heap
-- [ ] Utilizing the "label as value" technique in the VM
+- [ ] Atom strings GC
 - [ ] JIT
+
+
+### Not in the plan
+
+- `eval` function
+- `with` statement
 
 ### Acknowledgement
 
