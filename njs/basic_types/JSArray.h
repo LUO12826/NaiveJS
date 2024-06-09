@@ -16,19 +16,21 @@ using u32 = uint32_t;
 
 class JSArray: public JSObject {
  public:
-  JSArray(NjsVM& vm, u32 length): JSObject(CLS_ARRAY, vm.array_prototype) {
+  JSArray(NjsVM& vm, u32 length): JSObject(vm, CLS_ARRAY, vm.array_prototype) {
     PFlag flag {
         .writable = true,
         .has_value = true,
     };
-    add_prop_trivial(AtomPool::k_length, JSValue((double)length), flag);
+    add_prop_trivial(vm, AtomPool::k_length, JSValue((double)length), flag);
     dense_array.resize(length);
     for (auto& ele : dense_array) {
       ele.set_uninited();
     }
   }
 
-  void gc_scan_children(GCHeap& heap) override;
+  bool gc_scan_children(GCHeap& heap) override;
+  void gc_mark_children() override;
+  bool gc_has_young_child(GCObject *oldgen_start) override;
 
   u16string_view get_class_name() override {
     return u"Array";
@@ -58,13 +60,13 @@ class JSArray: public JSObject {
     JSValue idx = TRY_ERR(get_index_or_atom(vm, key));
 
     if (idx.is(JSValue::NUM_UINT32)) {
-      set_element_fast(idx.as_u32, val);
+      set_element_fast(vm, idx.as_u32, val);
       return true;
     } else {
       assert(idx.is_atom() || idx.is_symbol());
       u32 atom = idx.as_atom;
       if (atom_is_int(atom)) {
-        set_element_fast(atom_get_int(atom), val);
+        set_element_fast(vm, atom_get_int(atom), val);
         return true;
       }
       else {
@@ -72,21 +74,14 @@ class JSArray: public JSObject {
           double len = TRY_ERR(js_to_number(vm, val));
           int64_t len_int = len;
           if (len >= 0 && (double)len_int == len && len_int <= UINT32_MAX) {
-            size_t old_len = dense_array.size();
-            dense_array.resize(len_int);
-            if (old_len < len_int) {
-              for (size_t i = old_len; i < len_int; i++) {
-                dense_array[i].set_uninited();
-              }
-            }
-
-            set_length(len);
+            resize(len_int);
             return true;
           } else {
             return vm.build_error_internal(JS_RANGE_ERROR, u"Invalid array length");
           }
+        } else {
+          return set_prop(vm, idx, val);
         }
-        return set_prop(vm, idx, val);
       }
     }
   }
@@ -131,15 +126,13 @@ class JSArray: public JSObject {
   JSValue get_element_fast(u32 index) {
     if (index < dense_array.size()) {
       JSValue val = dense_array[index];
-      return val.is_uninited() ? prop_not_found : val;
+      return unlikely(val.is_uninited()) ? prop_not_found : val;
     }
     return prop_not_found;
   }
 
-  void set_element_fast(u32 index, JSValue val) {
-    if (index < dense_array.size()) {
-      dense_array[index] = val;
-    } else {
+  void set_element_fast(NjsVM& vm, u32 index, JSValue val) {
+    if (index >= dense_array.size()) {
       // since sparse arrays are not implemented, an assertion failure is
       // raised if the array is too large.
       if (index > 100000 && index > dense_array.size() * 100) [[unlikely]] {
@@ -153,9 +146,10 @@ class JSArray: public JSObject {
       for (size_t i = old_size; i < index; i++) {
         dense_array[i].set_uninited();
       }
-      dense_array[index] = val;
       set_length(index + 1);
     }
+    WRITE_BARRIER(val);
+    dense_array[index] = val;
   }
 
   Completion get_index_or_atom(NjsVM& vm, JSValue key) {
@@ -182,16 +176,18 @@ class JSArray: public JSObject {
     }
   }
 
-  size_t push(JSValue value) {
+  size_t push(NjsVM& vm, JSValue value) {
     set_referenced(value);
+    WRITE_BARRIER(value);
     dense_array.push_back(value);
     update_length();
     return dense_array.size();
   }
 
-  size_t push(ArrayRef<JSValue> values) {
+  size_t push(NjsVM& vm, ArrayRef<JSValue> values) {
     for (size_t i = 0; i < values.size(); i++) {
       set_referenced(values[i]);
+      WRITE_BARRIER(values[i]);
       dense_array.push_back(values[i]);
     }
     update_length();
@@ -222,12 +218,27 @@ class JSArray: public JSObject {
     }
   }
 
-
   u32 get_length() {
     assert(has_own_property_atom(AtomPool::k_length));
     return (u32)get_prop_trivial(AtomPool::k_length).as_f64;
   }
 
+  void resize(u32 new_len) {
+    size_t old_len = dense_array.size();
+    dense_array.resize(new_len);
+    if (old_len < new_len) {
+      for (size_t i = old_len; i < new_len; i++) {
+        dense_array[i].set_uninited();
+      }
+    }
+    set_length(new_len);
+  }
+
+  std::vector<JSValue>& get_dense_array() {
+    return dense_array;
+  }
+
+ private:
   void set_length(double len) {
     storage[JSObjectKey(AtomPool::k_length)].data.value.as_f64 = len;
   }

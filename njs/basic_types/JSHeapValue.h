@@ -9,10 +9,21 @@ namespace njs {
 struct JSHeapValue: public GCObject {
   explicit JSHeapValue(JSValue val): wrapped_val(val) {}
 
-  void gc_scan_children(njs::GCHeap &heap) override {
+  bool gc_scan_children(njs::GCHeap &heap) override {
     if (wrapped_val.needs_gc()) {
-      heap.gc_visit_object(wrapped_val, wrapped_val.as_GCObject);
+      return heap.gc_visit_object2(wrapped_val, wrapped_val.as_GCObject);
     }
+    return false;
+  }
+
+  void gc_mark_children() override {
+    if (wrapped_val.needs_gc()) {
+      gc_mark_object(wrapped_val.as_GCObject);
+    }
+  }
+
+  bool gc_has_young_child(njs::GCObject *oldgen_start) override {
+    return wrapped_val.needs_gc() && wrapped_val.as_GCObject < oldgen_start;
   }
 
   std::string description() override {

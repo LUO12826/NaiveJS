@@ -36,7 +36,7 @@ class JSDate : public JSObject {
     return time_clip(millis);
   }
 
-  JSDate(NjsVM& vm) : JSObject(CLS_DATE, vm.date_prototype) {}
+  JSDate(NjsVM& vm) : JSObject(vm, CLS_DATE, vm.date_prototype) {}
 
   u16string_view get_class_name() override {
     return u"Date";

@@ -33,8 +33,8 @@ void NjsVM::setup() {
 
   {
     JSFunction *func = add_native_func_impl(u"Object", NativeFunction::Object_ctor);
-    object_prototype.as_object->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
-    func->add_prop_trivial(AtomPool::k_prototype, object_prototype);
+    object_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(*this, AtomPool::k_prototype, object_prototype);
     func->add_method(*this, u"defineProperty", Object_defineProperty);
     func->add_method(*this, u"hasOwn", Object_hasOwn);
     func->add_method(*this, u"getPrototypeOf", Object_getPrototypeOf);
@@ -46,15 +46,15 @@ void NjsVM::setup() {
 
   {
     JSFunction *func = add_native_func_impl(u"Number", NativeFunction::Number_ctor);
-    number_prototype.as_object->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
-    func->add_prop_trivial(AtomPool::k_prototype, number_prototype);
+    number_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(*this, AtomPool::k_prototype, number_prototype);
     func->add_method(*this, u"isFinite", NativeFunction::isFinite);
   }
 
   {
     JSFunction *func = add_native_func_impl(u"String", NativeFunction::String_ctor);
-    string_prototype.as_object->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
-    func->add_prop_trivial(AtomPool::k_prototype, string_prototype);
+    string_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(*this, AtomPool::k_prototype, string_prototype);
     func->add_method(*this, u"fromCharCode", [] (vm_func_This_args_flags) -> Completion {
       assert(args.size() == 1);
       char16_t code = TRY_COMP(js_to_uint16(vm, args[0]));
@@ -64,36 +64,36 @@ void NjsVM::setup() {
 
   {
     JSFunction *func = add_native_func_impl(u"Array", NativeFunction::Array_ctor);
-    array_prototype.as_object->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
-    func->add_prop_trivial(AtomPool::k_prototype, array_prototype);
+    array_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(*this, AtomPool::k_prototype, array_prototype);
   }
 
   {
     JSFunction *func = add_native_func_impl(u"Date", NativeFunction::Date_ctor);
-    date_prototype.as_object->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
-    func->add_prop_trivial(AtomPool::k_prototype, date_prototype);
+    date_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(*this, AtomPool::k_prototype, date_prototype);
   }
 
   {
     JSFunction *func = add_native_func_impl(u"RegExp", NativeFunction::RegExp_ctor);
-    regexp_prototype.as_object->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
-    func->add_prop_trivial(AtomPool::k_prototype, regexp_prototype);
+    regexp_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(*this, AtomPool::k_prototype, regexp_prototype);
   }
 
   {
     JSFunction *func = add_native_func_impl(u"Symbol", NativeFunction::Symbol);
-    func->add_prop_trivial(AtomPool::k_iterator, JSSymbol(AtomPool::k_sym_iterator));
-    func->add_prop_trivial(AtomPool::k_match, JSSymbol(AtomPool::k_sym_match));
-    func->add_prop_trivial(AtomPool::k_matchAll, JSSymbol(AtomPool::k_sym_matchAll));
-    func->add_prop_trivial(AtomPool::k_replace, JSSymbol(AtomPool::k_sym_replace));
-    func->add_prop_trivial(AtomPool::k_search, JSSymbol(AtomPool::k_sym_search));
-    func->add_prop_trivial(AtomPool::k_split, JSSymbol(AtomPool::k_sym_split));
+    func->add_prop_trivial(*this, AtomPool::k_iterator, JSSymbol(AtomPool::k_sym_iterator));
+    func->add_prop_trivial(*this, AtomPool::k_match, JSSymbol(AtomPool::k_sym_match));
+    func->add_prop_trivial(*this, AtomPool::k_matchAll, JSSymbol(AtomPool::k_sym_matchAll));
+    func->add_prop_trivial(*this, AtomPool::k_replace, JSSymbol(AtomPool::k_sym_replace));
+    func->add_prop_trivial(*this, AtomPool::k_search, JSSymbol(AtomPool::k_sym_search));
+    func->add_prop_trivial(*this, AtomPool::k_split, JSSymbol(AtomPool::k_sym_split));
   }
 
   {
     JSFunction *func = add_native_func_impl(u"Function", NativeFunction::Function_ctor);
-    function_prototype.as_object->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
-    func->add_prop_trivial(AtomPool::k_prototype, function_prototype);
+    function_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(*this, AtomPool::k_prototype, function_prototype);
   }
 
   {
@@ -142,21 +142,21 @@ JSFunction* NjsVM::add_native_func_impl(u16string_view name, NativeFuncType nati
   func_meta.emplace_back(meta);
 
   auto *func = heap.new_object<JSFunction>(*this, name, meta);
-  func->set_proto(function_prototype);
-  global_object.as_object->add_prop_trivial(meta->name_index, JSValue(func));
+  func->set_proto(*this, function_prototype);
+  global_object.as_object->add_prop_trivial(*this, meta->name_index, JSValue(func));
   return func;
 }
 
 JSObject* NjsVM::add_builtin_object(const u16string& name) {
   u32 atom = str_to_atom(name);
   JSObject *obj = new_object();
-  global_object.as_object->add_prop_trivial(atom, JSValue(obj));
+  global_object.as_object->add_prop_trivial(*this, atom, JSValue(obj));
   return obj;
 }
 
 void NjsVM::add_builtin_global_var(const u16string& name, JSValue val) {
   u32 atom = str_to_atom(name);
-  global_object.as_object->add_prop_trivial(atom, val);
+  global_object.as_object->add_prop_trivial(*this, atom, val);
 }
 
 

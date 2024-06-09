@@ -42,7 +42,7 @@ class JSArrayPrototype : public JSObject {
       u16string output;
       bool first = true;
 
-      for (auto& val : arr->dense_array) {
+      for (auto& val : arr->get_dense_array()) {
         if (first) first = false;
         else output += u',';
 
@@ -71,7 +71,7 @@ class JSArrayPrototype : public JSObject {
     u16string output;
     bool first = true;
 
-    for (auto& val : arr->dense_array) {
+    for (auto& val : arr->get_dense_array()) {
       if (first) first = false;
       else output += delimiter;
 
@@ -102,7 +102,7 @@ class JSArrayPrototype : public JSObject {
 
   static Completion sort(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
-    auto& data_array = This.as_array->dense_array;
+    auto& data_array = This.as_array->get_dense_array();
     Completion comp;
     // no compare function provided. Convert values to strings and do string sorting.
     if (args.size() == 0) {
@@ -159,7 +159,7 @@ class JSArrayPrototype : public JSObject {
     assert(This.is(JSValue::ARRAY));
     JSArray *array = This.as_array;
 
-    return JSFloat(array->push(args));
+    return JSFloat(array->push(vm, args));
   }
 
   static Completion pop(vm_func_This_args_flags) {
@@ -174,7 +174,7 @@ class JSArrayPrototype : public JSObject {
 
   static Completion slice(vm_func_This_args_flags) {
     assert(This.is_object() && object_class(This) == CLS_ARRAY);
-    JSArray *arr = This.as_Object<JSArray>();
+    auto *arr = This.as_Object<JSArray>();
     int64_t arr_len = arr->get_length();
 
     int64_t start = TRY_COMP(js_to_int64sat(vm, args.size() > 0 ? args[0] : undefined));
@@ -186,9 +186,10 @@ class JSArrayPrototype : public JSObject {
     int64_t to = std::max(start, end);
     int64_t new_len = to - from;
 
-    JSArray *new_arr = vm.heap.new_object<JSArray>(vm, new_len);
+    auto *new_arr = vm.heap.new_object<JSArray>(vm, new_len);
+    auto& old_arr = arr->get_dense_array();
     for (int64_t i = 0; i < new_len; i++) {
-      new_arr->dense_array[i] = arr->dense_array[i + from];
+      new_arr->set_element_fast(vm, i, old_arr[i + from]);
     }
     return JSValue(new_arr);
   }
@@ -196,13 +197,12 @@ class JSArrayPrototype : public JSObject {
   static Completion splice(vm_func_This_args_flags) {
     assert(This.is_object() && object_class(This) == CLS_ARRAY);
     auto *arr = This.as_Object<JSArray>();
-    auto& dense_arr = arr->dense_array;
-    int64_t arr_len = arr->get_length();
+    auto& dense_arr = arr->get_dense_array();
+    int64_t old_len = arr->get_length();
 
-    auto *ret_arr = vm.heap.new_object<JSArray>(vm, 0);
     // nothing to delete or insert
     if (args.size() == 0) {
-      return JSValue(ret_arr);
+      return JSValue(vm.heap.new_object<JSArray>(vm, 0));
     }
     int64_t start = TRY_COMP(js_to_int64sat(vm, args[0]));
     int64_t del_cnt = INT64_MAX;
@@ -212,22 +212,22 @@ class JSArrayPrototype : public JSObject {
     del_cnt = del_cnt < 0 ? 0 : del_cnt;
 
     if (start < 0) {
-      if (start < -arr_len) {
+      if (start < -old_len) {
         start = 0;
       } else {
-        start = start + arr_len;
+        start = start + old_len;
       }
-    } else if (start >= arr_len) {
+    } else if (start >= old_len) {
       del_cnt = 0;
     }
-    del_cnt = std::min(del_cnt, arr_len - start);
+    del_cnt = std::min(del_cnt, old_len - start);
 
+    auto *ret_arr = vm.heap.new_object<JSArray>(vm, del_cnt);
     // remove elements and add them to the return array
     for (u32 i = start; i < start + del_cnt; i++) {
-      ret_arr->dense_array.push_back(dense_arr[start]);
+      ret_arr->set_element_fast(vm, i - start, dense_arr[start]);
       dense_arr.erase(dense_arr.begin() + start);
     }
-    ret_arr->update_length();
 
     // insert new elements at `start`
     if (args.size() > 2) {
@@ -239,11 +239,10 @@ class JSArrayPrototype : public JSObject {
       memmove(data + start + insert_cnt, data + start, (old_size - start) * sizeof(*data));
 
       for (size_t i = start; i < start + (args.size() - 2); i++) {
-        dense_arr[i] = args[i - start + 2];
-        set_referenced(dense_arr[i]);
+        arr->set_element_fast(vm, i, args[i - start + 2]);
       }
     }
-    arr->update_length();
+    arr->resize(dense_arr.size());
     return JSValue(ret_arr);
   }
 
@@ -251,26 +250,31 @@ class JSArrayPrototype : public JSObject {
     assert(This.is(JSValue::ARRAY));
     auto *array = This.as_array;
     auto *res = vm.heap.new_object<JSArray>(vm, 0);
-    // copy the `this` array
-    res->dense_array = array->dense_array;
+    // no need to consider barrier
+    if (vm.heap.object_in_newgen(res)) {
+      // copy `this` array to the result
+      auto& res_dense = res->get_dense_array();
+      res_dense = array->get_dense_array();
 
-    if (args.size() > 0) [[likely]] {
-      for (int i = 0; i < args.size(); i++) {
-        JSValue arg = args[i];
-        if (arg.is(JSValue::ARRAY)) [[likely]] {
-          auto& arg_arr = arg.as_array->dense_array;
-          res->dense_array.insert(res->dense_array.end(), arg_arr.begin(), arg_arr.end());
-          for (auto& ele : arg_arr) {
-            res->dense_array.push_back(ele);
+      if (args.size() > 0) [[likely]] {
+        for (int i = 0; i < args.size(); i++) {
+          JSValue arg = args[i];
+          if (arg.is(JSValue::ARRAY)) [[likely]] {
+            auto& arg_arr = arg.as_array->get_dense_array();
+            res_dense.insert(res_dense.end(), arg_arr.begin(), arg_arr.end());
+          } else {
+            res_dense.push_back(arg);
           }
-        } else {
-          res->dense_array.push_back(arg);
         }
       }
-    }
 
-    res->update_length();
-    return JSValue(res);
+      res->resize(res_dense.size());
+      return JSValue(res);
+    }
+    else {
+      // TODO
+      assert(false);
+    }
   }
 };
 

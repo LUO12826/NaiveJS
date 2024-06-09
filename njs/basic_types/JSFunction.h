@@ -20,7 +20,9 @@ class JSFunction : public JSObject {
   JSFunction(NjsVM& vm, u16string_view name, JSFunctionMeta *meta);
   JSFunction(NjsVM& vm, JSFunctionMeta *meta);
 
-  void gc_scan_children(GCHeap& heap) override;
+  bool gc_scan_children(GCHeap& heap) override;
+  void gc_mark_children() override;
+  bool gc_has_young_child(GCObject *oldgen_start) override;
 
   u16string_view get_class_name() override {
     return u"Function";

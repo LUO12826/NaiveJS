@@ -107,44 +107,44 @@ void NjsVM::init_prototypes() {
   func_proto->add_methods(*this);
 
   object_prototype.set_val(heap.new_object<JSObjectPrototype>(*this));
-  function_prototype.as_object->set_proto(object_prototype);
+  function_prototype.as_object->set_proto(*this, object_prototype);
 
   number_prototype.set_val(heap.new_object<JSNumberPrototype>(*this));
-  number_prototype.as_object->set_proto(object_prototype);
+  number_prototype.as_object->set_proto(*this, object_prototype);
 
   boolean_prototype.set_val(heap.new_object<JSBooleanPrototype>(*this));
-  boolean_prototype.as_object->set_proto(object_prototype);
+  boolean_prototype.as_object->set_proto(*this, object_prototype);
 
   string_prototype.set_val(heap.new_object<JSStringPrototype>(*this));
-  string_prototype.as_object->set_proto(object_prototype);
+  string_prototype.as_object->set_proto(*this, object_prototype);
 
   array_prototype.set_val(heap.new_object<JSArrayPrototype>(*this));
-  array_prototype.as_object->set_proto(object_prototype);
+  array_prototype.as_object->set_proto(*this, object_prototype);
 
   regexp_prototype.set_val(heap.new_object<JSRegExpPrototype>(*this));
-  regexp_prototype.as_object->set_proto(object_prototype);
+  regexp_prototype.as_object->set_proto(*this, object_prototype);
 
   date_prototype.set_val(heap.new_object<JSDatePrototype>(*this));
-  date_prototype.as_object->set_proto(object_prototype);
+  date_prototype.as_object->set_proto(*this, object_prototype);
 
   native_error_protos.reserve(JSErrorType::JS_NATIVE_ERROR_COUNT);
   for (int i = 0; i < JSErrorType::JS_NATIVE_ERROR_COUNT; i++) {
     JSObject *proto = heap.new_object<JSErrorPrototype>(*this, (JSErrorType)i);
-    proto->set_proto(object_prototype);
+    proto->set_proto(*this, object_prototype);
     native_error_protos.emplace_back(proto);
   }
   error_prototype = native_error_protos[0];
 
   iterator_prototype.set_val(heap.new_object<JSIteratorPrototype>(*this));
-  iterator_prototype.as_object->set_proto(object_prototype);
+  iterator_prototype.as_object->set_proto(*this, object_prototype);
 }
 
 JSObject* NjsVM::new_object(ObjClass cls) {
-  return heap.new_object<JSObject>(cls, object_prototype);
+  return heap.new_object<JSObject>(*this, cls, object_prototype);
 }
 
 JSObject* NjsVM::new_object(ObjClass cls, JSValue proto) {
-  return heap.new_object<JSObject>(cls, proto);
+  return heap.new_object<JSObject>(*this, cls, proto);
 }
 
 JSFunction* NjsVM::new_function(JSFunctionMeta *meta) {
@@ -207,8 +207,15 @@ void NjsVM::execute_global() {
 // TODO: this is a very simplified implementation.
 JSValue NjsVM::prepare_arguments_array(ArgRef args) {
   auto *arr = heap.new_object<JSArray>(*this, args.size());
-  for (int i = 0; i < args.size(); i++) {
-    arr->dense_array[i] = args[i];
+
+  if (heap.object_in_newgen(arr)) {
+    for (int i = 0; i < args.size(); i++) {
+      arr->get_dense_array()[i] = args[i];
+    }
+  } else {
+    for (int i = 0; i < args.size(); i++) {
+      arr->set_element_fast(*this, i, args[i]);
+    }
   }
   return JSValue(arr);
 }
@@ -1242,13 +1249,14 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
   // where the function is created.
   if (meta->is_arrow_func) {
     func->has_this_binding = true;
+    heap.write_barrier(func, env_this);
     func->this_binding = env_this;
   }
 
   if (not meta->is_arrow_func) {
     JSObject *new_prototype = new_object(CLS_OBJECT);
-    new_prototype->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
-    func->add_prop_trivial(AtomPool::k_prototype, JSValue(new_prototype));
+    new_prototype->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(*this, AtomPool::k_prototype, JSValue(new_prototype));
   }
 
   assert(!meta->is_native);
@@ -1304,7 +1312,7 @@ void NjsVM::exec_js_new(SPRef sp, int arg_count) {
   // prepare `this` object
   JSValue proto = ctor.as_func->get_prop_trivial(AtomPool::k_prototype);
   proto = proto.is_object() ? proto : object_prototype;
-  auto *this_obj = heap.new_object<JSObject>(CLS_OBJECT, proto);
+  auto *this_obj = heap.new_object<JSObject>(*this, CLS_OBJECT, proto);
 
   for (int i = 1; i > -arg_count; i--) {
     sp[i] = sp[i - 1];
@@ -1333,7 +1341,7 @@ void NjsVM::exec_add_props(SPRef sp, int props_cnt) {
 
   for (JSValue *key = sp - props_cnt * 2 + 1; key <= sp; key += 2) {
     assert(key[0].is_atom());
-    object->add_prop_trivial(key[0].as_atom, key[1], PFlag::VECW);
+    object->add_prop_trivial(*this, key[0].as_atom, key[1], PFlag::VECW);
   }
 
   sp = sp - props_cnt * 2;
@@ -1345,8 +1353,14 @@ void NjsVM::exec_add_elements(SPRef sp, int elements_cnt) {
   JSArray *array = val_array.as_array;
 
   u32 ele_idx = 0;
-  for (JSValue *val = sp - elements_cnt + 1; val <= sp; val++, ele_idx++) {
-    array->dense_array[ele_idx] = *val;
+  if (heap.object_in_newgen(array)) {
+    for (JSValue *val = sp - elements_cnt + 1; val <= sp; val++, ele_idx++) {
+      array->get_dense_array()[ele_idx] = *val;
+    }
+  } else {
+    for (JSValue *val = sp - elements_cnt + 1; val <= sp; val++, ele_idx++) {
+      array->set_element_fast(*this, ele_idx, *val);
+    }
   }
 
   sp = sp - elements_cnt;

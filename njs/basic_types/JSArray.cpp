@@ -6,13 +6,34 @@
 
 namespace njs {
 
-void JSArray::gc_scan_children(GCHeap& heap) {
-  JSObject::gc_scan_children(heap);
+bool JSArray::gc_scan_children(GCHeap& heap) {
+  bool child_young = false;
+  child_young |= JSObject::gc_scan_children(heap);
   for (auto& val : dense_array) {
     if (val.needs_gc()) {
-      heap.gc_visit_object(val, val.as_GCObject);
+      child_young |= heap.gc_visit_object2(val, val.as_GCObject);
     }
   }
+  return child_young;
+}
+
+void JSArray::gc_mark_children() {
+  JSObject::gc_mark_children();
+  for (auto& val : dense_array) {
+    if (val.needs_gc()) {
+      gc_mark_object(val.as_GCObject);
+    }
+  }
+}
+
+bool JSArray::gc_has_young_child(GCObject *oldgen_start) {
+  if (JSObject::gc_has_young_child(oldgen_start)) return true;
+  for (auto& val : dense_array) {
+    if (val.needs_gc() && val.as_GCObject < oldgen_start) {
+      return true;
+    }
+  }
+  return false;
 }
 
 std::string JSArray::description() {

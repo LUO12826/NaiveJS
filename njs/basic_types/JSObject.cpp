@@ -28,6 +28,10 @@ bool JSPropDesc::operator==(const JSPropDesc& other) const {
   }
 }
 
+JSObject::JSObject(NjsVM& vm, ObjClass cls, JSValue proto) : obj_class(cls) {
+  set_proto(vm, proto);
+}
+
 Completion JSObject::get_property(NjsVM& vm, JSValue key) {
   if (key.is_atom() && key.as_atom == AtomPool::k___proto__) [[unlikely]] {
     return get_proto();
@@ -47,8 +51,7 @@ Completion JSObject::get_property_impl(NjsVM& vm, JSValue key) {
 
 ErrorOr<bool> JSObject::set_property(NjsVM& vm, JSValue key, JSValue value) {
   if (key.is_atom() && key.as_atom == AtomPool::k___proto__) [[unlikely]] {
-    set_referenced(value);
-    return set_proto(value);
+    return set_proto(vm, value);
   } else {
     return set_property_impl(vm, key, value);
   }
@@ -80,7 +83,7 @@ Completion JSObject::has_own_property(NjsVM& vm, JSValue key) {
   return JSValue(has_own_property_atom(k));
 }
 
-bool JSObject::set_proto(JSValue proto) {
+bool JSObject::set_proto(NjsVM& vm, JSValue proto) {
   assert(proto.is_object() || proto.is_null());
 
   if (proto.is_null() && _proto_.is_null()) return true;
@@ -96,27 +99,30 @@ bool JSObject::set_proto(JSValue proto) {
     if (p == this) return false;
     p = p->get_proto().as_object_or_null();
   }
-
+  WRITE_BARRIER(proto);
+  set_referenced(proto);
   _proto_ = proto;
   return true;
 }
 
-ErrorOr<bool> JSObject::define_own_property(JSValue key, JSPropDesc& desc) {
-  return define_own_property_impl(key, get_own_property(key), desc);
+ErrorOr<bool> JSObject::define_own_property(NjsVM& vm, JSValue key, JSPropDesc& desc) {
+  return define_own_property_impl(vm, key, get_own_property(key), desc);
 }
 
-ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_desc,
+ErrorOr<bool> JSObject::define_own_property_impl(NjsVM& vm, JSValue key, JSPropDesc *curr_desc,
                                                  JSPropDesc& desc) {
   assert(desc.flag.in_def_mode);
 
-  auto setup_getset = [] (JSPropDesc& target, JSPropDesc& desc) {
+  auto setup_getset = [&vm, this] (JSPropDesc& target, JSPropDesc& desc) {
     bool has_getter = desc.flag.has_getter;
     target.flag.has_getter = has_getter;
     target.data.getset.getter = has_getter ? desc.data.getset.getter : undefined;
+    WRITE_BARRIER(target.data.getset.getter);
 
     bool has_setter = desc.flag.has_setter;
     target.flag.has_setter = has_setter;
     target.data.getset.setter = has_setter ? desc.data.getset.setter : undefined;
+    WRITE_BARRIER(target.data.getset.setter);
   };
 
   if (curr_desc == nullptr) [[likely]] {
@@ -127,6 +133,7 @@ ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_d
     if (desc.is_data_descriptor() || desc.is_generic_descriptor()) {
       new_desc.flag.has_value = true;
       new_desc.data.value = desc.flag.has_value ? desc.data.value : undefined;
+      WRITE_BARRIER(new_desc.data.value);
       new_desc.flag.writable = desc.flag.has_write & desc.flag.writable;
     }
     else { // desc must be an accessor Property Descriptor
@@ -163,6 +170,7 @@ ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_d
         curr_desc->flag.has_getter = false;
         curr_desc->flag.has_setter = false;
         curr_desc->data.value = desc.flag.has_value ? desc.data.value : undefined;
+        WRITE_BARRIER(curr_desc->data.value);
         curr_desc->flag.writable = desc.flag.has_write & desc.flag.writable;
       }
       if (desc.flag.has_enum) curr_desc->flag.enumerable = desc.flag.enumerable;
@@ -182,6 +190,7 @@ ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_d
       if (desc.flag.has_value) {
         curr_desc->flag.has_value = true;
         curr_desc->data.value = desc.data.value;
+        WRITE_BARRIER(desc.data.value);
       }
     } else if (curr_desc->is_accessor_descriptor()) {
       if (not curr_desc->flag.configurable) {
@@ -197,10 +206,12 @@ ErrorOr<bool> JSObject::define_own_property_impl(JSValue key, JSPropDesc *curr_d
       if (desc.flag.has_getter) {
         curr_desc->flag.has_getter = true;
         curr_desc->data.getset.getter = desc.data.getset.getter;
+        WRITE_BARRIER(curr_desc->data.getset.getter);
       }
       if (desc.flag.has_setter) {
         curr_desc->flag.has_setter = true;
         curr_desc->data.getset.setter = desc.data.getset.setter;
+        WRITE_BARRIER(curr_desc->data.getset.setter);
       }
     }
     // For each field of Desc that is present,
@@ -237,9 +248,10 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
       if (not existing_desc->flag.writable) return false;
 
       // TODO: looks like this is good enough. Do we really need to call `define_own_property` ?
+      // return define_own_property_impl(key, existing_desc, desc);
       existing_desc->data.value = value;
+      WRITE_BARRIER(value);
       return true;
-//      return define_own_property_impl(key, existing_desc, desc);
     }
     // 2.e
     else {
@@ -248,7 +260,7 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
       desc.flag = PFlag::VECW;
       desc.data.value = value;
       desc.to_definition();
-      return define_own_property_impl(key, existing_desc, desc);
+      return define_own_property_impl(vm, key, existing_desc, desc);
     }
   }
   // is not a data descriptor
@@ -267,15 +279,16 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, u16string_view key_str, JSValue valu
 }
 
 bool JSObject::add_prop_trivial(NjsVM& vm, u16string_view key_str, JSValue value, PFlag flag) {
-  return add_prop_trivial(vm.str_to_atom(key_str), value, flag);
+  return add_prop_trivial(vm, vm.str_to_atom(key_str), value, flag);
 }
 
-bool JSObject::add_prop_trivial(u32 key_atom, JSValue value, PFlag flag) {
-  return add_prop_trivial(JSAtom(key_atom), value, flag);
+bool JSObject::add_prop_trivial(NjsVM& vm, u32 key_atom, JSValue value, PFlag flag) {
+  return add_prop_trivial(vm, JSAtom(key_atom), value, flag);
 }
 
-bool JSObject::add_prop_trivial(JSValue key, JSValue value, PFlag flag) {
+bool JSObject::add_prop_trivial(NjsVM& vm, JSValue key, JSValue value, PFlag flag) {
   set_referenced(value);
+  WRITE_BARRIER(value);
   JSPropDesc& prop = storage[JSObjectKey(key)];
   prop.flag = flag;
   prop.data.value = value;
@@ -286,13 +299,13 @@ bool JSObject::add_method(NjsVM& vm, u16string_view key_str, NativeFuncType func
   u32 name_idx = vm.str_to_atom(key_str);
   JSFunctionMeta *meta = build_func_meta(funcImpl);
   vm.func_meta.emplace_back(meta);
-  return add_prop_trivial(name_idx, JSValue(vm.new_function(meta)), flag);
+  return add_prop_trivial(vm, name_idx, JSValue(vm.new_function(meta)), flag);
 }
 
 bool JSObject::add_symbol_method(NjsVM& vm, u32 symbol, NativeFuncType funcImpl, PFlag flag) {
   JSFunctionMeta *meta = build_func_meta(funcImpl);
   vm.func_meta.emplace_back(meta);
-  return add_prop_trivial(JSSymbol(symbol), JSValue(vm.new_function(meta)), flag);
+  return add_prop_trivial(vm, JSSymbol(symbol), JSValue(vm.new_function(meta)), flag);
 }
 
 Completion JSObject::get_prop(NjsVM& vm, u32 key_atom) {
@@ -431,24 +444,62 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, ToPrimTypeHint hint) {
   return CompThrow(err);
 }
 
-void JSObject::gc_scan_children(GCHeap& heap) {
+bool JSObject::gc_scan_children(GCHeap& heap) {
+  bool child_young = false;
   for (auto& [key, prop]: storage) {
     if (prop.flag.is_value() && prop.data.value.needs_gc()) {
-      heap.gc_visit_object(prop.data.value, prop.data.value.as_GCObject);
+      child_young |= heap.gc_visit_object2(prop.data.value, prop.data.value.as_GCObject);
     }
     if (prop.flag.is_getset()) {
       if (prop.data.getset.getter.needs_gc()) {
-        heap.gc_visit_object(prop.data.getset.getter, prop.data.getset.getter.as_GCObject);
+        child_young |= heap.gc_visit_object2(prop.data.getset.getter, prop.data.getset.getter.as_GCObject);
       }
       if (prop.data.getset.setter.needs_gc()) {
-        heap.gc_visit_object(prop.data.getset.setter, prop.data.getset.setter.as_GCObject);
+        child_young |= heap.gc_visit_object2(prop.data.getset.setter, prop.data.getset.setter.as_GCObject);
       }
     }
-
   }
   if (_proto_.needs_gc()) {
-    heap.gc_visit_object(_proto_, _proto_.as_GCObject);
+    child_young |= heap.gc_visit_object2(_proto_, _proto_.as_GCObject);
   }
+  return child_young;
+}
+
+void JSObject::gc_mark_children() {
+  for (auto& [key, prop]: storage) {
+    if (prop.flag.is_value() && prop.data.value.needs_gc()) {
+      gc_mark_object(prop.data.value.as_GCObject);
+    }
+    if (prop.flag.is_getset()) {
+      if (prop.data.getset.getter.needs_gc()) {
+        gc_mark_object(prop.data.getset.getter.as_GCObject);
+      }
+      if (prop.data.getset.setter.needs_gc()) {
+        gc_mark_object(prop.data.getset.setter.as_GCObject);
+      }
+    }
+  }
+  if (_proto_.needs_gc()) {
+    gc_mark_object(_proto_.as_GCObject);
+  }
+}
+
+bool JSObject::gc_has_young_child(GCObject *oldgen_start) {
+  for (auto& [key, prop]: storage) {
+    if (prop.flag.is_value() && prop.data.value.needs_gc()) {
+      if (prop.data.value.as_GCObject < oldgen_start) return true;
+    }
+    if (prop.flag.is_getset()) {
+      if (prop.data.getset.getter.needs_gc()) {
+        if (prop.data.getset.getter.as_GCObject < oldgen_start) return true;
+      }
+      if (prop.data.getset.setter.needs_gc()) {
+        if (prop.data.getset.setter.as_GCObject < oldgen_start) return true;
+      }
+    }
+  }
+
+  return _proto_.needs_gc() && _proto_.as_GCObject < oldgen_start;
 }
 
 std::string JSObject::description() {

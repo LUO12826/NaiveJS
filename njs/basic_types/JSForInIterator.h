@@ -30,11 +30,9 @@ class JSForInIterator : public JSObject {
     while (true) {
       if (obj->get_class() == CLS_ARRAY) [[unlikely]] {
         auto *arr = obj->as<JSArray>();
-        if (arr->is_fast_array) {
-          for (size_t i = 0; i < arr->dense_array.size(); i++) {
-            if (arr->dense_array[i].is_uninited()) [[unlikely]] continue;
-            keys.push_back(vm.u32_to_atom(u32(i)));
-          }
+        for (size_t i = 0; i < arr->get_dense_array().size(); i++) {
+          if (arr->get_dense_array()[i].is_uninited()) [[unlikely]] continue;
+          keys.push_back(vm.u32_to_atom(u32(i)));
         }
       } else if (obj->get_class() == CLS_STRING) {
         auto *str = obj->as<JSString>();
@@ -56,23 +54,38 @@ class JSForInIterator : public JSObject {
       obj = proto.as_object;
     }
 
+    vm.heap.write_barrier(iter, object);
     iter->object = object;
     iter->collected_keys = std::move(keys);
 
     return JSValue(iter);
   }
 
-  JSForInIterator(NjsVM& vm) : JSObject(CLS_FOR_IN_ITERATOR, vm.iterator_prototype) {}
+  JSForInIterator(NjsVM& vm) : JSObject(vm, CLS_FOR_IN_ITERATOR, vm.iterator_prototype) {}
 
   u16string_view get_class_name() override {
     return u"ForInIterator";
   }
 
-  void gc_scan_children(njs::GCHeap &heap) override {
-    JSObject::gc_scan_children(heap);
+  bool gc_scan_children(njs::GCHeap &heap) override {
+    bool child_young = false;
+    child_young |= JSObject::gc_scan_children(heap);
     if (object.needs_gc()) [[likely]] {
-      heap.gc_visit_object(object, object.as_GCObject);
+      child_young |= heap.gc_visit_object2(object, object.as_GCObject);
     }
+    return child_young;
+  }
+
+  void gc_mark_children() override {
+    JSObject::gc_mark_children();
+    if (object.needs_gc()) [[likely]] {
+      gc_mark_object(object.as_GCObject);
+    }
+  }
+
+  bool gc_has_young_child(GCObject *oldgen_start) override {
+    if (JSObject::gc_has_young_child(oldgen_start)) return true;
+    return object.needs_gc() && object.as_GCObject < oldgen_start;
   }
 
   JSValue next(NjsVM& vm) {

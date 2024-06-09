@@ -62,7 +62,7 @@ class JSRegExp : public JSObject {
   }
 
   JSRegExp(NjsVM& vm, u16string_view pattern, u16string_view flags_str, int flags)
-    : JSObject(CLS_REGEXP, vm.regexp_prototype),
+    : JSObject(vm, CLS_REGEXP, vm.regexp_prototype),
       pattern_atom(vm.str_to_atom(pattern)),
       pattern(pattern),
       flags(flags)
@@ -74,7 +74,7 @@ class JSRegExp : public JSObject {
   }
 
   JSRegExp(NjsVM& vm, u32 pattern_atom, int flags)
-      : JSObject(CLS_REGEXP, vm.regexp_prototype),
+      : JSObject(vm, CLS_REGEXP, vm.regexp_prototype),
         pattern_atom(pattern_atom),
         pattern(vm.atom_to_str(pattern_atom)),
         flags(flags)

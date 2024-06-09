@@ -113,8 +113,8 @@ friend class JSArrayIterator;
     );
 
     native_error_protos[type].as_object
-        ->add_prop_trivial(AtomPool::k_constructor, JSValue(func));
-    func->add_prop_trivial(AtomPool::k_prototype, error_prototype);
+        ->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(*this, AtomPool::k_prototype, error_prototype);
   }
 
   void setup();

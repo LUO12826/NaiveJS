@@ -27,8 +27,9 @@ class JSArrayIterator : public JSObject {
 
  public:
   JSArrayIterator(NjsVM& vm, JSValue array, JSIteratorKind kind)
-    : JSObject(CLS_ARRAY_ITERATOR, vm.iterator_prototype)
+    : JSObject(vm, CLS_ARRAY_ITERATOR, vm.iterator_prototype)
     , array(array), kind(kind) {
+    WRITE_BARRIER(array);
     add_method(vm, u"next", JSArrayIterator::iter_next);
   }
 
@@ -36,9 +37,19 @@ class JSArrayIterator : public JSObject {
     return u"ArrayIterator";
   }
 
-  void gc_scan_children(njs::GCHeap &heap) override {
-    JSObject::gc_scan_children(heap);
-    heap.gc_visit_object(array, array.as_GCObject);
+  bool gc_scan_children(njs::GCHeap &heap) override {
+    return JSObject::gc_scan_children(heap)
+           | heap.gc_visit_object2(array, array.as_GCObject);
+  }
+
+  void gc_mark_children() override {
+    JSObject::gc_mark_children();
+    gc_mark_object(array.as_GCObject);
+  }
+
+  bool gc_has_young_child(GCObject *oldgen_start) override {
+    return JSObject::gc_has_young_child(oldgen_start)
+           || array.as_GCObject < oldgen_start;
   }
 
   Completion next(NjsVM& vm) {
@@ -59,8 +70,8 @@ class JSArrayIterator : public JSObject {
         JSArray& tmp_arr = *vm.heap.new_object<JSArray>(vm, 2);
 
         JSValue idx_atom = JSAtom(vm.u32_to_atom(index));
-        tmp_arr.dense_array[0] = JSFloat(index);
-        tmp_arr.dense_array[1] = TRYCC(arr.get_property_impl(vm, idx_atom));
+        tmp_arr.set_element_fast(vm, 0, JSFloat(index));
+        tmp_arr.set_element_fast(vm, 1, TRYCC(arr.get_property_impl(vm, idx_atom)));
         value = JSValue(&tmp_arr);
       }
       index += 1;
@@ -69,8 +80,8 @@ class JSArrayIterator : public JSObject {
       done = true;
     }
     JSObject *res = vm.new_object();
-    res->add_prop_trivial(AtomPool::k_done, JSValue(done), PFlag::VECW);
-    res->add_prop_trivial(AtomPool::k_value, value, PFlag::VECW);
+    res->add_prop_trivial(vm, AtomPool::k_done, JSValue(done), PFlag::VECW);
+    res->add_prop_trivial(vm, AtomPool::k_value, value, PFlag::VECW);
 
     return JSValue(res);
   }

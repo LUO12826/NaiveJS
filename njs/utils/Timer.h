@@ -7,22 +7,24 @@
 
 namespace njs {
 
+using namespace std::chrono;
+
 constexpr int s_to_milli = 1000;
 constexpr int milli_to_micro = 1000;
 constexpr int s_to_micro = s_to_milli * milli_to_micro;
 
 class Timer {
 
-using TimePoint = std::chrono::steady_clock::time_point;
+using TimePoint = steady_clock::time_point;
 
  public:
   explicit Timer(std::string name): name(std::move(name)) {
-    start_time = std::chrono::steady_clock::now();
+    start_time = steady_clock::now();
   }
 
-  long long end(bool print_res = true) {
-    auto endTime = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - start_time);
+  int64_t end(bool print_res = true) {
+    auto endTime = steady_clock::now();
+    auto duration = duration_cast<std::chrono::microseconds>(endTime - start_time);
     auto microsec_cnt = duration.count();
 
     if (print_res) {

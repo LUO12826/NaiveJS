@@ -9,7 +9,7 @@ namespace njs {
 class JSNumber : public JSObject {
   public:
   JSNumber(NjsVM& vm, double num) :
-      JSObject(CLS_NUMBER, vm.number_prototype),
+      JSObject(vm, CLS_NUMBER, vm.number_prototype),
       value(num) {}
 
   u16string_view get_class_name() override {

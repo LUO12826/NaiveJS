@@ -151,14 +151,14 @@ class JSStringPrototype : public JSObject {
     auto *arr = vm.heap.new_object<JSArray>(vm, 0);
 
     if (args.size() == 0 || args[0].is_undefined()) [[unlikely]] {
-      arr->push(vm.new_primitive_string(str));
+      arr->push(vm, vm.new_primitive_string(str));
     }
     else {
       auto *pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string;
       vector<u16string_view> split_res = cpp_split(str, pattern->view());
 
       for (auto& substr : split_res) {
-        arr->push(vm.new_primitive_string(substr));
+        arr->push(vm, vm.new_primitive_string(substr));
       }
     }
     return JSValue(arr);

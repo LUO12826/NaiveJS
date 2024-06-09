@@ -170,17 +170,20 @@ class JSObject : public GCObject {
 friend class JSArray;
 friend class JSForInIterator;
 using StorageType = unordered_flat_map<JSObjectKey, JSPropDesc, ObjKeyHasher>;
+
  public:
   JSObject() : obj_class(CLS_OBJECT), _proto_(JSValue::null) {}
   explicit JSObject(ObjClass cls) : obj_class(cls), _proto_(JSValue::null) {}
-  explicit JSObject(ObjClass cls, JSValue proto) : obj_class(cls), _proto_(proto) {}
+  explicit JSObject(NjsVM& vm, ObjClass cls, JSValue proto);
 
   template <typename T>
   T *as() {
     return static_cast<T *>(this);
   }
 
-  void gc_scan_children(GCHeap& heap) override;
+  bool gc_scan_children(GCHeap& heap) override;
+  void gc_mark_children() override;
+  bool gc_has_young_child(GCObject *oldgen_start) override;
   std::string description() override;
 
   virtual std::string to_string(NjsVM& vm) const;
@@ -212,11 +215,12 @@ using StorageType = unordered_flat_map<JSObjectKey, JSPropDesc, ObjKeyHasher>;
     return res != storage.end();
   }
 
-  bool set_proto(JSValue proto);
+  bool set_proto(NjsVM&vm, JSValue proto);
   JSValue get_proto() const { return _proto_; }
 
-  ErrorOr<bool> define_own_property(JSValue key, JSPropDesc& desc);
-  ErrorOr<bool> define_own_property_impl(JSValue key, JSPropDesc *curr_desc, JSPropDesc& desc);
+  ErrorOr<bool> define_own_property(NjsVM& vm, JSValue key, JSPropDesc& desc);
+  ErrorOr<bool> define_own_property_impl(NjsVM& vm, JSValue key,JSPropDesc *curr_desc,
+                                         JSPropDesc& desc);
 
   /*
    * The following methods only accept atom or symbol as the key
@@ -226,8 +230,8 @@ using StorageType = unordered_flat_map<JSObjectKey, JSPropDesc, ObjKeyHasher>;
   ErrorOr<bool> set_prop(NjsVM& vm, u16string_view key_str, JSValue value);
 
   bool add_prop_trivial(NjsVM& vm, u16string_view key_str, JSValue value, PFlag flag = PFlag::VCW);
-  bool add_prop_trivial(u32 key_atom, JSValue value, PFlag flag = PFlag::VCW);
-  bool add_prop_trivial(JSValue key, JSValue value, PFlag flag = PFlag::VCW);
+  bool add_prop_trivial(NjsVM& vm, u32 key_atom, JSValue value, PFlag flag = PFlag::VCW);
+  bool add_prop_trivial(NjsVM& vm, JSValue key, JSValue value, PFlag flag = PFlag::VCW);
 
   bool add_method(NjsVM& vm, u16string_view key_str, NativeFuncType funcImpl, PFlag flag = PFlag::VCW);
   bool add_symbol_method(NjsVM& vm, u32 symbol, NativeFuncType funcImpl, PFlag flag = PFlag::VCW);

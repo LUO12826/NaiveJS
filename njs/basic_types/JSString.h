@@ -11,16 +11,30 @@ namespace njs {
 class JSString : public JSObject {
  public:
   JSString(NjsVM& vm, PrimitiveString *str) :
-      JSObject(CLS_STRING, vm.string_prototype),
-      value(str) {}
+      JSObject(vm, CLS_STRING, vm.string_prototype),
+      value(str) {
+    WRITE_BARRIER(value);
+  }
 
   u16string_view get_class_name() override {
     return u"String";
   }
 
-  void gc_scan_children(njs::GCHeap &heap) override {
-    JSObject::gc_scan_children(heap);
-    heap.gc_visit_object(value, value.as_GCObject);
+  bool gc_scan_children(njs::GCHeap &heap) override {
+    bool child_young = false;
+    child_young |= JSObject::gc_scan_children(heap);
+    child_young |= heap.gc_visit_object2(value, value.as_GCObject);
+    return child_young;
+  }
+
+  void gc_mark_children() override {
+    JSObject::gc_mark_children();
+    value.as_GCObject->set_visited();
+  }
+
+  bool gc_has_young_child(GCObject *oldgen_start) override {
+    return JSObject::gc_has_young_child(oldgen_start)
+           || (value.as_GCObject < oldgen_start);
   }
 
   Completion get_property_impl(NjsVM &vm, JSValue key) override {

@@ -3,6 +3,8 @@
 
 #include <utility>
 #include <vector>
+#include <deque>
+#include <array>
 #include <iostream>
 #include <thread>
 #include <atomic>
@@ -16,15 +18,19 @@ namespace njs {
 
 using std::string_view;
 using std::vector;
+using std::array;
+using std::deque;
+using u32 = uint32_t;
+
 class NjsVM;
 struct JSValue;
 struct PrimitiveString;
 
 struct GCStats {
-  long long gc_count {0};
-  long long total_time {0};
-  long long copy_time {0};
-  long long dealloc_time {0};
+  size_t gc_count {0};
+  size_t total_time {0};
+  size_t copy_time {0};
+  size_t dealloc_time {0};
 
   void print() {
     std::cout << "GC trigger count: " << gc_count << "\n";
@@ -37,47 +43,20 @@ struct GCStats {
 class GCHeap {
 
 using byte = int8_t;
+constexpr static int AGE_MAX = 3;
 
  public:
-  GCHeap(size_t size_mb, NjsVM& vm)
-      : heap_size(size_mb * 1024 * 1024),
-        low_mem_threshold(0.95 * heap_size / 2),
-        storage((byte *)malloc(size_mb * 1024 * 1024)),
-        from_start(storage),
-        to_start(storage + heap_size / 2),
-        alloc_point(storage),
-        vm(vm),
-        gc_thread(&GCHeap::gc_task, this) {
-
-    if (Global::show_gc_statistics) {
-      std::cout << "GCHeap init, from_start == " << (size_t)from_start << '\n';
-    }
-  }
-
-  ~GCHeap() {
-    gc_running.wait(true);
-    {
-      std::lock_guard<std::mutex> lock(cond_mutex);
-      stop = true;
-    }
-    gc_cond_var.notify_one();
-    gc_thread.join();
-
-    dealloc_dead(from_start, alloc_point);
-
-    free(storage);
-  }
+  GCHeap(size_t size_mb, NjsVM& vm);
+  ~GCHeap();
 
   /// @brief Create a new object on heap.
   template <typename T, typename... Args>
-  T *new_object(Args &&...args) {
+  T* new_object(Args &&...args) {
     // allocate memory
-    void *ptr = allocate(sizeof(T));
+    GCObject *meta = newgen_alloc(sizeof(T));
     // initialize
-    T *object = new (ptr) T(std::forward<Args>(args)...);
-    // set the metadata
-    auto *metadata = reinterpret_cast<GCObject *>(ptr);
-    metadata->size = sizeof(T);
+    T *object = new (meta) T(std::forward<Args>(args)...);
+
     object_cnt += 1;
     return object;
   }
@@ -86,48 +65,68 @@ using byte = int8_t;
   PrimitiveString* new_prim_string(size_t length);
 
   void gc();
+  void major_gc();
   void gc_if_needed();
-  size_t get_heap_usage() {
-    return alloc_point - from_start;
-  }
-  size_t get_object_count() {
-    return object_cnt;
-  }
 
   // When garbage collection is performed, this method is called to copy an object
   // to a new memory area and have the pointer in JSValue, which is the handle,
   // point to the new address. The `copy_object` method copies the child object recursively.
   // This method will be called not only in this class, but also in the `gc_scan_children` method
   // of the GCObject subclasses.
-  void gc_visit_object(JSValue &handle, GCObject *obj);
+  bool gc_visit_object2(JSValue &handle, GCObject *obj);
+
+  void write_barrier(GCObject *obj, JSValue& field);
+  bool object_in_newgen(GCObject *obj) {
+    return obj < reinterpret_cast<GCObject *>(oldgen_start);
+  }
+
+  size_t get_heap_usage() { return alloc_point - newgen_start; }
+  size_t get_object_count() { return object_cnt; }
 
   GCStats stats;
  private:
   static void gc_message(string_view msg);
+
+  void gather_roots();
   PrimitiveString* new_prim_string_impl(size_t length);
-  vector<JSValue *> gather_roots();
-
-  void gc_task();
-  void copy_alive();
-  void dealloc_dead(byte *start, byte *end);
-  void check_fwd_pointer();
-
-  // Copy a single object. Recursively copy its child objects.
-  GCObject *copy_object(GCObject *obj);
 
   // Allocate memory for a new object.
-  void *allocate(size_t size_byte);
+  GCObject* newgen_alloc(size_t size_byte);
+  // Copy a single object. Recursively copy its child objects.
+  GCObject* copy_object(GCObject *obj);
+
+  void minor_gc_task();
+  GCObject* promote(GCObject *obj);
+  void newgen_copy_alive();
+  void newgen_dealloc_dead(byte *start, byte *end);
+
+  GCObject* oldgen_alloc(size_t size);
+  void mark_phase();
+  void sweep_phase();
+
+  void check_fwd_pointer();
+
+  NjsVM& vm;
+  vector<JSValue *> roots;
 
   size_t heap_size;
   size_t low_mem_threshold;
   // heap data
   byte *storage;
-  // The start address of the first part
-  byte *from_start;
-  // The start address of the second part
-  byte *to_start;
+
+  byte *newgen_start;
+  byte *survivor1_start;
+  byte *survivor2_start;
+  byte *oldgen_start;
+  byte *oldgen_end;
+
   // Starting address of the next new object
   byte *alloc_point;
+  byte *oldgen_alloc_point;
+  byte *survivor_alloc_point;
+
+  byte *survivor_from_start;
+  byte *survivor_to_start;
 
   size_t object_cnt {0};
   size_t last_gc_object_cnt {0};
@@ -136,11 +135,6 @@ using byte = int8_t;
   size_t gc_threshold {15000};
 
   bool gc_requested {false};
-
-  NjsVM& vm;
-
-  std::thread gc_thread;
-
   std::atomic<bool> gc_running {false};
   bool gc_start {false};
   bool copy_done {false};
@@ -149,6 +143,11 @@ using byte = int8_t;
   std::condition_variable gc_cond_var;
   std::mutex cond_mutex;
 
+  array<deque<GCObject *>, 8> free_list;
+  vector<GCObject *> record_set;
+
+  // must put this at the very end to make sure every thing is initialized.
+  std::thread gc_thread;
 };
 
 } // namespace njs
