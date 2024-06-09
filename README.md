@@ -6,11 +6,20 @@ NaiveJS is a personal experimental JavaScript engine. My primary goal is to lear
 
 NaiveJS can now run the Typescript 2.0.10 transpiler ([test_typescript_2.0.10.js](/test_files/test_typescript_2.0.10.js)) ! Although it is still not a rigorous ES5 implementation, it at least produces the same results as QuickJS produces in my tests. 
 
-Running time comparison of running the Typescript transpiler (input is the same piece of Typescript code):
+Running time comparison of running the Typescript 1 transpiler (input is the same piece of Typescript code):
+
+- Node.js v18.15.0 : 0.48 s
+- QuickJS : 1.93 s
+- NaiveJS : 2.21 s
+
+
+Running time comparison of running the Typescript 2 transpiler:
 
 - Node.js v18.15.0 : 0.52 s
-- QuickJS (CMake "Release" build) : 2.73 s
-- NaiveJS (CMake "Release" build) : 5.17 s
+- QuickJS : 2.73 s
+- NaiveJS : 5.17 s
+
+This test involves a lot of string concatenation, generating a huge number of temporary strings. This slows down NaiveJS significantly, but QuickJS is still fast.
 
 This comparison is just for fun. If NaiveJS were implemented strictly according to the ECMA specification, it would be expected to run even slower.
 
