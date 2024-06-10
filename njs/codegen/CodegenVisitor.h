@@ -393,7 +393,8 @@ class CodegenVisitor {
     }
   }
 
-  void gen_func_bytecode(Function& func, SmallVector<Instruction, 10>& init_code) {
+  // return the meta index of this function
+  void gen_func_bytecode(Function& func) {
 
     ProgramOrFunctionBody *body = func.body->as_func_body();
     u32 func_start_pos = bytecode_pos();
@@ -425,7 +426,6 @@ class CodegenVisitor {
         .prepare_arguments_array = prepare_arguments,
         .param_count = (u16)scope().get_param_count(),
         .local_var_count = (u16)scope().get_var_count(),
-        .capture_count = (u16)scope().capture_list.size(),
         .stack_size = u16(scope().get_max_stack_size() + 1), // 1 more slot for error, maybe ?
         .bytecode_start = func_start_pos,
         .bytecode_end = bytecode_pos(),
@@ -433,17 +433,13 @@ class CodegenVisitor {
         .catch_table = std::move(scope().catch_table)
     };
 
-    u32 func_idx = add_function_meta(meta);
-
-    // let the VM make a function
-    init_code.emplace_back(OpType::make_func, func_idx);
-
     // capture closure variables
     // Only after visiting the body do we know which variables are captured
     for (auto symbol : scope().capture_list) {
-      init_code.emplace_back(OpType::capture, scope_type_int(symbol.storage_scope),
-                             symbol.get_index());
+      meta->capture_list.emplace_back(symbol.storage_scope, symbol.get_index());
     }
+
+    func.meta_index = add_function_meta(meta);
     pop_scope();
   }
 
@@ -460,10 +456,7 @@ class CodegenVisitor {
   }
 
   void visit_function(Function& func) {
-    auto& init_code = scope().inner_func_init_code[&func];
-    for (auto& inst : init_code) {
-      emit(inst);
-    }
+    emit(OpType::make_func, (int)func.meta_index);
   }
 
   void visit_unary_expr(UnaryExpr& expr, bool need_value = true) {
@@ -1594,13 +1587,13 @@ class CodegenVisitor {
   }
 
   void codegen_inner_function(const vector<Function *>& stmts) {
-    if (scope().inner_func_init_code.empty()) return;
+    if (scope().inner_func_order.empty()) return;
 
     u32 jmp_inst_idx = emit(OpType::jmp);
 
     // generate bytecode for functions first, then record its function meta index in the map.
     for (Function *func : scope().inner_func_order) {
-      gen_func_bytecode(*func, scope().inner_func_init_code[func]);
+      gen_func_bytecode(*func);
     }
     // skip function bytecode
     bytecode[jmp_inst_idx].operand.two[0] = bytecode_pos();

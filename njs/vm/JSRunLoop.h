@@ -45,9 +45,7 @@ class JSRunLoop {
 
   BS::thread_pool& get_thread_pool() { return thread_pool; }
 
-  std::vector<JSValue *> gc_gather_roots() {
-    std::vector<JSValue *> roots;
-
+  void gc_gather_roots(std::vector<JSValue *> roots) {
     for (auto& [task_id, task] : task_pool) {
       roots.push_back(&task.task_func);
 
@@ -57,8 +55,6 @@ class JSRunLoop {
         }
       }
     }
-
-    return roots;
   }
 
  private:

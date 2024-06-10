@@ -12,7 +12,7 @@
 #include "njs/common/common_def.h"
 #include "njs/include/robin_hood.h"
 #include "njs/vm/Instruction.h"
-#include "njs/codegen/CatchTableEntry.h"
+#include "njs/codegen/CatchEntry.h"
 
 namespace njs {
 
@@ -153,7 +153,6 @@ class Scope {
 
   void register_function(Function *func) {
     inner_func_order.push_back(func);
-    inner_func_init_code.emplace(func, SmallVector<Instruction, 10>());
   }
 
   unordered_map<u16string_view, SymbolRecord>& get_symbol_table() {
@@ -341,7 +340,7 @@ class Scope {
   SmallVector<u32, 3> break_list;
   SmallVector<u32, 3> continue_list;
   SmallVector<u32, 3> throw_list;
-  vector<CatchTableEntry> catch_table;
+  SmallVector<CatchEntry, 3> catch_table;
   // for try-catch-finally
   SmallVector<u32, 3> call_procedure_list;
   // only function or global has this
@@ -349,7 +348,6 @@ class Scope {
 
   // for function scope
   SmallVector<SymbolResolveResult, 5> capture_list;
-  unordered_map<Function*, SmallVector<Instruction, 10>> inner_func_init_code;
   SmallVector<Function*, 3> inner_func_order;
 };
 

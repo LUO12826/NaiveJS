@@ -32,6 +32,12 @@ class JSFunction : public JSObject {
 
   u16string_view name;
   JSFunctionMeta *meta {nullptr};
+  // copy from meta
+  bool prepare_arguments_array {false};
+  u16 param_count;
+  u16 local_var_count;
+  u16 stack_size;
+  u32 bytecode_start;
 
   bool has_this_binding {false};
   JSValue this_binding;

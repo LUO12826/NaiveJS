@@ -9,7 +9,7 @@ namespace njs {
 
 using u32 = uint32_t;
 
-struct CatchTableEntry {
+struct CatchEntry {
   u32 start_pos;
   u32 end_pos;
   u32 goto_pos;
@@ -17,7 +17,7 @@ struct CatchTableEntry {
   u32 local_var_begin;
   u32 local_var_end;
 
-  CatchTableEntry(u32 start, u32 end, u32 goto_pos)
+  CatchEntry(u32 start, u32 end, u32 goto_pos)
     : start_pos(start), end_pos(end), goto_pos(goto_pos) {}
 
   bool range_include(u32 pos) const {

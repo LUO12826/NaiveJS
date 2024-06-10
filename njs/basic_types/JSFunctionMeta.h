@@ -6,8 +6,9 @@
 #include "njs/vm/Completion.h"
 #include "njs/include/SmallVector.h"
 #include "njs/common/ArrayRef.h"
+#include "njs/common/enums.h"
 #include "njs/common/common_def.h"
-#include "njs/codegen/CatchTableEntry.h"
+#include "njs/codegen/CatchEntry.h"
 
 namespace njs {
 
@@ -24,6 +25,14 @@ class JSFunction;
 // accepting an array of arguments and returning a value.
 using NativeFuncType = Completion(*)(NjsVM&, JSValueRef, JSValueRef, ArrayRef<JSValue>, CallFlags);
 
+struct CaptureEntry {
+  ScopeType scope_type;
+  uint16_t index;
+
+  CaptureEntry(ScopeType scope_type, uint16_t index)
+      : scope_type(scope_type), index(index) {}
+};
+
 struct JSFunctionMeta {
 
   u32 name_index;
@@ -35,14 +44,13 @@ struct JSFunctionMeta {
 
   u16 param_count;
   u16 local_var_count;
-  u16 capture_count;
   u16 stack_size;
   u32 bytecode_start;
   u32 bytecode_end;
-
   u32 source_line;
 
-  vector<CatchTableEntry> catch_table;
+  SmallVector<CaptureEntry, 5> capture_list;
+  SmallVector<CatchEntry, 3> catch_table;
 
   NativeFuncType native_func {nullptr};
   int magic;

@@ -3,11 +3,12 @@
 
 #include <string>
 #include <cassert>
+#include <cstdint>
 
 namespace njs {
 
 // has corresponding string representation, note to modify when adding
-enum class VarKind {
+enum class VarKind: uint8_t {
   FUNCTION,
   VAR,
   LET,
@@ -16,7 +17,7 @@ enum class VarKind {
 };
 
 // has corresponding string representation, note to modify when adding
-enum class ScopeType {
+enum class ScopeType: uint8_t {
   GLOBAL = 0,
   FUNC,
   // `FUNC_PARAM` scope does not really exist. I made this enum value because, in my VM implementation,
@@ -28,7 +29,7 @@ enum class ScopeType {
   CLOSURE
 };
 
-enum class BlockType {
+enum class BlockType: uint8_t {
   NOT_BLOCK,
   PLAIN,
   IF_THEN,

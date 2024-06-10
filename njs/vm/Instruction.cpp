@@ -202,9 +202,6 @@ std::string Instruction::description() const {
     case OpType::make_func:
       sprintf(buffer, "make_func  %d", OPR1);
       break;
-    case OpType::capture:
-      sprintf(buffer, "capture %s %d", scope_type_names_alt[OPR1], OPR2);
-      break;
     case OpType::make_obj:
       sprintf(buffer, "make_obj");
       break;
@@ -408,7 +405,6 @@ static int op_stack_usage[] = {
     -1, // jmp_cond_pop
 
     1,  // make_func
-    0,  // capture
     1,  // make_obj
     1,  // make_array
     0,  // add_props

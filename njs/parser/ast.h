@@ -530,6 +530,9 @@ class Function : public ASTNode {
   Token name;
   vector<u16string_view> params;
   ASTNode *body;
+  // After generating code for this function, it gets an index
+  // for retrieving the metadata structure
+  u32 meta_index;
 
   bool is_stmt {false};
   bool is_arrow_func {false};

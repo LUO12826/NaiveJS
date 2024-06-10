@@ -10,6 +10,11 @@ JSFunction::JSFunction(NjsVM& vm, u16string_view name, JSFunctionMeta *meta)
     : JSObject(vm, CLS_FUNCTION, vm.function_prototype)
     , name(name)
     , meta(meta)
+    , prepare_arguments_array(meta->prepare_arguments_array)
+    , param_count(meta->param_count)
+    , local_var_count(meta->local_var_count)
+    , stack_size(meta->stack_size)
+    , bytecode_start(meta->bytecode_start)
     , native_func(meta->native_func) {}
 
 JSFunction::JSFunction(NjsVM& vm, JSFunctionMeta *meta)

@@ -158,7 +158,7 @@ JSFunction* NjsVM::new_function(JSFunctionMeta *meta) {
   } else {
     func = heap.new_object<JSFunction>(*this, atom_to_str(meta->name_index), meta);
   }
-  func->captured_var.reserve(meta->capture_count);
+  func->captured_var.reserve(meta->capture_list.size());
   return func;
 }
 
@@ -254,19 +254,19 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
 #define Case(opc)    case_op_ ## opc
 #define Default     case_default
-#define Break {                                                                           \
-  if (Global::show_vm_exec_steps) [[unlikely]] show_step(inst);                           \
-  inst = bytecode[(pc)++];                                                                \
-  int op_index = static_cast<int>(inst.op_type);                                          \
-  inst_counter[op_index] += 1;                                                            \
-  goto *dispatch_table[op_index];                                                         \
-}
-
 //#define Break {                                                                           \
+//  if (Global::show_vm_exec_steps) [[unlikely]] show_step(inst);                           \
 //  inst = bytecode[(pc)++];                                                                \
 //  int op_index = static_cast<int>(inst.op_type);                                          \
+//  inst_counter[op_index] += 1;                                                            \
 //  goto *dispatch_table[op_index];                                                         \
 //}
+
+#define Break {                                                                           \
+  inst = bytecode[(pc)++];                                                                \
+  int op_index = static_cast<int>(inst.op_type);                                          \
+  goto *dispatch_table[op_index];                                                         \
+}
   
 #define this_func (callee.as_func)
 #define get_scope (scope_type_from_int(inst.operand.two[0]))
@@ -285,12 +285,13 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   frame.function = callee;
   curr_frame = &frame;
 
-  auto& meta = *callee.as_func->meta;
-  bool copy_argv = (argv.size() < meta.param_count) | flags.copy_args;
+//  auto& meta = *callee.as_func->meta;
+  bool copy_argv = (argv.size() < this_func->param_count) | flags.copy_args;
 
-  size_t actual_arg_cnt = std::max(argv.size(), (size_t)meta.param_count);
+  size_t actual_arg_cnt = std::max(argv.size(), (size_t)this_func->param_count);
   size_t args_buf_cnt = unlikely(copy_argv) ? actual_arg_cnt : 0;
-  size_t alloc_cnt = args_buf_cnt + frame_meta_size + meta.local_var_count + meta.stack_size;
+  size_t alloc_cnt = args_buf_cnt + frame_meta_size
+                     + this_func->local_var_count + this_func->stack_size;
 
   JSValue *buffer = (JSValue *)alloca(sizeof(JSValue) * alloc_cnt);
   JSValue *args_buf = unlikely(copy_argv) ? buffer : argv.data();
@@ -306,7 +307,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
     set_referenced(*val);
   }
 
-  if (meta.is_native) {
+  if (this_func->native_func != nullptr) {
     ArgRef args_ref(args_buf, actual_arg_cnt);
     bool has_new_target = new_target.is_object();
     flags.this_is_new_target = has_new_target;
@@ -318,18 +319,18 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   }
 
   JSValue *local_vars = buffer + args_buf_cnt;
-  JSValue *stack = local_vars + meta.local_var_count + frame_meta_size;
+  JSValue *stack = local_vars + this_func->local_var_count + frame_meta_size;
   // Initialize local variables and operation stack to undefined
   for (JSValue *val = local_vars; val < stack; val++) {
     val->set_undefined();
   }
 
-  if (meta.prepare_arguments_array) [[unlikely]] {
+  if (this_func->prepare_arguments_array) [[unlikely]] {
     local_vars[0] = prepare_arguments_array(argv);
   }
 
   JSValue *sp = stack - 1;
-  u32 pc = meta.bytecode_start;
+  u32 pc = this_func->bytecode_start;
 
   frame.alloc_cnt = alloc_cnt;
   frame.buffer = buffer;
@@ -764,37 +765,33 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       Case(js_new):
         exec_js_new(sp, opr1);
         Break;
-      Case(make_func):
+      Case(make_func): {
         exec_make_func(sp, opr1, This);
-        Break;
-      Case(capture): {
-        assert(sp[0].is(JSValue::FUNCTION));
-
-        auto var_scope = scope_type_from_int(opr1);
-        int index = opr2;
-
-        if (var_scope == ScopeType::CLOSURE) [[unlikely]] {
-          JSValue& closure_val = this_func->captured_var[index];
-          VM_WRITE_BARRIER(sp[0].as_func, closure_val);
-          sp[0].as_func->captured_var.push_back(closure_val);
-        }
-        else {
-          JSValue* stack_val;
-          if (var_scope == ScopeType::FUNC) {
-            stack_val = local_vars + index;
-          } else if (var_scope == ScopeType::FUNC_PARAM) {
-            stack_val = args_buf + index;
-          } else if (var_scope == ScopeType::GLOBAL) {
-            stack_val = &global_frame->local_vars[index];
-          } else {
-            __builtin_unreachable();
+        // capture
+        for (auto& [var_scope, index] : sp[0].as_func->meta->capture_list) {
+          if (var_scope == ScopeType::CLOSURE) [[unlikely]] {
+            JSValue& closure_val = this_func->captured_var[index];
+            VM_WRITE_BARRIER(sp[0].as_func, closure_val);
+            sp[0].as_func->captured_var.push_back(closure_val);
           }
+          else {
+            JSValue* stack_val;
+            if (var_scope == ScopeType::FUNC) {
+              stack_val = local_vars + index;
+            } else if (var_scope == ScopeType::FUNC_PARAM) {
+              stack_val = args_buf + index;
+            } else if (var_scope == ScopeType::GLOBAL) {
+              stack_val = &global_frame->local_vars[index];
+            } else {
+              __builtin_unreachable();
+            }
 
-          if (stack_val->tag != JSValue::HEAP_VAL) {
-            stack_val->move_to_heap(*this);
+            if (stack_val->tag != JSValue::HEAP_VAL) {
+              stack_val->move_to_heap(*this);
+            }
+            VM_WRITE_BARRIER(sp[0].as_func, *stack_val);
+            sp[0].as_func->captured_var.push_back(*stack_val);
           }
-          VM_WRITE_BARRIER(sp[0].as_func, *stack_val);
-          sp[0].as_func->captured_var.push_back(*stack_val);
         }
         Break;
       }
@@ -1734,7 +1731,7 @@ void NjsVM::error_handle(SPRef sp) {
     return;
   }
 
-  CatchTableEntry *catch_entry = nullptr;
+  CatchEntry *catch_entry = nullptr;
   for (auto& entry : catch_table) {
     // 1.1 an error happens, and is caught by a `catch` statement
     if (entry.range_include(err_throw_pc)) {

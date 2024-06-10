@@ -84,7 +84,6 @@ DEF(jmp_false_pop)
 DEF(jmp_cond_pop)
 
 DEF(make_func)
-DEF(capture)
 DEF(make_obj)
 DEF(make_array)
 DEF(add_props)

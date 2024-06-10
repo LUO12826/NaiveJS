@@ -171,6 +171,7 @@ void GCHeap::minor_gc_task() {
     stats.dealloc_time += timer_dealloc.end(Global::show_gc_statistics);
 
     gc_message("GC dealloc done");
+    roots.clear();
     gc_running = false;
     gc_running.notify_one();
 
@@ -207,7 +208,6 @@ bool GCHeap::gc_visit_object(JSValue& handle) {
 }
 
 void GCHeap::gather_roots() {
-  roots.clear();
   if (const_roots.empty()) [[unlikely]] {
     const_roots.push_back(&vm.global_object);
     const_roots.push_back(&vm.global_func);
@@ -255,8 +255,7 @@ void GCHeap::gather_roots() {
     }
   }
 
-  auto task_roots = vm.runloop.gc_gather_roots();
-  roots.insert(roots.end(), task_roots.begin(), task_roots.end());
+  vm.runloop.gc_gather_roots(roots);
 }
 
 void GCHeap::newgen_copy_alive() {
