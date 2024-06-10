@@ -102,6 +102,7 @@ void GCHeap::gc() {
 void GCHeap::write_barrier(GCObject *obj, JSValue& field) {
   if (not field.needs_gc()) return;
   GCObject *member = field.as_GCObject;
+  member->ref_count_inc();
 
   if (obj >= reinterpret_cast<GCObject *>(oldgen_start)
       && member < reinterpret_cast<GCObject *>(oldgen_start)
@@ -479,11 +480,12 @@ PrimitiveString* GCHeap::new_prim_string(size_t length) {
 
 PrimitiveString* GCHeap::new_prim_string_impl(size_t length) {
   assert(length < UINT32_MAX);
-  size_t payload_size = sizeof(PrimitiveString) + (length + 1) * CHAR_SIZE;
-  size_t alloc_size = next_multiple_of_8(payload_size);
-  
+  size_t capacity = 1.25 * (length + 1);
+  size_t payload_size = capacity * CHAR_SIZE;
+  size_t alloc_size = sizeof(PrimitiveString) + next_multiple_of_8(payload_size);
+
   GCObject *ptr = newgen_alloc(alloc_size);
-  auto *prim_str = new (ptr) PrimitiveString(length + 1);
+  auto *prim_str = new (ptr) PrimitiveString(capacity);
   stats.newgen_object_cnt += 1;
   return prim_str;
 }
@@ -506,6 +508,7 @@ GCObject* GCHeap::newgen_alloc(size_t size_byte) {
   auto *obj = reinterpret_cast<GCObject *>(alloc_point);
   obj->size = size_byte;
   obj->gc_age = 0;
+  obj->ref_count = 0;
   alloc_point += size_byte;
   return obj;
 }

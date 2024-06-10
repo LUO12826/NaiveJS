@@ -100,7 +100,7 @@ bool JSObject::set_proto(NjsVM& vm, JSValue proto) {
     p = p->get_proto().as_object_or_null();
   }
   WRITE_BARRIER(proto);
-  set_referenced(proto);
+//  set_referenced(proto);
   _proto_ = proto;
   return true;
 }
@@ -226,7 +226,7 @@ ErrorOr<bool> JSObject::define_own_property_impl(NjsVM& vm, JSValue key, JSPropD
 }
 
 ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
-  set_referenced(value);
+//  set_referenced(value);
   value.flag_bits = 0;
   assert(key.is_atom() || key.is_symbol());
   // 1.
@@ -287,7 +287,7 @@ bool JSObject::add_prop_trivial(NjsVM& vm, u32 key_atom, JSValue value, PFlag fl
 }
 
 bool JSObject::add_prop_trivial(NjsVM& vm, JSValue key, JSValue value, PFlag flag) {
-  set_referenced(value);
+//  set_referenced(value);
   WRITE_BARRIER(value);
   JSPropDesc& prop = storage[JSObjectKey(key)];
   prop.flag = flag;

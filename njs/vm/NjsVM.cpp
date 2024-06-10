@@ -197,8 +197,10 @@ void NjsVM::run() {
 
     std::cout << "String alloc count: " << PrimitiveString::alloc_count << '\n';
     std::cout << "String concat count: " << PrimitiveString::concat_count << '\n';
-    std::cout << "fast concat count: " << PrimitiveString::fast_concat_count << '\n';
+    std::cout << "String fast concat count: " << PrimitiveString::fast_concat_count << '\n';
     std::cout << "After concat length total: " << PrimitiveString::concat_length << '\n';
+    std::cout << "String append count: " << PrimitiveString::append_count << '\n';
+    std::cout << "String fast append count: " << PrimitiveString::fast_append_count << '\n';
 
     std::cout << "string atomize count: " << atom_pool.stats.atomize_str_count << '\n';
     std::cout << "string static atomize count: " << atom_pool.stats.static_atomize_str_count << '\n';
@@ -252,19 +254,19 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
 #define Case(opc)    case_op_ ## opc
 #define Default     case_default
-//#define Break {                                                                           \
-//  if (Global::show_vm_exec_steps) [[unlikely]] show_step(inst);                           \
-//  inst = bytecode[(pc)++];                                                                \
-//  int op_index = static_cast<int>(inst.op_type);                                          \
-//  inst_counter[op_index] += 1;                                                            \
-//  goto *dispatch_table[op_index];                                                         \
-//}
-
 #define Break {                                                                           \
+  if (Global::show_vm_exec_steps) [[unlikely]] show_step(inst);                           \
   inst = bytecode[(pc)++];                                                                \
   int op_index = static_cast<int>(inst.op_type);                                          \
+  inst_counter[op_index] += 1;                                                            \
   goto *dispatch_table[op_index];                                                         \
 }
+
+//#define Break {                                                                           \
+//  inst = bytecode[(pc)++];                                                                \
+//  int op_index = static_cast<int>(inst.op_type);                                          \
+//  goto *dispatch_table[op_index];                                                         \
+//}
   
 #define this_func (callee.as_func)
 #define get_scope (scope_type_from_int(inst.operand.two[0]))
@@ -298,6 +300,10 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
     for (JSValue *val = args_buf + argv.size(); val < args_buf + args_buf_cnt; val++) {
       val->set_undefined();
     }
+  }
+
+  for (JSValue *val = args_buf; val < args_buf + argv.size(); val++) {
+    set_referenced(*val);
   }
 
   if (meta.is_native) {
@@ -426,6 +432,27 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       Case(add_assign_keep):
         exec_add_assign(sp, get_value(get_scope, opr2), inst.op_type == OpType::add_assign_keep);
         Break;
+      Case(add_to_left): {
+        sp -= 1;
+        JSValue& l = sp[0];
+        JSValue& r = sp[1];
+        if (l.is_float64() && r.is_float64()) {
+          l.as_f64 += r.as_f64;
+        } else if (l.is_prim_string() && r.is_prim_string()) {
+          PrimitiveString *res;
+          if (l.as_GCObject->get_ref_count() <= 1) {
+            // use append mode
+            res = l.as_prim_string->append(heap, r.as_prim_string);
+          } else {
+            res = l.as_prim_string->concat(heap, r.as_prim_string);
+          }
+          l.set_val(res);
+        } else {
+          bool succeeded;
+          exec_add_common(sp, l, l, r, succeeded);
+        }
+        Break;
+      }
       Case(logi_and):
         sp -= 1;
         if (sp[0].bool_value()) {
@@ -1204,24 +1231,6 @@ void NjsVM::exec_add_common(SPRef sp, JSValue& dest, JSValue& l, JSValue& r, boo
   succeeded = true;
 }
 
-void NjsVM::exec_add(SPRef sp) {
-  sp -= 1;
-  JSValue& l = sp[0];
-  JSValue& r = sp[1];
-
-  if (l.is_float64() && r.is_float64()) {
-    l.as_f64 += r.as_f64;
-  }
-  else if (l.is_prim_string() && r.is_prim_string()) {
-    auto *res = l.as_prim_string->concat(heap, r.as_prim_string);
-    l.set_val(res);
-  }
-  else {
-    bool succeeded;
-    exec_add_common(sp, l, l, r, succeeded);
-  }
-}
-
 void NjsVM::exec_add_assign(SPRef sp, JSValue& target, bool keep_value) {
   sp -= 1;
   JSValue& r = sp[1];
@@ -1229,7 +1238,13 @@ void NjsVM::exec_add_assign(SPRef sp, JSValue& target, bool keep_value) {
   if (target.is_float64() && r.is_float64()) {
     target.as_f64 += r.as_f64;
   } else if (target.is_prim_string() && r.is_prim_string()) {
-    auto *res = target.as_prim_string->concat(heap, r.as_prim_string);
+    PrimitiveString *res;
+    if (target.as_GCObject->get_ref_count() <= 1) {
+      // use append mode
+      res = target.as_prim_string->append(heap, r.as_prim_string);
+    } else {
+      res = target.as_prim_string->concat(heap, r.as_prim_string);
+    }
     target.set_val(res);
   } else {
     bool succeeded;

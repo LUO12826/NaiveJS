@@ -18,8 +18,8 @@ using u32 = uint32_t;
 #endif
 
 #define object_class(x) ((x).as_object->get_class())
-//#define set_referenced(x) if (x.needs_gc()) { x.as_GCObject->referenced = true; }
-#define set_referenced(x)
+#define set_referenced(x) if ((x).needs_gc()) { (x).as_GCObject->ref_count_inc(); }
+//#define set_referenced(x)
 #define WRITE_BARRIER(x) vm.heap.write_barrier(this, x);
 
 /// try something that produces `ErrorOr<>`, return `CompThrow` if get an error.

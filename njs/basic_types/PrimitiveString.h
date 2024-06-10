@@ -17,9 +17,11 @@ struct PrimitiveString: public GCObject {
 friend class GCHeap;
 
   static inline uint64_t concat_count {0};
+  static inline uint64_t append_count {0};
+  static inline uint64_t fast_concat_count {0};
+  static inline uint64_t fast_append_count {0};
   static inline uint64_t alloc_count {0};
   static inline uint64_t concat_length {0};
-  static inline uint64_t fast_concat_count {0};
 
   static constexpr u32 npos = UINT32_MAX;
 
@@ -53,15 +55,50 @@ friend class GCHeap;
   }
 
   PrimitiveString* concat(GCHeap& heap, const char16_t* str, u32 length) {
-    u16string_view this_str = view();
     u32 new_length = len + length;
     assert(new_length < UINT32_MAX);
 
     concat_count += 1;
     concat_length += new_length;
 
-    PrimitiveString *new_str = heap.new_prim_string(new_length);
-    std::memcpy(new_str->storage, this_str.data(), len * CHAR_SIZE);
+    // This optimization doesn't look very effective
+    PrimitiveString *new_str;
+    if (get_ref_count() == 0 && new_length < cap) {
+      fast_concat_count += 1;
+      new_str = this;
+    } else {
+      new_str = heap.new_prim_string(new_length);
+      std::memcpy(new_str->storage, view().data(), len * CHAR_SIZE);
+    }
+
+//    PrimitiveString *new_str = heap.new_prim_string(new_length);
+//    std::memcpy(new_str->storage, this_str.data(), len * CHAR_SIZE);
+    std::memcpy(new_str->storage + len, str, length * CHAR_SIZE);
+
+    new_str->storage[new_length] = 0;
+    new_str->len = new_length;
+    return new_str;
+  }
+
+  PrimitiveString* append(GCHeap& heap, PrimitiveString *str) {
+    return append(heap, str->data(), str->length());
+  }
+
+  PrimitiveString* append(GCHeap& heap, const char16_t* str, u32 length) {
+    u32 new_length = len + length;
+    assert(new_length < UINT32_MAX);
+    assert(get_ref_count() <= 1);
+    append_count += 1;
+
+    PrimitiveString *new_str;
+    if (new_length < cap) {
+      fast_append_count += 1;
+      new_str = this;
+    } else {
+      new_str = heap.new_prim_string(new_length);
+      std::memcpy(new_str->storage, view().data(), len * CHAR_SIZE);
+    }
+
     std::memcpy(new_str->storage + len, str, length * CHAR_SIZE);
 
     new_str->storage[new_length] = 0;

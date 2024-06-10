@@ -40,6 +40,7 @@ DEF(dec)
 
 DEF(add_assign)
 DEF(add_assign_keep)
+DEF(add_to_left)
 
 DEF(push_local)
 DEF(push_local_check)

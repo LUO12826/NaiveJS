@@ -250,31 +250,35 @@ class JSArrayPrototype : public JSObject {
     assert(This.is(JSValue::ARRAY));
     auto *array = This.as_array;
     auto *res = vm.heap.new_object<JSArray>(vm, 0);
-    // no need to consider barrier
-    if (vm.heap.object_in_newgen(res)) {
-      // copy `this` array to the result
-      auto& res_dense = res->get_dense_array();
-      res_dense = array->get_dense_array();
 
-      if (args.size() > 0) [[likely]] {
-        for (int i = 0; i < args.size(); i++) {
-          JSValue arg = args[i];
-          if (arg.is(JSValue::ARRAY)) [[likely]] {
-            auto& arg_arr = arg.as_array->get_dense_array();
-            res_dense.insert(res_dense.end(), arg_arr.begin(), arg_arr.end());
-          } else {
-            res_dense.push_back(arg);
-          }
+    // copy `this` array to the result
+    auto& res_dense = res->get_dense_array();
+    res_dense = array->get_dense_array();
+
+    if (args.size() > 0) [[likely]] {
+      for (int i = 0; i < args.size(); i++) {
+        JSValue arg = args[i];
+        if (arg.is(JSValue::ARRAY)) [[likely]] {
+          auto& arg_arr = arg.as_array->get_dense_array();
+          res_dense.insert(res_dense.end(), arg_arr.begin(), arg_arr.end());
+        } else {
+          res_dense.push_back(arg);
         }
       }
+    }
+    // set the elements to being referenced
+    for (JSValue &val : res_dense) {
+      set_referenced(val);
+    }
+    // write barrier
+    if (not vm.heap.object_in_newgen(res)) {
+      for (JSValue &val : res_dense) {
+        vm.heap.write_barrier(res, val);
+      }
+    }
 
-      res->resize(res_dense.size());
-      return JSValue(res);
-    }
-    else {
-      // TODO
-      assert(false);
-    }
+    res->resize(res_dense.size());
+    return JSValue(res);
   }
 };
 

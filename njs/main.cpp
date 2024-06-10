@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
 
 void read_options(int argc, char *argv[]) {
   int option;
-  while ((option = getopt(argc, argv, "bgatvlos:f:")) != -1) {
+  while ((option = getopt(argc, argv, "bgativlos:f:")) != -1) {
     switch (option) {
       case 'b':
         Global::show_codegen_result = true;

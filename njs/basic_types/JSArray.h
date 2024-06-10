@@ -56,7 +56,7 @@ class JSArray: public JSObject {
   }
 
   ErrorOr<bool> set_property_impl(NjsVM& vm, JSValue key, JSValue val) override {
-    set_referenced(val);
+//    set_referenced(val);
     JSValue idx = TRY_ERR(get_index_or_atom(vm, key));
 
     if (idx.is(JSValue::NUM_UINT32)) {
@@ -177,7 +177,7 @@ class JSArray: public JSObject {
   }
 
   size_t push(NjsVM& vm, JSValue value) {
-    set_referenced(value);
+//    set_referenced(value);
     WRITE_BARRIER(value);
     dense_array.push_back(value);
     update_length();
@@ -186,7 +186,7 @@ class JSArray: public JSObject {
 
   size_t push(NjsVM& vm, ArrayRef<JSValue> values) {
     for (size_t i = 0; i < values.size(); i++) {
-      set_referenced(values[i]);
+//      set_referenced(values[i]);
       WRITE_BARRIER(values[i]);
       dense_array.push_back(values[i]);
     }

@@ -34,9 +34,18 @@ friend class GCHeap;
     gc_visited = true;
   }
 
+  void ref_count_inc() {
+    ref_count += (ref_count < 15);
+  }
+
+  uint8_t get_ref_count() {
+    return ref_count;
+  }
+
  private:
   u32 size;
-  uint8_t gc_age;
+  uint8_t gc_age : 4;
+  uint8_t ref_count : 4;
   bool gc_visited;
   bool gc_free;
   bool gc_remembered;
