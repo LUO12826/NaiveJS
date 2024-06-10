@@ -94,6 +94,9 @@ void read_options(int argc, char *argv[]) {
       case 'v':
         Global::show_vm_exec_steps = true;
         break;
+      case 'i':
+        Global::show_vm_stats = true;
+        break;
       case 'a':
         show_ast = true;
         break;

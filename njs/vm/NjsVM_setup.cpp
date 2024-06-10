@@ -3,7 +3,6 @@
 #include "object_static_method.h"
 #include "njs/common/common_def.h"
 #include "njs/basic_types/JSErrorPrototype.h"
-// #include "njs/basic_types/JSStringPrototype.h"
 
 namespace njs {
 

@@ -141,6 +141,7 @@ constexpr static int AGE_MAX = 1;
   byte *survivor_to_start;
 
   std::atomic<byte *> dealloc_progress;
+  byte *newgen_gc_threshold;
   size_t gc_threshold {15000};
 
   bool gc_requested {false};

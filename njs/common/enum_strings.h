@@ -209,6 +209,14 @@ inline const char* object_class_names[] = {
     "CLS_ITERATOR_PROTO"
 };
 
+inline const char* opcode_names[] = {
+
+#define DEF(opc) #opc,
+#include "njs/vm/opcode.h"
+#undef DEF
+
+};
+
 
 } // namespace njs
 

@@ -54,6 +54,7 @@ GCHeap::GCHeap(size_t size_mb, NjsVM& vm)
   survivor_to_start = survivor2_start;
 
   dealloc_progress = survivor1_start;
+  newgen_gc_threshold = newgen_start + size_t(0.36 * heap_size);
 }
 
 GCHeap::~GCHeap() {
@@ -493,7 +494,7 @@ GCObject* GCHeap::newgen_alloc(size_t size_byte) {
   // wait for the dealloc process to finish
   while (alloc_end > dealloc_progress) [[unlikely]] {}
 
-  if (alloc_end - newgen_start > 0.36 * heap_size) [[unlikely]] {
+  if (alloc_end > newgen_gc_threshold) [[unlikely]] {
     gc_requested = true;
     if (alloc_end > survivor1_start) [[unlikely]] {
       assert(false);

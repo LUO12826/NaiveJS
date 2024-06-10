@@ -63,6 +63,8 @@ void *lre_realloc(void *opaque, void *ptr, size_t size) {
 
 namespace njs {
 
+static size_t inst_counter[static_cast<int>(OpType::opcode_count)];
+
 NjsVM::NjsVM(CodegenVisitor& visitor)
   : heap(1600, *this)
   , bytecode(std::move(visitor.bytecode))
@@ -177,7 +179,7 @@ JSValue NjsVM::new_primitive_string(char16_t ch) {
 }
 
 void NjsVM::run() {
-
+  memset(inst_counter, 0, sizeof(inst_counter));
   execute_global();
   execute_pending_task();
   runloop.loop();
@@ -201,6 +203,14 @@ void NjsVM::run() {
     std::cout << "string atomize count: " << atom_pool.stats.atomize_str_count << '\n';
     std::cout << "string static atomize count: " << atom_pool.stats.static_atomize_str_count << '\n';
   }
+
+  if (Global::show_vm_stats) {
+    printf("\nInstruction counter\n");
+    for (int i = 0; i < static_cast<int>(OpType::opcode_count); i++) {
+      printf("%20s : %lu\n", opcode_names[i], inst_counter[i]);
+    }
+  }
+
 }
 
 void NjsVM::execute_global() {
@@ -242,8 +252,15 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
 #define Case(opc)    case_op_ ## opc
 #define Default     case_default
+//#define Break {                                                                           \
+//  if (Global::show_vm_exec_steps) [[unlikely]] show_step(inst);                           \
+//  inst = bytecode[(pc)++];                                                                \
+//  int op_index = static_cast<int>(inst.op_type);                                          \
+//  inst_counter[op_index] += 1;                                                            \
+//  goto *dispatch_table[op_index];                                                         \
+//}
+
 #define Break {                                                                           \
-  if (Global::show_vm_exec_steps) [[unlikely]] show_step(inst);                           \
   inst = bytecode[(pc)++];                                                                \
   int op_index = static_cast<int>(inst.op_type);                                          \
   goto *dispatch_table[op_index];                                                         \
@@ -347,8 +364,6 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
     }
   };
 
-  while (true) {
-    
 #define check_uninit {                                                                             \
   if (sp[0].is_uninited()) [[unlikely]] {                                                          \
     sp -= 1;                                                                                       \
@@ -359,7 +374,8 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
 #define deref_heap_if_needed \
   *++sp = (val.tag == JSValue::HEAP_VAL ? val.as_heap_val->wrapped_val : val);
-    
+
+  while (true) {
     Instruction inst;
 
     Switch (pc) {
@@ -661,11 +677,19 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         exec_abstract_equality(sp, false);
         Break;
       Case(ne3):
-        exec_strict_equality(sp, true);
+      Case(eq3): {
+        sp -= 1;
+        ErrorOr<bool> res = strict_equals(*this, sp[0], sp[1]);
+        bool flip = inst.op_type == OpType::ne3;
+
+        if (res.is_value()) {
+          sp[0].set_bool(flip ^ res.get_value());
+        } else {
+          sp[0] = res.get_error();
+          error_handle(sp);
+        }
         Break;
-      Case(eq3):
-        exec_strict_equality(sp, false);
-        Break;
+      }
       Case(call): {
         if (Global::show_vm_exec_steps) {
           printf("%-50s sp: %-3ld   pc: %-3u\n", inst.description().c_str(), (sp - (stack - 1)), pc);
@@ -782,8 +806,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
           curr_frame = curr_frame->move_to_heap();
           global_frame = curr_frame;
           if (Global::show_vm_exec_steps) {
-            size_t sp_offset = sp - (curr_frame->stack - 1);
-            printf("\033[33m%-50s sp: %-3ld   pc: %-3u\033[0m\n\n", inst.description().c_str(), sp_offset, pc);
+            printf("\033[33m%-50s pc: %-3u\033[0m\n\n", inst.description().c_str(), pc);
           }
           return undefined;
         }
@@ -811,8 +834,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         Break;
       Case(dyn_get_var):
       Case(dyn_get_var_undef): {
-        int no_throw = static_cast<int>(inst.op_type) - static_cast<int>(OpType::dyn_get_var);
-        exec_dynamic_get_var(sp, opr1, no_throw);
+        exec_dynamic_get_var(sp, opr1, inst.op_type == OpType::dyn_get_var_undef);
         Break;
       }
       Case(dyn_set_var):
@@ -1604,18 +1626,6 @@ Completion NjsVM::for_of_call_next(JSValue iter) {
   return call_function(next_func, iter, undefined, {});
 }
 
-void NjsVM::exec_strict_equality(SPRef sp, bool flip) {
-  ErrorOr<bool> res = strict_equals(*this, sp[-1], sp[0]);
-  sp -= 1;
-
-  if (res.is_value()) {
-    sp[0].set_bool(flip ^ res.get_value());
-  } else {
-    sp[0] = res.get_error();
-    error_handle(sp);
-  }
-}
-
 void NjsVM::exec_abstract_equality(SPRef sp, bool flip) {
   sp -= 1;
   JSValue& lhs = sp[0];
@@ -1631,7 +1641,6 @@ void NjsVM::exec_abstract_equality(SPRef sp, bool flip) {
     error_handle(sp);
   }
 }
-
 
 void NjsVM::exec_comparison(SPRef sp, OpType type) {
   sp -= 1;
