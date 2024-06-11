@@ -234,6 +234,7 @@ friend class JSArrayIterator;
   JSValue prepare_arguments_array(ArgRef args);
 
   void init_prototypes();
+  void show_stats();
 
   // currently see the global scope as a big, outermost function.
   JSFunctionMeta global_meta;
@@ -275,6 +276,8 @@ friend class JSArrayIterator;
   vector<JSValue> string_const;
   unordered_flat_map<u32, REByteCode> regexp_bytecode;
   u16string temp_int_atom_string;
+
+  vector<int> make_function_counter;
 };
 
 } // namespace njs

@@ -68,6 +68,7 @@ class AtomPool {
     k_get = atomize(u"get");
     k_set = atomize(u"set");
     k_lastIndex = atomize(u"lastIndex");
+    k_name = atomize(u"name");
   }
 
   AtomPool(const AtomPool& other) = delete;
@@ -128,6 +129,7 @@ class AtomPool {
   inline static u32 k_get;
   inline static u32 k_set;
   inline static u32 k_lastIndex;
+  inline static u32 k_name;
 
   AtomStats stats;
  private:

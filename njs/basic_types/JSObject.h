@@ -54,6 +54,11 @@ enum ToPrimTypeHint {
   HINT_NUMBER,
 };
 
+enum LazyPropKind: uint8_t {
+  NOT_LAZY,
+  LAZY_PROTOTYPE,
+};
+
 struct PFlag {
   bool in_def_mode: 1 {false};
 
@@ -67,11 +72,16 @@ struct PFlag {
   bool has_value: 1 {false};
   bool has_getter: 1 {false};
   bool has_setter: 1 {false};
+  // TODO: check if this matters when do the comparison
+  LazyPropKind lazy_kind : 4 {NOT_LAZY};
 
   static PFlag empty;
   static PFlag VECW;
+  static PFlag VECW_DEF;
   static PFlag VCW;
+  static PFlag VCW_DEF;
   static PFlag V;
+  static PFlag V_DEF;
 
   void set_ECW() {
     enumerable = configurable = writable = true;
@@ -83,6 +93,25 @@ struct PFlag {
     bool not_empty = has_enum || has_config || has_write
                      || has_value || has_getter || has_setter;
     return !not_empty;
+  }
+
+  void populate() {
+    if (not in_def_mode) return;
+    in_def_mode = false;
+    writable = has_write & writable;
+    configurable = has_config & configurable;
+    enumerable = has_enum & enumerable;
+
+    assert(has_value ^ (has_getter | has_setter));
+  }
+
+  void to_definition() {
+    in_def_mode = true;
+    has_enum = true;
+    has_write = true;
+    has_config = true;
+
+    assert(has_value ^ (has_getter | has_setter));
   }
 
   bool operator==(const PFlag& other) const = default;
@@ -138,30 +167,12 @@ struct JSPropDesc {
     }
   } data;
 
-  bool operator==(const JSPropDesc& other) const;
+  bool operator==(const JSPropDesc& that) const;
 
   bool is_data_descriptor() { return flag.has_value || flag.has_write; }
   bool is_accessor_descriptor() {return flag.has_getter || flag.has_setter; }
   bool is_generic_descriptor() {
     return !is_data_descriptor() && !is_accessor_descriptor();
-  }
-
-  void populate() {
-    flag.in_def_mode = false;
-    flag.writable = flag.has_write & flag.writable;
-    flag.configurable = flag.has_config & flag.configurable;
-    flag.enumerable = flag.has_enum & flag.enumerable;
-
-    assert(flag.has_value ^ (flag.has_getter | flag.has_setter));
-  }
-
-  void to_definition() {
-    flag.in_def_mode = true;
-    flag.has_enum = true;
-    flag.has_write = true;
-    flag.has_config = true;
-
-    assert(flag.has_value ^ (flag.has_getter | flag.has_setter));
   }
 };
 

@@ -14,16 +14,6 @@
 #include "njs/basic_types/testing_and_comparison.h"
 #include "njs/basic_types/JSArray.h"
 #include "njs/basic_types/JSRegExp.h"
-#include "njs/basic_types/JSNumberPrototype.h"
-#include "njs/basic_types/JSBooleanPrototype.h"
-#include "njs/basic_types/JSStringPrototype.h"
-#include "njs/basic_types/JSObjectPrototype.h"
-#include "njs/basic_types/JSArrayPrototype.h"
-#include "njs/basic_types/JSFunctionPrototype.h"
-#include "njs/basic_types/JSErrorPrototype.h"
-#include "njs/basic_types/JSRegExpPrototype.h"
-#include "njs/basic_types/JSIteratorPrototype.h"
-#include "njs/basic_types/JSDatePrototype.h"
 #include "njs/basic_types/JSForInIterator.h"
 
 /// try something that produces `Completion`
@@ -97,6 +87,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   global_meta.catch_table = std::move(global_scope.catch_table);
 
   atom_pool.record_static_atom_count();
+  make_function_counter.resize(func_meta.size());
 }
 
 NjsVM::~NjsVM() {
@@ -105,43 +96,6 @@ NjsVM::~NjsVM() {
   delete global_frame;
 }
 
-void NjsVM::init_prototypes() {
-  auto *func_proto = heap.new_object<JSFunctionPrototype>(*this);
-  function_prototype.set_val(func_proto);
-  func_proto->add_methods(*this);
-
-  object_prototype.set_val(heap.new_object<JSObjectPrototype>(*this));
-  function_prototype.as_object->set_proto(*this, object_prototype);
-
-  number_prototype.set_val(heap.new_object<JSNumberPrototype>(*this));
-  number_prototype.as_object->set_proto(*this, object_prototype);
-
-  boolean_prototype.set_val(heap.new_object<JSBooleanPrototype>(*this));
-  boolean_prototype.as_object->set_proto(*this, object_prototype);
-
-  string_prototype.set_val(heap.new_object<JSStringPrototype>(*this));
-  string_prototype.as_object->set_proto(*this, object_prototype);
-
-  array_prototype.set_val(heap.new_object<JSArrayPrototype>(*this));
-  array_prototype.as_object->set_proto(*this, object_prototype);
-
-  regexp_prototype.set_val(heap.new_object<JSRegExpPrototype>(*this));
-  regexp_prototype.as_object->set_proto(*this, object_prototype);
-
-  date_prototype.set_val(heap.new_object<JSDatePrototype>(*this));
-  date_prototype.as_object->set_proto(*this, object_prototype);
-
-  native_error_protos.reserve(JSErrorType::JS_NATIVE_ERROR_COUNT);
-  for (int i = 0; i < JSErrorType::JS_NATIVE_ERROR_COUNT; i++) {
-    JSObject *proto = heap.new_object<JSErrorPrototype>(*this, (JSErrorType)i);
-    proto->set_proto(*this, object_prototype);
-    native_error_protos.emplace_back(proto);
-  }
-  error_prototype = native_error_protos[0];
-
-  iterator_prototype.set_val(heap.new_object<JSIteratorPrototype>(*this));
-  iterator_prototype.as_object->set_proto(*this, object_prototype);
-}
 
 JSObject* NjsVM::new_object(ObjClass cls) {
   return heap.new_object<JSObject>(*this, cls, object_prototype);
@@ -192,27 +146,7 @@ void NjsVM::run() {
     }
   }
 
-  if (Global::show_gc_statistics) {
-    heap.stats.print();
-
-    std::cout << "String alloc count: " << PrimitiveString::alloc_count << '\n';
-    std::cout << "String concat count: " << PrimitiveString::concat_count << '\n';
-    std::cout << "String fast concat count: " << PrimitiveString::fast_concat_count << '\n';
-    std::cout << "After concat length total: " << PrimitiveString::concat_length << '\n';
-    std::cout << "String append count: " << PrimitiveString::append_count << '\n';
-    std::cout << "String fast append count: " << PrimitiveString::fast_append_count << '\n';
-
-    std::cout << "string atomize count: " << atom_pool.stats.atomize_str_count << '\n';
-    std::cout << "string static atomize count: " << atom_pool.stats.static_atomize_str_count << '\n';
-  }
-
-  if (Global::show_vm_stats) {
-    printf("\nInstruction counter\n");
-    for (int i = 0; i < static_cast<int>(OpType::opcode_count); i++) {
-      printf("%20s : %lu\n", opcode_names[i], inst_counter[i]);
-    }
-  }
-
+  show_stats();
 }
 
 void NjsVM::execute_global() {
@@ -1380,6 +1314,7 @@ void NjsVM::exec_shift_imm(SPRef sp, OpType op_type, u32 imm) {
 }
 
 void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
+//  make_function_counter[meta_idx] += 1;
   auto *meta = func_meta[meta_idx].get();
   auto *func = new_function(meta);
 
@@ -1392,9 +1327,10 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
   }
 
   if (not meta->is_arrow_func) {
-    JSObject *new_prototype = new_object(CLS_OBJECT);
-    new_prototype->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
-    func->add_prop_trivial(*this, AtomPool::k_prototype, JSValue(new_prototype));
+    // make the `prototype` property a lazy property
+    PFlag flag = PFlag::VCW;
+    flag.lazy_kind = LAZY_PROTOTYPE;
+    func->add_prop_trivial(*this, AtomPool::k_prototype, undefined, flag);
   }
 
   assert(!meta->is_native);
@@ -1407,7 +1343,7 @@ void NjsVM::exec_js_new(SPRef sp, int argc) {
   JSValue& ctor = sp[-argc];
   assert(ctor.is(JSValue::FUNCTION));
   // prepare `this` object
-  JSValue proto = ctor.as_func->get_prop_trivial(AtomPool::k_prototype);
+  JSValue proto = VM_TRY_COMP(ctor.as_func->get_prop(*this, AtomPool::k_prototype));
   proto = proto.is_object() ? proto : object_prototype;
   auto *this_obj = heap.new_object<JSObject>(*this, CLS_OBJECT, proto);
 
@@ -1785,6 +1721,53 @@ void NjsVM::exec_halt_err(SPRef sp, Instruction &inst) {
   global_frame = curr_frame;
   if (Global::show_vm_exec_steps) {
     printf("\033[33m%-50s sp: %-3ld\033[0m\n\n", inst.description().c_str(), 0l);
+  }
+}
+
+void NjsVM::show_stats() {
+  if (Global::show_gc_statistics) {
+    heap.stats.print();
+
+    std::cout << "String alloc count: " << PrimitiveString::alloc_count << '\n';
+    std::cout << "String concat count: " << PrimitiveString::concat_count << '\n';
+    std::cout << "String fast concat count: " << PrimitiveString::fast_concat_count << '\n';
+    std::cout << "After concat length total: " << PrimitiveString::concat_length << '\n';
+    std::cout << "String append count: " << PrimitiveString::append_count << '\n';
+    std::cout << "String fast append count: " << PrimitiveString::fast_append_count << '\n';
+
+    std::cout << "string atomize count: " << atom_pool.stats.atomize_str_count << '\n';
+    std::cout << "string static atomize count: " << atom_pool.stats.static_atomize_str_count << '\n';
+  }
+
+  if (Global::show_vm_stats) {
+    printf("\nInstruction counter\n");
+    for (int i = 0; i < static_cast<int>(OpType::opcode_count); i++) {
+      printf("%20s : %lu\n", opcode_names[i], inst_counter[i]);
+    }
+
+    printf("\nmake function counter\n");
+    vector<pair<int, int>> ordered;
+    ordered.resize(make_function_counter.size());
+
+    for (int i = 0; i < make_function_counter.size(); i++) {
+      ordered[i].first = i;
+      ordered[i].second = make_function_counter[i];
+    }
+    std::sort(ordered.begin(), ordered.end(), [] (auto& a, auto& b) {
+      return a.second > b.second;
+    });
+
+    for (auto& [meta_idx, count] : ordered) {
+      JSFunctionMeta *meta = func_meta[meta_idx].get();
+      std::cout << "count: " << count;
+      std::cout << "  meta_idx: " << meta_idx;
+      if (meta->is_anonymous) {
+        std::cout << "  name: (anonymous)";
+      } else {
+        std::cout << "  name: " << to_u8string(atom_to_str(meta->name_index));
+      }
+      std::cout << "  line: " << meta->source_line << '\n';
+    }
   }
 }
 }

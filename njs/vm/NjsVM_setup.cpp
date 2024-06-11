@@ -2,9 +2,57 @@
 
 #include "object_static_method.h"
 #include "njs/common/common_def.h"
+#include "njs/basic_types/JSNumberPrototype.h"
+#include "njs/basic_types/JSBooleanPrototype.h"
+#include "njs/basic_types/JSStringPrototype.h"
+#include "njs/basic_types/JSObjectPrototype.h"
+#include "njs/basic_types/JSArrayPrototype.h"
+#include "njs/basic_types/JSFunctionPrototype.h"
 #include "njs/basic_types/JSErrorPrototype.h"
+#include "njs/basic_types/JSRegExpPrototype.h"
+#include "njs/basic_types/JSIteratorPrototype.h"
+#include "njs/basic_types/JSDatePrototype.h"
 
 namespace njs {
+
+void NjsVM::init_prototypes() {
+  auto *func_proto = heap.new_object<JSFunctionPrototype>(*this);
+  function_prototype.set_val(func_proto);
+  func_proto->add_methods(*this);
+
+  object_prototype.set_val(heap.new_object<JSObjectPrototype>(*this));
+  function_prototype.as_object->set_proto(*this, object_prototype);
+
+  number_prototype.set_val(heap.new_object<JSNumberPrototype>(*this));
+  number_prototype.as_object->set_proto(*this, object_prototype);
+
+  boolean_prototype.set_val(heap.new_object<JSBooleanPrototype>(*this));
+  boolean_prototype.as_object->set_proto(*this, object_prototype);
+
+  string_prototype.set_val(heap.new_object<JSStringPrototype>(*this));
+  string_prototype.as_object->set_proto(*this, object_prototype);
+
+  array_prototype.set_val(heap.new_object<JSArrayPrototype>(*this));
+  array_prototype.as_object->set_proto(*this, object_prototype);
+
+  regexp_prototype.set_val(heap.new_object<JSRegExpPrototype>(*this));
+  regexp_prototype.as_object->set_proto(*this, object_prototype);
+
+  date_prototype.set_val(heap.new_object<JSDatePrototype>(*this));
+  date_prototype.as_object->set_proto(*this, object_prototype);
+
+  native_error_protos.reserve(JSErrorType::JS_NATIVE_ERROR_COUNT);
+  for (int i = 0; i < JSErrorType::JS_NATIVE_ERROR_COUNT; i++) {
+    JSObject *proto = heap.new_object<JSErrorPrototype>(*this, (JSErrorType)i);
+    proto->set_proto(*this, object_prototype);
+    native_error_protos.emplace_back(proto);
+  }
+  error_prototype = native_error_protos[0];
+
+  iterator_prototype.set_val(heap.new_object<JSIteratorPrototype>(*this));
+  iterator_prototype.as_object->set_proto(*this, object_prototype);
+}
+
 
 void NjsVM::setup() {
   add_native_func_impl(u"log", NativeFunction::debug_log);
@@ -37,6 +85,7 @@ void NjsVM::setup() {
     func->add_method(*this, u"defineProperty", Object_defineProperty);
     func->add_method(*this, u"hasOwn", Object_hasOwn);
     func->add_method(*this, u"getPrototypeOf", Object_getPrototypeOf);
+    func->add_method(*this, u"setPrototypeOf", Object_setPrototypeOf);
     func->add_method(*this, u"preventExtensions", Object_preventExtensions);
     func->add_method(*this, u"isExtensible", Object_isExtensible);
     func->add_method(*this, u"create", Object_create);

@@ -10,19 +10,30 @@
 namespace njs {
 
 PFlag PFlag::empty {};
-PFlag PFlag::VECW { .enumerable = true, .configurable = true,
-                          .writable = true, .has_value = true };
-PFlag PFlag::VCW {  .configurable = true,
-                          .writable = true, .has_value = true };
+PFlag PFlag::VECW { .enumerable = true, .configurable = true, .writable = true, .has_value = true };
+PFlag PFlag::VECW_DEF {
+    .in_def_mode = true, .enumerable = true, .has_enum = true, .configurable = true,
+    .has_config = true, .writable = true, .has_write = true, .has_value = true
+};
+PFlag PFlag::VCW {  .configurable = true, .writable = true, .has_value = true };
+PFlag PFlag::VCW_DEF {
+    .in_def_mode = true, .configurable = true, .has_config = true, .writable = true,
+    .has_write = true, .has_value = true
+};
 PFlag PFlag::V { .has_value = true };
+PFlag PFlag::V_DEF { .in_def_mode = true, .has_value = true };
 
-bool JSPropDesc::operator==(const JSPropDesc& other) const {
-  if (flag != other.flag) return false;
+bool JSPropDesc::operator==(const JSPropDesc& that) const {
+  PFlag this_flag = this->flag;
+  this_flag.populate();
+  PFlag that_flag = that.flag;
+  that_flag.populate();
+  if (this_flag != that_flag) return false;
   if (flag.is_value()) {
-    return same_value(data.value, other.data.value);
+    return same_value(data.value, that.data.value);
   } else if (flag.is_getset()) {
-    return (!flag.has_getter || same_value(data.getset.getter, other.data.getset.getter)) &&
-           (!flag.has_setter || same_value(data.getset.setter, other.data.getset.setter));
+    return (!flag.has_getter || same_value(data.getset.getter, that.data.getset.getter)) &&
+           (!flag.has_setter || same_value(data.getset.setter, that.data.getset.setter));
   } else {
     return true;
   }
@@ -232,8 +243,7 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
   // 1.
   JSPropDesc own_desc;
   if (auto *p = get_exist_prop(key); p == nullptr) {
-    own_desc.flag = PFlag::VECW;
-    own_desc.to_definition();
+    own_desc.flag = PFlag::VECW_DEF;
     own_desc.data.value = undefined;
   } else {
     own_desc = *p;
@@ -249,6 +259,7 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
 
       // TODO: looks like this is good enough. Do we really need to call `define_own_property` ?
       // return define_own_property_impl(key, existing_desc, desc);
+      existing_desc->flag.lazy_kind = NOT_LAZY;
       existing_desc->data.value = value;
       WRITE_BARRIER(value);
       return true;
@@ -257,9 +268,8 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
     else {
       // CreateDataProperty
       JSPropDesc desc;
-      desc.flag = PFlag::VECW;
+      desc.flag = PFlag::VECW_DEF;
       desc.data.value = value;
-      desc.to_definition();
       return define_own_property_impl(vm, key, existing_desc, desc);
     }
   }
@@ -323,13 +333,32 @@ Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
     return prop_not_found;
   } else {
     if (prop->flag.is_value()) [[likely]] {
-      return prop->data.value;
-    } else if (prop->flag.has_getter) {
+      auto lazy_kind = prop->flag.lazy_kind;
+
+      if (lazy_kind == NOT_LAZY) [[likely]] {
+        return prop->data.value;
+      } else if (lazy_kind == LAZY_PROTOTYPE) {
+        assert(this->obj_class == CLS_FUNCTION);
+        JSObject *new_prototype = vm.new_object(CLS_OBJECT);
+        JSValue val(new_prototype);
+        new_prototype->add_prop_trivial(vm, AtomPool::k_constructor, JSValue(this));
+
+        WRITE_BARRIER(val);
+        prop->data.value = val;
+        prop->flag.lazy_kind = NOT_LAZY;
+        return val;
+      } else {
+        assert(false);
+        __builtin_unreachable();
+      }
+    }
+    else if (prop->flag.has_getter) {
       JSValue& getter = prop->data.getset.getter;
       assert(not getter.is_undefined());
       // TODO: pause GC here
       return vm.call_function(getter, JSValue(this), undefined, {});
-    } else {
+    }
+    else {
       return prop_not_found;
     }
   }

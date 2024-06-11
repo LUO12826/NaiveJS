@@ -1245,8 +1245,8 @@ class CodegenVisitor {
       if (stmt.element_is_id()) {
         auto id = stmt.get_element_id();
         auto sym = scope().resolve_symbol(id);
-        bool dynamic = (sym.def_scope == ScopeType::GLOBAL && !sym.is_let_or_const())
-                       || sym.not_found();
+        bool dynamic = sym.not_found()
+                       || (sym.def_scope == ScopeType::GLOBAL && !sym.is_let_or_const());
 
         if (not dynamic) {
           OpType op = sym.is_let_or_const() ? OpType::pop_check : OpType::pop;

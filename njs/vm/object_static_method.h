@@ -59,6 +59,21 @@ inline Completion Object_getPrototypeOf(vm_func_This_args_flags) {
   return obj->get_proto();
 }
 
+inline Completion Object_setPrototypeOf(vm_func_This_args_flags) {
+  JSObject *obj = TRY_COMP(check_argument_and_get_object(vm, args));
+  JSValue proto;
+  if (args.size() >= 2) [[likely]] {
+    proto = args[1];
+  }
+  if (proto.is_object() || proto.is_null()) {
+    obj->set_proto(vm, proto);
+    return JSValue(obj);
+  } else {
+    return CompThrow(vm.build_error_internal(JS_TYPE_ERROR,
+                                             u"Object prototype may only be an Object or null"));
+  }
+}
+
 inline Completion Object_isExtensible(vm_func_This_args_flags) {
   JSObject *obj = TRY_COMP(check_argument_and_get_object(vm, args));
   return JSValue(obj->is_extensible());

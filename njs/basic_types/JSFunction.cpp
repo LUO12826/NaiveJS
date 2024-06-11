@@ -2,6 +2,7 @@
 
 #include <string>
 #include <utility>
+#include "conversion.h"
 #include "njs/gc/GCHeap.h"
 #include "njs/vm/NjsVM.h"
 

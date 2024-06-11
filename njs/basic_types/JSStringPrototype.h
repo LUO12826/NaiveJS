@@ -4,6 +4,8 @@
 #include <algorithm>
 #include "JSObject.h"
 #include "JSString.h"
+#include "JSArray.h"
+#include "JSRegExp.h"
 #include "JSFunction.h"
 #include "njs/vm/NjsVM.h"
 #include "njs/parser/unicode.h"
