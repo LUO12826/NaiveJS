@@ -44,8 +44,8 @@ friend class GCHeap;
 
  private:
   u32 size;
-  uint8_t gc_age : 4;
-  uint8_t ref_count : 4;
+  uint8_t gc_age : 4 {0};
+  uint8_t ref_count : 4 {0};
   bool gc_visited;
   bool gc_free;
   bool gc_remembered;

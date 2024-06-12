@@ -60,8 +60,7 @@ friend class GCHeap;
 
     concat_count += 1;
     concat_length += new_length;
-
-    // This optimization doesn't look very effective
+    
     PrimitiveString *new_str;
     if (get_ref_count() == 0 && new_length < cap) {
       fast_concat_count += 1;
@@ -71,8 +70,6 @@ friend class GCHeap;
       std::memcpy(new_str->storage, view().data(), len * CHAR_SIZE);
     }
 
-//    PrimitiveString *new_str = heap.new_prim_string(new_length);
-//    std::memcpy(new_str->storage, this_str.data(), len * CHAR_SIZE);
     std::memcpy(new_str->storage + len, str, length * CHAR_SIZE);
 
     new_str->storage[new_length] = 0;

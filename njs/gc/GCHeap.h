@@ -70,6 +70,7 @@ constexpr static int AGE_MAX = 1;
     GCObject *meta = newgen_alloc(sizeof(T));
     // initialize
     T *object = new (meta) T(std::forward<Args>(args)...);
+    meta->size = sizeof(T);
 
     stats.newgen_object_cnt += 1;
     return object;
@@ -111,6 +112,7 @@ constexpr static int AGE_MAX = 1;
   GCObject* promote(GCObject *obj);
   void newgen_copy_alive();
   static void newgen_dealloc_dead(byte *start, byte *end);
+  static void oldgen_dealloc_dead(byte *start, byte *end);
   void newgen_dealloc_dead_with_progress(byte *start, byte *end);
 
   GCObject* oldgen_alloc(size_t size);

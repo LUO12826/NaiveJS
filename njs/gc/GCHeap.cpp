@@ -68,6 +68,7 @@ GCHeap::~GCHeap() {
 
   newgen_dealloc_dead(newgen_start, alloc_point);
   newgen_dealloc_dead(survivor_from_start, survivor_alloc_point);
+  oldgen_dealloc_dead(oldgen_start, oldgen_alloc_point);
 
   free(storage);
 }
@@ -300,6 +301,16 @@ void GCHeap::newgen_dealloc_dead(byte *start, byte *end) {
   }
 }
 
+void GCHeap::oldgen_dealloc_dead(byte *start, byte *end) {
+  for (byte *ptr = start; ptr < end; ) {
+    auto *obj = reinterpret_cast<GCObject *>(ptr);
+    ptr += obj->size;
+    if (not obj->gc_free) {
+      obj->~GCObject();
+    }
+  }
+}
+
 void GCHeap::newgen_dealloc_dead_with_progress(byte *start, byte *end) {
   for (byte *ptr = start; ptr < end; ) {
     auto *obj = reinterpret_cast<GCObject *>(ptr);
@@ -462,6 +473,7 @@ PrimitiveString* GCHeap::new_prim_string_ref(u16string_view str) {
   GCObject *ptr = newgen_alloc(sizeof(PrimitiveString));
   auto *prim_str = new (ptr) PrimitiveString(0);
   prim_str->init_with_ref(str.data(), str.size());
+  ptr->size = sizeof(PrimitiveString);
 
   stats.newgen_object_cnt += 1;
   return prim_str;
@@ -485,6 +497,8 @@ PrimitiveString* GCHeap::new_prim_string_impl(size_t length) {
 
   GCObject *ptr = newgen_alloc(alloc_size);
   auto *prim_str = new (ptr) PrimitiveString(capacity);
+  ptr->size = alloc_size;
+
   stats.newgen_object_cnt += 1;
   return prim_str;
 }
@@ -505,9 +519,6 @@ GCObject* GCHeap::newgen_alloc(size_t size_byte) {
   }
 
   auto *obj = reinterpret_cast<GCObject *>(alloc_point);
-  obj->size = size_byte;
-  obj->gc_age = 0;
-  obj->ref_count = 0;
   alloc_point += size_byte;
   return obj;
 }
