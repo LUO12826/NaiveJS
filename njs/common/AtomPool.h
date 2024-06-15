@@ -4,7 +4,6 @@
 #include <cassert>
 #include <string>
 #include <unordered_map>
-#include "njs/basic_types/String.h"
 #include "njs/basic_types/atom.h"
 #include "njs/include/robin_hood.h"
 #include "njs/include/MurmurHash3.h"
