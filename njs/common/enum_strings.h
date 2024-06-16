@@ -194,6 +194,7 @@ inline const char* object_class_names[] = {
     "CLS_REGEXP",
     "CLS_DATE",
     "CLS_FUNCTION",
+    "CLS_BOUND_FUNCTION",
     "CLS_FOR_IN_ITERATOR",
     "CLS_ARRAY_ITERATOR",
     "CLS_CUSTOM",

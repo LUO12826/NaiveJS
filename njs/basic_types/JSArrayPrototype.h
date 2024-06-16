@@ -138,8 +138,8 @@ class JSArrayPrototype : public JSObject {
         std::sort(data_array.begin(), data_array.end(), [&vm, &args, &comp] (JSValue& a, JSValue& b) {
           if (a.is_undefined()) return false;
           if (b.is_undefined()) return true;
-
-          comp = vm.call_function(args[0], undefined, undefined, {a, b});
+          JSValue argv[2] {a, b};
+          comp = vm.call_function(args[0], undefined, undefined, {argv, 2});
           if (comp.is_throw()) {
             throw std::runtime_error("");
           }

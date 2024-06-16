@@ -72,6 +72,7 @@ friend class JSNumber;
 friend class JSString;
 friend class JSObject;
 friend class JSFunction;
+friend class JSBoundFunction;
 friend class JSArray;
 friend class JSDate;
 friend class JSRegExp;
@@ -118,6 +119,9 @@ friend class JSArrayIterator;
 
   void setup();
   void run();
+
+  Completion call_function(JSValueRef func, JSValueRef This, JSValueRef new_target,
+                           ArgRef argv, CallFlags flags = CallFlags());
 
   vector<StackTraceItem> capture_stack_trace();
   u16string build_trace_str(bool remove_top = false);
@@ -179,9 +183,6 @@ friend class JSArrayIterator;
   void execute_task(JSTask& task);
   void execute_single_task(JSTask& task);
   void execute_pending_task();
-
-  Completion call_function(JSValueRef func, JSValueRef This, JSValueRef new_target,
-                           const vector<JSValue>& args, CallFlags flags = CallFlags());
   Completion call_internal(JSValueRef callee, JSValueRef This, JSValueRef new_target,
                            ArgRef argv, CallFlags flags);
   // function operation

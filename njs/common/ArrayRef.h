@@ -2,13 +2,18 @@
 #define NJS_ARRAY_REF_H
 
 #include <cassert>
+#include <vector>
 
 namespace njs {
+
+using std::vector;
 
 template <typename T>
 class ArrayRef {
  public:
+  ArrayRef(): ArrayRef(nullptr, 0) {}
   ArrayRef(T* start_ptr, size_t len): start(start_ptr), length(len) {}
+  ArrayRef(vector<T>& vec): start(vec.data()), length(vec.size()) {}
 
   T& operator[](size_t index) const {
     assert(index < length);

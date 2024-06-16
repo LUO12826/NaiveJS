@@ -11,6 +11,7 @@ set(SOURCES
     njs/vm/NjsVM_setup.cpp
     njs/vm/Instruction.cpp
     njs/basic_types/JSFunction.cpp
+    njs/basic_types/JSBoundFunction.cpp
     njs/basic_types/JSObject.cpp
     njs/basic_types/JSValue.cpp
     njs/main.cpp

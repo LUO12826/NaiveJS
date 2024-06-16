@@ -2,6 +2,7 @@
 #define NJS_JSFUNCTION_PROTOTYPE_H
 
 #include "JSObject.h"
+#include "JSBoundFunction.h"
 #include "njs/vm/NativeFunction.h"
 #include "njs/common/Completion.h"
 #include "njs/vm/NjsVM.h"
@@ -17,6 +18,7 @@ class JSFunctionPrototype : public JSObject {
   // see also NjsVM::init_prototypes
   void add_methods(NjsVM& vm) {
     add_method(vm, u"call", JSFunctionPrototype::call);
+    add_method(vm, u"bind", JSFunctionPrototype::bind);
     add_method(vm, u"apply", JSFunctionPrototype::apply);
   }
 
@@ -25,6 +27,7 @@ class JSFunctionPrototype : public JSObject {
   }
 
   static Completion call(vm_func_This_args_flags) {
+    if (This.is_undefined()) [[unlikely]] return undefined;
     if (args.size() == 0) [[unlikely]] {
       return vm.call_internal(This, undefined, undefined, args, flags);
     } else {
@@ -32,7 +35,35 @@ class JSFunctionPrototype : public JSObject {
     }
   }
 
+  static Completion bind(vm_func_This_args_flags) {
+    if (not This.is_function()) [[unlikely]] {
+      return CompThrow(vm.build_error_internal(
+          JS_TYPE_ERROR, u"Function.prototype.apply can only be called on a function."));
+    }
+    auto *bound_func = vm.heap.new_object<JSBoundFunction>(vm, This);
+    assert(args.size() > 0); // TODO
+    bound_func->set_args(vm, args.subarray(1));
+
+    if (This.as_object->is_function()) [[likely]] {
+      bound_func->set_this(vm, args[0]);
+      bound_func->set_proto(vm, This.as_func->get_proto());
+    } else if (This.as_object->get_class() == CLS_BOUND_FUNCTION) {
+      bound_func->set_this(vm, This.as_Object<JSBoundFunction>()->get_this());
+      bound_func->set_proto(vm, This.as_object->get_proto());
+    } else {
+      assert(false);
+    }
+
+    JSValue ret(JSValue::FUNCTION);
+    ret.as_object = bound_func;
+    return ret;
+  }
+
   static Completion apply(vm_func_This_args_flags) {
+    if (not This.is_function()) [[unlikely]] {
+      return CompThrow(vm.build_error_internal(
+          JS_TYPE_ERROR, u"Function.prototype.apply can only be called on a function."));
+    }
     if (args.size() == 0) [[unlikely]] {
       return vm.call_internal(This, undefined, undefined, args, flags);
     } else if (args.size() == 1) [[unlikely]] {

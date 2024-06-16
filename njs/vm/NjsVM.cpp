@@ -9,6 +9,7 @@
 #include "njs/common/common_def.h"
 #include "njs/codegen/CodegenVisitor.h"
 #include "njs/basic_types/JSHeapValue.h"
+#include "njs/basic_types/JSBoundFunction.h"
 #include "njs/basic_types/PrimitiveString.h"
 #include "njs/basic_types/conversion.h"
 #include "njs/basic_types/testing_and_comparison.h"
@@ -219,7 +220,6 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   frame.function = callee;
   curr_frame = &frame;
 
-//  auto& meta = *callee.as_func->meta;
   bool copy_argv = (argv.size() < this_func->param_count) | flags.copy_args;
 
   size_t actual_arg_cnt = std::max(argv.size(), (size_t)this_func->param_count);
@@ -660,8 +660,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         bool has_this = opr2;
         JSValue& func = sp[-argc];
 
-        if (func.tag != JSValue::FUNCTION
-            || func.as_object->get_class() != CLS_FUNCTION) [[unlikely]] {
+        if (func.tag != JSValue::FUNCTION) [[unlikely]] {
           error_throw_handle(sp, JS_TYPE_ERROR, u"value is not callable");
           Break;
         }
@@ -674,7 +673,14 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         }
         // call the function
         ArgRef call_argv(&func + 1, argc);
-        auto comp = call_internal(func, *invoker, undefined, call_argv, DefaultCallFlags);
+        Completion comp;
+        if (func.as_object->is_function()) [[likely]] {
+          comp = call_internal(func, *invoker, undefined, call_argv, DefaultCallFlags);
+        } else {
+          assert(func.as_object->get_class() == CLS_BOUND_FUNCTION);
+          comp = func.as_Object<JSBoundFunction>()->call(
+              *this, undefined, undefined, argv, DefaultCallFlags);
+        }
 
         sp -= (argc + int(has_this));
         sp[0] = comp.get_value();
@@ -941,17 +947,22 @@ void NjsVM::execute_pending_task() {
 }
 
 Completion NjsVM::call_function(JSValueRef func, JSValueRef This, JSValueRef new_target,
-                                const vector<JSValue>& args, CallFlags flags) {
-  JSFunction& f = *func.as_func;
-  const JSValue *actual_this;
-  if (f.has_this_binding) {
-    actual_this = &f.this_binding;
-  } else {
-    actual_this = This.is_undefined() ? &global_object : &This;
+                                ArgRef argv, CallFlags flags) {
+  if (func.as_object->is_function()) [[likely]] {
+    JSFunction& f = *func.as_func;
+    const JSValue *actual_this;
+    if (f.has_this_binding) {
+      actual_this = &f.this_binding;
+    } else {
+      actual_this = This.is_undefined() ? &global_object : &This;
+    }
+    return call_internal(func, *actual_this, new_target, argv, flags);
   }
-
-  ArgRef args_ref(const_cast<JSValue *>(args.data()), args.size());
-  return call_internal(func, *actual_this, new_target, args_ref, flags);
+  else {
+    assert(func.as_object->get_class() == CLS_BOUND_FUNCTION);
+    auto *f = func.as_Object<JSBoundFunction>();
+    return f->call(*this, This, new_target, argv, flags);
+  }
 }
 
 using StackTraceItem = NjsVM::StackTraceItem;
@@ -1340,24 +1351,31 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
 }
 
 void NjsVM::exec_js_new(SPRef sp, int argc) {
+  for (int i = 1; i > -argc; i--) {
+    sp[i] = sp[i - 1];
+  }
+  sp += 1;
+
   JSValue& ctor = sp[-argc];
+  JSValue& This = sp[-argc - 1];
+
   assert(ctor.is(JSValue::FUNCTION));
   // prepare `this` object
   JSValue proto = VM_TRY_COMP(ctor.as_func->get_prop(*this, AtomPool::k_prototype));
   proto = proto.is_object() ? proto : object_prototype;
   auto *this_obj = heap.new_object<JSObject>(*this, CLS_OBJECT, proto);
 
-  for (int i = 1; i > -argc; i--) {
-    sp[i] = sp[i - 1];
+  This.set_val(this_obj);
+
+  ArgRef argv(&ctor + 1, argc);
+  Completion comp;
+  if (ctor.as_object->is_function()) {
+    comp = call_internal(ctor, This, ctor, argv, DefaultCallFlags);
+  } else {
+    auto flags = DefaultCallFlags;
+    flags.constructor = true;
+    comp = ctor.as_Object<JSBoundFunction>()->call(*this, This, ctor, argv, flags);
   }
-  sp[-argc].set_val(this_obj);
-  sp += 1;
-
-  JSValue& func = sp[-argc];
-  JSValue& This = sp[-argc - 1];
-
-  ArgRef argv(&func + 1, argc);
-  auto comp = call_internal(func, This, ctor, argv, DefaultCallFlags);
   sp -= (argc + 1);
 
   if (comp.is_throw()) [[unlikely]] {

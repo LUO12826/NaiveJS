@@ -33,6 +33,7 @@ enum ObjClass {
   CLS_REGEXP,
   CLS_DATE,
   CLS_FUNCTION,
+  CLS_BOUND_FUNCTION,
   CLS_FOR_IN_ITERATOR,
   CLS_ARRAY_ITERATOR,
   CLS_CUSTOM,
@@ -202,6 +203,9 @@ using StorageType = unordered_flat_map<JSObjectKey, JSPropDesc, ObjKeyHasher>;
 
   virtual u16string_view get_class_name() { return u"Object"; }
   ObjClass get_class() { return obj_class; }
+
+  bool is_function() { return obj_class == CLS_FUNCTION; }
+  bool is_array() { return obj_class == CLS_ARRAY; }
 
   bool is_extensible() { return extensible; }
   void prevent_extensions() { extensible = false; }

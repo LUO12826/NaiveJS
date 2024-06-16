@@ -279,7 +279,7 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
     JSValue& setter = own_desc.data.getset.setter;
     if (setter.is_undefined()) return false;
     // TODO: pause GC here
-    auto comp = vm.call_function(setter, JSValue(this), undefined, {value});
+    auto comp = vm.call_function(setter, JSValue(this), undefined, {&value, 1});
     return likely(comp.is_normal()) ? ErrorOr<bool>(true) : comp.get_value();
   }
 }
@@ -432,7 +432,7 @@ Completion JSObject::to_primitive(NjsVM& vm, ToPrimTypeHint preferred_type) {
       hint_arg = vm.get_string_const(AtomPool::k_string);
     }
     Completion to_prim_res = vm.call_function(
-        exotic_to_prim, JSValue(this), undefined, {hint_arg});
+        exotic_to_prim, JSValue(this), undefined, {&hint_arg, 1});
     if (to_prim_res.is_throw()) {
       return to_prim_res;
     }

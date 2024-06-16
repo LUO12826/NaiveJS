@@ -189,7 +189,7 @@ class JSStringPrototype : public JSObject {
       return regexp.as_Object<JSRegExp>()->exec(vm, str, false);
     }
     else {
-      return vm.call_function(match_method, args[0], undefined, {str}, flags);
+      return vm.call_function(match_method, args[0], undefined, {&str, 1}, flags);
     }
   }
 
@@ -209,7 +209,8 @@ class JSStringPrototype : public JSObject {
         goto arg0_is_string;
       } else {
         if (m_replace.is_function()) {
-          return vm.call_function(m_replace, args[0], undefined, {This, args[1]}, flags);
+          JSValue argv[] {This, args[1]};
+          return vm.call_function(m_replace, args[0], undefined, {argv, 2} , flags);
         } else {
           return CompThrow(vm.build_error_internal(
             JS_TYPE_ERROR, u"[Symbol.replace] method is not callable"));
@@ -227,8 +228,8 @@ class JSStringPrototype : public JSObject {
       if (start_pos != u16string::npos) {
         // call a function to get the replacement
         if (args[1].is_function()) {
-          vector<JSValue> argv{pattern_val, JSFloat(start_pos)};
-          JSValue rep = TRYCC(vm.call_function(args[1], undefined, undefined, argv));
+          JSValue argv[2] {pattern_val, JSFloat(start_pos)};
+          JSValue rep = TRYCC(vm.call_function(args[1], undefined, undefined, {argv, 2}));
           u16string_view replacement = TRYCC(js_to_string(vm, rep)).as_prim_string->view();
 
           res.replace(start_pos, pattern.size(), replacement);
