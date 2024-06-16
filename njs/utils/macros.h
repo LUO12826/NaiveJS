@@ -52,16 +52,6 @@ using u32 = uint32_t;
         _temp_result.get_value();                                                             \
     })
 
-/// try something that produces `Completion`, return the error from the completion if get an error.
-//#define TRY_ERR(expression)                                                              \
-//    ({                                                                                        \
-//        Completion _temp_result = (expression);                                               \
-//        if (_temp_result.is_throw()) [[unlikely]] {                                           \
-//          return _temp_result.get_value();                                                    \
-//        }                                                                                     \
-//        _temp_result.get_value();                                                             \
-//    })
-
 }  // namespace njs
 
 #endif  // NJS_UTILS_MACROS_H

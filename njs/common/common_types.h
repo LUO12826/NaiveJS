@@ -6,7 +6,15 @@
 namespace njs {
     
 using u32 = uint32_t;
-using atom_t = int64_t;
+using i64 = int64_t;
+using std::string;
+using std::u16string;
+using std::u16string_view;
+using std::optional;
+using std::pair;
+using std::vector;
+using std::unique_ptr;
+
 
 struct SourceLocation {
   u32 line;

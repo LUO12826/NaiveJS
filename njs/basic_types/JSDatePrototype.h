@@ -3,7 +3,7 @@
 
 #include "JSObject.h"
 #include "JSDate.h"
-#include "njs/vm/Completion.h"
+#include "njs/common/Completion.h"
 #include "njs/common/common_def.h"
 
 namespace njs {

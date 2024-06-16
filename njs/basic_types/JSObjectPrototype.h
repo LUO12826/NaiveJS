@@ -6,7 +6,7 @@
 #include "JSObject.h"
 #include "conversion.h"
 #include <njs/vm/NjsVM.h>
-#include "njs/vm/Completion.h"
+#include "njs/common/Completion.h"
 #include "njs/common/common_def.h"
 
 namespace njs {

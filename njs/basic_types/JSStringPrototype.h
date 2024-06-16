@@ -10,7 +10,7 @@
 #include "njs/vm/NjsVM.h"
 #include "njs/parser/unicode.h"
 #include "njs/common/ArrayRef.h"
-#include "njs/vm/Completion.h"
+#include "njs/common/Completion.h"
 
 #define REQUIRE_COERCIBLE(x)                                                                      \
   if ((x).is_nil()) [[unlikely]] {                                                                \

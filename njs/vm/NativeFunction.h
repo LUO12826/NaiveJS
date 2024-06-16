@@ -2,7 +2,7 @@
 #define NJS_NATIVE_FUNCTION_H
 
 #include "njs/basic_types/JSValue.h"
-#include "njs/vm/Completion.h"
+#include "njs/common/Completion.h"
 #include "njs/common/ArrayRef.h"
 #include "njs/common/common_def.h"
 #include "njs/basic_types/JSErrorPrototype.h"

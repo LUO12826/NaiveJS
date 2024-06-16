@@ -2,8 +2,8 @@
 #define NJS_TESTING_AND_COMPARISON_H
 
 #include <cmath>
-#include "njs/vm/ErrorOr.h"
-#include "njs/vm/Completion.h"
+#include "njs/common/ErrorOr.h"
+#include "njs/common/Completion.h"
 #include "njs/basic_types/JSValue.h"
 #include "njs/basic_types/conversion.h"
 #include "njs/basic_types/JSObject.h"

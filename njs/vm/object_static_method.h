@@ -1,7 +1,7 @@
 #ifndef NJS_OBJECT_STATIC_METHOD_H
 #define NJS_OBJECT_STATIC_METHOD_H
 
-#include "Completion.h"
+#include "njs/common/Completion.h"
 #include "njs/basic_types/JSObject.h"
 #include "njs/basic_types/JSObjectPrototype.h"
 #include "njs/basic_types/JSValue.h"
@@ -10,7 +10,7 @@
 #include "njs/common/JSErrorType.h"
 #include "njs/common/common_def.h"
 #include "njs/utils/macros.h"
-#include "njs/vm/ErrorOr.h"
+#include "njs/common/ErrorOr.h"
 
 namespace njs {
 

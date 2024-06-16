@@ -7,7 +7,7 @@
 #include "njs/common/ArrayRef.h"
 #include "njs/common/common_def.h"
 #include "JSFunction.h"
-#include "njs/vm/Completion.h"
+#include "njs/common/Completion.h"
 #include "njs/basic_types/JSArray.h"
 #include "njs/basic_types/JSArrayIterator.h"
 #include "njs/basic_types/conversion.h"

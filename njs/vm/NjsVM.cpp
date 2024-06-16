@@ -1,7 +1,7 @@
 #include "NjsVM.h"
 
 #include <iostream>
-#include "Completion.h"
+#include "njs/common/Completion.h"
 #include "njs/basic_types/JSValue.h"
 #include "njs/utils/helper.h"
 #include "njs/include/libregexp/cutils.h"

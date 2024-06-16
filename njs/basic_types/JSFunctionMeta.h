@@ -3,7 +3,7 @@
 
 #include <vector>
 #include "JSValue.h"
-#include "njs/vm/Completion.h"
+#include "njs/common/Completion.h"
 #include "njs/include/SmallVector.h"
 #include "njs/common/ArrayRef.h"
 #include "njs/common/enums.h"

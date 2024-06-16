@@ -8,7 +8,6 @@
 #include <functional>
 
 #include "JSRunLoop.h"
-#include "Runtime.h"
 #include "NativeFunction.h"
 #include "Instruction.h"
 #include "njs/gc/GCHeap.h"

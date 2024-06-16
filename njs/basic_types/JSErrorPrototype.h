@@ -2,7 +2,7 @@
 #define NJS_JS_ERROR_PROTOTYPE_H
 
 #include "JSObject.h"
-#include "njs/vm/Completion.h"
+#include "njs/common/Completion.h"
 #include "njs/common/common_def.h"
 #include "njs/common/JSErrorType.h"
 

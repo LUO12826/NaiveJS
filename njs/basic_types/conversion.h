@@ -1,8 +1,8 @@
 #ifndef NJS_CONVERSION_H
 #define NJS_CONVERSION_H
 
-#include "njs/vm/ErrorOr.h"
-#include "njs/vm/Completion.h"
+#include "njs/common/ErrorOr.h"
+#include "njs/common/Completion.h"
 #include "JSValue.h"
 
 namespace njs {

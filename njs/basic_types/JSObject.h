@@ -11,8 +11,8 @@
 #include "njs/include/robin_hood.h"
 #include "njs/utils/helper.h"
 #include "njs/utils/macros.h"
-#include "njs/vm/Completion.h"
-#include "njs/vm/ErrorOr.h"
+#include "njs/common/Completion.h"
+#include "njs/common/ErrorOr.h"
 
 namespace njs {
 
