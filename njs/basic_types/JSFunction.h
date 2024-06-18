@@ -2,10 +2,8 @@
 #define NJS_JSFUNCTION_H
 
 #include <string>
-#include <span>
 #include "JSValue.h"
 #include "JSObject.h"
-#include "njs/common/ArrayRef.h"
 #include "JSFunctionMeta.h"
 
 namespace njs {
@@ -39,8 +37,9 @@ class JSFunction : public JSObject {
   u16 stack_size;
   u32 bytecode_start;
 
-  bool has_this_binding {false};
-  JSValue this_binding;
+  bool is_arrow_func {false};
+  bool has_auxiliary_data {false};
+  JSValue this_or_auxiliary_data;
   std::vector<JSValue> captured_var;
   NativeFuncType native_func {nullptr};
 };

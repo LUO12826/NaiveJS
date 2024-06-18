@@ -56,7 +56,7 @@ class JSRegExp : public JSObject {
       Completion comp = regexp->compile_bytecode_internal((vm));
       return comp.is_throw() ? comp : JSValue(regexp);
     } else {
-      JSValue err = vm.build_error_internal(JS_SYNTAX_ERROR, u"Invalid regular expression flags");
+      JSValue err = vm.build_error(JS_SYNTAX_ERROR, u"Invalid regular expression flags");
       return CompThrow(err);
     }
   }
@@ -116,7 +116,7 @@ class JSRegExp : public JSObject {
       char16_t u16_msg[64];
       u8_to_u16_buffer(error_msg, u16_msg);
 
-      JSValue err = vm.build_error_internal(JS_SYNTAX_ERROR, u16string(u16_msg));
+      JSValue err = vm.build_error(JS_SYNTAX_ERROR, u16string(u16_msg));
       return CompThrow(err);
     }
     // set to cache

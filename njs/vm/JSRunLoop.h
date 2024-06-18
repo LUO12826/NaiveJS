@@ -7,6 +7,7 @@
 #include <condition_variable>
 
 #include "njs/basic_types/JSValue.h"
+#include "njs/basic_types/JSFunctionMeta.h"
 #include "njs/include/robin_hood.h"
 #include "njs/include/BS_thread_pool.hpp"
 
@@ -18,7 +19,9 @@ using robin_hood::unordered_map;
 
 struct JSTask {
   size_t task_id;
+  bool use_native_func {false};
   JSValue task_func;
+  NativeFuncType native_task_func {nullptr};
   std::vector<JSValue> args;
 
   bool is_timer;
@@ -47,8 +50,9 @@ class JSRunLoop {
 
   void gc_gather_roots(std::vector<JSValue *> roots) {
     for (auto& [task_id, task] : task_pool) {
-      roots.push_back(&task.task_func);
-
+      if (not task.use_native_func) {
+        roots.push_back(&task.task_func);
+      }
       for (auto& val : task.args) {
         if (val.needs_gc()) {
           roots.push_back(&val);

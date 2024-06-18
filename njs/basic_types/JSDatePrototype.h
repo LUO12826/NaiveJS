@@ -28,8 +28,7 @@ class JSDatePrototype : public JSObject {
       double ts = This.as_Object<JSDate>()->timestamp;
       return JSValue(ts);
     } else {
-      return CompThrow(vm.build_error_internal(
-          JS_TYPE_ERROR, u"JSDate.prototype.valueOf called on non-date object"));
+      return vm.throw_error(JS_TYPE_ERROR, u"JSDate.prototype.valueOf called on non-date object");
     }
   }
 
@@ -38,8 +37,7 @@ class JSDatePrototype : public JSObject {
       double ts = This.as_Object<JSDate>()->timestamp;
       return vm.new_primitive_string(get_date_string(ts, 0x13));
     } else {
-      return CompThrow(vm.build_error_internal(
-          JS_TYPE_ERROR, u"JSDate.prototype.toString called on non-date object"));
+      return vm.throw_error(JS_TYPE_ERROR, u"JSDate.prototype.toString called on non-date object");
     }
   }
 
@@ -48,8 +46,7 @@ class JSDatePrototype : public JSObject {
       double ts = This.as_Object<JSDate>()->timestamp;
       return vm.new_primitive_string(get_date_string(ts, 0x23));
     } else {
-      return CompThrow(vm.build_error_internal(
-          JS_TYPE_ERROR, u"JSDate.prototype.toJSON called on non-date object"));
+      return vm.throw_error(JS_TYPE_ERROR, u"JSDate.prototype.toJSON called on non-date object");
     }
   }
 };

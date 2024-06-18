@@ -666,8 +666,8 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         }
 
         JSValue *invoker;
-        if (func.as_func->has_this_binding) [[unlikely]] {
-          invoker = &func.as_func->this_binding;
+        if (func.as_func->is_arrow_func) [[unlikely]] {
+          invoker = &func.as_func->this_or_auxiliary_data;
         } else {
           invoker = has_this ? &sp[-argc - 1] : &global_object;
         }
@@ -675,11 +675,11 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         ArgRef call_argv(&func + 1, argc);
         Completion comp;
         if (func.as_object->is_function()) [[likely]] {
-          comp = call_internal(func, *invoker, undefined, call_argv, DefaultCallFlags);
+          comp = call_internal(func, *invoker, undefined, call_argv, CallFlags());
         } else {
           assert(func.as_object->get_class() == CLS_BOUND_FUNCTION);
           comp = func.as_Object<JSBoundFunction>()->call(
-              *this, undefined, undefined, argv, DefaultCallFlags);
+              *this, undefined, undefined, argv, CallFlags());
         }
 
         sp -= (argc + int(has_this));
@@ -855,7 +855,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
           sp[0] = res;
           goto for_of_next_err;
         } else if (!res.is_object()) [[unlikely]] {
-          sp[0] = build_error_internal(JS_TYPE_ERROR, u"iterator result is not an object.");
+          sp[0] = build_error(JS_TYPE_ERROR, u"iterator result is not an object.");
           goto for_of_next_err;
         } else {
           auto res_val = res.as_object->get_property_impl(*this, JSAtom(AtomPool::k_value));
@@ -925,14 +925,13 @@ void NjsVM::execute_task(JSTask& task) {
 }
 
 void NjsVM::execute_single_task(JSTask& task) {
-  CallFlags flags { .copy_args = true };
-  auto comp = call_function(
-      task.task_func,
-      global_object,
-      undefined,
-      task.args,
-      flags
-  );
+  Completion comp;
+  if (task.use_native_func) {
+    comp = task.native_task_func(*this, global_object, undefined, task.args, CallFlags());
+  } else {
+    comp = call_function(task.task_func, global_object, undefined, task.args, CallFlags());
+  }
+
   if (comp.is_throw()) [[unlikely]] {
     print_unhandled_error(comp.get_value());
   }
@@ -951,8 +950,8 @@ Completion NjsVM::call_function(JSValueRef func, JSValueRef This, JSValueRef new
   if (func.as_object->is_function()) [[likely]] {
     JSFunction& f = *func.as_func;
     const JSValue *actual_this;
-    if (f.has_this_binding) {
-      actual_this = &f.this_binding;
+    if (f.is_arrow_func) {
+      actual_this = &f.this_or_auxiliary_data;
     } else {
       actual_this = This.is_undefined() ? &global_object : &This;
     }
@@ -1016,7 +1015,7 @@ u16string NjsVM::build_trace_str(bool remove_top) {
   return trace_str;
 }
 
-JSValue NjsVM::build_error_internal(JSErrorType type, const u16string& msg) {
+JSValue NjsVM::build_error(JSErrorType type, u16string_view msg) {
   auto *err_obj = new_object(CLS_ERROR, native_error_protos[type]);
   err_obj->set_prop(*this, u"message", new_primitive_string(msg));
 
@@ -1026,14 +1025,8 @@ JSValue NjsVM::build_error_internal(JSErrorType type, const u16string& msg) {
   return JSValue(err_obj);
 }
 
-JSValue NjsVM::build_error_internal(JSErrorType type, u16string&& msg) {
-  auto *err_obj = new_object(CLS_ERROR, native_error_protos[type]);
-  err_obj->set_prop(*this, u"message", new_primitive_string(msg));
-
-  u16string trace_str = build_trace_str();
-  err_obj->set_prop(*this, u"stack", new_primitive_string(trace_str));
-
-  return JSValue(err_obj);
+Completion NjsVM::throw_error(JSErrorType type, u16string_view msg) {
+  return CompThrow(build_error(type, msg));
 }
 
 JSValue NjsVM::build_cannot_access_prop_error(JSValue key, JSValue obj, bool is_set) {
@@ -1047,7 +1040,7 @@ JSValue NjsVM::build_cannot_access_prop_error(JSValue key, JSValue obj, bool is_
   }
   msg += u"' of ";
   msg += to_u16string(obj.to_string(*this));
-  return build_error_internal(JS_TYPE_ERROR, std::move(msg));
+  return build_error(JS_TYPE_ERROR, msg);
 }
 
 JSValue NjsVM::exec_typeof(JSValue val) {
@@ -1331,13 +1324,12 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
 
   // if a function is an arrow function, it captures the `this` value in the environment
   // where the function is created.
-  if (meta->is_arrow_func) {
-    func->has_this_binding = true;
+  if (func->is_arrow_func) {
     VM_WRITE_BARRIER(func, env_this);
-    func->this_binding = env_this;
+    func->this_or_auxiliary_data = env_this;
   }
 
-  if (not meta->is_arrow_func) {
+  if (not func->is_arrow_func) {
     // make the `prototype` property a lazy property
     PFlag flag = PFlag::VCW;
     flag.lazy_kind = LAZY_PROTOTYPE;
@@ -1361,19 +1353,24 @@ void NjsVM::exec_js_new(SPRef sp, int argc) {
 
   assert(ctor.is(JSValue::FUNCTION));
   // prepare `this` object
-  JSValue proto = VM_TRY_COMP(ctor.as_func->get_prop(*this, AtomPool::k_prototype));
-  proto = proto.is_object() ? proto : object_prototype;
-  auto *this_obj = heap.new_object<JSObject>(*this, CLS_OBJECT, proto);
+  if (ctor.as_func->native_func == nullptr) [[likely]] {
+    JSValue proto = VM_TRY_COMP(ctor.as_func->get_prop(*this, AtomPool::k_prototype));
+    proto = proto.is_object() ? proto : object_prototype;
+    auto *this_obj = heap.new_object<JSObject>(*this, CLS_OBJECT, proto);
 
-  This.set_val(this_obj);
+    This.set_val(this_obj);
+  } else {
+    // if the ctor is a native function, don't need to prepare `this`.
+    This.set_undefined();
+  }
 
   ArgRef argv(&ctor + 1, argc);
+  CallFlags flags = CallFlags();
+  flags.constructor = true;
   Completion comp;
   if (ctor.as_object->is_function()) {
-    comp = call_internal(ctor, This, ctor, argv, DefaultCallFlags);
+    comp = call_internal(ctor, This, ctor, argv, flags);
   } else {
-    auto flags = DefaultCallFlags;
-    flags.constructor = true;
     comp = ctor.as_Object<JSBoundFunction>()->call(*this, This, ctor, argv, flags);
   }
   sp -= (argc + 1);
@@ -1559,7 +1556,7 @@ void NjsVM::exec_dynamic_set_var(SPRef sp, u32 name_atom) {
 // TODO: pause GC in this function
 Completion NjsVM::for_of_get_iterator(JSValue obj) {
   auto build_err = [&, this] () {
-    JSValue err = build_error_internal(
+    JSValue err = build_error(
         JS_TYPE_ERROR, to_u16string(obj.to_string(*this)) + u" is not iterable");
     return CompThrow(err);
   };
@@ -1584,7 +1581,7 @@ Completion NjsVM::for_of_call_next(JSValue iter) {
   JSValue next_func = TRYCC(iter.as_object->get_property(*this, atom_next));
 
   if (!next_func.is_object() || object_class(next_func) != CLS_FUNCTION) {
-    JSValue err = build_error_internal(
+    JSValue err = build_error(
         JS_TYPE_ERROR, to_u16string(next_func.to_string(*this)) + u" is not a function.");
     return CompThrow(err);
   }
@@ -1662,13 +1659,13 @@ void NjsVM::error_throw(SPRef sp, const u16string& msg) {
 }
 
 void NjsVM::error_throw_handle(SPRef sp, JSErrorType type, const u16string& msg) {
-  JSValue err_obj = build_error_internal(type, msg);
+  JSValue err_obj = build_error(type, msg);
   *++sp = err_obj;
   error_handle(sp);
 }
 
 void NjsVM::error_throw(SPRef sp, JSErrorType type, const u16string& msg) {
-  JSValue err_obj = build_error_internal(type, msg);
+  JSValue err_obj = build_error(type, msg);
   *++sp = err_obj;
 }
 

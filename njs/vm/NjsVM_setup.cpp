@@ -12,6 +12,8 @@
 #include "njs/basic_types/JSRegExpPrototype.h"
 #include "njs/basic_types/JSIteratorPrototype.h"
 #include "njs/basic_types/JSDatePrototype.h"
+#include "njs/basic_types/JSPromisePrototype.h"
+#include "njs/basic_types/JSPromise.h"
 
 namespace njs {
 
@@ -40,6 +42,9 @@ void NjsVM::init_prototypes() {
 
   date_prototype.set_val(heap.new_object<JSDatePrototype>(*this));
   date_prototype.as_object->set_proto(*this, object_prototype);
+
+  promise_prototype.set_val(heap.new_object<JSPromisePrototype>(*this));
+  promise_prototype.as_object->set_proto(*this, object_prototype);
 
   native_error_protos.reserve(JSErrorType::JS_NATIVE_ERROR_COUNT);
   for (int i = 0; i < JSErrorType::JS_NATIVE_ERROR_COUNT; i++) {
@@ -145,6 +150,12 @@ void NjsVM::setup() {
   }
 
   {
+    JSFunction *func = add_native_func_impl(u"Promise", NativeFunction::Promise_ctor);
+    promise_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(*this, AtomPool::k_prototype, promise_prototype);
+  }
+
+  {
     JSObject *obj = add_builtin_object(u"console");
     obj->add_method(*this, u"log", NativeFunction::log);
   }
@@ -164,6 +175,22 @@ void NjsVM::setup() {
   add_builtin_global_var(u"undefined", JSValue());
   add_builtin_global_var(u"NaN", JSValue(nan("")));
   add_builtin_global_var(u"Infinity", JSValue(1.0 / 0.0));
+
+  JSPromise::resolve_func_meta = new JSFunctionMeta {
+      .is_anonymous = true,
+      .is_native = true,
+      .param_count = 0,
+      .local_var_count = 0,
+      .native_func = JSPromise::promise_settling_function,
+      .magic = JSPromise::FULFILLED,
+  };
+
+  JSPromise::reject_func_meta = new JSFunctionMeta();
+  *JSPromise::reject_func_meta = *JSPromise::resolve_func_meta;
+  JSPromise::reject_func_meta->magic = JSPromise::REJECTED;
+
+  func_meta.emplace_back(JSPromise::resolve_func_meta);
+  func_meta.emplace_back(JSPromise::reject_func_meta);
 
   string_const.resize(11);
   string_const[AtomPool::k_] = new_primitive_string(u"");

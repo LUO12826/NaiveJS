@@ -17,11 +17,11 @@ namespace njs {
 inline Completion Object_defineProperty(vm_func_This_args_flags) {
   assert(args.size() >= 3);
   if (not args[0].is_object()) {
-    return CompThrow(vm.build_error_internal(
+    return CompThrow(vm.build_error(
         JS_TYPE_ERROR, u"Object.defineProperty called on non-object"));
   }
   if (not args[2].is_object()) {
-    return CompThrow(vm.build_error_internal(
+    return CompThrow(vm.build_error(
         JS_TYPE_ERROR, u"Property description must be an object"));
   }
 
@@ -34,7 +34,7 @@ inline Completion Object_defineProperty(vm_func_This_args_flags) {
 inline Completion Object_hasOwn(vm_func_This_args_flags) {
   assert(args.size() >= 2);
   if (not args[0].is_object()) {
-    return CompThrow(vm.build_error_internal(
+    return CompThrow(vm.build_error(
         JS_TYPE_ERROR, u"Object.hasOwn called on non-object"));
   }
   return JSObjectPrototype::hasOwnProperty(vm, func, args[0], args.subarray(1, 1), flags);
@@ -69,7 +69,7 @@ inline Completion Object_setPrototypeOf(vm_func_This_args_flags) {
     obj->set_proto(vm, proto);
     return JSValue(obj);
   } else {
-    return CompThrow(vm.build_error_internal(JS_TYPE_ERROR,
+    return CompThrow(vm.build_error(JS_TYPE_ERROR,
                                              u"Object prototype may only be an Object or null"));
   }
 }
@@ -94,7 +94,7 @@ inline Completion Object_create(vm_func_This_args_flags) {
     JSObject *obj = vm.new_object(CLS_OBJECT, arg);
     return JSValue(obj);
   } else {
-    return CompThrow(vm.build_error_internal(JS_TYPE_ERROR,
+    return CompThrow(vm.build_error(JS_TYPE_ERROR,
                                              u"Object prototype may only be an Object or null"));
   }
 }

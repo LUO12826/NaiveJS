@@ -16,6 +16,7 @@ JSFunction::JSFunction(NjsVM& vm, u16string_view name, JSFunctionMeta *meta)
     , local_var_count(meta->local_var_count)
     , stack_size(meta->stack_size)
     , bytecode_start(meta->bytecode_start)
+    , is_arrow_func(meta->is_arrow_func)
     , native_func(meta->native_func) {}
 
 JSFunction::JSFunction(NjsVM& vm, JSFunctionMeta *meta)
@@ -28,8 +29,8 @@ bool JSFunction::gc_scan_children(GCHeap& heap) {
     assert(var.is(JSValue::HEAP_VAL));
     child_young |= heap.gc_visit_object(var);
   }
-  if (this_binding.needs_gc()) {
-    child_young |= heap.gc_visit_object(this_binding);
+  if (this_or_auxiliary_data.needs_gc()) {
+    child_young |= heap.gc_visit_object(this_or_auxiliary_data);
   }
   return child_young;
 }
@@ -40,8 +41,8 @@ void JSFunction::gc_mark_children() {
     assert(var.is(JSValue::HEAP_VAL));
     gc_mark_object(var.as_GCObject);
   }
-  if (this_binding.needs_gc()) {
-    gc_mark_object(this_binding.as_GCObject);
+  if (this_or_auxiliary_data.needs_gc()) {
+    gc_mark_object(this_or_auxiliary_data.as_GCObject);
   }
 }
 
@@ -51,8 +52,8 @@ bool JSFunction::gc_has_young_child(GCObject *oldgen_start) {
     assert(var.is(JSValue::HEAP_VAL));
     if (var.as_GCObject < oldgen_start) return true;
   }
-  if (this_binding.needs_gc()) {
-    if (this_binding.as_GCObject < oldgen_start) return true;
+  if (this_or_auxiliary_data.needs_gc()) {
+    if (this_or_auxiliary_data.as_GCObject < oldgen_start) return true;
   }
   return false;
 }

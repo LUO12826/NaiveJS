@@ -38,7 +38,7 @@ Completion NativeFunction::debug_log(vm_func_This_args_flags) {
 
 Completion NativeFunction::debug_trap(vm_func_This_args_flags) {
   if (args.size() > 0 && args[0].bool_value()) {
-    return CompThrow(vm.build_error_internal(JS_INTERNAL_ERROR, u"Trap"));
+    return CompThrow(vm.build_error(JS_INTERNAL_ERROR, u"Trap"));
   } else {
     return undefined;
   }

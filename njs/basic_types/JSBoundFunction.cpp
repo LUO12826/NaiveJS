@@ -48,7 +48,7 @@ Completion JSBoundFunction::call(NjsVM& vm, JSValueRef This, JSValueRef new_targ
       unlikely(flags.constructor) ? This : bound_this,
       new_target,
       actual_argv,
-      flags
+      CallFlags()
   );
 }
 

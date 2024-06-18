@@ -31,7 +31,7 @@ class JSNumberPrototype : public JSObject {
       return This;
     }
     else {
-      JSValue err = vm.build_error_internal(JS_TYPE_ERROR,
+      JSValue err = vm.build_error(JS_TYPE_ERROR,
         u"Number.prototype.valueOf can only be called by number or number object.");
       return CompThrow(err);
     }

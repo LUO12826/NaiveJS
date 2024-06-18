@@ -28,13 +28,13 @@ class JSForInIterator : public JSObject {
     JSObject *obj = object.as_object;
 
     while (true) {
-      if (obj->get_class() == CLS_ARRAY) [[unlikely]] {
+      if (obj->is_array()) [[unlikely]] {
         auto *arr = obj->as<JSArray>();
         for (size_t i = 0; i < arr->get_dense_array().size(); i++) {
           if (arr->get_dense_array()[i].is_uninited()) [[unlikely]] continue;
           keys.push_back(vm.u32_to_atom(u32(i)));
         }
-      } else if (obj->get_class() == CLS_STRING) {
+      } else if (obj->get_class() == CLS_STRING) [[unlikely]] {
         auto *str = obj->as<JSString>();
         size_t len = str->get_prim_value()->length();
         for (size_t i = 0; i < len; i++) {

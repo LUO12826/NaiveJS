@@ -10,6 +10,7 @@
 #include "njs/basic_types/JSRegExp.h"
 #include "njs/basic_types/JSArray.h"
 #include "njs/basic_types/JSDate.h"
+#include "njs/basic_types/JSPromise.h"
 #include "njs/common/common_def.h"
 #include "njs/basic_types/qjs_date.h"
 
@@ -110,6 +111,18 @@ Completion NativeFunction::Function_ctor(vm_func_This_args_flags) {
   return vm.global_object.as_object->get_prop_trivial(key);
 }
 
+Completion NativeFunction::Promise_ctor(vm_func_This_args_flags) {
+  if (not flags.this_is_new_target) {
+    return CompThrow(vm.build_error(
+        JS_TYPE_ERROR, u"Promise constructor cannot be invoked without 'new'"));
+  }
+  if (args.size() == 0 || not args[0].is_function()) {
+    return CompThrow(vm.build_error(
+        JS_TYPE_ERROR, u"Promise resolver is not a function"));
+  }
+  return JSPromise::New(vm, args[0]);
+}
+
 Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArgRef args, JSErrorType type) {
   auto *err_obj = vm.new_object(CLS_ERROR, vm.native_error_protos[type]);
   if (args.size() > 0 && args[0].is_string_type()) {
@@ -126,7 +139,7 @@ Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArgRef args, JSErrorTy
 
 Completion NativeFunction::Symbol(vm_func_This_args_flags) {
   if (flags.this_is_new_target && !This.is_undefined()) {
-    JSValue err = vm.build_error_internal(JS_TYPE_ERROR, u"Symbol() is not a constructor.");
+    JSValue err = vm.build_error(JS_TYPE_ERROR, u"Symbol() is not a constructor.");
     return CompThrow(err);
   }
 

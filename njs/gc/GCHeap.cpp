@@ -100,7 +100,7 @@ void GCHeap::gc() {
   gc_message("************  execution continue  ************");
 }
 
-void GCHeap::write_barrier(GCObject *obj, JSValue& field) {
+void GCHeap::write_barrier(GCObject *obj, JSValue const& field) {
   if (not field.needs_gc()) return;
   GCObject *member = field.as_GCObject;
   member->ref_count_inc();
@@ -248,7 +248,9 @@ void GCHeap::gather_roots() {
   }
 
   for (auto& task : vm.micro_task_queue) {
-    roots.push_back(&task.task_func);
+    if (not task.use_native_func) {
+      roots.push_back(&task.task_func);
+    }
     for (auto& val : task.args) {
       if (val.needs_gc()) {
         roots.push_back(&val);

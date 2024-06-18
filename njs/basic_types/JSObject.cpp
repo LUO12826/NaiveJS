@@ -412,7 +412,7 @@ ErrorOr<JSPropDesc> JSObject::to_property_descriptor(NjsVM& vm) {
     }
 
     if (desc.is_data_descriptor() && desc.is_accessor_descriptor()) {
-      return vm.build_error_internal(JS_TYPE_ERROR, u"A property descriptor can only be either a"
+      return vm.build_error(JS_TYPE_ERROR, u"A property descriptor can only be either a"
                                                     " data descriptor or an accessor descriptor");
     }
 
@@ -437,7 +437,7 @@ Completion JSObject::to_primitive(NjsVM& vm, ToPrimTypeHint preferred_type) {
       return to_prim_res;
     }
     else if (to_prim_res.get_value().is_object()) {
-      JSValue err = vm.build_error_internal(JS_TYPE_ERROR, u"");
+      JSValue err = vm.build_error(JS_TYPE_ERROR, u"");
       return CompThrow(err);
     }
     else {
@@ -469,66 +469,50 @@ Completion JSObject::ordinary_to_primitive(NjsVM& vm, ToPrimTypeHint hint) {
     }
   }
 
-  JSValue err = vm.build_error_internal(JS_TYPE_ERROR, u"");
+  JSValue err = vm.build_error(JS_TYPE_ERROR, u"");
   return CompThrow(err);
 }
 
 bool JSObject::gc_scan_children(GCHeap& heap) {
   bool child_young = false;
   for (auto& [key, prop]: storage) {
-    if (prop.flag.is_value() && prop.data.value.needs_gc()) {
-      child_young |= heap.gc_visit_object(prop.data.value);
+    if (prop.flag.is_value()) {
+      gc_check_and_visit_object(child_young, prop.data.value);
     }
     if (prop.flag.is_getset()) {
-      if (prop.data.getset.getter.needs_gc()) {
-        child_young |= heap.gc_visit_object(prop.data.getset.getter);
-      }
-      if (prop.data.getset.setter.needs_gc()) {
-        child_young |= heap.gc_visit_object(prop.data.getset.setter);
-      }
+      gc_check_and_visit_object(child_young, prop.data.getset.getter);
+      gc_check_and_visit_object(child_young, prop.data.getset.setter);
     }
   }
-  if (_proto_.needs_gc()) {
-    child_young |= heap.gc_visit_object(_proto_);
-  }
+  gc_check_and_visit_object(child_young, _proto_);
   return child_young;
 }
 
 void JSObject::gc_mark_children() {
   for (auto& [key, prop]: storage) {
-    if (prop.flag.is_value() && prop.data.value.needs_gc()) {
-      gc_mark_object(prop.data.value.as_GCObject);
+    if (prop.flag.is_value()) {
+      gc_check_and_mark_object(prop.data.value);
     }
     if (prop.flag.is_getset()) {
-      if (prop.data.getset.getter.needs_gc()) {
-        gc_mark_object(prop.data.getset.getter.as_GCObject);
-      }
-      if (prop.data.getset.setter.needs_gc()) {
-        gc_mark_object(prop.data.getset.setter.as_GCObject);
-      }
+      gc_check_and_mark_object(prop.data.getset.getter);
+      gc_check_and_mark_object(prop.data.getset.setter);
     }
   }
-  if (_proto_.needs_gc()) {
-    gc_mark_object(_proto_.as_GCObject);
-  }
+  gc_check_and_mark_object(_proto_);
 }
 
 bool JSObject::gc_has_young_child(GCObject *oldgen_start) {
   for (auto& [key, prop]: storage) {
-    if (prop.flag.is_value() && prop.data.value.needs_gc()) {
-      if (prop.data.value.as_GCObject < oldgen_start) return true;
+    if (prop.flag.is_value()) {
+      gc_check_object_young(prop.data.value);
     }
     if (prop.flag.is_getset()) {
-      if (prop.data.getset.getter.needs_gc()) {
-        if (prop.data.getset.getter.as_GCObject < oldgen_start) return true;
-      }
-      if (prop.data.getset.setter.needs_gc()) {
-        if (prop.data.getset.setter.as_GCObject < oldgen_start) return true;
-      }
+      gc_check_object_young(prop.data.getset.getter);
+      gc_check_object_young(prop.data.getset.setter);
     }
   }
-
-  return _proto_.needs_gc() && _proto_.as_GCObject < oldgen_start;
+  gc_check_object_young(_proto_);
+  return false;
 }
 
 std::string JSObject::description() {

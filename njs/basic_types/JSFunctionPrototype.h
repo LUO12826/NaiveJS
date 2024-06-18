@@ -37,7 +37,7 @@ class JSFunctionPrototype : public JSObject {
 
   static Completion bind(vm_func_This_args_flags) {
     if (not This.is_function()) [[unlikely]] {
-      return CompThrow(vm.build_error_internal(
+      return CompThrow(vm.build_error(
           JS_TYPE_ERROR, u"Function.prototype.apply can only be called on a function."));
     }
     auto *bound_func = vm.heap.new_object<JSBoundFunction>(vm, This);
@@ -61,7 +61,7 @@ class JSFunctionPrototype : public JSObject {
 
   static Completion apply(vm_func_This_args_flags) {
     if (not This.is_function()) [[unlikely]] {
-      return CompThrow(vm.build_error_internal(
+      return CompThrow(vm.build_error(
           JS_TYPE_ERROR, u"Function.prototype.apply can only be called on a function."));
     }
     if (args.size() == 0) [[unlikely]] {
@@ -70,7 +70,7 @@ class JSFunctionPrototype : public JSObject {
       return vm.call_internal(This, args[0], undefined, args.subarray(1), flags);
     } else {
       if (not args[1].is_object()) [[unlikely]] {
-        return CompThrow(vm.build_error_internal(
+        return CompThrow(vm.build_error(
             JS_TYPE_ERROR, u"CreateListFromArrayLike called on non-object"));
       }
       JSObject *arr = args[1].as_object;

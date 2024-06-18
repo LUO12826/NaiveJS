@@ -91,7 +91,7 @@ constexpr static int AGE_MAX = 1;
   // of the GCObject subclasses.
   bool gc_visit_object(JSValue &handle);
 
-  void write_barrier(GCObject *obj, JSValue& field);
+  void write_barrier(GCObject *obj, JSValue const& field);
   bool object_in_newgen(GCObject *obj) {
     return obj < reinterpret_cast<GCObject *>(oldgen_start);
   }

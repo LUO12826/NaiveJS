@@ -43,7 +43,7 @@ class JSRegExpPrototype : public JSObject {
     if (This.is_object() && object_class(This) == CLS_REGEXP) [[likely]] {
       return This.as_Object<JSRegExp>()->prototype_to_string(vm);
     } else {
-      JSValue err = vm.build_error_internal(JS_TYPE_ERROR,
+      JSValue err = vm.build_error(JS_TYPE_ERROR,
         u"RegExp.prototype.toString can only be called by RegExp object");
       return CompThrow(err);
     }

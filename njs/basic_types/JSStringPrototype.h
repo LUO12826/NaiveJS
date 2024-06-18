@@ -14,8 +14,7 @@
 
 #define REQUIRE_COERCIBLE(x)                                                                      \
   if ((x).is_nil()) [[unlikely]] {                                                                \
-    return CompThrow(vm.build_error_internal(JS_TYPE_ERROR,                                       \
-                                             u"undefined or null is not coercible"));             \
+    return vm.throw_error(JS_TYPE_ERROR, u"undefined or null is not coercible");                  \
   }
 
 namespace njs {
@@ -212,7 +211,7 @@ class JSStringPrototype : public JSObject {
           JSValue argv[] {This, args[1]};
           return vm.call_function(m_replace, args[0], undefined, {argv, 2} , flags);
         } else {
-          return CompThrow(vm.build_error_internal(
+          return CompThrow(vm.build_error(
             JS_TYPE_ERROR, u"[Symbol.replace] method is not callable"));
         }
       }
@@ -345,7 +344,7 @@ class JSStringPrototype : public JSObject {
       return JSValue(str_obj->get_prim_value());
     }
     else {
-      JSValue err = vm.build_error_internal(JS_TYPE_ERROR,
+      JSValue err = vm.build_error(JS_TYPE_ERROR,
         u"String.prototype.valueOf can only be called by string or string object.");
       return CompThrow(err);
     }

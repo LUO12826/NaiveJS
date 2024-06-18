@@ -5,7 +5,6 @@
 #include <memory>
 #include <deque>
 #include <vector>
-#include <functional>
 
 #include "JSRunLoop.h"
 #include "NativeFunction.h"
@@ -76,6 +75,7 @@ friend class JSBoundFunction;
 friend class JSArray;
 friend class JSDate;
 friend class JSRegExp;
+friend class JSPromise;
 friend class JSForInIterator;
 friend class JSObjectPrototype;
 friend class JSArrayPrototype;
@@ -125,8 +125,8 @@ friend class JSArrayIterator;
 
   vector<StackTraceItem> capture_stack_trace();
   u16string build_trace_str(bool remove_top = false);
-  JSValue build_error_internal(JSErrorType type, const u16string& msg);
-  JSValue build_error_internal(JSErrorType type, u16string&& msg);
+  JSValue build_error(JSErrorType type, u16string_view msg);
+  Completion throw_error(JSErrorType type, u16string_view msg);
 
   JSValue build_cannot_access_prop_error(JSValue key, JSValue obj, bool is_set);
 
@@ -271,6 +271,7 @@ friend class JSArrayIterator;
   JSValue regexp_prototype;
   JSValue date_prototype;
   JSValue iterator_prototype;
+  JSValue promise_prototype;
   vector<JSValue> native_error_protos;
 
   vector<JSValue> string_const;

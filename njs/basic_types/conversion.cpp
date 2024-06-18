@@ -25,7 +25,7 @@ Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
       if (to_prop_key) {
         return val;
       } else {
-        JSValue err = vm.build_error_internal(JS_TYPE_ERROR, u"cannot convert symbol to string");
+        JSValue err = vm.build_error(JS_TYPE_ERROR, u"cannot convert symbol to string");
         return CompThrow(err);
       }
     case JSValue::BOOLEAN:
@@ -53,7 +53,7 @@ Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
 
 Completion js_to_object(NjsVM &vm, JSValue arg) {
   if (arg.is_nil()) [[unlikely]] {
-    return CompThrow(vm.build_error_internal(JS_TYPE_ERROR, u""));
+    return CompThrow(vm.build_error(JS_TYPE_ERROR, u""));
   }
   JSObject *obj;
   switch (arg.tag) {
@@ -121,7 +121,7 @@ Completion js_to_property_key(NjsVM &vm, JSValue val) {
 
 Completion js_require_object_coercible(NjsVM &vm, JSValue val) {
   if (val.is_nil()) {
-    return CompThrow(vm.build_error_internal(JS_TYPE_ERROR, u"undefined or null is not coercible"));
+    return CompThrow(vm.build_error(JS_TYPE_ERROR, u"undefined or null is not coercible"));
   } else {
     return val;
   }
@@ -142,7 +142,7 @@ ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {
     case JSValue::NUM_FLOAT:
       return val.as_f64;
     case JSValue::SYMBOL:
-      return vm.build_error_internal(JS_TYPE_ERROR, u"TypeError");
+      return vm.build_error(JS_TYPE_ERROR, u"TypeError");
     case JSValue::STRING:
       return u16string_to_double(val.as_prim_string->view());
     default:

@@ -77,7 +77,7 @@ class JSArray: public JSObject {
             resize(len_int);
             return true;
           } else {
-            return vm.build_error_internal(JS_RANGE_ERROR, u"Invalid array length");
+            return vm.build_error(JS_RANGE_ERROR, u"Invalid array length");
           }
         } else {
           return set_prop(vm, idx, val);

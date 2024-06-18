@@ -34,6 +34,7 @@ class NativeFunction {
   static Completion RegExp_ctor(JS_NATIVE_FUNC_PARAMS);
   static Completion Date_ctor(JS_NATIVE_FUNC_PARAMS);
   static Completion Function_ctor(JS_NATIVE_FUNC_PARAMS);
+  static Completion Promise_ctor(JS_NATIVE_FUNC_PARAMS);
   static Completion error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type);
 
   static Completion Symbol(JS_NATIVE_FUNC_PARAMS);
