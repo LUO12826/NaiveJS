@@ -58,13 +58,14 @@ struct JSFunctionMeta {
   std::string description() const;
 };
 
-inline JSFunctionMeta* build_func_meta(NativeFuncType func) {
+inline JSFunctionMeta* build_func_meta(NativeFuncType func, int magic = 0) {
   return new JSFunctionMeta {
       .is_anonymous = true,
       .is_native = true,
       .param_count = 0,
       .local_var_count = 0,
       .native_func = func,
+      .magic = magic,
   };
 }
 

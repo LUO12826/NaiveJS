@@ -165,6 +165,7 @@ void NjsVM::setup() {
     obj->add_method(*this, u"min", JSMath::min);
     obj->add_method(*this, u"max", JSMath::max);
     obj->add_method(*this, u"floor", JSMath::floor);
+    obj->add_method(*this, u"random", JSMath::random);
   }
 
   {
@@ -176,21 +177,7 @@ void NjsVM::setup() {
   add_builtin_global_var(u"NaN", JSValue(nan("")));
   add_builtin_global_var(u"Infinity", JSValue(1.0 / 0.0));
 
-  JSPromise::resolve_func_meta = new JSFunctionMeta {
-      .is_anonymous = true,
-      .is_native = true,
-      .param_count = 0,
-      .local_var_count = 0,
-      .native_func = JSPromise::promise_settling_function,
-      .magic = JSPromise::FULFILLED,
-  };
-
-  JSPromise::reject_func_meta = new JSFunctionMeta();
-  *JSPromise::reject_func_meta = *JSPromise::resolve_func_meta;
-  JSPromise::reject_func_meta->magic = JSPromise::REJECTED;
-
-  func_meta.emplace_back(JSPromise::resolve_func_meta);
-  func_meta.emplace_back(JSPromise::reject_func_meta);
+  JSPromise::add_internal_function_meta(*this);
 
   string_const.resize(11);
   string_const[AtomPool::k_] = new_primitive_string(u"");

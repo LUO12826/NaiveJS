@@ -11,6 +11,7 @@ class JSPromisePrototype : public JSObject {
   explicit JSPromisePrototype(NjsVM &vm) : JSObject(CLS_PROMISE_PROTO) {
     add_method(vm, u"then", JSPromisePrototype::promise_then);
     add_method(vm, u"catch", JSPromisePrototype::promise_catch);
+    add_method(vm, u"finally", JSPromisePrototype::promise_finally);
   }
 
   u16string_view get_class_name() override {
@@ -30,6 +31,13 @@ class JSPromisePrototype : public JSObject {
     const JSValue& on_rejected = args.size() > 0 ? args[0] : undefined;
 
     return This.as_Object<JSPromise>()->then(vm, undefined, on_rejected);
+  }
+
+  static Completion promise_finally(vm_func_This_args_flags) {
+    assert(This.is_object() && This.as_object->get_class() == CLS_PROMISE);
+    const JSValue& on_finally = args.size() > 0 ? args[0] : undefined;
+
+    return This.as_Object<JSPromise>()->finally(vm, on_finally);
   }
 };
 

@@ -1,5 +1,6 @@
 #include "NativeFunction.h"
 
+#include <random>
 #include "NjsVM.h"
 #include "njs/basic_types/conversion.h"
 #include "njs/include/httplib.h"
@@ -178,6 +179,13 @@ Completion JSMath::max(vm_func_This_args_flags) {
 Completion JSMath::floor(vm_func_This_args_flags) {
   assert(args.size() == 1 && args[0].is_float64());
   return JSValue(std::floor(args[0].as_f64));
+}
+
+Completion JSMath::random(vm_func_This_args_flags) {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<> dis(0.0, 1.0);
+  return JSValue(dis(gen));
 }
 
 }

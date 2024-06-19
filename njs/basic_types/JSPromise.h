@@ -52,6 +52,10 @@ friend class JSPromisePrototype;
  public:
   static inline JSFunctionMeta *resolve_func_meta;
   static inline JSFunctionMeta *reject_func_meta;
+  static inline JSFunctionMeta *then_fulfilled_func_for_finally_meta;
+  static inline JSFunctionMeta *then_rejected_func_for_finally_meta;
+  static inline JSFunctionMeta *func_return_auxiliary_meta;
+  static inline JSFunctionMeta *func_throw_auxiliary_meta;
 
   enum State: uint8_t {
     // do not change the order or numeric value
@@ -65,7 +69,7 @@ friend class JSPromisePrototype;
     assert(executor.is_function());
 
     JSValue promise(new JSPromise(vm));
-    auto resolve_reject = build_resolve_reject_func(vm, promise);
+    auto resolve_reject = build_resolve_reject_function(vm, promise);
 
     Completion comp = vm.call_function(executor, undefined, undefined,
                                        {resolve_reject.data(), 2});
@@ -77,7 +81,32 @@ friend class JSPromisePrototype;
     return promise;
   }
 
-  static array<JSValue, 2> build_resolve_reject_func(NjsVM& vm, JSValueRef promise) {
+  static void add_internal_function_meta(NjsVM& vm) {
+    resolve_func_meta = build_func_meta(promise_settling_function, FULFILLED);
+    reject_func_meta = build_func_meta(promise_settling_function, REJECTED);
+
+    then_fulfilled_func_for_finally_meta = build_func_meta(then_callback_for_finally, FULFILLED);
+    then_rejected_func_for_finally_meta = build_func_meta(then_callback_for_finally, REJECTED);
+    func_return_auxiliary_meta = build_func_meta(passthrough_return_auxiliary);
+    func_throw_auxiliary_meta = build_func_meta(passthrough_throw_auxiliary);
+
+    vm.func_meta.emplace_back(resolve_func_meta);
+    vm.func_meta.emplace_back(reject_func_meta);
+    vm.func_meta.emplace_back(then_fulfilled_func_for_finally_meta);
+    vm.func_meta.emplace_back(then_rejected_func_for_finally_meta);
+    vm.func_meta.emplace_back(func_return_auxiliary_meta);
+    vm.func_meta.emplace_back(func_throw_auxiliary_meta);
+  }
+
+  static Completion passthrough_return_auxiliary(vm_func_This_args_flags) {
+    return func.as_func->this_or_auxiliary_data;
+  }
+
+  static Completion passthrough_throw_auxiliary(vm_func_This_args_flags) {
+    return CompThrow(func.as_func->this_or_auxiliary_data);
+  }
+
+  static array<JSValue, 2> build_resolve_reject_function(NjsVM& vm, JSValueRef promise) {
     auto *resolve_func = vm.new_function(resolve_func_meta);
     auto *reject_func = vm.new_function(reject_func_meta);
     resolve_func->has_auxiliary_data = true;
@@ -88,6 +117,7 @@ friend class JSPromisePrototype;
     return {JSValue(resolve_func), JSValue(reject_func)};
   }
 
+  // get the `then` function from an object. for checking whether an object is `thenable`.
   static Completion get_then_function(NjsVM& vm, JSValue val) {
     if (val.is_object()) {
       return TRYCC(val.as_object->get_prop(vm, AtomPool::k_then));
@@ -95,19 +125,90 @@ friend class JSPromisePrototype;
     return undefined;
   }
 
+  // the arguments for the executor: `resolve` and `reject` function
   static Completion promise_settling_function(vm_func_This_args_flags) {
     assert(func.as_func->has_auxiliary_data);
     assert(func.as_func->this_or_auxiliary_data.as_object->get_class() == CLS_PROMISE);
     JSValueRef arg = args.size() > 0 ? args[0] : undefined;
+    auto *promise = func.as_func->this_or_auxiliary_data.as_Object<JSPromise>();
+    auto state = static_cast<State>(func.as_func->meta->magic);
 
     if (same_value(arg, func.as_func->this_or_auxiliary_data)) {
       return vm.throw_error(JS_TYPE_ERROR, u"Promise self resolution detected");
     }
 
-    auto *promise = func.as_func->this_or_auxiliary_data.as_Object<JSPromise>();
-    auto state = static_cast<State>(func.as_func->meta->magic);
+    // for resolve(thenable)
+    if (state == FULFILLED) {
+      if (JSValue then_func = TRYCC(get_then_function(vm, arg)); then_func.is_function()) {
+        vector<JSValue> task_args { JSValue(promise), arg, then_func };
+
+        vm.micro_task_queue.push_back(JSTask {
+            .use_native_func = true,
+            .native_task_func = JSPromise::promise_resolve_thenable,
+            .args = std::move(task_args),
+        });
+        return undefined;
+      }
+    }
+
     promise->settle(vm, state, arg);
     return undefined;
+  }
+
+  // if `resolve` is called on a thenable in the executor, use this method to call the
+  // `then` method of the thenable (with `resolve` and `reject` callback as its argument)
+  static Completion promise_resolve_thenable(vm_func_This_args_flags) {
+    assert(args.size() == 3);
+    JSValueRef promise = args[0];
+    JSValueRef thenable = args[1];
+    JSValueRef then = args[2];
+
+    auto resolve_reject = build_resolve_reject_function(vm, promise);
+    auto comp = vm.call_function(then, thenable, undefined, {resolve_reject.data(), 2});
+    if (comp.is_throw()) {
+      vm.call_function(resolve_reject[1], undefined, undefined, {&comp.get_value(), 1});
+    }
+    return undefined;
+  }
+
+  // for Promise.resolve or Promise.reject
+  // TODO: figure out how to pass the `promise_ctor`
+  static Completion Promise_resolve_reject(NjsVM& vm, JSValueRef promise_ctor,
+                                           JSValue& arg, bool is_reject) {
+    if (not is_reject && arg.is_object()) {
+      // if the arg is a promise, directly return it
+      if (arg.as_object->get_class() == ObjClass::CLS_PROMISE) {
+        return arg;
+      }
+    }
+    // else, the arg can be a thenable or other.
+    // `resolve_reject` (pointing to `promise_settling_function`) will handle this properly.
+
+    JSValue promise(new JSPromise(vm));
+    auto resolve_reject = build_resolve_reject_function(vm, promise);
+    vm.call_function(resolve_reject[int(is_reject)], undefined, {&arg, 1});
+
+    return promise;
+  }
+
+  static Completion then_callback_for_finally(vm_func_This_args_flags) {
+    assert(func.as_func->has_auxiliary_data);
+    JSValueRef on_finally = func.as_func->this_or_auxiliary_data;
+    auto state = static_cast<State>(func.as_func->meta->magic);
+
+    JSValue finally_res = TRYCC(vm.call_function(on_finally, undefined, {}));
+    JSValue promise = TRYCC(Promise_resolve_reject(vm, undefined, finally_res, false));
+
+    JSValue then_func;
+    if (state == FULFILLED) {
+      then_func.set_val(vm.new_function(func_return_auxiliary_meta));
+    } else {
+      then_func.set_val(vm.new_function(func_throw_auxiliary_meta));
+    }
+    then_func.as_func->has_auxiliary_data = true;
+    then_func.as_func->this_or_auxiliary_data = args[0];
+
+    return promise.as_Object<JSPromise>()->then(vm, then_func, undefined);
   }
 
   /*
@@ -168,7 +269,7 @@ friend class JSPromisePrototype;
 
   JSValue then(NjsVM& vm, JSValueRef on_fulfilled, JSValueRef on_rejected) {
     JSValue promise(new JSPromise(vm));
-    auto [resolve_func, reject_func] = build_resolve_reject_func(vm, promise);
+    auto [resolve_func, reject_func] = build_resolve_reject_function(vm, promise);
 
     if (state == PENDING) {
       put_then_record(vm, on_fulfilled, on_rejected, resolve_func, reject_func);
@@ -190,6 +291,33 @@ friend class JSPromisePrototype;
     }
 
     return promise;
+  }
+
+  // `finally` is kind of a wrapper of `then` but behaves slightly differently.
+  // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/finally
+  // like
+  //     promise.then(
+  //      (value) => Promise.resolve(onFinally()).then(() => value),
+  //      (reason) =>
+  //        Promise.resolve(onFinally()).then(() => {
+  //          throw reason;
+  //        }),
+  //)    ;
+  JSValue finally(NjsVM& vm, JSValueRef on_finally) {
+    if (on_finally.is_function()) {
+      JSFunction *fulfill = vm.new_function(then_fulfilled_func_for_finally_meta);
+      JSFunction *reject = vm.new_function(then_rejected_func_for_finally_meta);
+      fulfill->has_auxiliary_data = true;
+      reject->has_auxiliary_data = true;
+      fulfill->this_or_auxiliary_data = on_finally;
+      reject->this_or_auxiliary_data = on_finally;
+      JSValue on_fulfilled(fulfill);
+      JSValue on_rejected(reject);
+
+      return then(vm, on_fulfilled, on_rejected);
+    } else {
+      return then(vm, on_finally, on_finally);
+    }
   }
 
   void process_then(NjsVM& vm) {

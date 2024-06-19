@@ -123,6 +123,11 @@ friend class JSArrayIterator;
   Completion call_function(JSValueRef func, JSValueRef This, JSValueRef new_target,
                            ArgRef argv, CallFlags flags = CallFlags());
 
+  Completion call_function(JSValueRef func, JSValueRef This, ArgRef argv,
+                           CallFlags flags = CallFlags()) {
+    return call_function(func, This, undefined, argv, flags);
+  }
+
   vector<StackTraceItem> capture_stack_trace();
   u16string build_trace_str(bool remove_top = false);
   JSValue build_error(JSErrorType type, u16string_view msg);
