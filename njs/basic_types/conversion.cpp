@@ -81,6 +81,44 @@ Completion js_to_primitive(NjsVM &vm, JSValue val) {
   }
 }
 
+JSValue js_op_typeof(NjsVM &vm, JSValue val) {
+  switch (val.tag) {
+    case JSValue::UNDEFINED:
+    case JSValue::UNINIT:
+      return vm.get_string_const(AtomPool::k_undefined);
+    case JSValue::JS_NULL:
+      return vm.get_string_const(AtomPool::k_object);
+    case JSValue::JS_ATOM:
+      return vm.get_string_const(AtomPool::k_string);
+    case JSValue::SYMBOL:
+      return vm.get_string_const(AtomPool::k_symbol);
+    case JSValue::BOOLEAN:
+      return vm.get_string_const(AtomPool::k_boolean);
+    case JSValue::NUM_UINT32:
+    case JSValue::NUM_INT32:
+    case JSValue::NUM_FLOAT:
+      return vm.get_string_const(AtomPool::k_number);
+    case JSValue::STRING:
+      return vm.get_string_const(AtomPool::k_string);
+    case JSValue::BOOLEAN_OBJ:
+    case JSValue::NUMBER_OBJ:
+    case JSValue::STRING_OBJ:
+    case JSValue::OBJECT:
+    case JSValue::ARRAY:
+      // will this happen?
+      if (object_class(val) == CLS_FUNCTION) {
+        return vm.get_string_const(AtomPool::k_function);
+      } else {
+        return vm.get_string_const(AtomPool::k_object);
+      }
+    case JSValue::FUNCTION:
+      return vm.get_string_const(AtomPool::k_function);
+    default:
+      assert(false);
+  }
+  __builtin_unreachable();
+}
+
 Completion js_to_property_key(NjsVM &vm, JSValue val) {
   switch (val.tag) {
     case JSValue::UNDEFINED:

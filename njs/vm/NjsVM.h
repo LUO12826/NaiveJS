@@ -33,34 +33,7 @@ using ArgRef = Span<JSValue>;
 
 class CodegenVisitor;
 struct JSTask;
-
-struct JSStackFrame {
-  JSStackFrame *prev_frame;
-  JSValue function;
-  size_t alloc_cnt {0};
-  JSValue *buffer;
-  JSValue *args_buf;
-  JSValue *local_vars;
-  JSValue *stack;
-  JSValue *sp;
-  u32 pc {0};
-  // warning: these two values are valid only when this frame is active.
-  JSValue **sp_ref;
-  u32 *pc_ref;
-
-  JSStackFrame* move_to_heap() {
-    JSStackFrame& frame = *new JSStackFrame(*this);
-    frame.buffer = (JSValue*)malloc(sizeof(JSValue) * frame.alloc_cnt);
-    memcpy(frame.buffer, this->buffer, sizeof(JSValue) * frame.alloc_cnt);
-    auto addr_diff = frame.buffer - this->buffer;
-    frame.args_buf += addr_diff;
-    frame.local_vars += addr_diff;
-    frame.stack += addr_diff;
-    frame.sp += addr_diff;
-
-    return &frame;
-  }
-};
+struct JSStackFrame;
 
 class NjsVM {
 friend struct JSValue;
@@ -225,7 +198,6 @@ friend struct GCHandleCollector;
   void exec_shift_imm(SPRef sp, OpType op_type, u32 imm);
   void exec_abstract_equality(SPRef sp, bool flip);
 
-  JSValue exec_typeof(JSValue val);
   void exec_in(SPRef sp);
   void exec_instanceof(SPRef sp);
   void exec_delete(SPRef sp);
@@ -243,7 +215,7 @@ friend struct GCHandleCollector;
 
   void error_throw(SPRef sp, const u16string& msg);
   void error_throw(SPRef sp, JSErrorType type, const u16string& msg);
-  void error_throw_handle(SPRef sp, JSErrorType type, const u16string& msg);
+  void error_throw_handle(SPRef sp, JSErrorType type, u16string_view msg);
   void error_handle(SPRef sp);
   void print_unhandled_error(JSValue err);
 

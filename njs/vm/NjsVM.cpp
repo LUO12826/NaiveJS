@@ -1,6 +1,7 @@
 #include "NjsVM.h"
 
 #include <iostream>
+#include "JSStackFrame.h"
 #include "njs/common/Completion.h"
 #include "njs/basic_types/JSValue.h"
 #include "njs/utils/helper.h"
@@ -93,8 +94,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
 
 NjsVM::~NjsVM() {
   assert(global_frame);
-  free(global_frame->buffer);
-  delete global_frame;
+  free(global_frame);
 }
 
 
@@ -320,8 +320,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 #define check_uninit {                                                                             \
   if (sp[0].is_uninited()) [[unlikely]] {                                                          \
     sp -= 1;                                                                                       \
-    error_throw(sp, JS_REFERENCE_ERROR, u"Cannot access a variable before initialization");        \
-    error_handle(sp);                                                                              \
+    error_throw_handle(sp, JS_REFERENCE_ERROR, u"Cannot access a variable before initialization"); \
   }                                                                                                \
 }
 
@@ -908,7 +907,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         exec_instanceof(sp);
         Break;
       Case(js_typeof):
-        sp[0] = exec_typeof(sp[0]);
+        sp[0] = js_op_typeof(*this, sp[0]);
         Break;
       Case(js_delete):
         exec_delete(sp);
@@ -1054,44 +1053,6 @@ JSValue NjsVM::build_cannot_access_prop_error(JSValue key, JSValue obj, bool is_
   msg += u"' of ";
   msg += to_u16string(obj.to_string(*this));
   return build_error(JS_TYPE_ERROR, msg);
-}
-
-JSValue NjsVM::exec_typeof(JSValue val) {
-  switch (val.tag) {
-    case JSValue::UNDEFINED:
-    case JSValue::UNINIT:
-      return get_string_const(AtomPool::k_undefined);
-    case JSValue::JS_NULL:
-      return get_string_const(AtomPool::k_object);
-    case JSValue::JS_ATOM:
-      return get_string_const(AtomPool::k_string);
-    case JSValue::SYMBOL:
-      return get_string_const(AtomPool::k_symbol);
-    case JSValue::BOOLEAN:
-      return get_string_const(AtomPool::k_boolean);
-    case JSValue::NUM_UINT32:
-    case JSValue::NUM_INT32:
-    case JSValue::NUM_FLOAT:
-      return get_string_const(AtomPool::k_number);
-    case JSValue::STRING:
-      return get_string_const(AtomPool::k_string);
-    case JSValue::BOOLEAN_OBJ:
-    case JSValue::NUMBER_OBJ:
-    case JSValue::STRING_OBJ:
-    case JSValue::OBJECT:
-    case JSValue::ARRAY:
-      // will this happen?
-      if (object_class(val) == CLS_FUNCTION) {
-        return get_string_const(AtomPool::k_function);
-      } else {
-        return get_string_const(AtomPool::k_object);
-      }
-    case JSValue::FUNCTION:
-      return get_string_const(AtomPool::k_function);
-    default:
-      assert(false);
-  }
-  __builtin_unreachable();
 }
 
 void NjsVM::exec_in(SPRef sp) {
@@ -1356,6 +1317,14 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
 }
 
 void NjsVM::exec_js_new(SPRef sp, int argc) {
+
+  if (not sp[-argc].is_function()) [[unlikely]] {
+    u16string msg(js_op_typeof(*this, sp[-argc]).as_prim_string->view());
+    msg += u" is not callable";
+    error_throw_handle(sp, JS_TYPE_ERROR, msg);
+    return;
+  }
+
   for (int i = 1; i > -argc; i--) {
     sp[i] = sp[i - 1];
   }
@@ -1364,7 +1333,15 @@ void NjsVM::exec_js_new(SPRef sp, int argc) {
   JSValue& ctor = sp[-argc];
   JSValue& This = sp[-argc - 1];
 
-  assert(ctor.is_function());
+  // check whether the ctor is a constructor
+  if (not ctor.as_object->is_bound_function()) [[likely]] {
+    assert(ctor.as_object->is_direct_function());
+    if (not ctor.as_func->is_constructor) [[unlikely]] {
+      error_throw_handle(sp, JS_TYPE_ERROR, u"function is not a constructor");
+      return;
+    }
+  }
+
   // prepare `this` object for non-native and non-bounded functions.
   if (ctor.as_object->is_bound_function() || ctor.as_func->is_native()) [[unlikely]] {
     This.set_undefined();
@@ -1671,7 +1648,7 @@ void NjsVM::error_throw(SPRef sp, const u16string& msg) {
   error_throw(sp, JS_ERROR, msg);
 }
 
-void NjsVM::error_throw_handle(SPRef sp, JSErrorType type, const u16string& msg) {
+void NjsVM::error_throw_handle(SPRef sp, JSErrorType type, u16string_view msg) {
   JSValue err_obj = build_error(type, msg);
   *++sp = err_obj;
   error_handle(sp);

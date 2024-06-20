@@ -38,6 +38,7 @@ struct JSFunctionMeta {
   u32 name_index;
   bool is_anonymous : 1 {false};
   bool is_arrow_func : 1 {false};
+  bool is_constructor : 1 {true};
   bool is_native : 1 {false};
   bool is_strict : 1 {false};
   bool prepare_arguments_array : 1 {false};

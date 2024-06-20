@@ -16,6 +16,7 @@ JSFunction::JSFunction(NjsVM& vm, u16string_view name, JSFunctionMeta *meta)
     , local_var_count(meta->local_var_count)
     , stack_size(meta->stack_size)
     , bytecode_start(meta->bytecode_start)
+    , is_constructor(meta->is_constructor)
     , is_arrow_func(meta->is_arrow_func)
     , native_func(meta->native_func) {}
 

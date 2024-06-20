@@ -19,6 +19,7 @@ ErrorOr<int16_t>        js_to_int16(NjsVM &vm, JSValue val);
 Completion              js_to_string(NjsVM &vm, JSValue val, bool to_prop_key = false);
 Completion              js_to_object(NjsVM &vm, JSValue val);
 Completion              js_to_primitive(NjsVM &vm, JSValue val);
+JSValue                 js_op_typeof(NjsVM &vm, JSValue val);
 /// return atom or symbol
 Completion              js_to_property_key(NjsVM &vm, JSValue val);
 Completion              js_require_object_coercible(NjsVM &vm, JSValue val);

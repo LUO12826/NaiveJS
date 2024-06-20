@@ -4,6 +4,7 @@
 
 #include "GCHeap.h"
 #include "njs/vm/NjsVM.h"
+#include "njs/vm/JSStackFrame.h"
 #include "njs/global_var.h"
 #include "njs/utils/Timer.h"
 #include "njs/basic_types/PrimitiveString.h"

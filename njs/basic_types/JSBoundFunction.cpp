@@ -49,7 +49,11 @@ Completion JSBoundFunction::call(NjsVM& vm, JSValueRef This, JSValueRef new_targ
 
   JSValueRef actual_func = bound_chain.back()->func;
 
-  if (flags.constructor) {
+  if (flags.constructor) [[unlikely]] {
+    if (not actual_func.as_func->is_constructor) {
+      return vm.build_error(JS_TYPE_ERROR, u"function is not a constructor");
+    }
+
     JSValue proto = TRYCC(actual_func.as_object->get_prop(vm, AtomPool::k_prototype));
     proto = proto.is_object() ? proto : vm.object_prototype;
     const_cast<JSValue&>(This).set_val(vm.heap.new_object<JSObject>(vm, CLS_OBJECT, proto));

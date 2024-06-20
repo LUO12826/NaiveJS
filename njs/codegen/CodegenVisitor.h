@@ -417,11 +417,13 @@ class CodegenVisitor {
       prepare_arguments = sym->is_special && sym->referenced;
     }
 
+    bool is_not_constructor = func.is_async | func.is_arrow_func | func.is_generator;
     // create metadata for function
     auto *meta = new JSFunctionMeta {
         .name_index = func.has_name() ? add_const(func.name.text) : 0,
         .is_anonymous = !func.has_name() || func.is_arrow_func,
         .is_arrow_func = func.is_arrow_func,
+        .is_constructor = !is_not_constructor,
         .is_strict = body->strict,
         .prepare_arguments_array = prepare_arguments,
         .param_count = (u16)scope().get_param_count(),

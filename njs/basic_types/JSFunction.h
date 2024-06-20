@@ -39,6 +39,7 @@ class JSFunction : public JSObject {
   u16 stack_size;
   u32 bytecode_start;
 
+  bool is_constructor {true};
   bool is_arrow_func {false};
   bool has_auxiliary_data {false};
   JSValue this_or_auxiliary_data;
