@@ -64,13 +64,9 @@ bool JSBoundFunction::gc_scan_children(njs::GCHeap& heap) {
   bool child_young = false;
   child_young |= JSObject::gc_scan_children(heap);
   child_young |= heap.gc_visit_object(func);
-  if (bound_this.needs_gc()) {
-    child_young |= heap.gc_visit_object(bound_this);
-  }
+  gc_check_and_visit_object(child_young, bound_this);
   for (auto& val : args) {
-    if (val.needs_gc()) {
-      child_young |= heap.gc_visit_object(val);
-    }
+    gc_check_and_visit_object(child_young, val);
   }
   return child_young;
 }
@@ -78,26 +74,19 @@ bool JSBoundFunction::gc_scan_children(njs::GCHeap& heap) {
 void JSBoundFunction::gc_mark_children() {
   JSObject::gc_mark_children();
   gc_mark_object(func.as_GCObject);
-  if (bound_this.needs_gc()) {
-    gc_mark_object(bound_this.as_GCObject);
-  }
+  gc_check_and_mark_object(bound_this);
+
   for (auto& val : args) {
-    if (val.needs_gc()) {
-      gc_mark_object(val.as_GCObject);
-    }
+    gc_check_and_mark_object(val);
   }
 }
 
 bool JSBoundFunction::gc_has_young_child(njs::GCObject *oldgen_start) {
   if (JSObject::gc_has_young_child(oldgen_start)) return true;
   if (func.as_GCObject < oldgen_start) return true;
-  if (bound_this.needs_gc()) {
-    if (bound_this.as_GCObject < oldgen_start) return true;
-  }
+  gc_check_object_young(bound_this);
   for (auto& val : args) {
-    if (val.needs_gc()) {
-      if (val.as_GCObject < oldgen_start) return true;
-    }
+    gc_check_object_young(val);
   }
   return false;
 }

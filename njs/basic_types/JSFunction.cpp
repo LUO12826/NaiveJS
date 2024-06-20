@@ -29,9 +29,7 @@ bool JSFunction::gc_scan_children(GCHeap& heap) {
     assert(var.is(JSValue::HEAP_VAL));
     child_young |= heap.gc_visit_object(var);
   }
-  if (this_or_auxiliary_data.needs_gc()) {
-    child_young |= heap.gc_visit_object(this_or_auxiliary_data);
-  }
+  gc_check_and_visit_object(child_young, this_or_auxiliary_data);
   return child_young;
 }
 
@@ -41,9 +39,7 @@ void JSFunction::gc_mark_children() {
     assert(var.is(JSValue::HEAP_VAL));
     gc_mark_object(var.as_GCObject);
   }
-  if (this_or_auxiliary_data.needs_gc()) {
-    gc_mark_object(this_or_auxiliary_data.as_GCObject);
-  }
+  gc_check_and_mark_object(this_or_auxiliary_data);
 }
 
 bool JSFunction::gc_has_young_child(GCObject *oldgen_start) {
@@ -52,9 +48,7 @@ bool JSFunction::gc_has_young_child(GCObject *oldgen_start) {
     assert(var.is(JSValue::HEAP_VAL));
     if (var.as_GCObject < oldgen_start) return true;
   }
-  if (this_or_auxiliary_data.needs_gc()) {
-    if (this_or_auxiliary_data.as_GCObject < oldgen_start) return true;
-  }
+  gc_check_object_young(this_or_auxiliary_data);
   return false;
 }
 
