@@ -1553,8 +1553,8 @@ void NjsVM::exec_dynamic_set_var(SPRef sp, u32 name_atom) {
   assert(comp.is_value());
 }
 
-// TODO: pause GC in this function
 Completion NjsVM::for_of_get_iterator(JSValue obj) {
+  PauseGC nogc(*this);
   auto build_err = [&, this] () {
     JSValue err = build_error(
         JS_TYPE_ERROR, to_u16string(obj.to_string(*this)) + u" is not iterable");
@@ -1574,8 +1574,8 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
   return call_function(iter_ctor, obj, undefined, {});
 }
 
-// TODO: pause GC in this function
 Completion NjsVM::for_of_call_next(JSValue iter) {
+  PauseGC nogc(*this);
   assert(iter.is_object());
   auto atom_next = JSAtom(AtomPool::k_next);
   JSValue next_func = TRYCC(iter.as_object->get_property(*this, atom_next));

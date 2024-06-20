@@ -16,6 +16,7 @@ class NativeFunction {
   static Completion debug_log(JS_NATIVE_FUNC_PARAMS);
   static Completion debug_trap(JS_NATIVE_FUNC_PARAMS);
   static Completion dummy(JS_NATIVE_FUNC_PARAMS);
+  static Completion _test(JS_NATIVE_FUNC_PARAMS);
   static Completion js_gc(JS_NATIVE_FUNC_PARAMS);
   static Completion set_timeout(JS_NATIVE_FUNC_PARAMS);
   static Completion set_interval(JS_NATIVE_FUNC_PARAMS);

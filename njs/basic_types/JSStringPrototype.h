@@ -171,8 +171,9 @@ class JSStringPrototype : public JSObject {
     return JSValue(arr);
   }
 
-  // TODO: pause GC here
+
   static Completion match(vm_func_This_args_flags) {
+    NOGC;
     REQUIRE_COERCIBLE(This);
     JSValue str = TRY_ERR(js_to_string(vm, This));
     
@@ -192,8 +193,8 @@ class JSStringPrototype : public JSObject {
     }
   }
 
-  // TODO: pause GC here
   static Completion replace(vm_func_This_args_flags) {
+    NOGC;
     REQUIRE_COERCIBLE(This);
     // nothing to replace
     if (args.size() < 2) {
@@ -211,8 +212,7 @@ class JSStringPrototype : public JSObject {
           JSValue argv[] {This, args[1]};
           return vm.call_function(m_replace, args[0], undefined, {argv, 2} , flags);
         } else {
-          return CompThrow(vm.build_error(
-            JS_TYPE_ERROR, u"[Symbol.replace] method is not callable"));
+          return vm.throw_error(JS_TYPE_ERROR, u"[Symbol.replace] method is not callable");
         }
       }
     } else {

@@ -39,13 +39,23 @@ Completion NativeFunction::debug_log(vm_func_This_args_flags) {
 
 Completion NativeFunction::debug_trap(vm_func_This_args_flags) {
   if (args.size() > 0 && args[0].bool_value()) {
-    return CompThrow(vm.build_error(JS_INTERNAL_ERROR, u"Trap"));
+    return vm.throw_error(JS_INTERNAL_ERROR, u"Trap");
   } else {
     return undefined;
   }
 }
 
 Completion NativeFunction::dummy(vm_func_This_args_flags) {
+  return undefined;
+}
+
+Completion NativeFunction::_test(vm_func_This_args_flags) {
+  HANDLE_COLLECTOR;
+  JSValue obj(vm.new_object());
+  gc_handle_add(obj);
+  printf("%p\n", obj.as_object);
+  vm.heap.gc();
+  printf("%p\n", obj.as_object);
   return undefined;
 }
 

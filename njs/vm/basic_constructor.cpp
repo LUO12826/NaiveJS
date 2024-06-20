@@ -57,17 +57,19 @@ Completion NativeFunction::Array_ctor(vm_func_This_args_flags) {
   return JSValue(arr);
 }
 
-// TODO: pause GC here
+
 Completion NativeFunction::RegExp_ctor(vm_func_This_args_flags) {
-  // TODO
-  assert(args.size() > 0);
-  JSValue pattern = TRYCC(js_to_string(vm, args[0]));
-  u16string_view reflags(u"");
+  NOGC;
+  u16string_view pattern;
+  if (args.size() > 0) {
+    pattern = TRYCC(js_to_string(vm, args[0])).as_prim_string->view();
+  }
+  u16string_view reflags;
   if (args.size() > 1) {
     reflags = TRYCC(js_to_string(vm, args[1])).as_prim_string->view();
   }
 
-  return JSRegExp::New(vm, pattern.as_prim_string->view(), reflags);
+  return JSRegExp::New(vm, pattern, reflags);
 }
 
 
@@ -113,12 +115,12 @@ Completion NativeFunction::Function_ctor(vm_func_This_args_flags) {
 
 Completion NativeFunction::Promise_ctor(vm_func_This_args_flags) {
   if (not flags.this_is_new_target) {
-    return CompThrow(vm.build_error(
-        JS_TYPE_ERROR, u"Promise constructor cannot be invoked without 'new'"));
+    return vm.throw_error(JS_TYPE_ERROR,
+                          u"Promise constructor cannot be invoked without 'new'");
   }
   if (args.size() == 0 || not args[0].is_function()) {
-    return CompThrow(vm.build_error(
-        JS_TYPE_ERROR, u"Promise resolver is not a function"));
+    return vm.throw_error(JS_TYPE_ERROR,
+                          u"Promise resolver is not a function");
   }
   return JSPromise::New(vm, args[0]);
 }
@@ -139,8 +141,7 @@ Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArgRef args, JSErrorTy
 
 Completion NativeFunction::Symbol(vm_func_This_args_flags) {
   if (flags.this_is_new_target && !This.is_undefined()) {
-    JSValue err = vm.build_error(JS_TYPE_ERROR, u"Symbol() is not a constructor.");
-    return CompThrow(err);
+    return vm.throw_error(JS_TYPE_ERROR, u"Symbol() is not a constructor.");
   }
 
   if (args.size() > 0 && not args[0].is_undefined()) {

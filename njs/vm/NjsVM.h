@@ -84,6 +84,7 @@ friend class JSStringPrototype;
 friend class JSErrorPrototype;
 friend class NativeFunction;
 friend class JSArrayIterator;
+friend struct GCHandleCollector;
 
  public:
 
@@ -142,6 +143,16 @@ friend class JSArrayIterator;
   JSValue new_primitive_string(u16string_view str);
   JSValue new_primitive_string(const char16_t *str);
   JSValue new_primitive_string(char16_t str);
+
+  void push_temp_root(JSValue& val) {
+    if (val.needs_gc()) {
+      temp_roots.push_back(&val);
+    }
+  }
+
+  void pop_temp_root() {
+    temp_roots.pop_back();
+  }
 
   bool has_atom_str(u16string_view str_view) {
     return atom_pool.has_string(str_view);
@@ -259,6 +270,8 @@ friend class JSArrayIterator;
   SmallVector<double, 10> num_list;
   vector<unique_ptr<JSFunctionMeta>> func_meta;
 
+  vector<JSValue *> temp_roots;
+
   JSValue global_object;
   JSValue global_func;
 
@@ -284,6 +297,37 @@ friend class JSArrayIterator;
   u16string temp_int_atom_string;
 
   vector<int> make_function_counter;
+};
+
+struct PauseGC {
+  NjsVM& vm;
+
+  explicit PauseGC(NjsVM& vm): vm(vm) {
+    vm.heap.pause_gc();
+  }
+
+  ~PauseGC() {
+    vm.heap.resume_gc();
+  }
+};
+
+struct GCHandleCollector {
+  NjsVM& vm;
+  u32 handle_cnt {0};
+
+  explicit GCHandleCollector(NjsVM& vm): vm(vm) {}
+
+  void collect(JSValue& val) {
+    if (val.needs_gc()) {
+      vm.temp_roots.push_back(&val);
+      handle_cnt += 1;
+    }
+  }
+
+  ~GCHandleCollector() {
+    assert((int64_t)vm.temp_roots.size() - (int64_t)handle_cnt >= 0);
+    vm.temp_roots.resize(vm.temp_roots.size() - handle_cnt);
+  }
 };
 
 } // namespace njs

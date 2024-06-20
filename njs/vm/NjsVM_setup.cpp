@@ -62,7 +62,8 @@ void NjsVM::init_prototypes() {
 void NjsVM::setup() {
   add_native_func_impl(u"log", NativeFunction::debug_log);
   add_native_func_impl(u"___trap", NativeFunction::debug_trap);
-  add_native_func_impl(u"___dummy", NativeFunction::debug_trap);
+  add_native_func_impl(u"___dummy", NativeFunction::dummy);
+  add_native_func_impl(u"___test", NativeFunction::_test);
   add_native_func_impl(u"$gc", NativeFunction::js_gc);
   add_native_func_impl(u"setTimeout", NativeFunction::set_timeout);
   add_native_func_impl(u"setInterval", NativeFunction::set_interval);

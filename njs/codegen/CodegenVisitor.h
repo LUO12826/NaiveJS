@@ -219,7 +219,7 @@ class CodegenVisitor {
         visit_unary_expr(*static_cast<UnaryExpr *>(node));
         break;
       case ASTNode::EXPR_ASSIGN:
-        visit_assignment_expr(*static_cast<AssignmentExpr *>(node));
+        visit_assignment_expr(*static_cast<AssignmentExpr *>(node), true, false);
         break;
       case ASTNode::EXPR_LHS:
         visit_left_hand_side_expr(*static_cast<LeftHandSideExpr *>(node), false, false);
@@ -325,7 +325,7 @@ class CodegenVisitor {
 
   void visit_single_statement(ASTNode *stmt) {
     if (stmt->is(ASTNode::EXPR_ASSIGN)) {
-      visit_assignment_expr(*stmt->as<AssignmentExpr>(), false);
+      visit_assignment_expr(*stmt->as<AssignmentExpr>(), false, false);
     } else if (stmt->is(ASTNode::EXPR_UNARY)) {
       visit_unary_expr(*stmt->as<UnaryExpr>(), false);
     } else {
@@ -503,7 +503,7 @@ class CodegenVisitor {
         // if it's a prefix op, we need the value produced by this assignment,
         // because prefix increment means "increase the value before get its value".
         // Otherwise, we need the old value instead of the value after assignment.
-        visit_assignment_expr(*assign, expr.is_prefix_op && need_value);
+        visit_assignment_expr(*assign, expr.is_prefix_op && need_value, false);
         assign->lhs = nullptr;      // otherwise the `expr.operand` will be freed
         delete assign;              // will also delete `num_1`
         break;
@@ -649,7 +649,7 @@ class CodegenVisitor {
     else false_list.insert(false_list.end(), rhs_false_list.begin(), rhs_false_list.end());
   }
 
-  void visit_assignment_expr(AssignmentExpr& expr, bool need_value = true) {
+  void visit_assignment_expr(AssignmentExpr& expr, bool need_value, bool is_init) {
     auto assign_op = expr.assign_type;
 
     auto codegen_rhs = [&] () {
@@ -721,7 +721,7 @@ class CodegenVisitor {
         else {
           codegen_rhs();
           OpType op;
-          if (lhs_sym.is_let_or_const()) {
+          if (lhs_sym.is_let_or_const() && not is_init) {
             op = need_value ? OpType::store_check : OpType::pop_check;
           } else {
             op = need_value ? OpType::store : OpType::pop;
@@ -903,12 +903,11 @@ class CodegenVisitor {
   void visit_variable_statement(VarStatement& var_stmt, bool need_undef) {
     for (VarDecl *decl : var_stmt.declarations) {
       auto sym = scope().resolve_symbol(decl->id.text);
-      if (need_undef && sym.is_let_or_const()) {
-        emit(OpType::var_undef, int(sym.get_index()));
-      }
       if (decl->var_init) {
         assert(decl->var_init->is(ASTNode::EXPR_ASSIGN));
-        visit_assignment_expr(*decl->var_init->as<AssignmentExpr>(), false);
+        visit_assignment_expr(*decl->var_init->as<AssignmentExpr>(), false, true);
+      } else if (need_undef && sym.is_let_or_const()) {
+        emit(OpType::var_undef, int(sym.get_index()));
       }
     }
   }
@@ -1151,7 +1150,7 @@ class CodegenVisitor {
       auto *inc = stmt.increment_expr;
       if (inc) {
         if (inc->is(ASTNode::EXPR_ASSIGN)) {
-          visit_assignment_expr(*inc->as<AssignmentExpr>(), false);
+          visit_assignment_expr(*inc->as<AssignmentExpr>(), false, false);
         } else if (inc->is(ASTNode::EXPR_UNARY) && inc->as<UnaryExpr>()->is_inc_or_dec()) {
           visit_unary_expr(*inc->as<UnaryExpr>(), false);
         } else {

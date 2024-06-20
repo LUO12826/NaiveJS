@@ -25,8 +25,7 @@ Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
       if (to_prop_key) {
         return val;
       } else {
-        JSValue err = vm.build_error(JS_TYPE_ERROR, u"cannot convert symbol to string");
-        return CompThrow(err);
+        return vm.throw_error(JS_TYPE_ERROR, u"cannot convert symbol to string");
       }
     case JSValue::BOOLEAN:
       return vm.get_string_const(val.as_bool ? AtomPool::k_true : AtomPool::k_false);
@@ -53,7 +52,7 @@ Completion js_to_string(NjsVM &vm, JSValue val, bool to_prop_key) {
 
 Completion js_to_object(NjsVM &vm, JSValue arg) {
   if (arg.is_nil()) [[unlikely]] {
-    return CompThrow(vm.build_error(JS_TYPE_ERROR, u""));
+    return vm.throw_error(JS_TYPE_ERROR, u"");
   }
   JSObject *obj;
   switch (arg.tag) {
@@ -121,7 +120,7 @@ Completion js_to_property_key(NjsVM &vm, JSValue val) {
 
 Completion js_require_object_coercible(NjsVM &vm, JSValue val) {
   if (val.is_nil()) {
-    return CompThrow(vm.build_error(JS_TYPE_ERROR, u"undefined or null is not coercible"));
+    return vm.throw_error(JS_TYPE_ERROR, u"undefined or null is not coercible");
   } else {
     return val;
   }

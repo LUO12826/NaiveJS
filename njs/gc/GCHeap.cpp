@@ -55,6 +55,8 @@ GCHeap::GCHeap(size_t size_mb, NjsVM& vm)
 
   dealloc_progress = survivor1_start;
   newgen_gc_threshold = newgen_start + size_t(0.36 * heap_size);
+
+  record_set.reserve(1000);
 }
 
 GCHeap::~GCHeap() {
@@ -74,6 +76,7 @@ GCHeap::~GCHeap() {
 }
 
 void GCHeap::gc_if_needed() {
+  if (gc_pause_counter > 0) return;
   if (gc_requested) {
     gc_requested = false;
     gc();
@@ -265,18 +268,23 @@ void GCHeap::newgen_copy_alive() {
   survivor_alloc_point = survivor_to_start;
   gather_roots();
 
-  for (JSValue *root : const_roots) {
-    // only copy those in the new generation area
-    if (root->as_GCObject < reinterpret_cast<GCObject *>(oldgen_start)) {
-      root->as_GCObject = copy_object(root->as_GCObject);
-    }
+#define COPY_TASK                                                               \
+  if (root->as_GCObject < reinterpret_cast<GCObject *>(oldgen_start)) {         \
+    root->as_GCObject = copy_object(root->as_GCObject);                         \
   }
 
-  for (JSValue *root : roots) {
-    if (root->as_GCObject < reinterpret_cast<GCObject *>(oldgen_start)) {
-      root->as_GCObject = copy_object(root->as_GCObject);
-    }
+  for (JSValue *root : const_roots) {
+    // only copy those in the new generation area
+    COPY_TASK
   }
+  for (JSValue *root : roots) {
+    COPY_TASK
+  }
+  for (JSValue *root : vm.temp_roots) {
+    COPY_TASK
+  }
+
+#undef COPY_TASK
 
   for (size_t i = 0; i < record_set.size(); ) {
     // update the fields of the objects in the record_set
@@ -396,10 +404,10 @@ GCObject* GCHeap::oldgen_alloc(size_t size) {
       if (curr_index > 7) {
         if (not did_gc) {
           major_gc();
+          // retry
           curr_index = free_list_index;
           did_gc = true;
         } else {
-          assert(false);
           fprintf(stderr, "memory allocation failed\n");
           exit(EXIT_FAILURE);
         }
@@ -422,20 +430,20 @@ GCObject* GCHeap::oldgen_alloc(size_t size) {
 }
 
 void GCHeap::mark_phase() {
-  for (JSValue *root : roots) {
-    auto *gc_object = root->as_GCObject;
-    if (not gc_object->gc_visited) {
-      gc_object->set_visited();
-      gc_object->gc_mark_children();
-    }
+#define MARK_TASK                                               \
+  auto *gc_object = root->as_GCObject;                          \
+  if (not gc_object->gc_visited) {                              \
+    gc_object->set_visited();                                   \
+    gc_object->gc_mark_children();                              \
   }
-
+  for (JSValue *root : roots) {
+    MARK_TASK
+  }
   for (JSValue *root : const_roots) {
-    auto *gc_object = root->as_GCObject;
-    if (not gc_object->gc_visited) {
-      gc_object->set_visited();
-      gc_object->gc_mark_children();
-    }
+    MARK_TASK
+  }
+  for (JSValue *root : vm.temp_roots) {
+    MARK_TASK
   }
 }
 
@@ -514,7 +522,6 @@ GCObject* GCHeap::newgen_alloc(size_t size_byte) {
   if (alloc_end > newgen_gc_threshold) [[unlikely]] {
     gc_requested = true;
     if (alloc_end > survivor1_start) [[unlikely]] {
-      assert(false);
       fprintf(stderr, "allocation failed\n");
       exit(1);
     }

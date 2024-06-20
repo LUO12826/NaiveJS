@@ -43,21 +43,22 @@ class JSRegExp : public JSObject {
  public:
 
   static Completion New(NjsVM& vm, u32 pattern_atom, int flags) {
+    NOGC
     auto *regexp = vm.heap.new_object<JSRegExp>(vm, pattern_atom, flags);
     Completion comp = regexp->compile_bytecode_internal((vm));
     return comp.is_throw() ? comp : JSValue(regexp);
   }
 
   static Completion New(NjsVM& vm, u16string_view pattern, u16string_view flags_str) {
+    NOGC
     auto maybe_flags = str_to_regexp_flags(flags_str);
 
     if (maybe_flags.has_value()) [[likely]] {
       auto *regexp = vm.heap.new_object<JSRegExp>(vm, pattern, flags_str, maybe_flags.value());
-      Completion comp = regexp->compile_bytecode_internal((vm));
+      Completion comp = regexp->compile_bytecode_internal(vm);
       return comp.is_throw() ? comp : JSValue(regexp);
     } else {
-      JSValue err = vm.build_error(JS_SYNTAX_ERROR, u"Invalid regular expression flags");
-      return CompThrow(err);
+      return vm.throw_error(JS_SYNTAX_ERROR, u"Invalid regular expression flags");
     }
   }
 
@@ -116,8 +117,7 @@ class JSRegExp : public JSObject {
       char16_t u16_msg[64];
       u8_to_u16_buffer(error_msg, u16_msg);
 
-      JSValue err = vm.build_error(JS_SYNTAX_ERROR, u16string(u16_msg));
-      return CompThrow(err);
+      return vm.throw_error(JS_SYNTAX_ERROR, u16string(u16_msg));
     }
     // set to cache
     auto& bc = vm.regexp_bytecode[pattern_atom];
@@ -215,8 +215,8 @@ class JSRegExp : public JSObject {
     __builtin_unreachable();
   }
 
-  // TODO: pause GC here
   Completion replace(NjsVM& vm, JSValue str, JSValue replacer) {
+    NOGC;
     str = TRYCC(js_to_string(vm, str));
     auto arg_str = str.as_prim_string->to_std_u16string();
 

@@ -64,15 +64,19 @@ friend class JSPromisePrototype;
     PENDING,
   };
 
-  // TODO: pause GC
   static Completion New(NjsVM& vm, JSValueRef executor) {
     assert(executor.is_function());
+    HANDLE_COLLECTOR;
 
     JSValue promise(new JSPromise(vm));
+    gc_handle_add(promise);
     auto resolve_reject = build_resolve_reject_function(vm, promise);
+    gc_handle_add(resolve_reject[0]);
+    gc_handle_add(resolve_reject[1]);
 
     Completion comp = vm.call_function(executor, undefined, undefined,
                                        {resolve_reject.data(), 2});
+    gc_handle_add(comp.get_value());
     if (comp.is_throw()) {
       promise_settling_function(vm, resolve_reject[1], undefined,
                                 {&comp.get_value(), 1}, CallFlags());
@@ -107,6 +111,7 @@ friend class JSPromisePrototype;
   }
 
   static array<JSValue, 2> build_resolve_reject_function(NjsVM& vm, JSValueRef promise) {
+    NOGC;
     auto *resolve_func = vm.new_function(resolve_func_meta);
     auto *reject_func = vm.new_function(reject_func_meta);
     resolve_func->has_auxiliary_data = true;
@@ -118,7 +123,7 @@ friend class JSPromisePrototype;
   }
 
   // get the `then` function from an object. for checking whether an object is `thenable`.
-  static Completion get_then_function(NjsVM& vm, JSValue val) {
+  static Completion get_then_function(NjsVM& vm, JSValueRef val) {
     if (val.is_object()) {
       return TRYCC(val.as_object->get_prop(vm, AtomPool::k_then));
     }
@@ -159,12 +164,17 @@ friend class JSPromisePrototype;
   // `then` method of the thenable (with `resolve` and `reject` callback as its argument)
   static Completion promise_resolve_thenable(vm_func_This_args_flags) {
     assert(args.size() == 3);
+    HANDLE_COLLECTOR;
     JSValueRef promise = args[0];
     JSValueRef thenable = args[1];
     JSValueRef then = args[2];
 
     auto resolve_reject = build_resolve_reject_function(vm, promise);
+    gc_handle_add(resolve_reject[0]);
+    gc_handle_add(resolve_reject[1]);
+
     auto comp = vm.call_function(then, thenable, undefined, {resolve_reject.data(), 2});
+    gc_handle_add(comp.get_value());
     if (comp.is_throw()) {
       vm.call_function(resolve_reject[1], undefined, undefined, {&comp.get_value(), 1});
     }
@@ -175,6 +185,7 @@ friend class JSPromisePrototype;
   // TODO: figure out how to pass the `promise_ctor`
   static Completion Promise_resolve_reject(NjsVM& vm, JSValueRef promise_ctor,
                                            JSValue& arg, bool is_reject) {
+    HANDLE_COLLECTOR;
     if (not is_reject && arg.is_object()) {
       // if the arg is a promise, directly return it
       if (arg.as_object->get_class() == ObjClass::CLS_PROMISE) {
@@ -185,19 +196,25 @@ friend class JSPromisePrototype;
     // `resolve_reject` (pointing to `promise_settling_function`) will handle this properly.
 
     JSValue promise(new JSPromise(vm));
+    gc_handle_add(promise);
     auto resolve_reject = build_resolve_reject_function(vm, promise);
-    vm.call_function(resolve_reject[int(is_reject)], undefined, {&arg, 1});
+    gc_handle_add(resolve_reject[0]);
+    gc_handle_add(resolve_reject[1]);
 
+    vm.call_function(resolve_reject[int(is_reject)], undefined, {&arg, 1});
     return promise;
   }
 
   static Completion then_callback_for_finally(vm_func_This_args_flags) {
     assert(func.as_func->has_auxiliary_data);
+    HANDLE_COLLECTOR;
     JSValueRef on_finally = func.as_func->this_or_auxiliary_data;
     auto state = static_cast<State>(func.as_func->meta->magic);
 
     JSValue finally_res = TRYCC(vm.call_function(on_finally, undefined, {}));
+    gc_handle_add(finally_res);
     JSValue promise = TRYCC(Promise_resolve_reject(vm, undefined, finally_res, false));
+    gc_handle_add(promise);
 
     JSValue then_func;
     if (state == FULFILLED) {
@@ -205,6 +222,7 @@ friend class JSPromisePrototype;
     } else {
       then_func.set_val(vm.new_function(func_throw_auxiliary_meta));
     }
+    gc_handle_add(then_func);
     then_func.as_func->has_auxiliary_data = true;
     then_func.as_func->this_or_auxiliary_data = args[0];
 
@@ -219,6 +237,7 @@ friend class JSPromisePrototype;
    * args[4]: result of the promise
    */
   static Completion promise_then_task(vm_func_This_args_flags) {
+    HANDLE_COLLECTOR;
     assert(args.size() == 5);
     bool is_reject = args[0].as_bool;
     JSValue& callback = args[1];
@@ -230,8 +249,10 @@ friend class JSPromisePrototype;
     if (callback.is_function()) {
       auto comp = vm.call_function(callback, undefined, undefined, {&result, 1});
       JSValue& ret = comp.get_value();
+      gc_handle_add(ret);
       if (not comp.is_throw()) [[likely]] {
         JSValue maybe_then = TRYCC(get_then_function(vm, ret));
+        gc_handle_add(maybe_then);
 
         if (maybe_then.is_function()) [[unlikely]] {
           if (same_value(promise, ret)) [[unlikely]] {
@@ -268,6 +289,7 @@ friend class JSPromisePrototype;
   }
 
   JSValue then(NjsVM& vm, JSValueRef on_fulfilled, JSValueRef on_rejected) {
+    NOGC;
     JSValue promise(new JSPromise(vm));
     auto [resolve_func, reject_func] = build_resolve_reject_function(vm, promise);
 
@@ -304,6 +326,7 @@ friend class JSPromisePrototype;
   //        }),
   //)    ;
   JSValue finally(NjsVM& vm, JSValueRef on_finally) {
+    NOGC;
     if (on_finally.is_function()) {
       JSFunction *fulfill = vm.new_function(then_fulfilled_func_for_finally_meta);
       JSFunction *reject = vm.new_function(then_rejected_func_for_finally_meta);

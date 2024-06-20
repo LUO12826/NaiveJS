@@ -81,8 +81,9 @@ constexpr static int AGE_MAX = 1;
   PrimitiveString* new_prim_string(size_t length);
 
   void gc();
-  void major_gc();
   void gc_if_needed();
+  void pause_gc() {gc_pause_counter += 1; }
+  void resume_gc() {gc_pause_counter -= 1; }
 
   // When garbage collection is performed, this method is called to copy an object
   // to a new memory area and have the pointer in JSValue, which is the handle,
@@ -92,15 +93,12 @@ constexpr static int AGE_MAX = 1;
   bool gc_visit_object(JSValue &handle);
 
   void write_barrier(GCObject *obj, JSValue const& field);
-  bool object_in_newgen(GCObject *obj) {
-    return obj < reinterpret_cast<GCObject *>(oldgen_start);
-  }
+  bool object_in_newgen(GCObject *obj) { return obj < reinterpret_cast<GCObject *>(oldgen_start); }
 
   GCStats stats;
  private:
   static void gc_message(string_view msg);
 
-  void gather_roots();
   PrimitiveString* new_prim_string_impl(size_t length);
 
   // Allocate memory for a new object.
@@ -108,16 +106,18 @@ constexpr static int AGE_MAX = 1;
   // Copy a single object. Recursively copy its child objects.
   GCObject* copy_object(GCObject *obj);
 
+  void gather_roots();
   void minor_gc_task();
   GCObject* promote(GCObject *obj);
   void newgen_copy_alive();
   static void newgen_dealloc_dead(byte *start, byte *end);
-  static void oldgen_dealloc_dead(byte *start, byte *end);
   void newgen_dealloc_dead_with_progress(byte *start, byte *end);
 
   GCObject* oldgen_alloc(size_t size);
+  void major_gc();
   void mark_phase();
   void sweep_phase();
+  static void oldgen_dealloc_dead(byte *start, byte *end);
 
   static void check_fwd_pointer(byte *start, byte *end);
 
@@ -157,6 +157,8 @@ constexpr static int AGE_MAX = 1;
 
   array<deque<GCObject *>, 8> free_list;
   vector<GCObject *> record_set;
+
+  u32 gc_pause_counter {0};
 
   // must put this at the very end to make sure every thing is initialized.
   std::thread gc_thread;
