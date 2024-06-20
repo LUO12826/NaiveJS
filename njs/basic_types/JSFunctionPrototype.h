@@ -28,7 +28,7 @@ class JSFunctionPrototype : public JSObject {
 
   static Completion call(vm_func_This_args_flags) {
     if (This.is_undefined()) [[unlikely]] return undefined;
-    if (args.size() == 0) [[unlikely]] {
+    if (args.empty()) [[unlikely]] {
       return vm.call_internal(This, undefined, undefined, args, flags);
     } else {
       return vm.call_internal(This, args[0], undefined, args.subarray(1), flags);
@@ -44,7 +44,7 @@ class JSFunctionPrototype : public JSObject {
     assert(args.size() > 0); // TODO
     bound_func->set_args(vm, args.subarray(1));
 
-    if (This.as_object->is_function()) [[likely]] {
+    if (This.as_object->is_direct_function()) [[likely]] {
       bound_func->set_this(vm, args[0]);
       bound_func->set_proto(vm, This.as_func->get_proto());
     } else if (This.as_object->get_class() == CLS_BOUND_FUNCTION) {
@@ -64,7 +64,7 @@ class JSFunctionPrototype : public JSObject {
       return vm.build_error(JS_TYPE_ERROR,
                             u"Function.prototype.apply can only be called on a function.");
     }
-    if (args.size() == 0) [[unlikely]] {
+    if (args.empty()) [[unlikely]] {
       return vm.call_internal(This, undefined, undefined, args, flags);
     } else if (args.size() == 1) [[unlikely]] {
       return vm.call_internal(This, args[0], undefined, args.subarray(1), flags);
@@ -81,7 +81,7 @@ class JSFunctionPrototype : public JSObject {
         JSValue idx_atom = JSAtom(vm.atom_pool.atomize_u32(i));
         argv[i] = TRYCC(arr->get_property(vm, idx_atom));
       }
-      return vm.call_internal(This, args[0], undefined, ArrayRef(argv.data(), length), flags);
+      return vm.call_internal(This, args[0], undefined, Span(argv.data(), length), flags);
     }
   }
 };

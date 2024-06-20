@@ -4,7 +4,7 @@
 #include "JSObject.h"
 #include "JSObjectPrototype.h"
 #include "njs/vm/NjsVM.h"
-#include "njs/common/ArrayRef.h"
+#include "njs/common/Span.h"
 #include "njs/common/common_def.h"
 #include "JSFunction.h"
 #include "njs/common/Completion.h"
@@ -105,7 +105,7 @@ class JSArrayPrototype : public JSObject {
     auto& data_array = This.as_array->get_dense_array();
     Completion comp;
     // no compare function provided. Convert values to strings and do string sorting.
-    if (args.size() == 0) {
+    if (args.empty()) {
       try {
         std::sort(data_array.begin(), data_array.end(), [&vm, &comp] (JSValue& a, JSValue& b) {
           if (a.is_undefined()) return false;
@@ -201,7 +201,7 @@ class JSArrayPrototype : public JSObject {
     int64_t old_len = arr->get_length();
 
     // nothing to delete or insert
-    if (args.size() == 0) {
+    if (args.empty()) {
       return JSValue(vm.heap.new_object<JSArray>(vm, 0));
     }
     int64_t start = TRY_COMP(js_to_int64sat(vm, args[0]));
@@ -256,8 +256,7 @@ class JSArrayPrototype : public JSObject {
     res_dense = array->get_dense_array();
 
     if (args.size() > 0) [[likely]] {
-      for (int i = 0; i < args.size(); i++) {
-        JSValue arg = args[i];
+      for (auto& arg : args) {
         if (arg.is(JSValue::ARRAY)) [[likely]] {
           auto& arg_arr = arg.as_array->get_dense_array();
           res_dense.insert(res_dense.end(), arg_arr.begin(), arg_arr.end());

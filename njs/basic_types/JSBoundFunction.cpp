@@ -27,7 +27,9 @@ vector<JSValue>& JSBoundFunction::get_args() {
 }
 
 Completion JSBoundFunction::call(NjsVM& vm, JSValueRef This, JSValueRef new_target,
-                                 ArrayRef<JSValue> argv, CallFlags flags) {
+                                 Span<JSValue> argv, CallFlags flags) {
+  NOGC;
+  HANDLE_COLLECTOR;
   SmallVector<JSBoundFunction *, 2> bound_chain;
   bound_chain.push_back(this);
   JSValue iter = func;
@@ -42,9 +44,19 @@ Completion JSBoundFunction::call(NjsVM& vm, JSValueRef This, JSValueRef new_targ
     actual_argv.insert(actual_argv.end(), bf->args.begin(), bf->args.end());
   }
   actual_argv.insert(actual_argv.end(), argv.data(), argv.data() + argv.size());
+  gc_handle_add(actual_argv);
+  nogc.resume_gc();
+
+  JSValueRef actual_func = bound_chain.back()->func;
+
+  if (flags.constructor) {
+    JSValue proto = TRYCC(actual_func.as_object->get_prop(vm, AtomPool::k_prototype));
+    proto = proto.is_object() ? proto : vm.object_prototype;
+    const_cast<JSValue&>(This).set_val(vm.heap.new_object<JSObject>(vm, CLS_OBJECT, proto));
+  }
 
   return vm.call_internal(
-      bound_chain.back()->func,
+      actual_func,
       unlikely(flags.constructor) ? This : bound_this,
       new_target,
       actual_argv,
@@ -52,7 +64,7 @@ Completion JSBoundFunction::call(NjsVM& vm, JSValueRef This, JSValueRef new_targ
   );
 }
 
-void JSBoundFunction::set_args(NjsVM& vm, ArrayRef<JSValue> argv) {
+void JSBoundFunction::set_args(NjsVM& vm, Span<JSValue> argv) {
   this->args.reserve(argv.size());
   for (size_t i = 0; i < argv.size(); i++) {
     this->args.push_back(argv[i]);

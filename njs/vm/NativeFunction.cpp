@@ -149,7 +149,7 @@ Completion NativeFunction::json_stringify(vm_func_This_args_flags) {
 }
 
 Completion NativeFunction::isFinite(vm_func_This_args_flags) {
-  if (args.size() == 0) return JSValue(false);
+  if (args.empty()) return JSValue(false);
   double val;
   if (args[0].is_float64()) [[likely]] {
     val = args[0].as_f64;
@@ -161,7 +161,7 @@ Completion NativeFunction::isFinite(vm_func_This_args_flags) {
 }
 
 Completion NativeFunction::parseFloat(vm_func_This_args_flags) {
-  if (args.size() == 0) return JSValue(NAN);
+  if (args.empty()) return JSValue(NAN);
   PrimitiveString *str = TRYCC(js_to_string(vm, args[0])).as_prim_string;
   double val = u16string_to_double(str->view());
 
@@ -169,7 +169,7 @@ Completion NativeFunction::parseFloat(vm_func_This_args_flags) {
 }
 
 Completion NativeFunction::parseInt(vm_func_This_args_flags) {
-  if (args.size() == 0) return JSValue(NAN);
+  if (args.empty()) return JSValue(NAN);
   PrimitiveString *str = TRYCC(js_to_string(vm, args[0])).as_prim_string;
   double val = parse_int(str->view());
 

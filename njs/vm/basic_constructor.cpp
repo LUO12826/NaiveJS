@@ -17,7 +17,7 @@
 namespace njs {
 
 Completion NativeFunction::Object_ctor(vm_func_This_args_flags) {
-  if (args.size() == 0 || args[0].is_nil()) {
+  if (args.empty() || args[0].is_nil()) {
     return JSValue(vm.new_object());
   } else {
     return js_to_object(vm, args[0]);
@@ -26,7 +26,7 @@ Completion NativeFunction::Object_ctor(vm_func_This_args_flags) {
 
 Completion NativeFunction::Number_ctor(vm_func_This_args_flags) {
   double num;
-  if (args.size() == 0 || args[0].is_nil()) [[unlikely]] {
+  if (args.empty() || args[0].is_nil()) [[unlikely]] {
     num = 0;
   } else {
     num = TRY_COMP(js_to_number(vm, args[0]));
@@ -36,7 +36,7 @@ Completion NativeFunction::Number_ctor(vm_func_This_args_flags) {
 
 Completion NativeFunction::String_ctor(vm_func_This_args_flags) {
   JSValue str;
-  if (args.size() == 0 || args[0].is_nil()) [[unlikely]] {
+  if (args.empty() || args[0].is_nil()) [[unlikely]] {
     str = vm.get_string_const(AtomPool::k_);
   } else {
     str = TRYCC(js_to_string(vm, args[0]));
@@ -48,7 +48,7 @@ Completion NativeFunction::String_ctor(vm_func_This_args_flags) {
 
 Completion NativeFunction::Array_ctor(vm_func_This_args_flags) {
   u32 length;
-  if (args.size() == 0) [[likely]] {
+  if (args.empty()) [[likely]] {
     length = 0;
   } else {
     length = TRY_COMP(js_to_uint32(vm, args[0]));
@@ -118,7 +118,7 @@ Completion NativeFunction::Promise_ctor(vm_func_This_args_flags) {
     return vm.throw_error(JS_TYPE_ERROR,
                           u"Promise constructor cannot be invoked without 'new'");
   }
-  if (args.size() == 0 || not args[0].is_function()) {
+  if (args.empty() || not args[0].is_function()) {
     return vm.throw_error(JS_TYPE_ERROR,
                           u"Promise resolver is not a function");
   }

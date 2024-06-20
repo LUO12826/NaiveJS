@@ -22,9 +22,14 @@ using robin_hood::unordered_flat_map;
 
 class GCHeap;
 
-enum ObjClass {
+enum ObjClass: uint8_t {
   // has corresponding string representation, note to modify when adding
   CLS_OBJECT = 0,
+  CLS_ASYNC_FUNC, // 0b01
+  CLS_GENERATOR_FUNC, // 0b10
+  CLS_ASYNC_GENERATOR_FUNC, // 0b11
+  CLS_FUNCTION,
+  CLS_BOUND_FUNCTION,
   CLS_ARRAY,
   CLS_STRING,
   CLS_NUMBER,
@@ -32,8 +37,6 @@ enum ObjClass {
   CLS_ERROR,
   CLS_REGEXP,
   CLS_DATE,
-  CLS_FUNCTION,
-  CLS_BOUND_FUNCTION,
   CLS_PROMISE,
   CLS_FOR_IN_ITERATOR,
   CLS_ARRAY_ITERATOR,
@@ -206,7 +209,8 @@ using StorageType = unordered_flat_map<JSObjectKey, JSPropDesc, ObjKeyHasher>;
   virtual u16string_view get_class_name() { return u"Object"; }
   ObjClass get_class() { return obj_class; }
 
-  bool is_function() { return obj_class == CLS_FUNCTION; }
+  bool is_direct_function() { return CLS_ASYNC_FUNC <= obj_class && obj_class <= CLS_FUNCTION; }
+  bool is_bound_function() { return obj_class == CLS_BOUND_FUNCTION; }
   bool is_array() { return obj_class == CLS_ARRAY; }
 
   bool is_extensible() { return extensible; }

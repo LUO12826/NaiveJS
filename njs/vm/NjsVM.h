@@ -29,7 +29,7 @@ using std::deque;
 using std::unique_ptr;
 using llvm::SmallVector;
 using SPRef = JSValue*&;
-using ArgRef = ArrayRef<JSValue>;
+using ArgRef = Span<JSValue>;
 
 class CodegenVisitor;
 struct JSTask;
@@ -301,13 +301,19 @@ friend struct GCHandleCollector;
 
 struct PauseGC {
   NjsVM& vm;
+  bool resumed {false};
 
   explicit PauseGC(NjsVM& vm): vm(vm) {
     vm.heap.pause_gc();
   }
 
-  ~PauseGC() {
+  void resume_gc() {
     vm.heap.resume_gc();
+    resumed = true;
+  }
+
+  ~PauseGC() {
+    if (not resumed) vm.heap.resume_gc();
   }
 };
 
@@ -321,6 +327,12 @@ struct GCHandleCollector {
     if (val.needs_gc()) {
       vm.temp_roots.push_back(&val);
       handle_cnt += 1;
+    }
+  }
+
+  void collect(vector<JSValue>& values) {
+    for (auto& val : values) {
+      collect(val);
     }
   }
 

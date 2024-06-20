@@ -9,7 +9,7 @@
 #include "JSFunction.h"
 #include "njs/vm/NjsVM.h"
 #include "njs/parser/unicode.h"
-#include "njs/common/ArrayRef.h"
+#include "njs/common/Span.h"
 #include "njs/common/Completion.h"
 
 #define REQUIRE_COERCIBLE(x)                                                                      \
@@ -157,7 +157,7 @@ class JSStringPrototype : public JSObject {
     u16string_view str = TRY_COMP(get_string_from_value(vm, This));
     auto *arr = vm.heap.new_object<JSArray>(vm, 0);
 
-    if (args.size() == 0 || args[0].is_undefined()) [[unlikely]] {
+    if (args.empty() || args[0].is_undefined()) [[unlikely]] {
       arr->push(vm, vm.new_primitive_string(str));
     }
     else {

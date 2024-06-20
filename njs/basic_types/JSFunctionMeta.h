@@ -5,7 +5,7 @@
 #include "JSValue.h"
 #include "njs/common/Completion.h"
 #include "njs/include/SmallVector.h"
-#include "njs/common/ArrayRef.h"
+#include "njs/common/Span.h"
 #include "njs/common/enums.h"
 #include "njs/common/common_def.h"
 #include "njs/codegen/CatchEntry.h"
@@ -23,7 +23,7 @@ class JSFunction;
 
 // Native function type. A Native function should act like a JavaScript function,
 // accepting an array of arguments and returning a value.
-using NativeFuncType = Completion(*)(NjsVM&, JSValueRef, JSValueRef, ArrayRef<JSValue>, CallFlags);
+using NativeFuncType = Completion(*)(NjsVM&, JSValueRef, JSValueRef, Span<JSValue>, CallFlags);
 
 struct CaptureEntry {
   ScopeType scope_type;

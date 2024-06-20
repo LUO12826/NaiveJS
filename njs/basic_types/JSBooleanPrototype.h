@@ -11,7 +11,7 @@ namespace njs {
 
 class JSBooleanPrototype : public JSObject {
  public:
-  explicit JSBooleanPrototype(NjsVM &vm) : JSObject(CLS_NUMBER_PROTO) {
+  explicit JSBooleanPrototype(NjsVM &vm) : JSObject(CLS_BOOLEAN_PROTO) {
     add_method(vm, u"valueOf", JSBooleanPrototype::valueOf);
     add_method(vm, u"toString", JSBooleanPrototype::toString);
   }

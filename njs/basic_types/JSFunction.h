@@ -22,6 +22,8 @@ class JSFunction : public JSObject {
   void gc_mark_children() override;
   bool gc_has_young_child(GCObject *oldgen_start) override;
 
+  bool is_native() { return native_func != nullptr; }
+
   u16string_view get_class_name() override {
     return u"Function";
   }

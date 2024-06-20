@@ -210,8 +210,20 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
   assert(callee.is_function());
 
+  switch (this_func->get_class()) {
+    case CLS_ASYNC_FUNC:
+    case CLS_GENERATOR_FUNC:
+    case CLS_ASYNC_GENERATOR_FUNC:
+      assert(false);
+      break;
+    case CLS_BOUND_FUNCTION:
+      assert(false);
+    default:
+      break;
+  }
+
   if (Global::show_vm_exec_steps) {
-    printf("*** call function: %s\n", to_u8string(callee.as_func->name).c_str());
+    printf("*** call function: %s\n", to_u8string(this_func->name).c_str());
   }
 
   // setup call stack
@@ -241,7 +253,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
     set_referenced(*val);
   }
 
-  if (this_func->native_func != nullptr) {
+  if (this_func->is_native()) {
     ArgRef args_ref(args_buf, actual_arg_cnt);
     bool has_new_target = new_target.is_object();
     flags.this_is_new_target = has_new_target;
@@ -660,26 +672,27 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         bool has_this = opr2;
         JSValue& func = sp[-argc];
 
-        if (func.tag != JSValue::FUNCTION) [[unlikely]] {
-          error_throw_handle(sp, JS_TYPE_ERROR, u"value is not callable");
+        if (not func.is_function()) [[unlikely]] {
+          error_throw_handle(sp, JS_TYPE_ERROR,
+                             to_u16string(func.to_string(*this)) + u"value is not callable");
           Break;
         }
 
-        JSValue *invoker;
-        if (func.as_func->is_arrow_func) [[unlikely]] {
-          invoker = &func.as_func->this_or_auxiliary_data;
-        } else {
-          invoker = has_this ? &sp[-argc - 1] : &global_object;
-        }
-        // call the function
         ArgRef call_argv(&func + 1, argc);
         Completion comp;
-        if (func.as_object->is_function()) [[likely]] {
+        if (func.as_object->is_direct_function()) [[likely]] {
+          JSValue *invoker;
+          if (func.as_func->is_arrow_func) [[unlikely]] {
+            invoker = &func.as_func->this_or_auxiliary_data;
+          } else {
+            invoker = has_this ? &sp[-argc - 1] : &global_object;
+          }
           comp = call_internal(func, *invoker, undefined, call_argv, CallFlags());
-        } else {
+        }
+        else {
           assert(func.as_object->get_class() == CLS_BOUND_FUNCTION);
           comp = func.as_Object<JSBoundFunction>()->call(
-              *this, undefined, undefined, argv, CallFlags());
+              *this, undefined, undefined, call_argv, CallFlags());
         }
 
         sp -= (argc + int(has_this));
@@ -947,7 +960,7 @@ void NjsVM::execute_pending_task() {
 
 Completion NjsVM::call_function(JSValueRef func, JSValueRef This, JSValueRef new_target,
                                 ArgRef argv, CallFlags flags) {
-  if (func.as_object->is_function()) [[likely]] {
+  if (func.as_object->is_direct_function()) [[likely]] {
     JSFunction& f = *func.as_func;
     const JSValue *actual_this;
     if (f.is_arrow_func) {
@@ -1351,26 +1364,26 @@ void NjsVM::exec_js_new(SPRef sp, int argc) {
   JSValue& ctor = sp[-argc];
   JSValue& This = sp[-argc - 1];
 
-  assert(ctor.is(JSValue::FUNCTION));
-  // prepare `this` object
-  if (ctor.as_func->native_func == nullptr) [[likely]] {
+  assert(ctor.is_function());
+  // prepare `this` object for non-native and non-bounded functions.
+  if (ctor.as_object->is_bound_function() || ctor.as_func->is_native()) [[unlikely]] {
+    This.set_undefined();
+  } else {
     JSValue proto = VM_TRY_COMP(ctor.as_func->get_prop(*this, AtomPool::k_prototype));
     proto = proto.is_object() ? proto : object_prototype;
     auto *this_obj = heap.new_object<JSObject>(*this, CLS_OBJECT, proto);
 
     This.set_val(this_obj);
-  } else {
-    // if the ctor is a native function, don't need to prepare `this`.
-    This.set_undefined();
   }
 
   ArgRef argv(&ctor + 1, argc);
   CallFlags flags = CallFlags();
   flags.constructor = true;
   Completion comp;
-  if (ctor.as_object->is_function()) {
+  if (ctor.as_object->is_direct_function()) {
     comp = call_internal(ctor, This, ctor, argv, flags);
   } else {
+    assert(ctor.as_object->is_bound_function());
     comp = ctor.as_Object<JSBoundFunction>()->call(*this, This, ctor, argv, flags);
   }
   sp -= (argc + 1);

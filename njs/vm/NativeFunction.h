@@ -3,7 +3,7 @@
 
 #include "njs/basic_types/JSValue.h"
 #include "njs/common/Completion.h"
-#include "njs/common/ArrayRef.h"
+#include "njs/common/Span.h"
 #include "njs/common/common_def.h"
 #include "njs/basic_types/JSErrorPrototype.h"
 namespace njs {
@@ -36,7 +36,7 @@ class NativeFunction {
   static Completion Date_ctor(JS_NATIVE_FUNC_PARAMS);
   static Completion Function_ctor(JS_NATIVE_FUNC_PARAMS);
   static Completion Promise_ctor(JS_NATIVE_FUNC_PARAMS);
-  static Completion error_ctor_internal(NjsVM& vm, ArrayRef<JSValue> args, JSErrorType type);
+  static Completion error_ctor_internal(NjsVM& vm, Span<JSValue> args, JSErrorType type);
 
   static Completion Symbol(JS_NATIVE_FUNC_PARAMS);
 
