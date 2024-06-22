@@ -5,6 +5,7 @@
 #include "JSValue.h"
 #include "JSObject.h"
 #include "JSFunctionMeta.h"
+#include "njs/common/common_def.h"
 
 namespace njs {
 
@@ -15,6 +16,15 @@ class NjsVM;
 
 class JSFunction : public JSObject {
  public:
+
+  static inline JSFunctionMeta *async_fulfill_callback_meta;
+  static inline JSFunctionMeta *async_reject_callback_meta;
+
+  static void add_internal_function_meta(NjsVM& vm);
+  static array<JSValue, 2> build_async_then_callback(NjsVM& vm, JSValueRef promise);
+  static Completion async_then_callback(vm_func_This_args_flags);
+  ResumableFuncState* build_exec_state(NjsVM& vm, JSValueRef This, ArgRef argv);
+
   JSFunction(NjsVM& vm, u16string_view name, JSFunctionMeta *meta);
   JSFunction(NjsVM& vm, JSFunctionMeta *meta);
 
@@ -23,6 +33,9 @@ class JSFunction : public JSObject {
   bool gc_has_young_child(GCObject *oldgen_start) override;
 
   bool is_native() { return native_func != nullptr; }
+  bool is_async() {
+    return get_class() == CLS_ASYNC_FUNC | get_class() == CLS_ASYNC_GENERATOR_FUNC;
+  }
 
   u16string_view get_class_name() override {
     return u"Function";
@@ -33,7 +46,7 @@ class JSFunction : public JSObject {
   u16string_view name;
   JSFunctionMeta *meta {nullptr};
   // copy from meta
-  bool prepare_arguments_array {false};
+  bool need_arguments_array {false};
   u16 param_count;
   u16 local_var_count;
   u16 stack_size;
@@ -45,6 +58,7 @@ class JSFunction : public JSObject {
   JSValue this_or_auxiliary_data;
   std::vector<JSValue> captured_var;
   NativeFuncType native_func {nullptr};
+  ResumableFuncState *exec_state {nullptr};
 };
 
 } // namespace njs

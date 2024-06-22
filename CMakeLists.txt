@@ -26,6 +26,7 @@ set(SOURCES
     njs/basic_types/JSErrorPrototype.cpp
     njs/basic_types/conversion.cpp
     njs/basic_types/qjs_date.cpp
+    njs/basic_types/JSFunctionMeta.cpp
 )
 
 add_subdirectory(njs/include/libregexp)

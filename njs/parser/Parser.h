@@ -128,11 +128,22 @@ error:
     return true;
   }
 
-  ASTNode* parse_function(bool name_required, bool func_keyword_required, bool is_stmt) {
+  ASTNode* parse_function(bool name_required, bool func_keyword_required,
+                          bool is_stmt, bool is_async) {
     START_POS;
+    if (is_async) {
+      assert(token_match(u"async"));
+      lexer.next();
+    }
+
+    bool is_generator = false;
     if (func_keyword_required) {
       assert(token_match(u"function"));
       lexer.next();
+      if (lexer.current().is(Token::MUL)) {
+        is_generator = true;
+        lexer.next();
+      }
     } else {
       assert(lexer.current().is_identifier());
     }
@@ -181,6 +192,8 @@ error:
     }
     function = new Function(name, params, body, SOURCE_PARSED_EXPR);
     function->is_stmt = is_stmt;
+    function->is_async = is_async;
+    function->is_generator = is_generator;
     scope().register_function(function);
     return function;
 error:
@@ -260,7 +273,7 @@ error:
         }
         // ES6+ simplified function syntax
         else if (lexer.peek().type == TokenType::LEFT_PAREN) {
-          ASTNode* func = parse_function(/*name_required*/true, /*func_keyword_required*/ false, false);
+          ASTNode* func = parse_function(true, false, false, false);
           if (func->is_illegal()) {
             delete obj;
             return func;
@@ -276,7 +289,7 @@ error:
 
           // get prop() { ... }
           ASTNode* get_set_func = parse_function(/*name_required*/true,
-                                                 /*func_keyword_required*/ false, false);
+                                                 /*func_keyword_required*/ false, false, false);
           if (get_set_func->is_illegal()) {
             delete obj;
             return get_set_func;
@@ -331,12 +344,22 @@ error:
 
   ASTNode* parse_assign_or_arrow_function(bool no_in) {
     START_POS;
+    bool is_async_arrow_func = false;
+
+    if (token_match(u"async")) {
+      is_async_arrow_func = true;
+      lexer.next();
+    }
 
     ASTNode* lhs = parse_conditional_expression(no_in);
     if (lhs->is_illegal()) return lhs;
 
     Token op = lexer.peek();
     if (!op.is_assignment_operator() && !op.is(TokenType::R_ARROW)) return lhs;
+    if (is_async_arrow_func && not op.is(TokenType::R_ARROW)) {
+      delete lhs;
+      return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
+    }
     lexer.next();
 
     // normal assign
@@ -407,6 +430,7 @@ error:
       // finally, make an AST node for the function.
       auto *func = new Function(Token::none, std::move(params), func_body, SOURCE_PARSED_EXPR);
       func->is_arrow_func = true;
+      func->is_async = is_async_arrow_func;
       scope().register_function(func);
       return func;
     }
@@ -488,6 +512,7 @@ error:
         }
       }
       lhs = new UnaryExpr(lhs, prefix_op, true);
+      lhs->set_source(SOURCE_PARSED_EXPR);
     }
     else {
       lhs = parse_left_hand_side_expression(false);
@@ -541,12 +566,16 @@ error:
       base = new NewExpr(base, SOURCE_PARSED_EXPR);
     }
 
-    if (base == nullptr && token.text == u"function") {
-      base = parse_function(false, true, false);
+    if (base == nullptr) {
+      if (token.text == u"function") {
+        base = parse_function(false, true, false, false);
+      } else if (token.text == u"async") {
+        base = parse_function(false, true, false, true);
+      } else {
+        base = parse_primary_expression();
+      }
     }
-    else if (base == nullptr) {
-      base = parse_primary_expression();
-    }
+
     if (base->is_illegal()) {
       return base;
     }
@@ -698,10 +727,8 @@ error:
         else if (token.text == u"switch") return parse_switch_statement();
         else if (token.text == u"throw") return parse_throw_statement();
         else if (token.text == u"try") return parse_try_statement();
-        else if (token.text == u"function") {
-          auto func = parse_function(true, true, true);
-          return func;
-        }
+        else if (token.text == u"function") return parse_function(true, true, true, false);
+        else if (token.text == u"async") return parse_function(true, true, true, true);
         else if (token.text == u"debugger") {
           if (!lexer.try_skip_semicolon()) {
             goto error;
@@ -710,9 +737,7 @@ error:
         }
         break;
       }
-      case TokenType::STRICT_FUTURE_KW:
       case TokenType::IDENTIFIER: {
-        
         Token colon = lexer.peek();
         if (colon.type == TokenType::COLON) {
           return parse_labelled_statement();

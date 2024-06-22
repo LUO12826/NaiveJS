@@ -29,11 +29,19 @@ using std::deque;
 using std::unique_ptr;
 using llvm::SmallVector;
 using SPRef = JSValue*&;
-using ArgRef = Span<JSValue>;
 
 class CodegenVisitor;
 struct JSTask;
 struct JSStackFrame;
+
+// TODO: this is a very simplified implementation.
+JSValue prepare_arguments_array(NjsVM& vm, ArgRef args);
+
+struct StackTraceItem {
+  u16string func_name;
+  u32 source_line;
+  bool is_native;
+};
 
 class NjsVM {
 friend struct JSValue;
@@ -60,13 +68,6 @@ friend class JSArrayIterator;
 friend struct GCHandleCollector;
 
  public:
-
-  struct StackTraceItem {
-    u16string func_name;
-    u32 source_line;
-    bool is_native;
-  };
-
   // These parameters are only for temporary convenience
   explicit NjsVM(CodegenVisitor& visitor);
   ~NjsVM();
@@ -173,7 +174,10 @@ friend struct GCHandleCollector;
   void execute_single_task(JSTask& task);
   void execute_pending_task();
   Completion call_internal(JSValueRef callee, JSValueRef This, JSValueRef new_target,
-                           ArgRef argv, CallFlags flags);
+                           ArgRef argv, CallFlags flags, ResumableFuncState *state = nullptr);
+
+  Completion async_initial_call(JSValueRef func, JSValueRef This, ArgRef argv, CallFlags flags);
+  void async_resume(JSValueRef promise, ResumableFuncState *state);
   // function operation
   void exec_make_func(SPRef sp, int meta_idx, JSValue env_this);
   void exec_js_new(SPRef sp, int arg_count);
@@ -218,8 +222,6 @@ friend struct GCHandleCollector;
   void error_throw_handle(SPRef sp, JSErrorType type, u16string_view msg);
   void error_handle(SPRef sp);
   void print_unhandled_error(JSValue err);
-
-  JSValue prepare_arguments_array(ArgRef args);
 
   void init_prototypes();
   void show_stats();

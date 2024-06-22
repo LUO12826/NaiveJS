@@ -15,8 +15,9 @@
 
 namespace njs {
 
-
 using robin_hood::unordered_set;
+using std::u16string_view;
+
 class Token {
  public:
   // has corresponding string representation, note to modify when adding
@@ -136,10 +137,10 @@ class Token {
 
   static const Token none;
 
-  Token(TokenType type, std::u16string_view text, u32 start, u32 end, u32 line) :
+  Token(TokenType type, u16string_view text, u32 start, u32 end, u32 line) :
     type(type), text(text), start(start), end(end), line(line) {}
 
-  void set(TokenType type, std::u16string_view text, u32 start, u32 end, u32 line) {
+  void set(TokenType type, u16string_view text, u32 start, u32 end, u32 line) {
     this->type = type;
     this->text = text;
     this->start = start;
@@ -162,7 +163,7 @@ class Token {
     return to_u8string(text);
   }
 
-  inline bool is(TokenType type) {
+  inline bool is(TokenType type) const {
     return this->type == type;
   }
 
@@ -273,6 +274,11 @@ class Token {
           return 100;
         }
         return -1;
+      case FUTURE_KW:
+        if (text == u"await") {
+          return 100;
+        }
+        return -1;
       default:
         return -1;
     }
@@ -295,10 +301,10 @@ class Token {
                   start, end - 1, line);
   }
 
-  inline const std::u16string_view& get_text_ref() const { return text; }
+  inline const u16string_view& get_text_ref() const { return text; }
 
+  u16string_view text;
   TokenType type;
-  std::u16string_view text;
   u32 start;
   u32 end;
 
@@ -318,7 +324,7 @@ const unordered_set<std::u16string> keywords = {
   u"const",     u"finally",  u"super",       u"with",
   u"continue",  u"for",      u"switch",      u"yield",
   u"debugger",  u"function", u"this",        u"let",
-  u"default",   u"if",       u"throw",
+  u"default",   u"if",       u"throw",       u"async",
   u"delete",    u"import",   u"try"
 };
 

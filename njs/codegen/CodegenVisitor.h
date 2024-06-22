@@ -399,6 +399,8 @@ class CodegenVisitor {
     ProgramOrFunctionBody *body = func.body->as_func_body();
     u32 func_start_pos = bytecode_pos();
     push_scope(body->scope.get());
+    scope().function_ast = &func;
+
     // a function expression can call itself in its body using the function name.
     if (!func.is_stmt && func.has_name()) {
       auto res = scope().resolve_symbol(func.name.text);
@@ -423,9 +425,11 @@ class CodegenVisitor {
         .name_index = func.has_name() ? add_const(func.name.text) : 0,
         .is_anonymous = !func.has_name() || func.is_arrow_func,
         .is_arrow_func = func.is_arrow_func,
+        .is_async = func.is_async,
+        .is_generator = func.is_generator,
         .is_constructor = !is_not_constructor,
         .is_strict = body->strict,
-        .prepare_arguments_array = prepare_arguments,
+        .need_arguments_array = prepare_arguments,
         .param_count = (u16)scope().get_param_count(),
         .local_var_count = (u16)scope().get_var_count(),
         .stack_size = u16(scope().get_max_stack_size() + 1), // 1 more slot for error, maybe ?
@@ -536,6 +540,24 @@ class CodegenVisitor {
           assert(false);
         }
         NO_NEED_VALUE_POP_DROP
+        break;
+      case Token::FUTURE_KW:
+        if (expr.op.text == u"await") {
+          Function *func_env = scope().get_outer_func()->function_ast;
+          assert(func_env);
+          if (not func_env->is_async) {
+            report_error(CodegenError {
+                .type = JS_SYNTAX_ERROR,
+                .message = "await can only be used in an async function",
+                .ast_node = &expr,
+            });
+          }
+          visit(expr.operand);
+          emit(OpType::await);
+          NO_NEED_VALUE_POP_DROP
+        } else {
+          assert(false);
+        }
         break;
       default:
         assert(false);

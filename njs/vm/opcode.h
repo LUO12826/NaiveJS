@@ -120,6 +120,7 @@ DEF(js_new)
 DEF(ret)
 DEF(ret_undef)
 DEF(ret_err)
+DEF(await)
 DEF(proc_call)
 DEF(proc_ret)
 

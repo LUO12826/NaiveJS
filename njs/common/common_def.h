@@ -2,6 +2,7 @@
 #define NJS_COMMON_DEF_H
 
 #include <cstdint>
+#include "Span.h"
 
 namespace njs {
 
@@ -10,6 +11,7 @@ constexpr u32 CHAR_SIZE {sizeof(char16_t)};
 
 struct JSValue;
 using JSValueRef = JSValue const&;
+using ArgRef = Span<JSValue>;
 
 struct CallFlags {
   bool constructor : 1 {false};

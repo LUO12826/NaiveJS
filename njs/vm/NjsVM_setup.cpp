@@ -179,6 +179,7 @@ void NjsVM::setup() {
   add_builtin_global_var(u"Infinity", JSValue(1.0 / 0.0));
 
   JSPromise::add_internal_function_meta(*this);
+  JSFunction::add_internal_function_meta(*this);
 
   string_const.resize(11);
   string_const[AtomPool::k_] = new_primitive_string(u"");

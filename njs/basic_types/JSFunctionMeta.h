@@ -4,6 +4,7 @@
 #include <vector>
 #include "JSValue.h"
 #include "njs/common/Completion.h"
+#include "njs/vm/JSStackFrame.h"
 #include "njs/include/SmallVector.h"
 #include "njs/common/Span.h"
 #include "njs/common/enums.h"
@@ -38,10 +39,12 @@ struct JSFunctionMeta {
   u32 name_index;
   bool is_anonymous : 1 {false};
   bool is_arrow_func : 1 {false};
+  bool is_async : 1 {false};
+  bool is_generator : 1 {false};
   bool is_constructor : 1 {true};
   bool is_native : 1 {false};
   bool is_strict : 1 {false};
-  bool prepare_arguments_array : 1 {false};
+  bool need_arguments_array : 1 {false};
 
   u16 param_count;
   u16 local_var_count;
@@ -57,6 +60,17 @@ struct JSFunctionMeta {
   int magic;
 
   std::string description() const;
+};
+
+struct ResumableFuncState {
+  JSValue This;
+  bool active {false};
+  bool resume_with_throw {false};
+  JSStackFrame stack_frame;
+
+  bool gc_scan_children(GCHeap& heap);
+  void gc_mark_children();
+  bool gc_has_young_child(GCObject *oldgen_start);
 };
 
 inline JSFunctionMeta* build_func_meta(NativeFuncType func, int magic = 0) {

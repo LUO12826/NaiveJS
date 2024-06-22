@@ -517,7 +517,15 @@ class Function : public ASTNode {
   ~Function() override { delete body; }
 
   std::string description() override {
-    std::string desc = ASTNode::description() + " name: " + name.get_text_utf8();
+    std::string desc = ASTNode::description() + " name: ";
+    if (has_name()) {
+      desc += name.get_text_utf8();
+    } else {
+      desc += "(anonymous)";
+    }
+    if (is_arrow_func) desc += " arrow";
+    if (is_async) desc += " async";
+    if (is_generator) desc += " generator";
     desc += ", params: ";
     for (auto& param : params) desc += to_u8string(param) + ", ";
     return desc;

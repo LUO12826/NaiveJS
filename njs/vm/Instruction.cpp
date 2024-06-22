@@ -295,6 +295,9 @@ std::string Instruction::description() const {
     case OpType::ret_err:
       sprintf(buffer, "ret_err");
       break;
+    case OpType::await:
+      sprintf(buffer, "await");
+      break;
     case OpType::proc_call:
       sprintf(buffer, "proc_call  at:%d", OPR1);
       break;
@@ -441,6 +444,7 @@ static int op_stack_usage[] = {
     0,  // ret
     0,  // ret_undef
     0,  // ret_err
+    0,  // await
     1,  // proc_call
     -1, // proc_ret
 

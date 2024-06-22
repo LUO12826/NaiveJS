@@ -241,11 +241,10 @@ void GCHeap::gather_roots() {
   JSStackFrame *frame = vm.curr_frame;
   while (frame) {
     roots.push_back(&frame->function);
-    if (frame->alloc_cnt != 0) [[likely]] {
-      for (JSValue *val = frame->buffer; val <= *frame->sp_ref; val++) {
-        if (val->needs_gc()) {
-          roots.push_back(val);
-        }
+    // do we need to check frame->alloc_cnt != 0 here?
+    for (JSValue *val = frame->buffer; val <= *frame->sp_ref; val++) {
+      if (val->needs_gc()) {
+        roots.push_back(val);
       }
     }
     frame = frame->prev_frame;

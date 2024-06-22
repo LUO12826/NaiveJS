@@ -9,6 +9,7 @@
 #include "njs/global_var.h"
 #include "njs/common/common_def.h"
 #include "njs/codegen/CodegenVisitor.h"
+#include "njs/basic_types/JSPromise.h"
 #include "njs/basic_types/JSHeapValue.h"
 #include "njs/basic_types/JSBoundFunction.h"
 #include "njs/basic_types/PrimitiveString.h"
@@ -56,6 +57,21 @@ void *lre_realloc(void *opaque, void *ptr, size_t size) {
 namespace njs {
 
 static size_t inst_counter[static_cast<int>(OpType::opcode_count)];
+
+JSValue prepare_arguments_array(NjsVM& vm, ArgRef args) {
+  auto *arr = vm.heap.new_object<JSArray>(vm, args.size());
+
+  if (vm.heap.object_in_newgen(arr)) {
+    for (int i = 0; i < args.size(); i++) {
+      arr->get_dense_array()[i] = args[i];
+    }
+  } else {
+    for (int i = 0; i < args.size(); i++) {
+      arr->set_element_fast(vm, i, args[i]);
+    }
+  }
+  return JSValue(arr);
+}
 
 NjsVM::NjsVM(CodegenVisitor& visitor)
   : heap(1600, *this)
@@ -113,6 +129,14 @@ JSFunction* NjsVM::new_function(JSFunctionMeta *meta) {
   } else {
     func = heap.new_object<JSFunction>(*this, atom_to_str(meta->name_index), meta);
   }
+  int obj_class = 0;
+  obj_class |= meta->is_async;
+  obj_class |= meta->is_generator << 1;
+
+  if (obj_class != 0) [[unlikely]] {
+    func->set_class((ObjClass)obj_class);
+  }
+  
   func->captured_var.reserve(meta->capture_list.size());
   return func;
 }
@@ -155,24 +179,8 @@ void NjsVM::execute_global() {
   call_internal(global_func, global_object, undefined, ArgRef(nullptr, 0), CallFlags());
 }
 
-// TODO: this is a very simplified implementation.
-JSValue NjsVM::prepare_arguments_array(ArgRef args) {
-  auto *arr = heap.new_object<JSArray>(*this, args.size());
-
-  if (heap.object_in_newgen(arr)) {
-    for (int i = 0; i < args.size(); i++) {
-      arr->get_dense_array()[i] = args[i];
-    }
-  } else {
-    for (int i = 0; i < args.size(); i++) {
-      arr->set_element_fast(*this, i, args[i]);
-    }
-  }
-  return JSValue(arr);
-}
-
 Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef new_target,
-                                ArgRef argv, CallFlags flags) {
+                                ArgRef argv, CallFlags flags, ResumableFuncState *state) {
 
   static void * dispatch_table[static_cast<int>(OpType::opcode_count) + 1] = {
 #define DEF(opc) && case_op_ ## opc,
@@ -212,6 +220,8 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
   switch (this_func->get_class()) {
     case CLS_ASYNC_FUNC:
+      if (state == nullptr) return async_initial_call(callee, This, argv, flags);
+      break;
     case CLS_GENERATOR_FUNC:
     case CLS_ASYNC_GENERATOR_FUNC:
       assert(false);
@@ -227,64 +237,89 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   }
 
   // setup call stack
-  JSStackFrame frame;
+  JSStackFrame _frame;
+  JSStackFrame &frame = likely(state == nullptr) ? _frame : state->stack_frame;
   frame.prev_frame = curr_frame;
   frame.function = callee;
   curr_frame = &frame;
 
-  bool copy_argv = (argv.size() < this_func->param_count) | flags.copy_args;
-
-  size_t actual_arg_cnt = std::max(argv.size(), (size_t)this_func->param_count);
-  size_t args_buf_cnt = unlikely(copy_argv) ? actual_arg_cnt : 0;
-  size_t alloc_cnt = args_buf_cnt + frame_meta_size
-                     + this_func->local_var_count + this_func->stack_size;
-
-  JSValue *buffer = (JSValue *)alloca(sizeof(JSValue) * alloc_cnt);
-  JSValue *args_buf = unlikely(copy_argv) ? buffer : argv.data();
-
-  if (copy_argv) [[unlikely]] {
-    memcpy(args_buf, argv.data(), sizeof(JSValue) * argv.size());
-    for (JSValue *val = args_buf + argv.size(); val < args_buf + args_buf_cnt; val++) {
-      val->set_undefined();
-    }
-  }
-
-  for (JSValue *val = args_buf; val < args_buf + argv.size(); val++) {
-    set_referenced(*val);
-  }
-
   if (this_func->is_native()) {
-    ArgRef args_ref(args_buf, actual_arg_cnt);
     bool has_new_target = new_target.is_object();
     flags.this_is_new_target = has_new_target;
     JSValueRef this_arg = unlikely(has_new_target) ? new_target : This;
-    Completion comp = this_func->native_func(*this, callee, this_arg, args_ref, flags);
+    Completion comp = this_func->native_func(*this, callee, this_arg, argv, flags);
 
-    curr_frame = curr_frame->prev_frame;
+    curr_frame = frame.prev_frame;
     return comp;
   }
 
-  JSValue *local_vars = buffer + args_buf_cnt;
-  JSValue *stack = local_vars + this_func->local_var_count + frame_meta_size;
-  // Initialize local variables and operation stack to undefined
-  for (JSValue *val = local_vars; val < stack; val++) {
-    val->set_undefined();
-  }
+  JSValue *buffer;
+  JSValue *args_buf;
+  JSValue *local_vars;
+  JSValue *stack;
+  JSValue *sp;
+  u32 pc;
 
-  if (this_func->prepare_arguments_array) [[unlikely]] {
-    local_vars[0] = prepare_arguments_array(argv);
-  }
-
-  JSValue *sp = stack - 1;
-  u32 pc = this_func->bytecode_start;
-
-  frame.alloc_cnt = alloc_cnt;
-  frame.buffer = buffer;
-  frame.args_buf = args_buf;
-  frame.local_vars = local_vars;
-  frame.stack = stack;
   frame.sp_ref = &sp;
   frame.pc_ref = &pc;
+
+  if (state == nullptr) [[likely]] {
+    bool copy_argv = (argv.size() < this_func->param_count) | flags.copy_args;
+
+    size_t actual_arg_cnt = std::max(argv.size(), (size_t)this_func->param_count);
+    size_t args_buf_cnt = unlikely(copy_argv) ? actual_arg_cnt : 0;
+    size_t alloc_cnt = args_buf_cnt + frame_meta_size
+                      + this_func->local_var_count + this_func->stack_size;
+
+    buffer = (JSValue *)alloca(sizeof(JSValue) * alloc_cnt);
+    args_buf = unlikely(copy_argv) ? buffer : argv.data();
+    local_vars = buffer + args_buf_cnt;
+    stack = local_vars + this_func->local_var_count + frame_meta_size;
+
+    // Initialize arguments
+    if (copy_argv) [[unlikely]] {
+      memcpy(args_buf, argv.data(), sizeof(JSValue) * argv.size());
+      for (JSValue *val = args_buf + argv.size(); val < args_buf + args_buf_cnt; val++) {
+        val->set_undefined();
+      }
+    }
+
+    for (JSValue *val = args_buf; val < args_buf + argv.size(); val++) {
+      set_referenced(*val);
+    }
+
+    // Initialize local variables and operation stack to undefined
+    for (JSValue *val = local_vars; val < stack; val++) {
+      val->set_undefined();
+    }
+
+    if (this_func->need_arguments_array) [[unlikely]] {
+      local_vars[0] = prepare_arguments_array(*this, argv);
+    }
+
+    frame.alloc_cnt = alloc_cnt;
+    frame.buffer = buffer;
+    frame.args_buf = args_buf;
+    frame.local_vars = local_vars;
+    frame.stack = stack;
+    sp = stack - 1;
+    pc = this_func->bytecode_start;
+  }
+  else {
+    state->active = true;
+
+    buffer = frame.buffer;
+    args_buf = frame.args_buf;
+    local_vars = frame.local_vars;
+    stack = frame.stack;
+    sp = frame.sp;
+    pc = frame.pc;
+
+    if (state->resume_with_throw) {
+      state->resume_with_throw = false;
+      error_handle(sp);
+    }
+  }
 
   auto get_value = [&, this] (ScopeType scope, int index) -> JSValue& {
     switch (scope) {
@@ -763,18 +798,28 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         Break;
       Case(ret): {
         if (Global::show_vm_exec_steps) printf("ret\n");
-        curr_frame = curr_frame->prev_frame;
+        if (state) state->active = false;
+        curr_frame = frame.prev_frame;
         return sp[0];
       }
       Case(ret_undef): {
         if (Global::show_vm_exec_steps) printf("ret_undef\n");
-        curr_frame = curr_frame->prev_frame;
+        if (state) state->active = false;
+        curr_frame = frame.prev_frame;
         return undefined;
       }
       Case(ret_err): {
         if (Global::show_vm_exec_steps) printf("ret_err\n");
-        curr_frame = curr_frame->prev_frame;
+        if (state) state->active = false;
+        curr_frame = frame.prev_frame;
         return CompThrow(sp[0]);
+      }
+      Case(await): {
+        state->active = false;
+        curr_frame = frame.prev_frame;
+        frame.pc = pc;
+        frame.sp = sp;
+        return {Completion::Type::AWAIT, sp[0]};
       }
       Case(halt):
         if (!global_end) {
@@ -931,6 +976,47 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   }
 }
 
+Completion NjsVM::async_initial_call(JSValueRef func, JSValueRef This, ArgRef argv, CallFlags flags) {
+  assert(func.as_object->is_direct_function());
+  assert(func.as_func->is_async());
+  ResumableFuncState *state = func.as_func->build_exec_state(*this, This, argv);
+  
+  auto *prom = heap.new_object<JSPromise>(*this);
+  prom->exec_state = state;
+  JSValue promise(prom);
+  push_temp_root(promise);
+
+  async_resume(promise, state);
+
+  pop_temp_root();
+  return promise;
+}
+
+void NjsVM::async_resume(JSValueRef promise, ResumableFuncState *state) {
+  assert(promise.as_object->get_class() == CLS_PROMISE);
+  auto comp = call_internal(state->stack_frame.function, state->This, undefined, {},
+                            CallFlags(), state);
+
+  if (comp.is_await()) {
+    JSValue new_promise
+      = JSPromise::Promise_resolve_reject(*this, undefined, comp.get_value(), false).get_value();
+    assert(new_promise.as_object->get_class() == CLS_PROMISE);
+
+    auto [fulfill, reject] = JSFunction::build_async_then_callback(*this, promise);
+    new_promise.as_Object<JSPromise>()->then_internal(*this, fulfill, reject);
+  }
+  else if (comp.is_throw()) {
+    JSPromise::settling_internal(*this, promise, JSPromise::REJECTED, comp.get_value());
+    promise.as_Object<JSPromise>()->dispose_exec_state();
+  }
+  // async function returned
+  else {
+    JSPromise::settling_internal(*this, promise, JSPromise::FULFILLED, comp.get_value());
+    promise.as_Object<JSPromise>()->dispose_exec_state();
+  }
+
+}
+
 void NjsVM::execute_task(JSTask& task) {
   execute_single_task(task);
   execute_pending_task();
@@ -976,8 +1062,6 @@ Completion NjsVM::call_function(JSValueRef func, JSValueRef This, JSValueRef new
   }
 }
 
-using StackTraceItem = NjsVM::StackTraceItem;
-
 vector<StackTraceItem> NjsVM::capture_stack_trace() {
   vector<StackTraceItem> trace;
 
@@ -1004,7 +1088,7 @@ vector<StackTraceItem> NjsVM::capture_stack_trace() {
 }
 
 u16string NjsVM::build_trace_str(bool remove_top) {
-  std::vector<NjsVM::StackTraceItem> trace = capture_stack_trace();
+  std::vector<StackTraceItem> trace = capture_stack_trace();
   u16string trace_str;
   bool first = true;
 

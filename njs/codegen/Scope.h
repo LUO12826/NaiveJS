@@ -337,6 +337,7 @@ class Scope {
   bool has_try {false};
   bool is_strict {false};
   ASTNode *associated_node {nullptr};
+  Function *function_ast {nullptr};
   SmallVector<u32, 3> break_list;
   SmallVector<u32, 3> continue_list;
   SmallVector<u32, 3> throw_list;

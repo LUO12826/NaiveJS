@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 #include "JSObject.h"
+#include "njs/vm/NjsVM.h"
 #include "testing_and_comparison.h"
 
 namespace njs {
@@ -12,10 +13,8 @@ using u32 = uint32_t;
 using std::array;
 using std::vector;
 
-class GCHeap;
-class NjsVM;
-
 struct PromiseThenRecord {
+  bool then_relay {true};
   JSValue on_fulfilled;
   JSValue on_rejected;
   JSValue next_resolve;
@@ -35,6 +34,13 @@ struct PromiseThenRecord {
     gc_check_and_visit_object(child_young, next_resolve);
     gc_check_and_visit_object(child_young, next_reject);
     return child_young;
+  }
+
+  void gc_mark_children() {
+    gc_check_and_mark_object(on_fulfilled);
+    gc_check_and_mark_object(on_rejected);
+    gc_check_and_mark_object(next_resolve);
+    gc_check_and_mark_object(next_reject);
   }
 
   bool gc_has_young_child(GCObject *oldgen_start) {
@@ -68,7 +74,7 @@ friend class JSPromisePrototype;
     assert(executor.is_function());
     HANDLE_COLLECTOR;
 
-    JSValue promise(new JSPromise(vm));
+    JSValue promise(vm.heap.new_object<JSPromise>(vm));
     gc_handle_add(promise);
     auto resolve_reject = build_resolve_reject_function(vm, promise);
     gc_handle_add(resolve_reject[0]);
@@ -78,7 +84,7 @@ friend class JSPromisePrototype;
                                        {resolve_reject.data(), 2});
     gc_handle_add(comp.get_value());
     if (comp.is_throw()) {
-      promise_settling_function(vm, resolve_reject[1], undefined,
+      settling_function(vm, resolve_reject[1], undefined,
                                 {&comp.get_value(), 1}, CallFlags());
     }
 
@@ -86,8 +92,8 @@ friend class JSPromisePrototype;
   }
 
   static void add_internal_function_meta(NjsVM& vm) {
-    resolve_func_meta = build_func_meta(promise_settling_function, FULFILLED);
-    reject_func_meta = build_func_meta(promise_settling_function, REJECTED);
+    resolve_func_meta = build_func_meta(settling_function, FULFILLED);
+    reject_func_meta = build_func_meta(settling_function, REJECTED);
 
     then_fulfilled_func_for_finally_meta = build_func_meta(then_callback_for_finally, FULFILLED);
     then_rejected_func_for_finally_meta = build_func_meta(then_callback_for_finally, REJECTED);
@@ -131,38 +137,42 @@ friend class JSPromisePrototype;
   }
 
   // the arguments for the executor: `resolve` and `reject` function
-  static Completion promise_settling_function(vm_func_This_args_flags) {
+  static Completion settling_function(vm_func_This_args_flags) {
     assert(func.as_func->has_auxiliary_data);
     assert(func.as_func->this_or_auxiliary_data.as_object->get_class() == CLS_PROMISE);
-    JSValueRef arg = args.size() > 0 ? args[0] : undefined;
-    auto *promise = func.as_func->this_or_auxiliary_data.as_Object<JSPromise>();
-    auto state = static_cast<State>(func.as_func->meta->magic);
 
-    if (same_value(arg, func.as_func->this_or_auxiliary_data)) {
+    JSValueRef arg = args.size() > 0 ? args[0] : undefined;
+    auto new_state = static_cast<State>(func.as_func->meta->magic);
+    return settling_internal(vm, func.as_func->this_or_auxiliary_data, new_state, arg);
+  }
+
+  static Completion settling_internal(NjsVM& vm, JSValueRef promise_val,
+                                        State new_state, JSValueRef arg) {
+    if (same_value(arg, promise_val)) {
       return vm.throw_error(JS_TYPE_ERROR, u"Promise self resolution detected");
     }
 
     // for resolve(thenable)
-    if (state == FULFILLED) {
+    if (new_state == FULFILLED) {
       if (JSValue then_func = TRYCC(get_then_function(vm, arg)); then_func.is_function()) {
-        vector<JSValue> task_args { JSValue(promise), arg, then_func };
+        vector<JSValue> task_args { promise_val, arg, then_func };
 
         vm.micro_task_queue.push_back(JSTask {
             .use_native_func = true,
-            .native_task_func = JSPromise::promise_resolve_thenable,
+            .native_task_func = JSPromise::resolve_thenable,
             .args = std::move(task_args),
         });
         return undefined;
       }
     }
 
-    promise->settle(vm, state, arg);
+    promise_val.as_Object<JSPromise>()->settle(vm, new_state, arg);
     return undefined;
   }
 
   // if `resolve` is called on a thenable in the executor, use this method to call the
   // `then` method of the thenable (with `resolve` and `reject` callback as its argument)
-  static Completion promise_resolve_thenable(vm_func_This_args_flags) {
+  static Completion resolve_thenable(vm_func_This_args_flags) {
     assert(args.size() == 3);
     HANDLE_COLLECTOR;
     JSValueRef promise = args[0];
@@ -193,15 +203,18 @@ friend class JSPromisePrototype;
       }
     }
     // else, the arg can be a thenable or other.
-    // `resolve_reject` (pointing to `promise_settling_function`) will handle this properly.
+    // `resolve_reject` (pointing to `settling_function`) will handle this properly.
 
-    JSValue promise(new JSPromise(vm));
+    JSValue promise(vm.heap.new_object<JSPromise>(vm));
     gc_handle_add(promise);
-    auto resolve_reject = build_resolve_reject_function(vm, promise);
-    gc_handle_add(resolve_reject[0]);
-    gc_handle_add(resolve_reject[1]);
+    // auto resolve_reject = build_resolve_reject_function(vm, promise);
+    // gc_handle_add(resolve_reject[0]);
+    // gc_handle_add(resolve_reject[1]);
+    // vm.call_function(resolve_reject[int(is_reject)], undefined, {&arg, 1});
 
-    vm.call_function(resolve_reject[int(is_reject)], undefined, {&arg, 1});
+    // this will not throw because arg cannot be a promise here.
+    // (`settling_internal` will throw on promise self resolution)
+    settling_internal(vm, promise, is_reject ? REJECTED : FULFILLED, arg);
     return promise;
   }
 
@@ -236,7 +249,7 @@ friend class JSPromisePrototype;
    * args[3]: the `reject` function of the promise returned by `then`
    * args[4]: result of the promise
    */
-  static Completion promise_then_task(vm_func_This_args_flags) {
+  static Completion then_task(vm_func_This_args_flags) {
     HANDLE_COLLECTOR;
     assert(args.size() == 5);
     bool is_reject = args[0].as_bool;
@@ -277,7 +290,28 @@ friend class JSPromisePrototype;
     return undefined;
   }
 
+  /*
+   * args[0]: then callback function
+   * args[1]: result of the promise
+   */
+  static Completion then_task_no_relay(vm_func_This_args_flags) {
+    assert(args.size() == 2);
+    JSValue& callback = args[0];
+    JSValue& result = args[1];
+
+    if (callback.is_function()) {
+      vm.call_function(callback, undefined, undefined, {&result, 1});
+    }
+
+    return undefined;
+  }
+
   explicit JSPromise(NjsVM& vm): JSObject(vm, CLS_PROMISE, vm.promise_prototype) {}
+  ~JSPromise() override {
+    if (exec_state) {
+      free(exec_state);
+    }
+  }
 
   void settle(NjsVM& vm, State s, JSValueRef data) {
     // can only settle once
@@ -290,11 +324,11 @@ friend class JSPromisePrototype;
 
   JSValue then(NjsVM& vm, JSValueRef on_fulfilled, JSValueRef on_rejected) {
     NOGC;
-    JSValue promise(new JSPromise(vm));
+    JSValue promise(vm.heap.new_object<JSPromise>(vm));
     auto [resolve_func, reject_func] = build_resolve_reject_function(vm, promise);
 
     if (state == PENDING) {
-      put_then_record(vm, on_fulfilled, on_rejected, resolve_func, reject_func);
+      put_then_record(vm, on_fulfilled, on_rejected, resolve_func, reject_func, true);
     }
     else {
       assert(not then_record_using_inline && then_records.empty());
@@ -307,12 +341,30 @@ friend class JSPromisePrototype;
       };
       vm.micro_task_queue.push_back(JSTask {
           .use_native_func = true,
-          .native_task_func = JSPromise::promise_then_task,
+          .native_task_func = JSPromise::then_task,
           .args = std::move(args),
       });
     }
 
     return promise;
+  }
+
+  void then_internal(NjsVM& vm, JSValueRef on_fulfilled, JSValueRef on_rejected) {
+    if (state == PENDING) {
+      put_then_record(vm, on_fulfilled, on_rejected, undefined, undefined, false);
+    }
+    else {
+      assert(not then_record_using_inline && then_records.empty());
+      vector<JSValue> args {
+          (state == REJECTED ? on_rejected : on_fulfilled),
+          result,
+      };
+      vm.micro_task_queue.push_back(JSTask {
+          .use_native_func = true,
+          .native_task_func = then_task_no_relay,
+          .args = std::move(args),
+      });
+    }
   }
 
   // `finally` is kind of a wrapper of `then` but behaves slightly differently.
@@ -347,47 +399,54 @@ friend class JSPromisePrototype;
     if (state == PENDING) return;
 
     drain_then_records([&, this] (PromiseThenRecord& then_rec) {
-      vector<JSValue> args {
-          JSValue(state == REJECTED),
-          (state == REJECTED ? then_rec.on_rejected : then_rec.on_fulfilled),
-          then_rec.next_resolve,
-          then_rec.next_reject,
-          result,
-      };
+      vector<JSValue> args;
+      auto then_callback = state == REJECTED ? then_rec.on_rejected : then_rec.on_fulfilled;
+      if (then_rec.then_relay) {
+        args = {
+            JSValue(state == REJECTED),
+            then_callback,
+            then_rec.next_resolve,
+            then_rec.next_reject,
+            result,
+        };
+      } else {
+        args = {then_callback, result};
+      }
+
       vm.micro_task_queue.push_back(JSTask {
           .use_native_func = true,
-          .native_task_func = JSPromise::promise_then_task,
+          .native_task_func = then_rec.then_relay ? then_task : then_task_no_relay,
           .args = std::move(args),
       });
     });
   }
 
   template <typename CB> requires std::invocable<CB, PromiseThenRecord&>
-  void drain_then_records(CB cb) {
+  void drain_then_records(CB callback) {
     if (then_record_using_inline) {
-      cb(then_record_inline);
+      callback(then_record_inline);
       then_record_inline.set_undefined();
       then_record_using_inline = false;
     }
 
     for (auto& rec : then_records) {
-      cb(rec);
+      callback(rec);
     }
     then_records.clear();
   }
 
   template <typename CB> requires std::invocable<CB, PromiseThenRecord&>
-  void enumerate_then_records(CB cb) {
+  void enumerate_then_records(CB callback) {
     if (then_record_using_inline) {
-      cb(then_record_inline);
+      callback(then_record_inline);
     }
     for (auto& rec : then_records) {
-      cb(rec);
+      callback(rec);
     }
   }
 
   void put_then_record(NjsVM& vm, JSValueRef on_fulfilled, JSValueRef on_rejected,
-                       JSValueRef next_resolve, JSValueRef next_reject) {
+                       JSValueRef next_resolve, JSValueRef next_reject, bool then_relay) {
     if (not vm.heap.object_in_newgen(this)) {
       WRITE_BARRIER(on_fulfilled);
       WRITE_BARRIER(on_rejected);
@@ -396,44 +455,57 @@ friend class JSPromisePrototype;
     }
     if (not then_record_using_inline && then_records.empty()) {
       then_record_using_inline = true;
+      then_record_inline.then_relay = then_relay;
       then_record_inline.on_fulfilled = on_fulfilled;
       then_record_inline.on_rejected = on_rejected;
       then_record_inline.next_resolve = next_resolve;
       then_record_inline.next_reject = next_reject;
     } else {
       then_records.push_back(PromiseThenRecord {
-          on_fulfilled, on_rejected, next_resolve, next_reject
+          then_relay, on_fulfilled, on_rejected, next_resolve, next_reject
       });
     }
   }
 
+  void dispose_exec_state() {
+    assert(exec_state);
+    free(exec_state);
+  }
+
   bool gc_scan_children(GCHeap& heap) override {
     bool child_young = false;
+    child_young |= JSObject::gc_scan_children(heap);
     gc_check_and_visit_object(child_young, result);
     enumerate_then_records([&] (PromiseThenRecord& rec) {
       child_young |= rec.gc_scan_children(heap);
     });
+    if (exec_state) {
+      child_young |= exec_state->gc_scan_children(heap);
+    }
     return child_young;
   }
 
   void gc_mark_children() override {
     gc_check_and_mark_object(result);
+    JSObject::gc_mark_children();
     enumerate_then_records([&] (PromiseThenRecord& rec) {
-      gc_check_and_mark_object(rec.on_fulfilled);
-      gc_check_and_mark_object(rec.on_rejected);
-      gc_check_and_mark_object(rec.next_resolve);
-      gc_check_and_mark_object(rec.next_reject);
+      rec.gc_mark_children();
     });
+    if (exec_state) {
+      exec_state->gc_mark_children();
+    }
   }
 
   bool gc_has_young_child(GCObject *oldgen_start) override {
     if (JSObject::gc_has_young_child(oldgen_start)) return true;
-
+    gc_check_object_young(result);
     if (then_record_inline.gc_has_young_child(oldgen_start)) return true;
     for (auto& rec : then_records) {
       if (rec.gc_has_young_child(oldgen_start)) return true;
     }
-    gc_check_object_young(result);
+    if (exec_state && exec_state->gc_has_young_child(oldgen_start)) {
+      return true;
+    }
     return false;
   }
 
@@ -450,6 +522,8 @@ friend class JSPromisePrototype;
   bool then_record_using_inline {false};
   PromiseThenRecord then_record_inline;
   vector<PromiseThenRecord> then_records;
+  // for async function
+  ResumableFuncState *exec_state {nullptr};
 };
 
 }

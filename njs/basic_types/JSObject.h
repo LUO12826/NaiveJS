@@ -208,6 +208,7 @@ using StorageType = unordered_flat_map<JSObjectKey, JSPropDesc, ObjKeyHasher>;
 
   virtual u16string_view get_class_name() { return u"Object"; }
   ObjClass get_class() { return obj_class; }
+  void set_class(ObjClass cls) { obj_class = cls; }
 
   bool is_direct_function() { return CLS_ASYNC_FUNC <= obj_class && obj_class <= CLS_FUNCTION; }
   bool is_bound_function() { return obj_class == CLS_BOUND_FUNCTION; }

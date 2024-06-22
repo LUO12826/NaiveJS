@@ -10,6 +10,7 @@ using u32 = uint32_t;
 
 class GCObject {
 friend class GCHeap;
+friend void gc_mark_object(GCObject *obj);
 
  public:
   GCObject() = default;
@@ -17,13 +18,6 @@ friend class GCHeap;
 
   GCObject(const GCObject& obj) = delete;
   GCObject(GCObject&& obj) = delete;
-
-  static void gc_mark_object(GCObject *obj) {
-    if (not obj->gc_visited) {
-      obj->gc_visited = true;
-      obj->gc_mark_children();
-    }
-  }
 
   virtual bool gc_scan_children(GCHeap &heap) { return false; }
   virtual void gc_mark_children() {}
@@ -51,6 +45,13 @@ friend class GCHeap;
   bool gc_remembered;
   GCObject *forward_ptr {nullptr};
 };
+
+inline void gc_mark_object(GCObject *obj) {
+  if (not obj->gc_visited) {
+    obj->gc_visited = true;
+    obj->gc_mark_children();
+  }
+}
 
 } // namespace njs
 
