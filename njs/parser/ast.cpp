@@ -4,21 +4,20 @@ namespace njs {
 
 ASTNode::ASTNode(Type type) : type(type) {}
 
-ASTNode::ASTNode(Type type, std::u16string_view source, u32 start, u32 end, u32 line_start)
-    : type(type), text(source), start(start), end(end), line_start(line_start) {}
+ASTNode::ASTNode(Type type, u16string_view source, SourceLocRef start, SourceLocRef end)
+    : type(type), text(source), src_start(start), src_end(end) {}
 
 ASTNode::~ASTNode() = default;
 
-u32 ASTNode::start_pos() { return start; }
-u32 ASTNode::end_pos() { return end; }
-u32 ASTNode::start_line_num() { return line_start; }
+SourceLoc ASTNode::source_start() { return src_start; }
+SourceLoc ASTNode::source_end() { return src_end; }
 
-const std::u16string_view &ASTNode::get_source() { return text; }
-void ASTNode::set_source(const std::u16string_view &source, u32 start, u32 end, u32 line_start) {
+u16string_view ASTNode::get_source() { return text; }
+
+void ASTNode::set_source(u16string_view source, SourceLocRef start, SourceLocRef end) {
   this->text = source;
-  this->start = start;
-  this->end = end;
-  this->line_start = line_start;
+  this->src_start = start;
+  this->src_end = end;
 }
 
 void ASTNode::add_child(ASTNode *node) { children.push_back(node); }

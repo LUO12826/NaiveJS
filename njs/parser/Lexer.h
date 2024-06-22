@@ -37,7 +37,7 @@ class Lexer {
   }
 
   const Token& next() {
-
+#define token_source_expr(length) start, start + (length), start - curr_line_start + 1, curr_line
     if (peeking) {
       peeking = false;
       return curr_token;
@@ -47,61 +47,61 @@ class Lexer {
     curr_token.type = TokenType::NONE;
     do {
       u32 start = cursor;
-      if (cursor == source.size()) {
-        curr_token.set(TokenType::EOS, u"", start, start, curr_line);
+      if (cursor == source.size()) [[unlikely]] {
+        curr_token.set(TokenType::EOS, u"", token_source_expr(0));
         break;
       }
       switch (ch) {
         case u'{': {
           next_char();
-          curr_token.set(TokenType::LEFT_BRACE, u"{", start, start + 1, curr_line);
+          curr_token.set(TokenType::LEFT_BRACE, u"{", token_source_expr(1));
           brace_stack.push_back(BraceType::LEFT);
           break;
         }
         case u'}': {
           next_char();
-          curr_token.set(TokenType::RIGHT_BRACE, u"}", start, start + 1, curr_line);
+          curr_token.set(TokenType::RIGHT_BRACE, u"}", token_source_expr(1));
           brace_stack.pop_back();
           break;
         }
         case u'(': {
           next_char();
-          curr_token.set(TokenType::LEFT_PAREN, u"(", start, start + 1, curr_line);
+          curr_token.set(TokenType::LEFT_PAREN, u"(", token_source_expr(1));
           break;
         }
         case u')': {
           next_char();
-          curr_token.set(TokenType::RIGHT_PAREN, u")", start, start + 1, curr_line);
+          curr_token.set(TokenType::RIGHT_PAREN, u")", token_source_expr(1));
           break;
         }
         case u'[': {
           next_char();
-          curr_token.set(TokenType::LEFT_BRACK, u"[", start, start + 1, curr_line);
+          curr_token.set(TokenType::LEFT_BRACK, u"[", token_source_expr(1));
           break;
         }
         case u']': {
           next_char();
-          curr_token.set(TokenType::RIGHT_BRACK, u"]", start, start + 1, curr_line);
+          curr_token.set(TokenType::RIGHT_BRACK, u"]", token_source_expr(1));
           break;
         }
         case u';': {
           next_char();
-          curr_token.set(TokenType::SEMICOLON, u";", start, start + 1, curr_line);
+          curr_token.set(TokenType::SEMICOLON, u";", token_source_expr(1));
           break;
         }
         case u',': {
           next_char();
-          curr_token.set(TokenType::COMMA, u",", start, start + 1, curr_line);
+          curr_token.set(TokenType::COMMA, u",", token_source_expr(1));
           break;
         }
         case u'?': {
           next_char();
-          curr_token.set(TokenType::QUESTION, u"?", start, start + 1, curr_line);
+          curr_token.set(TokenType::QUESTION, u"?", token_source_expr(1));
           break;
         }
         case u':': {
           next_char();
-          curr_token.set(TokenType::COLON, u":", start, start + 1, curr_line);
+          curr_token.set(TokenType::COLON, u":", token_source_expr(1));
           break;
         }
 
@@ -111,11 +111,11 @@ class Lexer {
           }
           else {
             if (peek_char(1) == u'.' && peek_char(2) == u'.') {
-              curr_token.set(TokenType::ELLIPSIS, u"...", start, start + 3, curr_line);
+              curr_token.set(TokenType::ELLIPSIS, u"...", token_source_expr(3));
               next_char(3);
             }
             else {
-              curr_token.set(TokenType::DOT, u".", start, start + 1, curr_line);
+              curr_token.set(TokenType::DOT, u".", token_source_expr(1));
               next_char();
             }
             
@@ -131,18 +131,18 @@ class Lexer {
               switch (ch) {
                 case u'=':  // <<=
                   next_char();
-                  curr_token.set(TokenType::LSH_ASSIGN, u"<<=", start, start + 3, curr_line);
+                  curr_token.set(TokenType::LSH_ASSIGN, u"<<=", token_source_expr(3));
                   break;
                 default:  // <<
-                  curr_token.set(TokenType::LSH, u"<<", start, start + 2, curr_line);
+                  curr_token.set(TokenType::LSH, u"<<", token_source_expr(2));
               }
               break;
             case u'=':  // <=
               next_char();
-              curr_token.set(TokenType::LE, u"<=", start, start + 2, curr_line);
+              curr_token.set(TokenType::LE, u"<=", token_source_expr(2));
               break;
             default:  // <
-              curr_token.set(TokenType::LT, u"<", start, start + 1, curr_line);
+              curr_token.set(TokenType::LT, u"<", token_source_expr(1));
           }
           break;
         }
@@ -158,26 +158,26 @@ class Lexer {
                   switch (ch) {
                     case u'=':  // >>>=
                       next_char();
-                      curr_token.set(TokenType::UNSIGNED_RSH_ASSIGN, u">>>=", start, start + 4, curr_line);
+                      curr_token.set(TokenType::UNSIGNED_RSH_ASSIGN, u">>>=", token_source_expr(4));
                       break;
                     default:  // >>>
-                      curr_token.set(TokenType::UNSIGNED_RSH, u">>>", start, start + 3, curr_line);
+                      curr_token.set(TokenType::UNSIGNED_RSH, u">>>", token_source_expr(3));
                   }
                   break;
                 case u'=':  // >>=
-                  curr_token.set(TokenType::RSH_ASSIGN, u">>=", start, start + 3, curr_line);
+                  curr_token.set(TokenType::RSH_ASSIGN, u">>=", token_source_expr(3));
                   next_char();
                   break;
                 default:  // >>
-                  curr_token.set(TokenType::RSH, u">>", start, start + 2, curr_line);
+                  curr_token.set(TokenType::RSH, u">>", token_source_expr(2));
               }
               break;
             case u'=':  // >=
               next_char();
-              curr_token.set(TokenType::GE, u">=", start, start + 2, curr_line);
+              curr_token.set(TokenType::GE, u">=", token_source_expr(2));
               break;
             default:  // >
-              curr_token.set(TokenType::GT, u">", start, start + 1, curr_line);
+              curr_token.set(TokenType::GT, u">", token_source_expr(1));
           }
           break;
         }
@@ -190,20 +190,20 @@ class Lexer {
               switch (ch) {
                 case u'=':  // ===
                   next_char();
-                  curr_token.set(TokenType::EQ3, u"===", start, start + 3, curr_line);
+                  curr_token.set(TokenType::EQ3, u"===", token_source_expr(3));
                   break;
                 default:  // ==
-                  curr_token.set(TokenType::EQ, u"==", start, start + 2, curr_line);
+                  curr_token.set(TokenType::EQ, u"==", token_source_expr(2));
                   break;
               }
               break;
 
             case u'>':  // =>
               next_char();
-              curr_token.set(TokenType::R_ARROW, u"=>", start, start + 1, curr_line);
+              curr_token.set(TokenType::R_ARROW, u"=>", token_source_expr(1));
               break;
             default:  // =
-              curr_token.set(TokenType::ASSIGN, u"=", start, start + 1, curr_line);
+              curr_token.set(TokenType::ASSIGN, u"=", token_source_expr(1));
           }
           break;
         }
@@ -216,15 +216,15 @@ class Lexer {
               switch (ch) {
                 case u'=':  // !==
                   next_char();
-                  curr_token.set(TokenType::NE3, u"!==", start, start + 3, curr_line);
+                  curr_token.set(TokenType::NE3, u"!==", token_source_expr(3));
                   break;
                 default:  // !=
-                  curr_token.set(TokenType::NE, u"!=", start, start + 2, curr_line);
+                  curr_token.set(TokenType::NE, u"!=", token_source_expr(2));
                   break;
               }
               break;
             default:  // !
-              curr_token.set(TokenType::LOGICAL_NOT, u"!", start, start + 1, curr_line);
+              curr_token.set(TokenType::LOGICAL_NOT, u"!", token_source_expr(1));
           }
           break;
         }
@@ -234,14 +234,14 @@ class Lexer {
           switch (ch) {
             case u'+':  // ++
               next_char();
-              curr_token.set(TokenType::INC, u"++", start, start + 2, curr_line);
+              curr_token.set(TokenType::INC, u"++", token_source_expr(2));
               break;
             case u'=':  // +=
               next_char();
-              curr_token.set(TokenType::ADD_ASSIGN, u"+=", start, start + 2, curr_line);
+              curr_token.set(TokenType::ADD_ASSIGN, u"+=", token_source_expr(2));
               break;
             default:  // +
-              curr_token.set(TokenType::ADD, u"+", start, start + 1, curr_line);
+              curr_token.set(TokenType::ADD, u"+", token_source_expr(1));
           }
           break;
         }
@@ -251,14 +251,14 @@ class Lexer {
           switch (ch) {
             case u'-':  // --
               next_char();
-              curr_token.set(TokenType::DEC, u"--", start, start + 2, curr_line);
+              curr_token.set(TokenType::DEC, u"--", token_source_expr(2));
               break;
             case u'=':  // -=
               next_char();
-              curr_token.set(TokenType::SUB_ASSIGN, u"-=", start, start + 2, curr_line);
+              curr_token.set(TokenType::SUB_ASSIGN, u"-=", token_source_expr(2));
               break;
             default:  // -
-              curr_token.set(TokenType::SUB, u"-", start, start + 1, curr_line);
+              curr_token.set(TokenType::SUB, u"-", token_source_expr(1));
           }
           break;
         }
@@ -267,9 +267,9 @@ class Lexer {
           next_char();
           if (ch == u'=') {  // *=
             next_char();
-            curr_token.set(TokenType::MUL_ASSIGN, u"*=", start, start + 2, curr_line);
+            curr_token.set(TokenType::MUL_ASSIGN, u"*=", token_source_expr(2));
           } else {  // *
-            curr_token.set(TokenType::MUL, u"*", start, start + 1, curr_line);
+            curr_token.set(TokenType::MUL, u"*", token_source_expr(1));
           }
           break;
         }
@@ -278,9 +278,9 @@ class Lexer {
           next_char();
           if (ch == u'=') {  // %=
             next_char();
-            curr_token.set(TokenType::MOD_ASSIGN, u"%=", start, start + 2, curr_line);
+            curr_token.set(TokenType::MOD_ASSIGN, u"%=", token_source_expr(2));
           } else {  // %
-            curr_token.set(TokenType::MOD, u"%", start, start + 1, curr_line);
+            curr_token.set(TokenType::MOD, u"%", token_source_expr(1));
           }
           break;
         }
@@ -290,14 +290,14 @@ class Lexer {
           switch (ch) {
             case u'&':  // &&
               next_char();
-              curr_token.set(TokenType::LOGICAL_AND, u"&&", start, start + 2, curr_line);
+              curr_token.set(TokenType::LOGICAL_AND, u"&&", token_source_expr(2));
               break;
             case u'=':  // &=
               next_char();
-              curr_token.set(TokenType::AND_ASSIGN, u"&=", start, start + 2, curr_line);
+              curr_token.set(TokenType::AND_ASSIGN, u"&=", token_source_expr(2));
               break;
             default:  // &
-              curr_token.set(TokenType::BIT_AND, u"&", start, start + 1, curr_line);
+              curr_token.set(TokenType::BIT_AND, u"&", token_source_expr(1));
           }
           break;
         }
@@ -307,14 +307,14 @@ class Lexer {
           switch (ch) {
             case u'|':  // ||
               next_char();
-              curr_token.set(TokenType::LOGICAL_OR, u"||", start, start + 2, curr_line);
+              curr_token.set(TokenType::LOGICAL_OR, u"||", token_source_expr(2));
               break;
             case u'=':  // |=
               next_char();
-              curr_token.set(TokenType::OR_ASSIGN, u"|=", start, start + 2, curr_line);
+              curr_token.set(TokenType::OR_ASSIGN, u"|=", token_source_expr(2));
               break;
             default:  // |
-              curr_token.set(TokenType::BIT_OR, u"|", start, start + 1, curr_line);
+              curr_token.set(TokenType::BIT_OR, u"|", token_source_expr(1));
           }
           break;
         }
@@ -323,16 +323,16 @@ class Lexer {
           next_char();
           if (ch == u'=') {  // ^=
             next_char();
-            curr_token.set(TokenType::XOR_ASSIGN, u"^=", start, start + 2, curr_line);
+            curr_token.set(TokenType::XOR_ASSIGN, u"^=", token_source_expr(2));
           } else {
-            curr_token.set(TokenType::BIT_XOR, u"^", start, start + 1, curr_line);
+            curr_token.set(TokenType::BIT_XOR, u"^", token_source_expr(1));
           }
           break;
         }
         
         case u'~': {
           next_char();
-          curr_token.set(TokenType::BIT_NOT, u"~", start, start + 1, curr_line);
+          curr_token.set(TokenType::BIT_NOT, u"~", token_source_expr(1));
           break;
         }
 
@@ -349,13 +349,13 @@ class Lexer {
               break;
             case u'=':  // /=
               next_char();
-              curr_token.set(TokenType::DIV_ASSIGN, u"/=", start, start + 2, curr_line);
+              curr_token.set(TokenType::DIV_ASSIGN, u"/=", token_source_expr(2));
               break;
             default:  // /
               // We cannot distinguish DIV and regex in lexer level and therefore,
               // we need to check if the original_symbol of div operator or start of regex
               // in parser.
-              curr_token.set(TokenType::DIV, u"/", start, start + 1, curr_line);
+              curr_token.set(TokenType::DIV, u"/", token_source_expr(1));
           }
           break;
         }
@@ -382,12 +382,14 @@ class Lexer {
           }
           else {
             next_char();
-            curr_token.set(TokenType::ILLEGAL, view_of_source(start, start + 1), start, start + 1, curr_line);
+            curr_token.set(TokenType::ILLEGAL, view_of_source(start, start + 1), token_source_expr(1));
           }
       }
     } while (curr_token.type == TokenType::NONE);
     // curr_token = curr_token;
     return curr_token;
+
+#undef token_source_expr
   }
 
   const Token& peek() {
@@ -417,7 +419,6 @@ class Lexer {
   // is successfully skipped, the call of `next` will obtain the next non-blank token except semicolon
   // (it will skip semicolon).
   bool try_skip_semicolon() {
-
     if (!peeking) {
       checkpoint();
     }
@@ -435,7 +436,6 @@ class Lexer {
   }
 
   bool scan_regexp_pattern(std::u16string& pattern) {
-
     assert(ch == u'/');
     next_char();
     if (!character::is_regular_expression_first_char(ch)) {
@@ -499,12 +499,13 @@ class Lexer {
     }
     return token_with_type(TokenType::REGEX, start);
 error:
-    curr_token.set(TokenType::ILLEGAL, view_of_source(start, cursor), start, cursor, curr_line);
+    curr_token.set(TokenType::ILLEGAL, view_of_source(start, cursor),
+                   start, cursor, start - curr_line_start + 1, curr_line);
     return curr_token;
   }
 
   // For regex
-  inline void cursor_back() {
+  void cursor_back() {
     if (peeking) {
       debug_printf("[warning] calling `cursor_back` while peeking.\n");
     }
@@ -513,27 +514,31 @@ error:
     ch = source[cursor];
   }
 
-  inline const Token& current() {
+  const Token& current() {
     if (peeking) {
       return saved_state.curr_token;
     }
     return curr_token; 
   }
 
-  inline const Token* current_token_ptr() { return &current(); }
+  double get_number_val() const { return number_val; }
 
-  inline double get_number_val() const { return number_val; }
+  u16string& get_string_val() { return string_val; }
 
-  inline u16string& get_string_val() { return string_val; }
-
-  inline u32 current_pos() {
+  u32 current_pos() {
     return peeking ? saved_state.cursor : cursor;
   }
 
- private:
+  SourceLoc current_src_pos() {
+    u32 idx = peeking ? saved_state.cursor : cursor;
+    u32 line = peeking ? saved_state.curr_line : curr_line;
+    u32 line_start = peeking ? saved_state.curr_line_start : curr_line_start;
+    return {line, idx - line_start + 1, idx};
+  }
 
+ private:
   void checkpoint() {
-    saved_state = {cursor, ch, curr_token, line_term_before, curr_line, curr_line_start_pos};
+    saved_state = {cursor, ch, curr_token, line_term_before, curr_line, curr_line_start};
   }
 
   void back() {
@@ -545,18 +550,17 @@ error:
     curr_token = saved_state.curr_token;
     line_term_before = saved_state.line_term_before;
     curr_line = saved_state.curr_line;
-    curr_line_start_pos = saved_state.curr_line_start_pos;
+    curr_line_start = saved_state.curr_line_start;
   }
 
-  inline char16_t peek_char(int distance = 1) {
+  char16_t peek_char(int distance = 1) {
     if (cursor + distance >= length) {
-      // TODO(zhuzilin) distinguish EOS and \0.
       return character::EOS;
     }
     return source[cursor + distance];
   }
 
-  inline void next_char(u32 step = 1) {
+  void next_char(u32 step = 1) {
     cursor += step;
     if (cursor < length) [[likely]] {
       ch = source[cursor];
@@ -566,7 +570,7 @@ error:
     }
   }
 
-  inline void update_char() {
+  void update_char() {
     if (cursor < length) ch = source[cursor];
     else {
       cursor = length;
@@ -574,12 +578,13 @@ error:
     }
   }
 
-  inline std::u16string_view view_of_source(u32 start, u32 end) {
+  u16string_view view_of_source(u32 start, u32 end) {
     return {source.data() + start, end - start};
   }
 
-  inline Token token_with_type(TokenType type, u32 start_pos) {
-    return Token(type, view_of_source(start_pos, cursor), start_pos, cursor, curr_line);
+  Token token_with_type(TokenType type, u32 start_pos) {
+    return Token(type, view_of_source(start_pos, cursor),
+                 start_pos, cursor, start_pos - curr_line_start + 1, curr_line);
   }
 
   bool skip_regexp_backslash_sequence(std::u16string& pattern) {
@@ -663,7 +668,7 @@ error:
       next_char(2);
     }
     curr_line += 1;
-    curr_line_start_pos = cursor;
+    curr_line_start = cursor;
   }
 
   Token scan_string_literal() {
@@ -819,7 +824,7 @@ error:
                   // insert(obj) return (inserted_obj, success_or_not)
                   // make a string view from the string that was put in the string pool.
                   u16string_view(*string_pool.insert(id_text).first),
-                  start, cursor, curr_line);
+                  start, cursor, start - curr_line_start + 1, curr_line);
 error:
     return token_with_type(TokenType::ILLEGAL, start);
   }
@@ -831,10 +836,10 @@ error:
     bool line_term_before;
 
     u32 curr_line;
-    u32 curr_line_start_pos;
+    u32 curr_line_start;
   };
 
-  enum class BraceType {
+  enum class BraceType: uint8_t {
     LEFT = 0,
     DOLLAR_LEFT,
     RIGHT,
@@ -853,7 +858,7 @@ error:
   u16string string_val {0};
 
   u32 curr_line {1};
-  u32 curr_line_start_pos {0};
+  u32 curr_line_start {0};
 
   LexerState saved_state;
   SmallVector<BraceType, 50> brace_stack;

@@ -4,6 +4,7 @@
 #include <string>
 #include <cassert>
 #include <cstdint>
+#include "njs/common/common_types.h"
 
 namespace njs {
 
@@ -55,7 +56,7 @@ inline int scope_type_int(ScopeType type) {
   return static_cast<int>(type);
 }
 
-inline VarKind get_var_kind_from_str(std::u16string_view str) {
+inline VarKind get_var_kind_from_str(u16string_view str) {
   if (str == u"var") return VarKind::VAR;
   else if (str == u"let") return VarKind::LET;
   else if (str == u"const") return VarKind::CONST;

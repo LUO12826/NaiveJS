@@ -137,14 +137,15 @@ class Token {
 
   static const Token none;
 
-  Token(TokenType type, u16string_view text, u32 start, u32 end, u32 line) :
-    type(type), text(text), start(start), end(end), line(line) {}
+  Token(TokenType type, u16string_view text, u32 start, u32 end, u32 start_col, u32 line) :
+    type(type), text(text), start(start), end(end), start_col(start_col), line(line) {}
 
-  void set(TokenType type, u16string_view text, u32 start, u32 end, u32 line) {
+  void set(TokenType type, u16string_view text, u32 start, u32 end, u32 start_col, u32 line) {
     this->type = type;
     this->text = text;
     this->start = start;
     this->end = end;
+    this->start_col = start_col;
     this->line = line;
   }
 
@@ -163,11 +164,11 @@ class Token {
     return to_u8string(text);
   }
 
-  inline bool is(TokenType type) const {
+  bool is(TokenType type) const {
     return this->type == type;
   }
 
-  inline bool is_assignment_operator() const {
+  bool is_assignment_operator() const {
     switch(type) {
       case ASSIGN:      // =
       case ADD_ASSIGN:  // +=
@@ -188,27 +189,27 @@ class Token {
     }
   }
 
-  inline bool is_line_terminator() const { return type == LINE_TERM; }
+  [[maybe_unused]] inline bool is_line_terminator() const { return type == LINE_TERM; }
 
-  inline bool is_identifier_name() const {
+  bool is_identifier_name() const {
     return type == IDENTIFIER || type == KEYWORD ||
            type == FUTURE_KW || type == STRICT_FUTURE_KW ||
            type == TK_NULL || type == TK_BOOL;
   }
 
-  inline bool is_property_name() const {
+  bool is_property_name() const {
     return is_identifier_name() || type == STRING || type == NUMBER;
   }
 
-  inline bool is_semicolon() const { return type == SEMICOLON; }
+  bool is_semicolon() const { return type == SEMICOLON; }
 
-  inline bool is_identifier() const { return type == IDENTIFIER || type == STRICT_FUTURE_KW; }
+  bool is_identifier() const { return type == IDENTIFIER || type == STRICT_FUTURE_KW; }
 
-  inline bool is_binary_logical() const { return type == LOGICAL_AND || type == LOGICAL_OR; }
+  bool is_binary_logical() const { return type == LOGICAL_AND || type == LOGICAL_OR; }
 
-  inline bool is_compound_assign() const { return ADD_ASSIGN <= type && type <= XOR_ASSIGN; }
+  bool is_compound_assign() const { return ADD_ASSIGN <= type && type <= XOR_ASSIGN; }
 
-  inline int binary_priority(bool no_in) const {
+  int binary_priority(bool no_in) const {
     switch (type) {
       // Binary
       case LOGICAL_OR:  // ||
@@ -258,7 +259,7 @@ class Token {
 
   // all prefix unary operators are given the same priority. In this way,
   // operators that are closer to the operand are executed first.
-  inline int unary_priority() const {
+  int unary_priority() const {
     switch (type) {
       // Prefix
       case INC:
@@ -284,7 +285,7 @@ class Token {
     }
   }
 
-  inline int postfix_priority() const {
+  int postfix_priority() const {
     switch (type) {
       case INC:
       case DEC:
@@ -298,23 +299,26 @@ class Token {
     assert(is_compound_assign());
     return Token((TokenType)(type - ADD_ASSIGN + ADD),
                   text.substr(0, text.size() - 1),
-                  start, end - 1, line);
+                  start, end - 1, start_col, line);
   }
 
-  inline const u16string_view& get_text_ref() const { return text; }
+  SourceLoc get_src_start() const {
+    return {line, start_col, start};
+  }
+
+  SourceLoc get_src_end() const {
+    return {line, start_col + (start - end), end};
+  }
 
   u16string_view text;
   TokenType type;
   u32 start;
   u32 end;
-
+  u32 start_col;
   u32 line;
-
-//  SourceLocation start_loc;
-//  SourceLocation end_loc;
 };
 
-inline const Token Token::none = Token(TokenType::NONE, u"", 0, 0, 0);
+inline const Token Token::none = Token(TokenType::NONE, u"", 0, 0, 0, 0);
 
 const unordered_set<std::u16string> keywords = {
   u"break",     u"do",       u"in",          u"typeof",

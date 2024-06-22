@@ -18,8 +18,8 @@
 
 namespace njs {
 
-using u16string = std::u16string;
-using u16string_view = std::u16string_view;
+using std::u16string;
+using std::u16string_view;
 using char16_traits = std::char_traits<char16_t>;
 
 class String {

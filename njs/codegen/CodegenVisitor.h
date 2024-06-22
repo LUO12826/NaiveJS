@@ -37,7 +37,7 @@ struct CodegenError {
 
   void describe() {
     printf("At line %u: %s: %s\n",
-           ast_node->start_line_num(),
+           ast_node->source_start().line,
            to_u8string(native_error_name[type]).c_str(),
            message.c_str());
   }
@@ -435,7 +435,7 @@ class CodegenVisitor {
         .stack_size = u16(scope().get_max_stack_size() + 1), // 1 more slot for error, maybe ?
         .bytecode_start = func_start_pos,
         .bytecode_end = bytecode_pos(),
-        .source_line = func.start_line_num(),
+        .source_line = func.source_start().line,
         .catch_table = std::move(scope().catch_table)
     };
 
@@ -502,10 +502,10 @@ class CodegenVisitor {
           emit(OpType::js_to_number);
         }
 
-        auto *num_1 = new NumberLiteral(1.0, u"1", 0, 0, 0);
+        auto *num_1 = new NumberLiteral(1.0, u"1", SourceLoc(), SourceLoc());
         auto assign_type = expr.op.type == Token::INC ? Token::ADD_ASSIGN : Token::SUB_ASSIGN;
         auto *assign = new AssignmentExpr(assign_type, expr.operand, num_1, expr.get_source(),
-                                          expr.start_pos(), expr.end_pos(), expr.start_line_num());
+                                          expr.source_start(), expr.source_end());
         // if it's a prefix op, we need the value produced by this assignment,
         // because prefix increment means "increase the value before get its value".
         // Otherwise, we need the old value instead of the value after assignment.

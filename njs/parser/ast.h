@@ -27,6 +27,7 @@ using std::unique_ptr;
 using std::u16string;
 using std::u16string_view;
 using TokenType = Token::TokenType;
+using SourceLocRef = SourceLoc const&;
 
 class BinaryExpr;
 class UnaryExpr;
@@ -105,15 +106,14 @@ class ASTNode {
   };
 
   explicit ASTNode(Type type);
-  ASTNode(Type type, u16string_view source, u32 start, u32 end, u32 line_start);
+  ASTNode(Type type, u16string_view source, SourceLocRef start, SourceLocRef end);
   virtual ~ASTNode();
 
-  const u16string_view &get_source();
-  void set_source(const u16string_view &source, u32 start, u32 end, u32 line_start);
+  u16string_view get_source();
+  void set_source(u16string_view source, SourceLocRef start, SourceLocRef end);
 
-  u32 start_pos();
-  u32 end_pos();
-  u32 start_line_num();
+  SourceLoc source_start();
+  SourceLoc source_end();
 
   // for printing the AST
   void add_child(ASTNode *node);
@@ -152,16 +152,15 @@ class ASTNode {
   u16string_view label;
  private:
   u16string_view text;
-  u32 start;
-  u32 end;
-  u32 line_start;
+  SourceLoc src_start;
+  SourceLoc src_end;
   vector<ASTNode *> children;
 };
 
 class NumberLiteral : public ASTNode {
  public:
-  NumberLiteral(double val, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(EXPR_NUMBER, source, start, end, line_start), num_val(val) {}
+  NumberLiteral(double val, u16string_view source, SourceLocRef start, SourceLocRef end)
+      : ASTNode(EXPR_NUMBER, source, start, end), num_val(val) {}
 
   std::string description() override {
     return ASTNode::description() + " " + std::to_string(num_val);
@@ -172,8 +171,8 @@ class NumberLiteral : public ASTNode {
 
 class StringLiteral : public ASTNode {
  public:
-  StringLiteral(u16string str, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(EXPR_STRING, source, start, end, line_start), str_val(std::move(str)) {}
+  StringLiteral(u16string str, u16string_view source, SourceLocRef start, SourceLocRef end)
+      : ASTNode(EXPR_STRING, source, start, end), str_val(std::move(str)) {}
 
   std::string description() override {
     auto desc = ASTNode::description();
@@ -188,9 +187,9 @@ class StringLiteral : public ASTNode {
 
 class RegExpLiteral : public ASTNode {
  public:
-  RegExpLiteral(u16string pattern, u16string flags, u16string_view source, u32 start,
-                u32 end, u32 line_start)
-      : ASTNode(EXPR_REGEXP, source, start, end, line_start),
+  RegExpLiteral(u16string pattern, u16string flags, u16string_view source,
+                SourceLocRef start, SourceLocRef end)
+      : ASTNode(EXPR_REGEXP, source, start, end),
         pattern(std::move(pattern)), flags(std::move(flags)) {}
 
   u16string pattern;
@@ -246,8 +245,8 @@ class ObjectLiteral : public ASTNode {
 
 class ParenthesisExpr : public ASTNode {
  public:
-  ParenthesisExpr(ASTNode *expr, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(EXPR_PAREN, source, start, end, line_start), expr(expr) {
+  ParenthesisExpr(ASTNode *expr, u16string_view source, SourceLocRef start, SourceLocRef end)
+      : ASTNode(EXPR_PAREN, source, start, end), expr(expr) {
     add_child(expr);
   }
 
@@ -405,7 +404,7 @@ class LeftHandSideExpr : public ASTNode {
     Postfix post(PROP);
     post.subtree.prop_name = prop.text;
     postfixs.push_back(post);
-    props.push_back(new ASTNode(TOKEN, prop.text, prop.start, prop.end, prop.line));
+    props.push_back(new ASTNode(TOKEN, prop.text, prop.get_src_start(), prop.get_src_end()));
   }
 
   bool is_id() {
@@ -419,9 +418,9 @@ class LeftHandSideExpr : public ASTNode {
 
 class BinaryExpr : public ASTNode {
  public:
-  BinaryExpr(ASTNode *lhs, ASTNode *rhs, const Token& op, u16string_view source, u32 start, u32 end,
-             u32 line_start)
-      : ASTNode(EXPR_BINARY, source, start, end, line_start), lhs(lhs), rhs(rhs), op(op) {
+  BinaryExpr(ASTNode *lhs, ASTNode *rhs, const Token& op, u16string_view source,
+             SourceLocRef start, SourceLocRef end)
+      : ASTNode(EXPR_BINARY, source, start, end), lhs(lhs), rhs(rhs), op(op) {
     add_child(lhs);
     add_child(rhs);
   }
@@ -454,8 +453,8 @@ class BinaryExpr : public ASTNode {
 class AssignmentExpr : public ASTNode {
  public:
   AssignmentExpr(TokenType assign_type, ASTNode *lhs, ASTNode *rhs, u16string_view source,
-                 u32 start, u32 end, u32 line_start)
-      : ASTNode(EXPR_ASSIGN, source, start, end, line_start),
+                 SourceLocRef start, SourceLocRef end)
+      : ASTNode(EXPR_ASSIGN, source, start, end),
         assign_type(assign_type), lhs(lhs), rhs(rhs) {
     add_child(lhs);
     add_child(rhs);
@@ -507,8 +506,8 @@ class Function : public ASTNode {
  public:
 
   Function(const Token& name, vector<u16string_view> params, ASTNode *body,
-           u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(FUNC, source, start, end, line_start), name(name), params(std::move(params)) {
+           u16string_view source, SourceLocRef start, SourceLocRef end)
+      : ASTNode(FUNC, source, start, end), name(name), params(std::move(params)) {
     assert(body->type == ASTNode::FUNC_BODY);
     this->body = body;
     add_child(body);
@@ -550,11 +549,11 @@ class Function : public ASTNode {
 
 class VarDecl : public ASTNode {
  public:
-  VarDecl(const Token& id, u16string_view source, u32 start, u32 end, u32 line_start)
-      : VarDecl(id, nullptr, source, start, end, line_start) {}
+  VarDecl(const Token& id, u16string_view source, SourceLocRef start, SourceLocRef end)
+      : VarDecl(id, nullptr, source, start, end) {}
 
-  VarDecl(const Token& id, ASTNode *var_init, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(STMT_VAR_DECL, source, start, end, line_start), id(id), var_init(var_init) {
+  VarDecl(const Token& id, ASTNode *var_init, u16string_view source, SourceLocRef start, SourceLocRef end)
+      : ASTNode(STMT_VAR_DECL, source, start, end), id(id), var_init(var_init) {
     add_child(var_init);
   }
   ~VarDecl() override { delete var_init; }
@@ -590,8 +589,8 @@ class ProgramOrFunctionBody : public ASTNode {
 class LabelledStatement : public ASTNode {
  public:
   LabelledStatement(const Token& label, ASTNode *stmt, u16string_view source,
-                    u32 start, u32 end, u32 line_start)
-      : ASTNode(STMT_LABEL, source, start, end, line_start),
+                    SourceLocRef start, SourceLocRef end)
+      : ASTNode(STMT_LABEL, source, start, end),
         label(label), statement(stmt) {
     add_child(statement);
   }
@@ -604,19 +603,19 @@ class LabelledStatement : public ASTNode {
 
 class ContinueOrBreak : public ASTNode {
  public:
-  ContinueOrBreak(Type type, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ContinueOrBreak(type, Token::none, source, start, end, line_start) {}
+  ContinueOrBreak(Type type, u16string_view source, SourceLocRef start, SourceLocRef end)
+      : ContinueOrBreak(type, Token::none, source, start, end) {}
 
-  ContinueOrBreak(Type type, const Token& id, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(type, source, start, end, line_start), id(id) {}
+  ContinueOrBreak(Type type, const Token& id, u16string_view source, SourceLocRef start, SourceLocRef end)
+      : ASTNode(type, source, start, end), id(id) {}
 
   Token id;
 };
 
 class ReturnStatement : public ASTNode {
  public:
-  ReturnStatement(ASTNode *expr, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(STMT_RETURN, source, start, end, line_start), expr(expr) {
+  ReturnStatement(ASTNode *expr, u16string_view source, SourceLocRef start, SourceLocRef end)
+      : ASTNode(STMT_RETURN, source, start, end), expr(expr) {
     add_child(expr);
   }
 
@@ -629,8 +628,8 @@ class ReturnStatement : public ASTNode {
 
 class ThrowStatement : public ASTNode {
  public:
-  ThrowStatement(ASTNode *expr, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(STMT_THROW, source, start, end, line_start), expr(expr) {}
+  ThrowStatement(ASTNode *expr, u16string_view source, SourceLocRef start, SourceLocRef end)
+      : ASTNode(STMT_THROW, source, start, end), expr(expr) {}
 
   ~ThrowStatement() override {
     delete expr;
@@ -691,17 +690,16 @@ class Block : public ASTNode {
 class TryStatement : public ASTNode {
  public:
   TryStatement(ASTNode *try_block, const Token& catch_ident, ASTNode *catch_block, u16string_view source,
-               u32 start, u32 end, u32 line_start)
-      : TryStatement(try_block, catch_ident, catch_block, nullptr, source, start, end, line_start) {}
+               SourceLocRef start, SourceLocRef end)
+      : TryStatement(try_block, catch_ident, catch_block, nullptr, source, start, end) {}
 
-  TryStatement(ASTNode *try_block, ASTNode *finally_block, u16string_view source, u32 start,
-               u32 end, u32 line_start)
-      : TryStatement(try_block, Token::none, nullptr, finally_block, source, start,
-                     end, line_start) {}
+  TryStatement(ASTNode *try_block, ASTNode *finally_block, u16string_view source,
+               SourceLocRef start, SourceLocRef end)
+      : TryStatement(try_block, Token::none, nullptr, finally_block, source, start, end) {}
 
   TryStatement(ASTNode *try_block, const Token& catch_ident, ASTNode *catch_block, ASTNode *finally_block,
-               u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(STMT_TRY, source, start, end, line_start), try_block(try_block),
+               u16string_view source, SourceLocRef start, SourceLocRef end)
+      : ASTNode(STMT_TRY, source, start, end), try_block(try_block),
         catch_ident(catch_ident), catch_block(catch_block), finally_block(finally_block) {
 
     add_child(try_block);
@@ -725,13 +723,13 @@ class TryStatement : public ASTNode {
 
 class IfStatement : public ASTNode {
  public:
-  IfStatement(ASTNode *cond, ASTNode *then_block, u16string_view source, u32 start, u32 end,
-              u32 line_start)
-      : IfStatement(cond, then_block, nullptr, source, start, end, line_start) {}
+  IfStatement(ASTNode *cond, ASTNode *then_block, u16string_view source,
+              SourceLocRef start, SourceLocRef end)
+      : IfStatement(cond, then_block, nullptr, source, start, end) {}
 
   IfStatement(ASTNode *cond, ASTNode *then_block, ASTNode *else_block, u16string_view source,
-              u32 start, u32 end, u32 line_start)
-      : ASTNode(STMT_IF, source, start, end, line_start), condition_expr(cond), then_block(then_block),
+              SourceLocRef start, SourceLocRef end)
+      : ASTNode(STMT_IF, source, start, end), condition_expr(cond), then_block(then_block),
         else_block(else_block) {
 
     add_child(cond);
@@ -752,9 +750,9 @@ class IfStatement : public ASTNode {
 
 class WhileStatement : public ASTNode {
  public:
-  WhileStatement(ASTNode *condition_expr, ASTNode *body_stmt, u16string_view source, u32 start,
-                 u32 end, u32 line_start)
-      : ASTNode(STMT_WHILE, source, start, end, line_start), condition_expr(condition_expr),
+  WhileStatement(ASTNode *condition_expr, ASTNode *body_stmt, u16string_view source,
+                 SourceLocRef start, SourceLocRef end)
+      : ASTNode(STMT_WHILE, source, start, end), condition_expr(condition_expr),
         body_stmt(body_stmt) {}
 
   ~WhileStatement() override {
@@ -768,9 +766,9 @@ class WhileStatement : public ASTNode {
 
 class WithStatement : public ASTNode {
  public:
-  WithStatement(ASTNode *expr, ASTNode *stmt, u16string_view source, u32 start, u32 end,
-                u32 line_start)
-      : ASTNode(STMT_WITH, source, start, end, line_start), expr(expr), stmt(stmt) {}
+  WithStatement(ASTNode *expr, ASTNode *stmt, u16string_view source,
+                SourceLocRef start, SourceLocRef end)
+      : ASTNode(STMT_WITH, source, start, end), expr(expr), stmt(stmt) {}
 
   ~WithStatement() override {
     delete expr;
@@ -784,8 +782,8 @@ class WithStatement : public ASTNode {
 class DoWhileStatement : public ASTNode {
  public:
   DoWhileStatement(ASTNode *condition_expr, ASTNode *body_stmt, u16string_view source,
-                   u32 start, u32 end, u32 line_start)
-      : ASTNode(STMT_DO_WHILE, source, start, end, line_start),
+                   SourceLocRef start, SourceLocRef end)
+      : ASTNode(STMT_DO_WHILE, source, start, end),
         condition_expr(condition_expr), body_stmt(body_stmt) {}
 
   ~DoWhileStatement() override {
@@ -846,8 +844,8 @@ class SwitchStatement : public ASTNode {
 class ForStatement : public ASTNode {
  public:
   ForStatement(ASTNode * init_expr, ASTNode *condition_expr, ASTNode *increment_expr,
-               ASTNode *body_stmt, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(STMT_FOR, source, start, end, line_start), init_expr(init_expr),
+               ASTNode *body_stmt, u16string_view source, SourceLocRef start, SourceLocRef end)
+      : ASTNode(STMT_FOR, source, start, end), init_expr(init_expr),
         condition_expr(condition_expr), increment_expr(increment_expr), body_stmt(body_stmt) {
     add_child(init_expr);
     add_child(condition_expr);
@@ -876,8 +874,8 @@ class ForInStatement : public ASTNode {
   } iter_type;
 
   ForInStatement(ForInStatement::Type type, ASTNode *element_expr, ASTNode *collection_expr,
-                 ASTNode *body_stmt, u16string_view source, u32 start, u32 end, u32 line_start)
-      : ASTNode(STMT_FOR_IN, source, start, end, line_start),
+                 ASTNode *body_stmt, u16string_view source, SourceLocRef start, SourceLocRef end)
+      : ASTNode(STMT_FOR_IN, source, start, end),
         iter_type(type),
         element_expr(element_expr),
         collection_expr(collection_expr),

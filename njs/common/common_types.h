@@ -16,10 +16,10 @@ using std::vector;
 using std::unique_ptr;
 
 
-struct SourceLocation {
-  u32 line;
-  u32 col;
-  u32 u16_char_idx;
+struct SourceLoc {
+  u32 line {0};
+  u32 col {0};
+  u32 char_idx {0};
 };
 
 }

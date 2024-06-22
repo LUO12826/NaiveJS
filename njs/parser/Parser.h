@@ -15,12 +15,11 @@
 #include "njs/common/Defer.h"
 #include "njs/basic_types/conversion.h"
 
-#define START_POS u32 start = lexer.current().start, line_start = lexer.current().line
-#define RENEW_START start = lexer.current().start; line_start = lexer.current().line
-#define SOURCE_PARSED_EXPR u16string_view(source.data() + start, lexer.current_pos() - start), \
-                            start, lexer.current_pos(), line_start
-
-#define TOKEN_SOURCE_EXPR token.text, token.start, token.end, token.line
+#define START_POS SourceLoc start = lexer.current().get_src_start();
+#define RENEW_START start = lexer.current().get_src_start();
+#define SOURCE_PARSED_EXPR u16string_view(source.data() + start.char_idx, lexer.current_pos() - start.char_idx), \
+                            start, lexer.current().get_src_end()
+#define TOKEN_SOURCE_EXPR token.text, token.get_src_start(), token.get_src_end()
 
 namespace njs {
 
@@ -29,13 +28,10 @@ using std::u16string_view;
 using std::unique_ptr;
 using TokenType = Token::TokenType;
 
-struct ParserContext {
-};
-
 struct ParsingError {
   std::string message;
-  SourceLocation start;
-  SourceLocation end;
+  SourceLoc start;
+  SourceLoc end;
 };
 
 class Parser {
@@ -288,8 +284,7 @@ error:
           prop_name = token_to_prop_name(lexer.next());
 
           // get prop() { ... }
-          ASTNode* get_set_func = parse_function(/*name_required*/true,
-                                                 /*func_keyword_required*/ false, false, false);
+          ASTNode* get_set_func = parse_function(true, false, false, false);
           if (get_set_func->is_illegal()) {
             delete obj;
             return get_set_func;
@@ -422,8 +417,7 @@ error:
         auto *body = static_cast<ProgramOrFunctionBody *>(func_body);
         // implicitly return
         body->add_statement(
-          new ReturnStatement(expr, expr->get_source(), expr->start_pos(),
-                              expr->end_pos(), expr->start_line_num())
+          new ReturnStatement(expr, expr->get_source(), expr->source_start(), expr->source_end())
         );
         body->scope = pop_scope();
       }
@@ -976,7 +970,7 @@ error:
 
     ASTNode* init_expr;
     if (lexer.current().is_semicolon()) {
-      return parse_for_statement(nullptr, start, line_start);  // for (; expr; expr)
+      return parse_for_statement(nullptr, start);  // for (; expr; expr)
     }
     else if (token_match(u"var") || token_match(u"let") || token_match(u"const")) {
       VarKind var_kind = get_var_kind_from_str(lexer.current().text);
@@ -995,7 +989,7 @@ error:
       lexer.next();
       if (lexer.current().text == u"in" || lexer.current().text == u"of") {
         defer.dismiss();
-        return parse_for_in_statement(var_stmt, start, line_start);
+        return parse_for_in_statement(var_stmt, start);
       }
 
       // the `,` case
@@ -1011,7 +1005,7 @@ error:
       }
       // for (var VariableDeclarationListNoIn; ...)
       defer.dismiss();
-      return parse_for_statement(var_stmt, start, line_start);
+      return parse_for_statement(var_stmt, start);
     }
     else {
       init_expr = parse_expression(true);
@@ -1020,11 +1014,11 @@ error:
       }
       lexer.next();
       if (lexer.current().is_semicolon()) {
-        return parse_for_statement(init_expr, start, line_start);  // for ( ExpressionNoIn;
+        return parse_for_statement(init_expr, start);  // for ( ExpressionNoIn;
       }
       // for ( LeftHandSideExpression in
       else if (token_match(u"in") && (init_expr->is_lhs_expr() || init_expr->is_identifier())) {
-        return parse_for_in_statement(init_expr, start, line_start);  
+        return parse_for_in_statement(init_expr, start);
       }
       else {
         delete init_expr;
@@ -1035,7 +1029,7 @@ error:
     return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_for_statement(ASTNode* init_expr, u32 start, u32 line_start) {
+  ASTNode* parse_for_statement(ASTNode* init_expr, SourceLoc start) {
     assert(lexer.current().is_semicolon());
 
     Defer defer([&init_expr] {
@@ -1086,7 +1080,7 @@ error:
     return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
   }
 
-  ASTNode* parse_for_in_statement(ASTNode* expr0, u32 start, u32 line_start) {
+  ASTNode* parse_for_in_statement(ASTNode* expr0, SourceLoc start) {
     assert(token_match(u"in") || token_match(u"of"));
     auto type = lexer.current().text == u"in" ? ForInStatement::FOR_IN
                                               : ForInStatement::FOR_OF;
@@ -1361,11 +1355,11 @@ error:
 
  private:
 
-  inline bool token_match(u16string_view token) {
+  bool token_match(u16string_view token) {
     return lexer.current().text == token;
   }
 
-  inline bool token_match(TokenType type) {
+  bool token_match(TokenType type) {
     return lexer.current().type == type;
   }
 
@@ -1414,9 +1408,7 @@ error:
   }
 
   u16string source;
-
   Lexer lexer;
-  ParserContext context;
   SmallVector<ParsingError, 10> errors;
 
   SmallVector<unique_ptr<Scope>, 10> scope_chain;

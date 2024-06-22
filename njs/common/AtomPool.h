@@ -223,7 +223,7 @@ inline u32 AtomPool::atomize(u16string_view str_view) {
   }
 }
 
-inline u32 AtomPool::atomize_no_uint(std::u16string_view str_view) {
+inline u32 AtomPool::atomize_no_uint(u16string_view str_view) {
   stats.atomize_str_count += 1;
   if (pool.contains(str_view)) {
     return pool[str_view];
