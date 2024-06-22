@@ -470,6 +470,7 @@ friend class JSPromisePrototype;
   void dispose_exec_state() {
     assert(exec_state);
     free(exec_state);
+    exec_state = nullptr;
   }
 
   bool gc_scan_children(GCHeap& heap) override {
