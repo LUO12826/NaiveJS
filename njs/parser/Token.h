@@ -15,7 +15,7 @@
 
 namespace njs {
 
-using robin_hood::unordered_set;
+using robin_hood::unordered_flat_set;
 using std::u16string_view;
 
 class Token {
@@ -320,7 +320,7 @@ class Token {
 
 inline const Token Token::none = Token(TokenType::NONE, u"", 0, 0, 0, 0);
 
-const unordered_set<std::u16string> keywords = {
+const unordered_flat_set<std::u16string> keywords = {
   u"break",     u"do",       u"in",          u"typeof",
   u"case",      u"else",     u"instanceof",  u"var",
   u"catch",     u"export",   u"new",         u"void",
@@ -332,11 +332,11 @@ const unordered_set<std::u16string> keywords = {
   u"delete",    u"import",   u"try"
 };
 
-const unordered_set<std::u16string> future_reserved_words = {
+const unordered_flat_set<std::u16string> future_reserved_words = {
   u"enum", u"await"
 };
 
-const unordered_set<std::u16string> strict_future_reserved_words = {
+const unordered_flat_set<std::u16string> strict_future_reserved_words = {
   u"implements",   u"package",   u"protected",
   u"interface",    u"private",   u"public"
 };
