@@ -11,6 +11,7 @@ class JSGeneratorPrototype : public JSObject {
  public:
   explicit JSGeneratorPrototype(NjsVM &vm)
       : JSObject(vm, CLS_GENERATOR_PROTO, vm.object_prototype) {
+    add_symbol_method(vm, AtomPool::k_sym_iterator,  JSGeneratorPrototype::get_iter);
     add_method(vm, u"next", JSGeneratorPrototype::next_);
     add_method(vm, u"return", JSGeneratorPrototype::return_);
     add_method(vm, u"throw", JSGeneratorPrototype::throw_);
@@ -18,6 +19,10 @@ class JSGeneratorPrototype : public JSObject {
 
   u16string_view get_class_name() override {
     return u"GeneratorPrototype";
+  }
+
+  static Completion get_iter(vm_func_This_args_flags) {
+    return This;
   }
 
   static Completion next_(vm_func_This_args_flags) {
