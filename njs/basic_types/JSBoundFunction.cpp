@@ -33,7 +33,7 @@ Completion JSBoundFunction::call(NjsVM& vm, JSValueRef This, JSValueRef new_targ
   SmallVector<JSBoundFunction *, 2> bound_chain;
   bound_chain.push_back(this);
   JSValue iter = func;
-  while (iter.as_object->get_class() == CLS_BOUND_FUNCTION) {
+  while (object_class(iter) == CLS_BOUND_FUNCTION) {
     auto *bound_func = iter.as_Object<JSBoundFunction>();
     bound_chain.push_back(bound_func);
     iter = bound_func->func;

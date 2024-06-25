@@ -19,6 +19,7 @@ class Completion {
     RETURN,
     THROW,
     AWAIT,
+    YIELD,
   };
 
   static Completion with_throw(JSValue err) {
@@ -37,6 +38,7 @@ class Completion {
   bool is_throw() { return type == Type::THROW; }
   bool is_error() { return type == Type::THROW; }
   bool is_await() { return type == Type::AWAIT; }
+  bool is_yield() { return type == Type::YIELD; }
 
   JSValue& get_value() {
     return val_or_err;

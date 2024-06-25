@@ -57,12 +57,14 @@ friend class JSArray;
 friend class JSDate;
 friend class JSRegExp;
 friend class JSPromise;
+friend class JSGenerator;
 friend class JSForInIterator;
 friend class JSObjectPrototype;
 friend class JSArrayPrototype;
 friend class JSFunctionPrototype;
 friend class JSStringPrototype;
 friend class JSErrorPrototype;
+friend class JSGeneratorPrototype;
 friend class NativeFunction;
 friend class JSArrayIterator;
 friend struct GCHandleCollector;
@@ -178,6 +180,9 @@ friend struct GCHandleCollector;
 
   Completion async_initial_call(JSValueRef func, JSValueRef This, ArgRef argv, CallFlags flags);
   void async_resume(JSValueRef promise, ResumableFuncState *state);
+  Completion generator_initial_call(JSValueRef func, JSValueRef This, ArgRef argv, CallFlags flags);
+  Completion generator_resume(JSValueRef generator, ResumableFuncState *state);
+
   // function operation
   void exec_make_func(SPRef sp, int meta_idx, JSValue env_this);
   void exec_js_new(SPRef sp, int arg_count);
@@ -264,7 +269,10 @@ friend struct GCHandleCollector;
   JSValue date_prototype;
   JSValue iterator_prototype;
   JSValue promise_prototype;
+  JSValue generator_prototype;
   vector<JSValue> native_error_protos;
+  // this constructor is not exposed to the global scope
+  JSValue generator_function_ctor;
 
   vector<JSValue> string_const;
   unordered_flat_map<u32, REByteCode> regexp_bytecode;

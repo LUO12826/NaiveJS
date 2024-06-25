@@ -36,6 +36,9 @@ class JSFunction : public JSObject {
   bool is_async() {
     return get_class() == CLS_ASYNC_FUNC | get_class() == CLS_ASYNC_GENERATOR_FUNC;
   }
+  bool is_generator() {
+    return get_class() == CLS_GENERATOR_FUNC | get_class() == CLS_ASYNC_GENERATOR_FUNC;
+  }
 
   u16string_view get_class_name() override {
     return u"Function";

@@ -13,6 +13,7 @@
 #include "njs/basic_types/JSIteratorPrototype.h"
 #include "njs/basic_types/JSDatePrototype.h"
 #include "njs/basic_types/JSPromisePrototype.h"
+#include "njs/basic_types/JSGeneratorPrototype.h"
 #include "njs/basic_types/JSPromise.h"
 
 namespace njs {
@@ -45,6 +46,9 @@ void NjsVM::init_prototypes() {
 
   promise_prototype.set_val(heap.new_object<JSPromisePrototype>(*this));
   promise_prototype.as_object->set_proto(*this, object_prototype);
+
+  generator_prototype.set_val(heap.new_object<JSGeneratorPrototype>(*this));
+  generator_prototype.as_object->set_proto(*this, object_prototype);
 
   native_error_protos.reserve(JSErrorType::JS_NATIVE_ERROR_COUNT);
   for (int i = 0; i < JSErrorType::JS_NATIVE_ERROR_COUNT; i++) {
@@ -154,6 +158,17 @@ void NjsVM::setup() {
     JSFunction *func = add_native_func_impl(u"Promise", NativeFunction::Promise_ctor);
     promise_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(*this, AtomPool::k_prototype, promise_prototype);
+  }
+
+  {
+    auto *meta = build_func_meta(NativeFunction::GeneratorFunction_ctor);
+    func_meta.emplace_back(meta);
+    auto *func = heap.new_object<JSFunction>(*this, u"GeneratorFunction", meta);
+    func->set_proto(*this, function_prototype);
+    generator_function_ctor.set_val(func);
+
+    generator_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(*this, AtomPool::k_prototype, generator_prototype);
   }
 
   {

@@ -198,7 +198,7 @@ friend class JSPromisePrototype;
     HANDLE_COLLECTOR;
     if (not is_reject && arg.is_object()) {
       // if the arg is a promise, directly return it
-      if (arg.as_object->get_class() == ObjClass::CLS_PROMISE) {
+      if (object_class(arg) == ObjClass::CLS_PROMISE) {
         return arg;
       }
     }

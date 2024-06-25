@@ -186,6 +186,11 @@ inline const char* js_value_tag_names[] = {
 
 inline const char* object_class_names[] = {
     "CLS_OBJECT",
+    "CLS_ASYNC_FUNC",
+    "CLS_GENERATOR_FUNC",
+    "CLS_ASYNC_GENERATOR_FUNC",
+    "CLS_FUNCTION",
+    "CLS_BOUND_FUNCTION",
     "CLS_ARRAY",
     "CLS_STRING",
     "CLS_NUMBER",
@@ -193,9 +198,8 @@ inline const char* object_class_names[] = {
     "CLS_ERROR",
     "CLS_REGEXP",
     "CLS_DATE",
-    "CLS_FUNCTION",
-    "CLS_BOUND_FUNCTION",
     "CLS_PROMISE",
+    "CLS_GENERATOR",
     "CLS_FOR_IN_ITERATOR",
     "CLS_ARRAY_ITERATOR",
     "CLS_CUSTOM",
@@ -207,9 +211,10 @@ inline const char* object_class_names[] = {
     "CLS_STRING_PROTO",
     "CLS_FUNCTION_PROTO",
     "CLS_PROMISE_PROTO",
+    "CLS_GENERATOR_PROTO",
     "CLS_ERROR_PROTO",
     "CLS_REGEXP_PROTO",
-    "CLS_ITERATOR_PROTO"
+    "CLS_ITERATOR_PROTO",
 };
 
 inline const char* opcode_names[] = {

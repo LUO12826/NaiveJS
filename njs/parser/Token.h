@@ -271,7 +271,7 @@ class Token {
         return 100;
 
       case KEYWORD:
-        if (text == u"delete" || text == u"void" || text == u"typeof") {
+        if (text == u"delete" || text == u"void" || text == u"typeof" || text == u"yield") {
           return 100;
         }
         return -1;

@@ -10,6 +10,7 @@
 #include "njs/common/common_def.h"
 #include "njs/codegen/CodegenVisitor.h"
 #include "njs/basic_types/JSPromise.h"
+#include "njs/basic_types/JSGenerator.h"
 #include "njs/basic_types/JSHeapValue.h"
 #include "njs/basic_types/JSBoundFunction.h"
 #include "njs/basic_types/PrimitiveString.h"
@@ -218,18 +219,20 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
   assert(callee.is_function());
 
-  switch (this_func->get_class()) {
-    case CLS_ASYNC_FUNC:
-      if (state == nullptr) return async_initial_call(callee, This, argv, flags);
-      break;
-    case CLS_GENERATOR_FUNC:
-    case CLS_ASYNC_GENERATOR_FUNC:
-      assert(false);
-      break;
-    case CLS_BOUND_FUNCTION:
-      assert(false);
-    default:
-      break;
+  if (state == nullptr) [[likely]] {
+    switch (this_func->get_class()) {
+      case CLS_ASYNC_FUNC:
+        return async_initial_call(callee, This, argv, flags);
+      case CLS_GENERATOR_FUNC:
+        return generator_initial_call(callee, This, argv, flags);
+      case CLS_ASYNC_GENERATOR_FUNC:
+        assert(false);
+        break;
+      case CLS_BOUND_FUNCTION:
+        assert(false);
+      default:
+        break;
+    }
   }
 
   if (Global::show_vm_exec_steps) {
@@ -821,6 +824,13 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         frame.sp = sp;
         return {Completion::Type::AWAIT, sp[0]};
       }
+      Case(yield): {
+        state->active = false;
+        curr_frame = frame.prev_frame;
+        frame.pc = pc;
+        frame.sp = sp;
+        return {Completion::Type::YIELD, sp[0]};
+      }
       Case(halt):
         if (!global_end) {
           global_end = true;
@@ -976,7 +986,8 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   }
 }
 
-Completion NjsVM::async_initial_call(JSValueRef func, JSValueRef This, ArgRef argv, CallFlags flags) {
+Completion NjsVM::async_initial_call(JSValueRef func, JSValueRef This,
+                                     ArgRef argv, CallFlags flags) {
   assert(func.as_object->is_direct_function());
   assert(func.as_func->is_async());
   ResumableFuncState *state = func.as_func->build_exec_state(*this, This, argv);
@@ -1015,6 +1026,51 @@ void NjsVM::async_resume(JSValueRef promise, ResumableFuncState *state) {
     promise.as_Object<JSPromise>()->dispose_exec_state();
   }
 
+}
+
+Completion NjsVM::generator_initial_call(JSValueRef func, JSValueRef This,
+                                         ArgRef argv, CallFlags flags) {
+  assert(func.as_object->is_direct_function());
+  assert(func.as_func->is_generator());
+  ResumableFuncState *state = func.as_func->build_exec_state(*this, This, argv);
+  JSValue proto = TRYCC(func.as_func->get_prop(*this, AtomPool::k_prototype));
+
+  auto *gen = heap.new_object<JSGenerator>(*this);
+  gen->set_proto(*this, proto);
+  gen->exec_state = state;
+  return JSValue(gen);
+}
+
+Completion NjsVM::generator_resume(JSValueRef generator, ResumableFuncState *state) {
+
+  auto build_result_object = [this] (bool done, JSValue val) {
+    JSObject *res = new_object();
+    res->add_prop_trivial(*this, AtomPool::k_done, JSValue(done), PFlag::VECW);
+    res->add_prop_trivial(*this, AtomPool::k_value, val, PFlag::VECW);
+    return JSValue(res);
+  };
+  assert(generator.as_object->get_class() == CLS_GENERATOR);
+
+  if (generator.as_Object<JSGenerator>()->done) {
+    return build_result_object(true, undefined);
+  }
+  auto comp = call_internal(state->stack_frame.function, state->This, undefined, {},
+                            CallFlags(), state);
+  PauseGC nogc(*this);
+  if (comp.is_yield()) {
+    return build_result_object(false, comp.get_value());
+  }
+  else if (comp.is_throw()) {
+    generator.as_Object<JSGenerator>()->done = true;
+    generator.as_Object<JSGenerator>()->dispose_exec_state();
+    return comp;
+  }
+  // generator function returned
+  else {
+    generator.as_Object<JSGenerator>()->done = true;
+    generator.as_Object<JSGenerator>()->dispose_exec_state();
+    return build_result_object(true, comp.get_value());
+  }
 }
 
 void NjsVM::execute_task(JSTask& task) {
@@ -1387,11 +1443,17 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
     func->this_or_auxiliary_data = env_this;
   }
 
-  if (not func->is_arrow_func) {
-    // make the `prototype` property a lazy property
-    PFlag flag = PFlag::VCW;
-    flag.lazy_kind = LAZY_PROTOTYPE;
-    func->add_prop_trivial(*this, AtomPool::k_prototype, undefined, flag);
+  if (not func->is_arrow_func && not func->is_async()) {
+    if (func->is_generator()) [[unlikely]] {
+      auto *obj = new_object(CLS_GENERATOR, generator_prototype);
+      func->add_prop_trivial(*this, AtomPool::k_prototype, JSValue(obj), PFlag::VCW);
+      func->set_proto(*this, generator_function_ctor);
+    } else {
+      // make the `prototype` property a lazy property
+      PFlag flag = PFlag::VCW;
+      flag.lazy_kind = LAZY_PROTOTYPE;
+      func->add_prop_trivial(*this, AtomPool::k_prototype, undefined, flag);
+    }
   }
 
   assert(!meta->is_native);

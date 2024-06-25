@@ -533,6 +533,18 @@ class CodegenVisitor {
           } else {
             assert(false);
           }
+        } else if (expr.op.text == u"yield") {
+          Function *func_env = scope().get_outer_func()->function_ast;
+          assert(func_env);
+          if (not func_env->is_generator) {
+            report_error(CodegenError {
+                .type = JS_SYNTAX_ERROR,
+                .message = "yield can only be used in an generator function",
+                .ast_node = &expr,
+            });
+          }
+          visit(expr.operand);
+          emit(OpType::yield);
         } else if (expr.op.text == u"void") {
           visit_single_statement(expr.operand);
           emit(OpType::push_undef);

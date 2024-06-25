@@ -125,6 +125,11 @@ Completion NativeFunction::Promise_ctor(vm_func_This_args_flags) {
   return JSPromise::New(vm, args[0]);
 }
 
+// TODO
+Completion NativeFunction::GeneratorFunction_ctor(vm_func_This_args_flags) {
+  return undefined;
+}
+
 Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArgRef args, JSErrorType type) {
   auto *err_obj = vm.new_object(CLS_ERROR, vm.native_error_protos[type]);
   if (args.size() > 0 && args[0].is_string_type()) {

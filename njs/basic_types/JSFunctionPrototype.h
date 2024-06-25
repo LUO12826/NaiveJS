@@ -47,7 +47,7 @@ class JSFunctionPrototype : public JSObject {
     if (This.as_object->is_direct_function()) [[likely]] {
       bound_func->set_this(vm, args[0]);
       bound_func->set_proto(vm, This.as_func->get_proto());
-    } else if (This.as_object->get_class() == CLS_BOUND_FUNCTION) {
+    } else if (object_class(This) == CLS_BOUND_FUNCTION) {
       bound_func->set_this(vm, This.as_Object<JSBoundFunction>()->get_this());
       bound_func->set_proto(vm, This.as_object->get_proto());
     } else {
