@@ -61,7 +61,6 @@ class JSFunction : public JSObject {
   JSValue this_or_auxiliary_data;
   std::vector<JSValue> captured_var;
   NativeFuncType native_func {nullptr};
-  ResumableFuncState *exec_state {nullptr};
 };
 
 } // namespace njs

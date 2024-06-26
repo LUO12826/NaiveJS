@@ -218,9 +218,11 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 #define opr2 (inst.operand.two[1])
 
   assert(callee.is_function());
+  // Use this with caution. Can only be used in situations where GC will not occur.
+  JSFunction *function = callee.as_func;
 
   if (state == nullptr) [[likely]] {
-    switch (this_func->get_class()) {
+    switch (function->get_class()) {
       case CLS_ASYNC_FUNC:
         return async_initial_call(callee, This, argv, flags);
       case CLS_GENERATOR_FUNC:
@@ -246,11 +248,11 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   frame.function = callee;
   curr_frame = &frame;
 
-  if (this_func->is_native()) {
+  if (function->is_native()) {
     bool has_new_target = new_target.is_object();
     flags.this_is_new_target = has_new_target;
     JSValueRef this_arg = unlikely(has_new_target) ? new_target : This;
-    Completion comp = this_func->native_func(*this, callee, this_arg, argv, flags);
+    Completion comp = function->native_func(*this, callee, this_arg, argv, flags);
 
     curr_frame = frame.prev_frame;
     return comp;
@@ -267,17 +269,17 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   frame.pc_ref = &pc;
 
   if (state == nullptr) [[likely]] {
-    bool copy_argv = (argv.size() < this_func->param_count) | flags.copy_args;
+    bool copy_argv = (argv.size() < function->param_count) | flags.copy_args;
 
-    size_t actual_arg_cnt = std::max(argv.size(), (size_t)this_func->param_count);
+    size_t actual_arg_cnt = std::max(argv.size(), (size_t)function->param_count);
     size_t args_buf_cnt = unlikely(copy_argv) ? actual_arg_cnt : 0;
     size_t alloc_cnt =
-        args_buf_cnt + frame_meta_size + this_func->local_var_count + this_func->stack_size;
+        args_buf_cnt + frame_meta_size + function->local_var_count + function->stack_size;
 
     buffer = (JSValue *)alloca(sizeof(JSValue) * alloc_cnt);
     args_buf = unlikely(copy_argv) ? buffer : argv.data();
     local_vars = buffer + args_buf_cnt;
-    stack = local_vars + this_func->local_var_count + frame_meta_size;
+    stack = local_vars + function->local_var_count + frame_meta_size;
 
     // Initialize arguments
     if (copy_argv) [[unlikely]] {
@@ -296,7 +298,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       val->set_undefined();
     }
 
-    if (this_func->need_arguments_array) [[unlikely]] {
+    if (function->need_arguments_array) [[unlikely]] {
       local_vars[0] = prepare_arguments_array(*this, argv);
     }
 

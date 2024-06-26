@@ -12,10 +12,6 @@ using std::u16string;
 using std::u16string_view;
 
 class SimpleString {
- private:
-  char16_t *data;
-  size_t len;
-
  public:
   SimpleString() : data(nullptr), len(0) {}
 
@@ -74,6 +70,10 @@ class SimpleString {
   const u16string_view view() const {
     return {data, len};
   }
+
+ private:
+  char16_t *data;
+  size_t len;
 };
 
 } // namespace njs

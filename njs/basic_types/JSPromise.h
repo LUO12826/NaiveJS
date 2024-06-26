@@ -203,14 +203,10 @@ friend class JSPromisePrototype;
       }
     }
     // else, the arg can be a thenable or other.
-    // `resolve_reject` (pointing to `settling_function`) will handle this properly.
+    // `settling_internal` will handle this properly.
 
     JSValue promise(vm.heap.new_object<JSPromise>(vm));
     gc_handle_add(promise);
-    // auto resolve_reject = build_resolve_reject_function(vm, promise);
-    // gc_handle_add(resolve_reject[0]);
-    // gc_handle_add(resolve_reject[1]);
-    // vm.call_function(resolve_reject[int(is_reject)], undefined, {&arg, 1});
 
     // this will not throw because arg cannot be a promise here.
     // (`settling_internal` will throw on promise self resolution)
