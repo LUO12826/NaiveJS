@@ -183,11 +183,11 @@ void NjsVM::execute_global() {
 Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef new_target,
                                 ArgRef argv, CallFlags flags, ResumableFuncState *state) {
 
-  static void * dispatch_table[static_cast<int>(OpType::opcode_count) + 1] = {
-#define DEF(opc) && case_op_ ## opc,
+  static void *dispatch_table[static_cast<int>(OpType::opcode_count) + 1] = {
+#define DEF(opc) &&case_op_##opc,
 #include "opcode.h"
 #undef DEF
-    &&case_default,
+      &&case_default,
   };
 
 #define Switch(pc) {                                                                      \
@@ -196,9 +196,9 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   goto *dispatch_table[op_index];                                                         \
 }
 
-#define Case(opc)    case_op_ ## opc
-#define Default     case_default
-//#define Break {                                                                           \
+#define Case(opc) case_op_##opc
+#define Default case_default
+  //#define Break {                                                                           \
 //  if (Global::show_vm_exec_steps) [[unlikely]] show_step(inst);                           \
 //  inst = bytecode[(pc)++];                                                                \
 //  int op_index = static_cast<int>(inst.op_type);                                          \
@@ -211,7 +211,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   int op_index = static_cast<int>(inst.op_type);                                          \
   goto *dispatch_table[op_index];                                                         \
 }
-  
+
 #define this_func (callee.as_func)
 #define get_scope (scope_type_from_int(inst.operand.two[0]))
 #define opr1 (inst.operand.two[0])
@@ -241,7 +241,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
   // setup call stack
   JSStackFrame _frame;
-  JSStackFrame &frame = likely(state == nullptr) ? _frame : state->stack_frame;
+  JSStackFrame& frame = likely(state == nullptr) ? _frame : state->stack_frame;
   frame.prev_frame = curr_frame;
   frame.function = callee;
   curr_frame = &frame;
@@ -271,8 +271,8 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
     size_t actual_arg_cnt = std::max(argv.size(), (size_t)this_func->param_count);
     size_t args_buf_cnt = unlikely(copy_argv) ? actual_arg_cnt : 0;
-    size_t alloc_cnt = args_buf_cnt + frame_meta_size
-                      + this_func->local_var_count + this_func->stack_size;
+    size_t alloc_cnt =
+        args_buf_cnt + frame_meta_size + this_func->local_var_count + this_func->stack_size;
 
     buffer = (JSValue *)alloca(sizeof(JSValue) * alloc_cnt);
     args_buf = unlikely(copy_argv) ? buffer : argv.data();
@@ -324,28 +324,28 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
     }
   }
 
-  auto get_value = [&, this] (ScopeType scope, int index) -> JSValue& {
+  auto get_value = [&, this](ScopeType scope, int index) -> JSValue& {
     switch (scope) {
       case ScopeType::GLOBAL: {
-        JSValue &val = global_frame->local_vars[index];
-        return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();
+        JSValue& val = global_frame->local_vars[index];
+        return likely(val.tag != JSValue::HEAP_VAL) ? val : val.as_heap_val->wrapped_val;
       }
       case ScopeType::FUNC: {
-        JSValue &val = local_vars[index];
-        return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();
+        JSValue& val = local_vars[index];
+        return likely(val.tag != JSValue::HEAP_VAL) ? val : val.as_heap_val->wrapped_val;
       }
       case ScopeType::FUNC_PARAM: {
-        JSValue &val = args_buf[index];
-        return likely(val.tag != JSValue::HEAP_VAL) ? val : val.deref_heap();
+        JSValue& val = args_buf[index];
+        return likely(val.tag != JSValue::HEAP_VAL) ? val : val.as_heap_val->wrapped_val;
       }
       case ScopeType::CLOSURE:
-        return this_func->captured_var[index].deref_heap();
+        return this_func->captured_var[index].as_heap_val->wrapped_val;
       default:
         __builtin_unreachable();
     }
   };
-  
-  auto show_step = [&, this] (Instruction& inst) {
+
+  auto show_step = [&, this](Instruction& inst) {
     if (inst.op_type != OpType::call) {
       auto desc = inst.description();
       if (inst.op_type == OpType::get_prop_atom || inst.op_type == OpType::get_prop_atom2) {
@@ -362,8 +362,19 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
   }                                                                                                \
 }
 
+#define pop_check_uninit {                                                                        \
+  sp -= 1;                                                                                        \
+  if (val.is_uninited()) [[unlikely]] {                                                           \
+    error_throw_handle(sp, JS_REFERENCE_ERROR,                                                    \
+                       u"Cannot access a variable before initialization");                        \
+  } else {                                                                                        \
+    set_referenced(sp[1]);                                                                        \
+    val.assign(sp[1]);                                                                            \
+  }                                                                                               \
+}
+
 #define deref_heap_if_needed \
-  *++sp = (val.tag == JSValue::HEAP_VAL ? val.as_heap_val->wrapped_val : val);
+  *++sp = (unlikely(val.tag == JSValue::HEAP_VAL) ? val.as_heap_val->wrapped_val : val);
 
   while (true) {
     Instruction inst;
@@ -482,6 +493,13 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         exec_shift_imm(sp, inst.op_type, opr1);
         Break;
 
+      Case(push_local_noderef):
+        *++sp = local_vars[opr1];
+        Break;
+      Case(push_local_noderef_check):
+        *++sp = local_vars[opr1];
+        check_uninit
+        Break;
       Case(push_local): {
         JSValue val = local_vars[opr1];
         deref_heap_if_needed
@@ -516,10 +534,10 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         Break;
       }
       Case(push_closure):
-        *++sp = this_func->captured_var[opr1].deref_heap();
+        *++sp = this_func->captured_var[opr1].as_heap_val->wrapped_val;
         Break;
       Case(push_closure_check):
-        *++sp = this_func->captured_var[opr1].deref_heap();
+        *++sp = this_func->captured_var[opr1].as_heap_val->wrapped_val;
         check_uninit
         Break;
       Case(push_i32):
@@ -562,6 +580,17 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       Case(push_uninit):
         (*++sp).tag = JSValue::UNINIT;
         Break;
+
+      Case(pop_local):
+      Case(pop_local_check):
+      Case(pop_global):
+      Case(pop_global_check):
+      Case(pop_arg):
+      Case(pop_arg_check):
+      Case(pop_closure):
+      Case(pop_closure_check):
+        // not implemented
+        assert(false);
       Case(pop): {
         set_referenced(sp[0]);
         get_value(get_scope, opr2).assign(sp[0]);

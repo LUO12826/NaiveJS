@@ -109,6 +109,17 @@ class CodegenVisitor {
 
     if (len < 2) return;
 
+    vector<char> inst_is_jump_target(len);
+    for (size_t i = 1; i < len; i++) {
+      auto& inst = bytecode[i];
+      if (inst.is_jump_single_target()) {
+        inst_is_jump_target[inst.operand.two[0]] = true;
+      } else if (inst.is_jump_two_target()) {
+        inst_is_jump_target[inst.operand.two[0]] = true;
+        inst_is_jump_target[inst.operand.two[1]] = true;
+      }
+    }
+
     vector<int> pos_moved(len);
     pos_moved[0] = 0;
 
@@ -117,14 +128,35 @@ class CodegenVisitor {
       auto& prev_inst = bytecode[i - 1];
       pos_moved[i] = -removed_inst_cnt;
 
-      //      if (inst.op_type == OpType:: push && prev_inst.op_type == OpType::pop) {
-      //        if (inst.operand.two[0] == prev_inst.operand.two[0]
-      //            && inst.operand.two[1] == prev_inst.operand.two[1]) {
-      //          removed_inst_cnt += 1;
-      //          inst.op_type = OpType::nop;
-      //          prev_inst.op_type = OpType::store;
-      //        }
-      //      }
+      if (not inst_is_jump_target[i]) {
+        if (inst.op_type == OpType::push_local
+            && prev_inst.op_type == OpType::pop
+            && prev_inst.get_scope_operand() == ScopeType::FUNC) {
+          if (inst.operand.two[0] == prev_inst.operand.two[1]) {
+            removed_inst_cnt += 1;
+            inst.op_type = OpType::nop;
+            prev_inst.op_type = OpType::store;
+          }
+        }
+        else if (inst.op_type == OpType::push_arg
+            && prev_inst.op_type == OpType::pop
+            && prev_inst.get_scope_operand() == ScopeType::FUNC_PARAM) {
+          if (inst.operand.two[0] == prev_inst.operand.two[1]) {
+            removed_inst_cnt += 1;
+            inst.op_type = OpType::nop;
+            prev_inst.op_type = OpType::store;
+          }
+        }
+        else if (inst.op_type == OpType::push_closure
+            && prev_inst.op_type == OpType::pop
+            && prev_inst.get_scope_operand() == ScopeType::CLOSURE) {
+          if (inst.operand.two[0] == prev_inst.operand.two[1]) {
+            removed_inst_cnt += 1;
+            inst.op_type = OpType::nop;
+            prev_inst.op_type = OpType::store;
+          }
+        }
+      }
 
       if (inst.op_type == OpType::jmp_cond
           && inst.operand.two[0] == inst.operand.two[1]
@@ -745,7 +777,8 @@ class CodegenVisitor {
           OpType op = assign_op == Token::ADD_ASSIGN ? OpType::inc : OpType::dec;
           emit(op, scope_type_int(lhs_sym.storage_scope), lhs_sym.get_index());
           if (need_value) {
-            emit_push(lhs_sym.storage_scope, lhs_sym.get_index(), false);
+            emit_push(lhs_sym.storage_scope, lhs_sym.get_index(),
+                      false, lhs_sym.original_symbol->is_captured);
           }
         }
         else if (assign_op == Token::ADD_ASSIGN) {
@@ -914,7 +947,8 @@ class CodegenVisitor {
     bool use_dynamic =
         symbol.not_found() || (symbol.def_scope == ScopeType::GLOBAL && !symbol.is_let_or_const());
     if (not use_dynamic) {
-      emit_push(symbol.storage_scope, symbol.get_index(), symbol.is_let_or_const());
+      emit_push(symbol.storage_scope, symbol.get_index(),
+                symbol.is_let_or_const(), symbol.original_symbol->is_captured);
     } else {
       u32 atom = atom_pool.atomize(id.get_source());
       emit(no_throw ? OpType::dyn_get_var_undef : OpType::dyn_get_var, atom);
@@ -1935,15 +1969,15 @@ class CodegenVisitor {
     return bytecode.size() - 1;
   }
 
-  u32 emit_push(ScopeType scope_type, u32 index, bool check) {
+  u32 emit_push(ScopeType scope_type, u32 index, bool check, bool captured) {
     scope().update_stack_usage(1);
     OpType op;
     switch (scope_type) {
       case ScopeType::GLOBAL:
-        op = OpType::push_global;
+        op =  OpType::push_global;
         break;
       case ScopeType::FUNC:
-        op = OpType::push_local;
+        op = captured ? OpType::push_local : OpType::push_local_noderef;
         break;
       case ScopeType::FUNC_PARAM:
         op = OpType::push_arg;

@@ -2,6 +2,7 @@
 #define COMMON_TYPES_H
 
 #include <cstdint>
+#include <optional>
 
 namespace njs {
     

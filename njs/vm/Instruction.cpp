@@ -100,6 +100,8 @@ std::string Instruction::description() const {
     case OpType::ursh: sprintf(buffer, "ursh"); break;
     case OpType::urshi: sprintf(buffer, "urshi %u", (u32)OPR1); break;
 
+    case OpType::push_local_noderef: sprintf(buffer, "push_local_noderef  %d", OPR1); break;
+    case OpType::push_local_noderef_check: sprintf(buffer, "push_local_noderef_check  %d", OPR1); break;
     case OpType::push_local: sprintf(buffer, "push_local  %d", OPR1); break;
     case OpType::push_local_check: sprintf(buffer, "push_local_check  %d", OPR1); break;
     case OpType::push_global: sprintf(buffer, "push_global  %d", OPR1); break;
@@ -139,6 +141,16 @@ std::string Instruction::description() const {
     case OpType::push_uninit:
       sprintf(buffer, "push_uninit");
       break;
+
+    case OpType::pop_local: sprintf(buffer, "pop_local  %d", OPR1); break;
+    case OpType::pop_local_check: sprintf(buffer, "pop_local_check  %d", OPR1); break;
+    case OpType::pop_global: sprintf(buffer, "pop_global  %d", OPR1); break;
+    case OpType::pop_global_check: sprintf(buffer, "pop_global_check  %d", OPR1); break;
+    case OpType::pop_arg: sprintf(buffer, "pop_arg  %d", OPR1); break;
+    case OpType::pop_arg_check: sprintf(buffer, "pop_arg_check  %d", OPR1); break;
+    case OpType::pop_closure: sprintf(buffer, "pop_closure  %d", OPR1); break;
+    case OpType::pop_closure_check: sprintf(buffer, "pop_closure_check  %d", OPR1); break;
+
     case OpType::pop:
       sprintf(buffer, "pop  %s %d", scope_type_names_alt[OPR1], OPR2);
       break;
@@ -361,6 +373,8 @@ static int op_stack_usage[] = {
     0,  // add_assign_keep
     -1, // add_to_left
 
+    1,  // push_local_noderef
+    1,  // push_local_noderef_check
     1,  // push_local
     1,  // push_local_check
     1,  // push_global
@@ -369,6 +383,7 @@ static int op_stack_usage[] = {
     1,  // push_arg_check
     1,  // push_closure
     1,  // push_closure_check
+
     1,  // push_i32
     1,  // push_f64
     1,  // push_str
@@ -379,6 +394,16 @@ static int op_stack_usage[] = {
     1,  // push_null
     1,  // push_undef
     1,  // push_uninit
+
+    -1, // pop_local
+    -1, // pop_local_check
+    -1, // pop_global
+    -1, // pop_global_check
+    -1, // pop_arg
+    -1, // pop_arg_check
+    -1, // pop_closure
+    -1, // pop_closure_check
+
     -1, // pop
     -1, // pop_check
     -1, // pop_drop

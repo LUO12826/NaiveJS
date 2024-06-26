@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string>
+#include "njs/common/enums.h"
 
 namespace njs {
 
@@ -43,6 +44,10 @@ struct Instruction {
   bool is_jump_two_target() {
     return op_type == OpType::jmp_cond
            || op_type == OpType::jmp_cond_pop;
+  }
+
+  ScopeType get_scope_operand () {
+    return static_cast<ScopeType>(operand.two[0]);
   }
 
   OpType op_type;
