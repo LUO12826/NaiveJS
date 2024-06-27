@@ -35,20 +35,22 @@ This comparison is just for fun. If NaiveJS were implemented strictly according 
 - [x] Indexed access expression (subscript)
 - [x] If statement
 - [x] While loop, break, continue
+- [x] labelled statement
 - [x] For loop (regular, for-in, for-of)
 - [x] Iterator
 - [x] `JSValue` and basic JavaScript data types
 - [x] Array literals, object literals
-- [x] Closures and automatic variable capture
-- [x] Copy-based GC
-- [x] Event loop and `setInterval`, `setTimeout` (using kqueue)
+- [x] Closures and variable capture
+- [x] Generational garbage collection
+- [x] Event loop and `setInterval`, `setTimeout`
 - [x] Third-party libraries for HTTP requests
 - [x] Runtime exception and error handling (try-catch-finally)
 - [x] `new` operator
 - [x] Prototype chain
-- [x] Global scope (that works like real JS)
 - [x] Object property attributes, Object.defineProperty
 - [x] Regular expression
+- [x] Promise, async function
+- [x] Generator function
 - [ ] Template literals
 - [ ] Spread syntax
 - [ ] Destructuring assignment
@@ -59,7 +61,7 @@ This comparison is just for fun. If NaiveJS were implemented strictly according 
 - [x] Utilizing the "label as value" technique in the VM
 - [ ] Reorganize the parser code
 - [ ] Compactly stored bytecode
-- [ ] Eliminates redundant jump instructions
+- [ ] More peephole optimizations
 - [ ] Improve error handling in the parser and code generator
 - [ ] Use smart pointers instead of raw pointers in AST nodes. (This was previously found to cause performance degradation on macOS with Clang)
 - [ ] GC and object system optimization: allowing GC to move objects safely
