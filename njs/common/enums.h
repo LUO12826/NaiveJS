@@ -8,6 +8,9 @@
 
 namespace njs {
 
+using std::u16string_view;
+using std::u16string;
+
 // has corresponding string representation, note to modify when adding
 enum class VarKind: uint8_t {
   FUNCTION,
