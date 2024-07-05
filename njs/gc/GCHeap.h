@@ -58,6 +58,10 @@ class GCHeap {
 
 using byte = int8_t;
 constexpr static int AGE_MAX = 1;
+constexpr static double newgen_size_ratio = 0.4;
+constexpr static double survivor_size_ratio = 0.2;
+constexpr static double oldgen_size_ratio = 1 - newgen_size_ratio - 2 * survivor_size_ratio;
+constexpr static double newgen_gc_threshold_ratio = 0.36;
 
  public:
   GCHeap(size_t size_mb, NjsVM& vm);
@@ -144,7 +148,6 @@ constexpr static int AGE_MAX = 1;
 
   std::atomic<byte *> dealloc_progress;
   byte *newgen_gc_threshold;
-  size_t gc_threshold {15000};
 
   bool gc_requested {false};
   std::atomic<bool> gc_running {false};

@@ -43,10 +43,10 @@ GCHeap::GCHeap(size_t size_mb, NjsVM& vm)
       gc_thread(&GCHeap::minor_gc_task, this)
 {
   newgen_start = storage;
-  survivor1_start = newgen_start + size_t(0.4 * heap_size);
-  survivor2_start = survivor1_start + size_t(0.2 * heap_size);
-  oldgen_start = survivor2_start + size_t(0.2 * heap_size);
-  oldgen_end = oldgen_start + size_t(0.2 * heap_size);
+  survivor1_start = newgen_start + size_t(newgen_size_ratio * heap_size);
+  survivor2_start = survivor1_start + size_t(survivor_size_ratio * heap_size);
+  oldgen_start = survivor2_start + size_t(survivor_size_ratio * heap_size);
+  oldgen_end = oldgen_start + size_t(oldgen_size_ratio * heap_size);
 
   alloc_point = newgen_start;
   oldgen_alloc_point = oldgen_start;
@@ -55,7 +55,7 @@ GCHeap::GCHeap(size_t size_mb, NjsVM& vm)
   survivor_to_start = survivor2_start;
 
   dealloc_progress = survivor1_start;
-  newgen_gc_threshold = newgen_start + size_t(0.36 * heap_size);
+  newgen_gc_threshold = newgen_start + size_t(newgen_gc_threshold_ratio * heap_size);
 
   record_set.reserve(1000);
 }
@@ -143,12 +143,6 @@ void GCHeap::minor_gc_task() {
     stats.newgen_last_gc_object_cnt = stats.newgen_object_cnt;
     stats.newgen_last_gc_usage = survivor_alloc_point - survivor_from_start;
 
-    if (stats.newgen_object_cnt > 0.7 * prev_object_cnt) {
-      gc_threshold *= 2;
-    } else {
-      gc_threshold /= 2;
-    }
-
     if (Global::show_gc_statistics) {
       std::cout << "GC copy done\n";
       std::cout << "newgen usage before GC: " << prev_usage / (1024 * 1024) << '\n';
@@ -156,7 +150,6 @@ void GCHeap::minor_gc_task() {
       std::cout << "newgen object count before GC: " << prev_object_cnt << '\n';
       std::cout << "newgen object count after GC: " << stats.newgen_object_cnt << '\n';
       std::cout << "ratio: " << (double)stats.newgen_object_cnt / prev_object_cnt << '\n';
-      std::cout << "gc threshold: " << gc_threshold << '\n';
     }
 
     Timer timer_dealloc("dealloc dead");
