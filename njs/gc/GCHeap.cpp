@@ -8,6 +8,7 @@
 #include "njs/global_var.h"
 #include "njs/utils/Timer.h"
 #include "njs/basic_types/PrimitiveString.h"
+#include "njs/basic_types/HeapArray.h"
 #include "njs/common/common_def.h"
 
 namespace njs {
@@ -504,6 +505,19 @@ PrimitiveString* GCHeap::new_prim_string_impl(size_t length) {
 
   stats.newgen_object_cnt += 1;
   return prim_str;
+}
+
+HeapArray<JSValue>* GCHeap::new_array(u32 length) {
+  size_t capacity = length;
+  size_t payload_size = capacity * sizeof(JSValue);
+  size_t alloc_size = sizeof(HeapArray<JSValue>) + next_multiple_of_8(payload_size);
+
+  GCObject *ptr = newgen_alloc(alloc_size);
+  auto *array = new (ptr) HeapArray<JSValue>(length, capacity);
+  ptr->size = alloc_size;
+
+  stats.newgen_object_cnt += 1;
+  return array;
 }
 
 // Allocate memory for a new object.

@@ -173,6 +173,7 @@ inline const char* js_value_tag_names[] = {
     "NEED_GC_BEGIN",
     "STRING",
     "HEAP_VAL",
+    "HEAP_ARRAY",
     "OBJECT_BEGIN",
     "BOOLEAN_OBJ",
     "NUMBER_OBJ",

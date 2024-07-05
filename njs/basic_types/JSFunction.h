@@ -5,6 +5,7 @@
 #include "JSValue.h"
 #include "JSObject.h"
 #include "JSFunctionMeta.h"
+#include "HeapArray.h"
 #include "njs/common/common_def.h"
 
 namespace njs {
@@ -40,6 +41,10 @@ class JSFunction : public JSObject {
     return get_class() == CLS_GENERATOR_FUNC | get_class() == CLS_ASYNC_GENERATOR_FUNC;
   }
 
+  HeapArray<JSValue>& get_captured_var() {
+    return *captured_var.as_heap_array;
+  }
+
   u16string_view get_class_name() override {
     return u"Function";
   }
@@ -59,7 +64,8 @@ class JSFunction : public JSObject {
   bool is_arrow_func {false};
   bool has_auxiliary_data {false};
   JSValue this_or_auxiliary_data;
-  std::vector<JSValue> captured_var;
+  // handle for a heap array
+  JSValue captured_var;
   NativeFuncType native_func {nullptr};
 };
 

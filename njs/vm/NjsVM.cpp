@@ -137,8 +137,15 @@ JSFunction* NjsVM::new_function(JSFunctionMeta *meta) {
   if (obj_class != 0) [[unlikely]] {
     func->set_class((ObjClass)obj_class);
   }
-  
-  func->captured_var.reserve(meta->capture_list.size());
+
+  size_t captured_cnt = meta->capture_list.size();
+  if (captured_cnt > 0) {
+    auto *arr = heap.new_array(captured_cnt);
+    func->captured_var.set_val(arr);
+    for (size_t i = 0; i < captured_cnt; i++) {
+      (*arr)[i].set_undefined();
+    }
+  }
   return func;
 }
 
@@ -341,7 +348,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         return likely(val.tag != JSValue::HEAP_VAL) ? val : val.as_heap_val->wrapped_val;
       }
       case ScopeType::CLOSURE:
-        return this_func->captured_var[index].as_heap_val->wrapped_val;
+        return this_func->get_captured_var()[index].as_heap_val->wrapped_val;
       default:
         __builtin_unreachable();
     }
@@ -536,10 +543,10 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         Break;
       }
       Case(push_closure):
-        *++sp = this_func->captured_var[opr1].as_heap_val->wrapped_val;
+        *++sp = this_func->get_captured_var()[opr1].as_heap_val->wrapped_val;
         Break;
       Case(push_closure_check):
-        *++sp = this_func->captured_var[opr1].as_heap_val->wrapped_val;
+        *++sp = this_func->get_captured_var()[opr1].as_heap_val->wrapped_val;
         check_uninit
         Break;
       Case(push_i32):
@@ -789,20 +796,21 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
       Case(make_func): {
         exec_make_func(sp, opr1, This);
         // capture
-        for (auto& [var_scope, index] : sp[0].as_func->meta->capture_list) {
+        int i = 0;
+        for (auto& [var_scope, var_idx] : sp[0].as_func->meta->capture_list) {
           if (var_scope == ScopeType::CLOSURE) [[unlikely]] {
-            JSValue& closure_val = this_func->captured_var[index];
-            VM_WRITE_BARRIER(sp[0].as_func, closure_val);
-            sp[0].as_func->captured_var.push_back(closure_val);
+            JSValue& closure_val = this_func->get_captured_var()[var_idx];
+            VM_WRITE_BARRIER(sp[0].as_func->captured_var.as_heap_array, closure_val);
+            sp[0].as_func->get_captured_var()[i] = closure_val;
           }
           else {
             JSValue* stack_val;
             if (var_scope == ScopeType::FUNC) {
-              stack_val = local_vars + index;
+              stack_val = local_vars + var_idx;
             } else if (var_scope == ScopeType::FUNC_PARAM) {
-              stack_val = args_buf + index;
+              stack_val = args_buf + var_idx;
             } else if (var_scope == ScopeType::GLOBAL) {
-              stack_val = &global_frame->local_vars[index];
+              stack_val = &global_frame->local_vars[var_idx];
             } else {
               __builtin_unreachable();
             }
@@ -810,9 +818,10 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
             if (stack_val->tag != JSValue::HEAP_VAL) {
               stack_val->move_to_heap(*this);
             }
-            VM_WRITE_BARRIER(sp[0].as_func, *stack_val);
-            sp[0].as_func->captured_var.push_back(*stack_val);
+            VM_WRITE_BARRIER(sp[0].as_func->captured_var.as_heap_array, *stack_val);
+            sp[0].as_func->get_captured_var()[i] = *stack_val;
           }
+          i += 1;
         }
         Break;
       }

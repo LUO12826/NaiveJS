@@ -15,6 +15,8 @@ class JSFunction;
 class JSArray;
 class JSString;
 struct JSHeapValue;
+template <typename T>
+struct HeapArray;
 
 using std::u16string;
 using u32 = uint32_t;
@@ -58,6 +60,7 @@ friend class NjsVM;
     // Used when we wrap those inline values into JSHeapValue and hold a pointer to it.
     // Currently, turning a variable into a closure variable will turn it into a JSHeapValue
     HEAP_VAL,
+    HEAP_ARRAY,
 
     OBJECT_BEGIN,
 
@@ -110,6 +113,10 @@ friend class NjsVM;
     as_prim_string = str;
   }
 
+  explicit JSValue(HeapArray<JSValue> *array): tag(HEAP_ARRAY) {
+    as_heap_array = array;
+  }
+
   explicit JSValue(JSArray *array): tag(ARRAY) {
     as_array = array;
   }
@@ -141,6 +148,11 @@ friend class NjsVM;
   void set_val(PrimitiveString *str) {
     tag = STRING;
     as_prim_string = str;
+  }
+
+  void set_val(HeapArray<JSValue> *array) {
+    tag = HEAP_ARRAY;
+    as_heap_array = array;
   }
 
   void set_val(JSArray *array) {
@@ -258,6 +270,7 @@ friend class NjsVM;
 
     PrimitiveString *as_prim_string;
     JSHeapValue *as_heap_val;
+    HeapArray<JSValue> *as_heap_array;
 
     JSObject *as_object;
     JSArray *as_array;

@@ -26,6 +26,8 @@ using u32 = uint32_t;
 class NjsVM;
 struct JSValue;
 struct PrimitiveString;
+template <typename T>
+struct HeapArray;
 
 struct GCStats {
   size_t newgen_last_gc_object_cnt {0};
@@ -80,9 +82,24 @@ constexpr static double newgen_gc_threshold_ratio = 0.36;
     return object;
   }
 
+//  template <typename... Args>
+//  JSFunction* new_function_object(u32 captured_cnt, Args &&...args) {
+//    // allocate memory
+//    size_t alloc_size = sizeof(JSFunction) + captured_cnt * sizeof(JSValue);
+//    GCObject *meta = newgen_alloc(alloc_size);
+//    // initialize
+//    auto *object = new (meta) JSFunction(std::forward<Args>(args)...);
+//    meta->size = alloc_size;
+//
+//    stats.newgen_object_cnt += 1;
+//    return object;
+//  }
+
   PrimitiveString* new_prim_string_ref(u16string_view str);
   PrimitiveString* new_prim_string(const char16_t *str, size_t length);
   PrimitiveString* new_prim_string(size_t length);
+
+  HeapArray<JSValue>* new_array(u32 length);
 
   void gc();
   void gc_if_needed();
