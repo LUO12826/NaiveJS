@@ -281,11 +281,11 @@ friend struct GCHandleCollector;
   vector<int> make_function_counter;
 };
 
-struct PauseGC {
+struct NoGC {
   NjsVM& vm;
   bool resumed {false};
 
-  explicit PauseGC(NjsVM& vm): vm(vm) {
+  explicit NoGC(NjsVM& vm): vm(vm) {
     vm.heap.pause_gc();
   }
 
@@ -294,7 +294,7 @@ struct PauseGC {
     resumed = true;
   }
 
-  ~PauseGC() {
+  ~NoGC() {
     if (not resumed) vm.heap.resume_gc();
   }
 };

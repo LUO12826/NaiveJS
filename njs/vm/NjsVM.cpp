@@ -1096,7 +1096,7 @@ Completion NjsVM::generator_resume(JSValueRef generator, ResumableFuncState *sta
   }
   auto comp = call_internal(state->stack_frame.function, state->This, undefined, {},
                             CallFlags(), state);
-  PauseGC nogc(*this);
+  NoGC nogc(*this);
   if (comp.is_yield()) {
     return build_result_object(false, comp.get_value());
   }
@@ -1730,7 +1730,7 @@ void NjsVM::exec_dynamic_set_var(SPRef sp, u32 name_atom) {
 }
 
 Completion NjsVM::for_of_get_iterator(JSValue obj) {
-  PauseGC nogc(*this);
+  NoGC nogc(*this);
   auto build_err = [&, this] () {
     JSValue err = build_error(
         JS_TYPE_ERROR, to_u16string(obj.to_string(*this)) + u" is not iterable");
@@ -1751,7 +1751,7 @@ Completion NjsVM::for_of_get_iterator(JSValue obj) {
 }
 
 Completion NjsVM::for_of_call_next(JSValue iter) {
-  PauseGC nogc(*this);
+  NoGC nogc(*this);
   assert(iter.is_object());
   auto atom_next = JSAtom(AtomPool::k_next);
   JSValue next_func = TRYCC(iter.as_object->get_property(*this, atom_next));

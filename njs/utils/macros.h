@@ -25,7 +25,7 @@ using u32 = uint32_t;
 #define gc_check_and_mark_object(o) if ((o).needs_gc()) { gc_mark_object((o).as_GCObject); }
 #define gc_check_object_young(o) if ((o).needs_gc() && (o).as_GCObject < oldgen_start) { return true; }
 
-#define NOGC PauseGC nogc(vm);
+#define NOGC NoGC nogc(vm);
 #define HANDLE_COLLECTOR GCHandleCollector collector(vm);
 #define gc_handle_add(o) collector.collect(o);
 
