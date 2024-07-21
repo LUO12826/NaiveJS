@@ -75,6 +75,7 @@ inline const char* token_type_names[] = {
 
     "FUTURE_KW",
     "STRICT_FUTURE_KW",
+
     "LEFT_BRACE",
     "RIGHT_BRACE",
     "LEFT_PAREN",
@@ -97,8 +98,10 @@ inline const char* token_type_names[] = {
     "NE",
     "EQ3",
     "NE3",
+
     "INC",
     "DEC",
+
     "ADD",
     "SUB",
     "MUL",
@@ -112,9 +115,11 @@ inline const char* token_type_names[] = {
     "BIT_OR",
     "BIT_XOR",
     "BIT_NOT",
+
     "LOGICAL_AND",
     "LOGICAL_OR",
     "LOGICAL_NOT",
+
     "ASSIGN",
     "ADD_ASSIGN",
     "SUB_ASSIGN",
@@ -128,18 +133,23 @@ inline const char* token_type_names[] = {
     "AND_ASSIGN",
     "OR_ASSIGN",
     "XOR_ASSIGN",
+
+    "LOGI_AND_ASSIGN",
+    "LOGI_OR_ASSIGN",
+
     "R_ARROW",
     "TK_NULL",
-
     "TK_BOOL",
+
     "NUMBER",
     "STRING",
     "TEMPLATE_STR",
     "REGEX",
+
     "LINE_TERM",
     "EOS",
     "NONE",
-    "ILLEGAL",
+    "ILLEGAL"
 };
 
 inline const char* scope_type_names[] = {

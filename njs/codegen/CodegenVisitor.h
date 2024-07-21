@@ -723,10 +723,21 @@ class CodegenVisitor {
     auto codegen_rhs = [&] () {
       if (assign_op == Token::ASSIGN) {
         visit(expr.rhs);
+      } else if (assign_op == Token::LOGI_AND_ASSIGN
+                 || assign_op == Token::LOGI_OR_ASSIGN) [[unlikely]] {
+
+        auto op = assign_op == Token::LOGI_AND_ASSIGN ? Token::LOGICAL_AND : Token::LOGICAL_OR;
+        Token op_token(op, u"", 0, 0, 0 ,0);
+        BinaryExpr logi_expr(expr.lhs, expr.rhs, op_token,
+                             expr.get_source(), expr.source_start(), expr.source_end());
+        visit_binary_expr(logi_expr);
+        logi_expr.lhs = nullptr;
+        logi_expr.rhs = nullptr;
+
       } else {
         visit(expr.lhs);
         visit(expr.rhs);
-        
+
         switch (assign_op) {
           case Token::ADD_ASSIGN:
           case Token::SUB_ASSIGN:
@@ -756,10 +767,6 @@ class CodegenVisitor {
           case Token::XOR_ASSIGN:
             emit(OpType::bits_xor);
             break;
-          case Token::LOGI_AND_ASSIGN:
-          case Token::LOGI_OR_ASSIGN:
-            // TODO
-            assert(false);
           default:
             assert(false);
         }

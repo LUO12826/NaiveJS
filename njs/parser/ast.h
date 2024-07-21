@@ -495,7 +495,7 @@ class AssignmentExpr : public ASTNode {
     }
   }
 
-  Token::TokenType assign_type;
+  TokenType assign_type;
   ASTNode *lhs;
   ASTNode *rhs;
 };

@@ -169,24 +169,7 @@ class Token {
   }
 
   bool is_assignment_operator() const {
-    switch(type) {
-      case ASSIGN:      // =
-      case ADD_ASSIGN:  // +=
-      case SUB_ASSIGN:  // -=
-      case MUL_ASSIGN:  // *=
-      case MOD_ASSIGN:  // %=
-      case DIV_ASSIGN:  // /=
-
-      case LSH_ASSIGN:   // <<=
-      case RSH_ASSIGN:   // >>=
-      case UNSIGNED_RSH_ASSIGN:  // >>>=
-      case AND_ASSIGN:   // &=
-      case OR_ASSIGN:    // |=
-      case XOR_ASSIGN:   // ^=
-        return true;
-      default:
-        return false;
-    }
+    return ASSIGN <= type && type <= LOGI_OR_ASSIGN;
   }
 
   [[maybe_unused]] inline bool is_line_terminator() const { return type == LINE_TERM; }

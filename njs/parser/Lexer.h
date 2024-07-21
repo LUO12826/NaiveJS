@@ -290,7 +290,12 @@ class Lexer {
           switch (ch) {
             case u'&':  // &&
               next_char();
-              curr_token.set(TokenType::LOGICAL_AND, u"&&", token_source_expr(2));
+              if (ch == u'=') {  // &&=
+                next_char();
+                curr_token.set(TokenType::LOGI_AND_ASSIGN, u"&&=", token_source_expr(3));
+              } else {
+                curr_token.set(TokenType::LOGICAL_AND, u"&&", token_source_expr(2));
+              }
               break;
             case u'=':  // &=
               next_char();
@@ -307,7 +312,12 @@ class Lexer {
           switch (ch) {
             case u'|':  // ||
               next_char();
-              curr_token.set(TokenType::LOGICAL_OR, u"||", token_source_expr(2));
+              if (ch == u'=') {  // ||=
+                next_char();
+                curr_token.set(TokenType::LOGI_OR_ASSIGN, u"||=", token_source_expr(3));
+              } else {
+                curr_token.set(TokenType::LOGICAL_OR, u"||", token_source_expr(2));
+              }
               break;
             case u'=':  // |=
               next_char();
