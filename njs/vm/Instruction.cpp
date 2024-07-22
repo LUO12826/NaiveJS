@@ -324,7 +324,6 @@ std::string Instruction::description() const {
       sprintf(buffer, "nop");
       break;
     default:
-      // fixme
       sprintf(buffer, "(instruction description missed. fixme)");
   }
 

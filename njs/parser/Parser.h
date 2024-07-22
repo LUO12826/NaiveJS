@@ -8,6 +8,7 @@
 #include "njs/codegen/SymbolRecord.h"
 #include "njs/common/common_types.h"
 #include "njs/common/enums.h"
+#include "njs/common/JSErrorType.h"
 #include "njs/include/SmallVector.h"
 #include "njs/parser/ast.h"
 #include "njs/parser/Lexer.h"
@@ -29,6 +30,7 @@ using std::unique_ptr;
 using TokenType = Token::TokenType;
 
 struct ParsingError {
+  JSErrorType error_type;
   std::string message;
   SourceLoc start;
   SourceLoc end;
@@ -1337,7 +1339,12 @@ error:
     auto& label_stack = scope().get_outer_func()->label_stack;
     for (auto& rit : std::ranges::reverse_view(label_stack)) {
       if (rit == id.text) {
-        // TODO: report error here.
+        report_error(ParsingError {
+            .error_type = JS_SYNTAX_ERROR,
+            .message = "Label '" + to_u8string(id.text) + "' has already been declared",
+            .start = start,
+            .end = lexer.current_src_pos()
+        });
         printf("SyntaxError: Label '%s' has already been declared\n", to_u8string(id.text).c_str());
         break;
       }
@@ -1347,9 +1354,8 @@ error:
     ASTNode* stmt = parse_statement();
     label_stack.pop_back();
 
-    if (stmt->is_illegal()) return stmt;
     stmt->label = id.text;
-    // TODO: check this
+    // `stmt` maybe illegal.
     return stmt;
   }
 
