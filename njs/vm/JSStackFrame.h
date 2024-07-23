@@ -12,13 +12,13 @@ using u32 = uint32_t;
 struct JSStackFrame {
   JSStackFrame *prev_frame;
   JSValue function;
-  size_t alloc_cnt {0};
+  size_t alloc_cnt;
   JSValue *buffer;
   JSValue *args_buf;
   JSValue *local_vars;
   JSValue *stack;
   JSValue *sp;
-  u32 pc {0};
+  u32 pc;
   // warning: these two values are valid only when this frame is active.
   JSValue **sp_ref;
   u32 *pc_ref;

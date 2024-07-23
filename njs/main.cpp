@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
 
     Parser parser(std::move(source_code));
     ASTNode *ast = parser.parse_program();
-    Defer defer([ast] { delete ast; });
+    defer { delete ast; };
 
     parser_timer.end();
 

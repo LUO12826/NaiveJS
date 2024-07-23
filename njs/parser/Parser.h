@@ -980,7 +980,7 @@ error:
       if (!lexer.current().is_identifier()) goto error;
 
       auto var_stmt = new VarStatement(var_kind);
-      Defer defer([&var_stmt] { delete var_stmt; });
+      Defer _defer = [&] { delete var_stmt; };
 
       init_expr = parse_variable_declaration(true, var_kind);
       if (init_expr->is_illegal()) return init_expr;
@@ -990,7 +990,7 @@ error:
       // the `in` and `of` cases, that is, var VariableDeclarationNoIn in
       lexer.next();
       if (lexer.current().text == u"in" || lexer.current().text == u"of") {
-        defer.dismiss();
+        _defer.dismiss();
         return parse_for_in_statement(var_stmt, start);
       }
 
@@ -1006,7 +1006,7 @@ error:
         lexer.next();
       }
       // for (var VariableDeclarationListNoIn; ...)
-      defer.dismiss();
+      _defer.dismiss();
       return parse_for_statement(var_stmt, start);
     }
     else {
@@ -1034,9 +1034,7 @@ error:
   ASTNode* parse_for_statement(ASTNode* init_expr, SourceLoc start) {
     assert(lexer.current().is_semicolon());
 
-    Defer defer([&init_expr] {
-      delete init_expr;
-    });
+    Defer _defer = [&] { delete init_expr; };
 
     ASTNode* expr1 = nullptr;
     ASTNode* expr2 = nullptr;
@@ -1074,7 +1072,7 @@ error:
       delete expr2;
       return stmt;
     }
-    defer.dismiss();
+    _defer.dismiss();
     return new ForStatement(init_expr, expr1, expr2, stmt, SOURCE_PARSED_EXPR);
 error:
     delete expr1;
