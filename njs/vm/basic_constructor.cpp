@@ -109,7 +109,7 @@ Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
 }
 
 Completion NativeFunction::Function_ctor(vm_func_This_args_flags) {
-  u32 key = vm.str_to_atom(u16string_view(u"___dummy"));
+  u32 key = vm.str_to_atom(u"___dummy");
   return vm.global_object.as_object->get_prop_trivial(key);
 }
 
@@ -132,7 +132,7 @@ Completion NativeFunction::GeneratorFunction_ctor(vm_func_This_args_flags) {
 
 Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArgRef args, JSErrorType type) {
   auto *err_obj = vm.new_object(CLS_ERROR, vm.native_error_protos[type]);
-  if (args.size() > 0 && args[0].is_string_type()) {
+  if (!args.empty() && args[0].is_string_type()) {
     // only supports primitive string now.
     assert(args[0].is_prim_string());
     err_obj->set_prop(vm, u"message", args[0]);
@@ -149,7 +149,7 @@ Completion NativeFunction::Symbol(vm_func_This_args_flags) {
     return vm.throw_error(JS_TYPE_ERROR, u"Symbol() is not a constructor.");
   }
 
-  if (args.size() > 0 && not args[0].is_undefined()) {
+  if (!args.empty() && not args[0].is_undefined()) {
     auto str = TRYCC(js_to_string(vm, args[0])).as_prim_string->view();
     return JSSymbol(vm.atom_pool.atomize_symbol_desc(str));
   } else {

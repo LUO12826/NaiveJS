@@ -425,7 +425,6 @@ class CodegenVisitor {
     }
   }
 
-  // return the meta index of this function
   void gen_func_bytecode(Function& func) {
 
     ProgramOrFunctionBody *body = func.body->as_func_body();

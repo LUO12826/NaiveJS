@@ -142,9 +142,13 @@ Completion NativeFunction::fetch(vm_func_This_args_flags) {
 }
 
 Completion NativeFunction::json_stringify(vm_func_This_args_flags) {
-  assert(args.size() >= 1);
+  NOGC;
+  JSValue arg;
+  if (!args.empty()) [[likely]] {
+    arg = args[0];
+  }
   u16string json_string;
-  args[0].to_json(json_string, vm);
+  arg.to_json(json_string, vm);
   return vm.new_primitive_string(json_string);
 }
 

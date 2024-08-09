@@ -43,14 +43,14 @@ class JSRegExp : public JSObject {
  public:
 
   static Completion New(NjsVM& vm, u32 pattern_atom, int flags) {
-    NOGC
+    NOGC;
     auto *regexp = vm.heap.new_object<JSRegExp>(vm, pattern_atom, flags);
     Completion comp = regexp->compile_bytecode_internal((vm));
     return comp.is_throw() ? comp : JSValue(regexp);
   }
 
   static Completion New(NjsVM& vm, u16string_view pattern, u16string_view flags_str) {
-    NOGC
+    NOGC;
     auto maybe_flags = str_to_regexp_flags(flags_str);
 
     if (maybe_flags.has_value()) [[likely]] {

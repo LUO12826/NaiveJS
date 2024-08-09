@@ -190,7 +190,7 @@ void NjsVM::setup() {
   }
 
   add_builtin_global_var(u"undefined", JSValue());
-  add_builtin_global_var(u"NaN", JSValue(nan("")));
+  add_builtin_global_var(u"NaN", JSValue(NAN));
   add_builtin_global_var(u"Infinity", JSValue(1.0 / 0.0));
 
   JSPromise::add_internal_function_meta(*this);

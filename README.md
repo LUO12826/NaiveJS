@@ -65,7 +65,7 @@ This comparison is just for fun. If NaiveJS were implemented strictly according 
 - [ ] Improve error handling in the parser and code generator
 - [ ] Use smart pointers instead of raw pointers in AST nodes. (This was previously found to cause performance degradation on macOS with Clang)
 - [ ] GC and object system optimization: allowing GC to move objects safely
-- [ ] fully managed memory: all memory is allocated on the GC Heap
+- [ ] fully managed memory: let objects be allocated on the GC heap as much as possible
 - [ ] Atom strings GC
 - [ ] JIT
 

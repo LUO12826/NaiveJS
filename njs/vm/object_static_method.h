@@ -39,7 +39,7 @@ inline Completion Object_hasOwn(vm_func_This_args_flags) {
 
 inline ErrorOr<JSObject *> check_argument_and_get_object(NjsVM& vm, Span<JSValue> args) {
   JSValue arg;
-  if (args.size() >= 1) [[likely]] {
+  if (!args.empty()) [[likely]] {
     arg = args[0];
   }
   JSObject *obj;
@@ -83,7 +83,7 @@ inline Completion Object_preventExtensions(vm_func_This_args_flags) {
 
 inline Completion Object_create(vm_func_This_args_flags) {
   JSValue arg;
-  if (args.size() >= 1) [[likely]] {
+  if (!args.empty()) [[likely]] {
     arg = args[0];
   }
   if (arg.is_null() || arg.is_object()) [[likely]] {
@@ -96,7 +96,7 @@ inline Completion Object_create(vm_func_This_args_flags) {
 
 inline Completion Object_assign(vm_func_This_args_flags) {
   JSValue arg1;
-  if (args.size() > 0) {
+  if (!args.empty()) {
     arg1 = args[0];
   }
 

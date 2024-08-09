@@ -106,6 +106,7 @@ void JSValue::to_json(u16string& output, NjsVM& vm) const {
     case BOOLEAN:
       output += as_bool ? u"true" : u"false";
       break;
+    case UNDEFINED:
     case JS_NULL:
       output += u"null";
       break;

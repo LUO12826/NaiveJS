@@ -254,7 +254,7 @@ class JSStringPrototype : public JSObject {
 
     double index = args[0].as_f64;
     if (index < 0 || index > str->length()) {
-      return JSValue(nan(""));
+      return JSValue(NAN);
     }
     char16_t ch = (*str)[(size_t)index];
     return JSFloat(ch);
