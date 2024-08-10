@@ -352,7 +352,7 @@ class Scope {
   SmallVector<Function*, 3> inner_func_order;
 };
 
-inline Scope::SymbolResolveResult  Scope::SymbolResolveResult::none = SymbolResolveResult();
+inline Scope::SymbolResolveResult Scope::SymbolResolveResult::none = SymbolResolveResult();
 
 } // namespace njs
 

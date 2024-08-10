@@ -989,12 +989,12 @@ class CodegenVisitor {
   }
 
   void visit_return_statement(ReturnStatement& return_stmt) {
-    gen_call_finally_code(&scope(), scope().get_outer_func());
-
     if (return_stmt.expr) {
       visit(return_stmt.expr);
+      gen_call_finally_code(&scope(), scope().get_outer_func());
       emit(OpType::ret);
     } else {
+      gen_call_finally_code(&scope(), scope().get_outer_func());
       emit(OpType::ret_undef);
     }
   }
@@ -1490,7 +1490,8 @@ class CodegenVisitor {
       auto block_type = curr->get_block_type();
       auto *outer = curr->get_outer();
       if (block_type == BlockType::TRY_FINALLY || block_type == BlockType::CATCH_FINALLY) {
-        outer->call_procedure_list.push_back(emit_keep_stack(OpType::proc_call));
+        outer->call_procedure_list.push_back(emit(OpType::proc_call));
+        scope().update_stack_usage(-1);
       }
       curr = outer;
     }
@@ -1855,7 +1856,8 @@ class CodegenVisitor {
 
       if (has_finally) {
         // this will call the `finally2`.
-        proc_call_inst.push_back(emit_keep_stack(OpType::proc_call));
+        proc_call_inst.push_back(emit(OpType::proc_call));
+        scope().update_stack_usage(-1);
         catch_end_jmp = emit(OpType::jmp);
         // the `throw` in the `catch` block should go here
         u32 finally1_start = bytecode_pos();
