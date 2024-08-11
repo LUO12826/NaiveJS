@@ -47,6 +47,11 @@ int main(int argc, char *argv[]) {
 
     parser_timer.end();
 
+    if (parser.get_errors().size() > 0) {
+      printf("Njs: terminated due to parsing errors in program.\n");
+      exit(EXIT_FAILURE);
+    }
+
     // show AST
     if (show_ast) ast->print_tree(0);
 

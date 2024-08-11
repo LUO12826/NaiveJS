@@ -34,6 +34,13 @@ struct ParsingError {
   std::string message;
   SourceLoc start;
   SourceLoc end;
+
+  void describe() {
+    printf("At line %u: %s: %s\n",
+           start.line,
+           to_u8string(native_error_name[error_type]).c_str(),
+           message.c_str());
+  }
 };
 
 class Parser {
@@ -155,7 +162,14 @@ error:
       name = lexer.current();
       if (is_stmt) {
         bool res = scope().define_symbol(VarKind::FUNCTION, name.text);
-        if (!res) std::cout << "!!!!define symbol " << name.get_text_utf8() << " failed" << '\n';
+        if (!res) {
+          report_error(ParsingError {
+              .error_type = JS_SYNTAX_ERROR,
+              .message = "Identifier '" + name.get_text_utf8() + "' has already been declared",
+              .start = name.get_src_start(),
+              .end = name.get_src_end()
+          });
+        }
       }
       lexer.next();
     }
@@ -170,7 +184,14 @@ error:
     // allow function expression to be able to self-reference using its *name*.
     if (!is_stmt && name.is_identifier()) {
       bool res = scope().define_symbol(VarKind::FUNCTION, name.text);
-      if (!res) std::cout << "!!!!define symbol " << name.get_text_utf8() << " failed" << '\n';
+      if (!res) {
+        report_error(ParsingError {
+            .error_type = JS_SYNTAX_ERROR,
+            .message = "Identifier '" + name.get_text_utf8() + "' has already been declared",
+            .start = name.get_src_start(),
+            .end = name.get_src_end()
+        });
+      }
     }
 
     if (!parse_formal_parameter_list(params)) {
@@ -778,7 +799,14 @@ error:
 
     if (kind == VarKind::VAR) {
       bool res = scope().define_symbol(kind, id.text);
-      if (!res) std::cout << "!!!!define symbol " << id.get_text_utf8() << " failed" << '\n';
+      if (!res) {
+        report_error(ParsingError {
+            .error_type = JS_SYNTAX_ERROR,
+            .message = "Identifier '" + id.get_text_utf8() + "' has already been declared",
+            .start = id.get_src_start(),
+            .end = id.get_src_end()
+        });
+      }
     }
 
     if (lexer.peek().type != TokenType::ASSIGN) {
@@ -1339,11 +1367,10 @@ error:
       if (rit == id.text) {
         report_error(ParsingError {
             .error_type = JS_SYNTAX_ERROR,
-            .message = "Label '" + to_u8string(id.text) + "' has already been declared",
+            .message = "Label '" + id.get_text_utf8() + "' has already been declared",
             .start = start,
             .end = lexer.current_src_pos()
         });
-        printf("SyntaxError: Label '%s' has already been declared\n", to_u8string(id.text).c_str());
         break;
       }
     }
@@ -1356,6 +1383,8 @@ error:
     // `stmt` maybe illegal.
     return stmt;
   }
+
+  const SmallVector<ParsingError, 10>& get_errors() { return errors; }
 
  private:
 
@@ -1408,6 +1437,7 @@ error:
   }
 
   void report_error(ParsingError err) {
+    err.describe();
     errors.push_back(std::move(err));
   }
 

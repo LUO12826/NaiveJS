@@ -214,13 +214,11 @@ inline u16string double_to_u16string(double n) {
 }
 
 inline double parse_double(u16string_view str) {
-
-  auto start = std::find_if_not(str.begin(), str.end(), [](char16_t ch) {
+  auto predicate = [] (char16_t ch) {
     return character::is_white_space(ch) || character::is_line_terminator(ch);
-  });
-  auto end = std::find_if_not(str.rbegin(), str.rend(), [](char16_t ch) {
-               return character::is_white_space(ch) || character::is_line_terminator(ch);
-             }).base();
+  };
+  auto start = std::find_if_not(str.begin(), str.end(), predicate);
+  auto end = std::find_if_not(str.rbegin(), str.rend(), predicate).base();
 
   if (start >= end) {
     return 0;
@@ -252,13 +250,11 @@ inline double parse_double(u16string_view str) {
 }
 
 inline double parse_int(u16string_view str) {
-
-  auto start = std::find_if_not(str.begin(), str.end(), [](char16_t ch) {
+  auto predicate = [] (char16_t ch) {
     return character::is_white_space(ch) || character::is_line_terminator(ch);
-  });
-  auto end = std::find_if_not(str.rbegin(), str.rend(), [](char16_t ch) {
-               return character::is_white_space(ch) || character::is_line_terminator(ch);
-             }).base();
+  };
+  auto start = std::find_if_not(str.begin(), str.end(), predicate);
+  auto end = std::find_if_not(str.rbegin(), str.rend(), predicate).base();
 
   if (start >= end) {
     return NAN;
