@@ -31,7 +31,7 @@ class JSFunctionPrototype : public JSObject {
     if (args.empty()) [[unlikely]] {
       return vm.call_internal(This, undefined, undefined, args, flags);
     } else {
-      return vm.call_internal(This, args[0], undefined, args.subarray(1), flags);
+      return vm.call_internal(This, args[0], undefined, args.subspan(1), flags);
     }
   }
 
@@ -42,7 +42,7 @@ class JSFunctionPrototype : public JSObject {
     }
     auto *bound_func = vm.heap.new_object<JSBoundFunction>(vm, This);
     assert(args.size() > 0); // TODO
-    bound_func->set_args(vm, args.subarray(1));
+    bound_func->set_args(vm, args.subspan(1));
 
     if (This.as_object->is_direct_function()) [[likely]] {
       bound_func->set_this(vm, args[0]);
@@ -67,7 +67,7 @@ class JSFunctionPrototype : public JSObject {
     if (args.empty()) [[unlikely]] {
       return vm.call_internal(This, undefined, undefined, args, flags);
     } else if (args.size() == 1) [[unlikely]] {
-      return vm.call_internal(This, args[0], undefined, args.subarray(1), flags);
+      return vm.call_internal(This, args[0], undefined, args.subspan(1), flags);
     } else {
       if (not args[1].is_object()) [[unlikely]] {
         return vm.throw_error(JS_TYPE_ERROR, u"CreateListFromArrayLike called on non-object");

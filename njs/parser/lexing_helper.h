@@ -5,6 +5,7 @@
 #include <string>
 #include <optional>
 #include <cmath>
+#include "njs/common/Defer.h"
 #include "njs/parser/character.h"
 
 namespace njs {
@@ -228,31 +229,104 @@ inline bool scan_unicode_escape_sequence(const char16_t *str, u32 str_len,
   return true;
 }
 
-// TODO: fix json string scanning rules
-inline optional<u16string> scan_json_string_literal(const char16_t *str, u32 str_len, u32& cursor) {
+inline void skip_line_terminators(const char16_t *str,
+                                  u32 str_len,
+                                  u32& cursor,
+                                  u32& curr_line,
+                                  u32& curr_line_start) {
   u32 pos = cursor;
+  defer {
+    cursor = pos;
+  };
+  char16_t ch = str[pos];
+
+  assert(character::is_line_terminator(ch));
+  if (ch == character::LF) [[likely]] {
+    NEXT_CHAR
+  } else if (ch == character::CR && (pos + 1 < str_len) && str[pos + 1] == character::LF) {
+    NEXT_CHAR
+    NEXT_CHAR
+  }
+  curr_line += 1;
+  curr_line_start = pos;
+}
+
+inline optional<u16string> scan_string_literal(const char16_t *str,
+                                               u32 str_len,
+                                               u32& cursor,
+                                               u32& curr_line,
+                                               u32& curr_line_start) {
+  u32 pos = cursor;
+  defer {
+    cursor = pos;
+  };
   char16_t ch = str[pos];
   char16_t quote = ch;
-
-  u16string tmp;
+  std::u16string tmp;
   NEXT_CHAR
-  while(pos != str_len && ch != quote && !character::is_line_terminator(ch)) {
 
-    if (ch == u'\\') {
+  while(pos != str_len && ch != quote && !character::is_line_terminator(ch)) {
+    if (ch == u'\\') [[unlikely]] {
       NEXT_CHAR
       switch (ch) {
-        case u'u': {  // unicode escape sequence
-          bool suc = scan_unicode_escape_sequence(str, str_len, pos, tmp);
+        case u'0': {
+          NEXT_CHAR
+          // TODO: disable octal escape sequence when in strict mode
+          if (character::is_octal_digit(ch)) {
+            u32 oct_value = ch - '0';
+            NEXT_CHAR
+            if (character::is_octal_digit(ch)) {
+              oct_value = oct_value << 3 | (ch - '0');
+              NEXT_CHAR
+            }
+            tmp += (char16_t)oct_value;
+          } else {
+            tmp += u'\0';
+          }
+          break;
+        }
+        case u'x': {  // HexEscapeSequence
+          NEXT_CHAR
+          char16_t c = 0;
+          for (u32 i = 0; i < 2; i++) {
+            if (!character::is_hex_digit(ch)) {
+              goto error;
+            }
+            c = c << 4 | character::u16_char_to_digit(ch);
+            NEXT_CHAR
+          }
+          tmp += c;
+          break;
+        }
+        case u'u': {  // UnicodeEscapeSequence
+          if (!scan_unicode_escape_sequence(str, str_len, pos, tmp)) {
+            goto error;
+          }
           UPDATE_CHAR
-          if (!suc) goto error;
           break;
         }
         default:
-          if (character::is_char_escape_sequence(ch)) {
+          if (character::is_octal_digit(ch)) {
+            u32 oct_value = ch - '0';
+            NEXT_CHAR
+            if (character::is_octal_digit(ch)) {
+              oct_value = oct_value << 3 | (ch - '0');
+              NEXT_CHAR
+              if (oct_value < 32 && character::is_octal_digit(ch)) {
+                oct_value = oct_value << 3 | (ch - '0');
+                NEXT_CHAR
+              }
+            }
+            tmp += (char16_t)oct_value;
+          } else if (character::is_char_escape_sequence(ch)) {
             tmp += escape_to_real_char(ch);
             NEXT_CHAR
+          } else if (character::is_line_terminator(ch)) {
+            skip_line_terminators(str, str_len, pos, curr_line, curr_line_start);
+            UPDATE_CHAR
           } else {
-            assert(false);
+            tmp += ch;
+            NEXT_CHAR
           }
       }
     }
@@ -260,15 +334,12 @@ inline optional<u16string> scan_json_string_literal(const char16_t *str, u32 str
       tmp += ch;
       NEXT_CHAR
     }
-
   }
 
   if (ch == quote) {
     NEXT_CHAR
     return tmp;
   }
-  return std::nullopt;
-  
 error:
   NEXT_CHAR
   return std::nullopt;

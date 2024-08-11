@@ -25,7 +25,7 @@ using llvm::SmallVector;
 class Lexer {
  public:
   
-  explicit Lexer(const u16string& source): source(source), cursor(0),
+  explicit Lexer(u16string_view source): source(source), cursor(0),
                                            ch(source[0]), length(source.size()) {}
 
   Lexer(const Lexer&) = delete;
@@ -482,7 +482,7 @@ class Lexer {
       while (character::legal_identifier_char(ch)) {
         if (ch == u'\\') {
           next_char();
-          if (!skip_unicode_escape_sequence(flag)) {
+          if (!scan_unicode_escape_sequence(flag)) {
             next_char();
             return false;
           }
@@ -581,8 +581,9 @@ error:
   }
 
   void update_char() {
-    if (cursor < length) ch = source[cursor];
-    else {
+    if (cursor < length) {
+      ch = source[cursor];
+    } else {
       cursor = length;
       ch = character::EOS;
     }
@@ -682,69 +683,16 @@ error:
   }
 
   Token scan_string_literal() {
-    char16_t quote = ch;
     u32 start = cursor;
-    std::u16string tmp;
-    next_char();
-    while(cursor != source.size() && ch != quote && !character::is_line_terminator(ch)) {
-      if (ch == u'\\') [[unlikely]] {
-        next_char();
-        switch (ch) {
-          case u'0': {
-            tmp += u'\0';
-            next_char();
-            if (character::is_decimal_digit(ch)) {
-              // TODO: this may be valid in some higher versions of JS
-              goto error;
-            }
-            break;
-          }
-          case u'x': {  // HexEscapeSequence
-            next_char();
-            char16_t c = 0;
-            for (u32 i = 0; i < 2; i++) {
-              if (!character::is_hex_digit(ch)) {
-                goto error;
-              }
-              c = c << 4 | character::u16_char_to_digit(ch);
-              next_char();
-            }
-            tmp += c;
-            break;
-          }
-          case u'u': {  // UnicodeEscapeSequence
-            // TODO: convert to unicode
-            if (!skip_unicode_escape_sequence(tmp)) {
-              goto error;
-            }
-            break;
-          }
-          default:
-            if (character::is_line_terminator(ch)) {
-              skip_line_terminators();
-            } else if (character::is_char_escape_sequence(ch)) {
-              tmp += escape_to_real_char(ch);
-              next_char();
-            } else {
-              goto error;
-            }
-        }
-      }
-      else {
-        tmp += ch;
-        next_char();
-      }
-    }
+    auto res = njs::scan_string_literal(source.data(), length, cursor, curr_line, curr_line_start);
+    update_char();
 
-    if (ch == quote) {
-      next_char();
-      string_val = std::move(tmp);
+    if (res.has_value()) {
+      string_val = std::move(res.value());
       return token_with_type(TokenType::STRING, start);
+    } else {
+      return token_with_type(TokenType::ILLEGAL, start);
     }
-    return token_with_type(TokenType::ILLEGAL, start);
-error:
-    next_char();
-    return token_with_type(TokenType::ILLEGAL, start);
   }
 
 
@@ -763,7 +711,7 @@ error:
     }
   }
 
-  bool skip_unicode_escape_sequence(std::u16string& str) {
+  bool scan_unicode_escape_sequence(std::u16string& str) {
     if (ch != u'u') {
       return false;
     }
@@ -786,7 +734,7 @@ error:
     std::u16string id_text;
     if (ch == u'\\') {
       next_char();
-      if (!skip_unicode_escape_sequence(id_text)) {
+      if (!scan_unicode_escape_sequence(id_text)) {
         next_char();
         goto error;
       }
@@ -798,7 +746,7 @@ error:
     while (character::legal_identifier_char(ch)) {
       if (ch == u'\\') {
         next_char();
-        if (!skip_unicode_escape_sequence(id_text)) {
+        if (!scan_unicode_escape_sequence(id_text)) {
           next_char();
           goto error;
         }
@@ -855,7 +803,7 @@ error:
     RIGHT,
   };
 
-  const std::u16string& source;
+  u16string_view source;
 
   u32 cursor;
   char16_t ch;

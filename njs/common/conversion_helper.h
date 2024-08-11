@@ -190,6 +190,7 @@ inline int print_double_string(double val, char *str) {
   return length;
 }
 
+// for json stringify
 inline int print_double_u16string(double val, char16_t *str) {
   char output_buffer[40] = {0};
   int length = print_double_string(val, output_buffer);
@@ -212,7 +213,7 @@ inline u16string double_to_u16string(double n) {
   return u16string(u16buf);
 }
 
-inline double u16string_to_double(u16string_view str) {
+inline double parse_double(u16string_view str) {
 
   auto start = std::find_if_not(str.begin(), str.end(), [](char16_t ch) {
     return character::is_white_space(ch) || character::is_line_terminator(ch);

@@ -52,6 +52,10 @@ inline bool is_decimal_digit(char16_t c) {
   return c >= u'0' && c <= u'9';
 }
 
+inline bool is_octal_digit(char16_t c) {
+  return c >= u'0' && c <= u'7';
+}
+
 inline bool is_unicode_letter(char16_t c) {
   return ((1 << get_unicode_category(c)) & (Lu | Ll | Lt | Lm | Lo | Nl));
 }

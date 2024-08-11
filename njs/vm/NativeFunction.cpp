@@ -167,7 +167,7 @@ Completion NativeFunction::isFinite(vm_func_This_args_flags) {
 Completion NativeFunction::parseFloat(vm_func_This_args_flags) {
   if (args.empty()) return JSValue(NAN);
   PrimitiveString *str = TRYCC(js_to_string(vm, args[0])).as_prim_string;
-  double val = u16string_to_double(str->view());
+  double val = parse_double(str->view());
 
   return JSValue(val);
 }

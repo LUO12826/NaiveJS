@@ -74,8 +74,9 @@ Completion NativeFunction::RegExp_ctor(vm_func_This_args_flags) {
 
 
 Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
+  NOGC;
   // call with `new`
-  if (flags.this_is_new_target && This.as_func != nullptr) {
+  if (flags.this_is_new_target) {
     auto num_arg = args.size();
     auto *date = vm.heap.new_object<JSDate>(vm);
 
@@ -86,11 +87,7 @@ Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
       JSValue arg = args[0];
       if (arg.is_float64()) {
         date->timestamp = arg.as_f64;
-      }
-      else if (arg.is_object()) {
-        date->timestamp = arg.as_Object<JSDate>()->timestamp;
-      }
-      else {
+      } else {
         JSValue ts_str = TRYCC(js_to_string(vm, arg));
         date->parse_date_str(ts_str.as_prim_string->view());
       }
@@ -145,7 +142,7 @@ Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArgRef args, JSErrorTy
 }
 
 Completion NativeFunction::Symbol(vm_func_This_args_flags) {
-  if (flags.this_is_new_target && !This.is_undefined()) {
+  if (flags.this_is_new_target) {
     return vm.throw_error(JS_TYPE_ERROR, u"Symbol() is not a constructor.");
   }
 

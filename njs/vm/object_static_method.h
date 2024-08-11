@@ -34,7 +34,7 @@ inline Completion Object_hasOwn(vm_func_This_args_flags) {
   if (not args[0].is_object()) {
     return vm.throw_error(JS_TYPE_ERROR, u"Object.hasOwn called on non-object");
   }
-  return JSObjectPrototype::hasOwnProperty(vm, func, args[0], args.subarray(1, 1), flags);
+  return JSObjectPrototype::hasOwnProperty(vm, func, args[0], args.subspan(1, 1), flags);
 }
 
 inline ErrorOr<JSObject *> check_argument_and_get_object(NjsVM& vm, Span<JSValue> args) {

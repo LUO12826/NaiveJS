@@ -269,7 +269,7 @@ friend class JSPromisePrototype;
                                          u"Chaining cycle detected for promise #<Promise>");
             vm.call_internal(next_reject, undefined, undefined, {&err, 1}, CallFlags());
           } else {
-            TRYCC(vm.call_function(maybe_then, ret, undefined, args.subarray(2, 2)));
+            TRYCC(vm.call_function(maybe_then, ret, undefined, args.subspan(2, 2)));
           }
         } else {
           // the return value of the callback is not a promise like

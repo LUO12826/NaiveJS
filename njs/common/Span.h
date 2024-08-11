@@ -31,14 +31,14 @@ class Span {
 
   T* data() { return start; }
 
-  Span subarray(size_t begin) {
+  Span subspan(size_t begin) {
     if (begin >= length) [[unlikely]] {
       return Span(start + begin, 0);
     }
     return Span(start + begin, length - begin);
   }
 
-  Span subarray(size_t begin, size_t len) {
+  Span subspan(size_t begin, size_t len) {
     if (begin >= length) [[unlikely]] {
       return Span(start + begin, 0);
     }

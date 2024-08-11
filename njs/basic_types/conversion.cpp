@@ -181,7 +181,7 @@ ErrorOr<double> js_to_number(NjsVM &vm, JSValue val) {
     case JSValue::SYMBOL:
       return vm.build_error(JS_TYPE_ERROR, u"TypeError");
     case JSValue::STRING:
-      return u16string_to_double(val.as_prim_string->view());
+      return parse_double(val.as_prim_string->view());
     default:
       if (val.is_object()) {
         JSValue prim = TRY_ERR(val.as_object->to_primitive(vm, HINT_NUMBER));
