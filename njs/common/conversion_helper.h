@@ -172,36 +172,25 @@ inline u16string to_escaped_u16string(u16string_view str_view) {
   return escaped;
 }
 
-inline int print_double_string(double val, char *str) {
-  double test_val;
-  int length;
-
-  if (std::isnan(val) || std::isinf(val)) { length = sprintf(str, "null"); }
-  else {
-    /* Try 15 decimal places of precision to avoid nonsignificant nonzero digits */
-    length = sprintf(str, "%1.15g", val);
-    /* Check whether the original double can be recovered */
-    if ((sscanf(str, "%lg", &test_val) != 1) || !approximately_equal(test_val, val)) {
-      /* If not, print with 17 decimal places of precision */
-      length = sprintf(str, "%1.17g", val);
-    }
-  }
-
-  return length;
+inline void print_double_string(double n, char *str) {
+  js_dtoa(str, n, 10, 0, JS_DTOA_VAR_FORMAT);
 }
 
 // for json stringify
-inline int print_double_u16string(double val, char16_t *str) {
-  char output_buffer[40] = {0};
-  int length = print_double_string(val, output_buffer);
-  // Convert to utf16 string
-  for (int i = 0; i < length; i++) {
-    *str = output_buffer[i];
-    str += 1;
-  }
-  *str = 0;
+inline void print_double_u16string(double n, char16_t *str) {
+  char buf[JS_DTOA_BUF_SIZE];
+  js_dtoa(buf, n, 10, 0, JS_DTOA_VAR_FORMAT);
+  u8_to_u16_buffer(buf, str);
+}
 
-  return length;
+inline void json_double_u16string(double n, char16_t *str) {
+  char buf[JS_DTOA_BUF_SIZE];
+  if (std::isnan(n) || std::isinf(n)) [[unlikely]] {
+    sprintf(buf, "null");
+  } else {
+    js_dtoa(buf, n, 10, 0, JS_DTOA_VAR_FORMAT);
+  }
+  u8_to_u16_buffer(buf, str);
 }
 
 inline u16string double_to_u16string(double n) {

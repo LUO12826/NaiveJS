@@ -9,7 +9,7 @@ namespace njs {
 
 struct JSHeapValue: public GCObject {
   explicit JSHeapValue(NjsVM& vm, JSValue val): wrapped_val(val) {
-    WRITE_BARRIER(val);
+    gc_write_barrier(val);
   }
 
   bool gc_scan_children(njs::GCHeap &heap) override {

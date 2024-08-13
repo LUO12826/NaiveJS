@@ -18,7 +18,7 @@ class JSErrorPrototype : public JSObject {
     return u"ErrorPrototype";
   }
 
-  static Completion toString(JS_NATIVE_FUNC_PARAMS);
+  static Completion toString(vm_func_This_args_flags);
 };
 
 }

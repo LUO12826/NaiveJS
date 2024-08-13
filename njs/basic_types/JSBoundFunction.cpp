@@ -9,12 +9,12 @@ namespace njs {
 using llvm::SmallVector;
 
 JSBoundFunction::JSBoundFunction(NjsVM& vm, JSValue function) : JSObject(CLS_BOUND_FUNCTION) {
-  WRITE_BARRIER(function);
+  gc_write_barrier(function);
   func = function;
 }
 
 void JSBoundFunction::set_this(NjsVM& vm, JSValue This) {
-  WRITE_BARRIER(This);
+  gc_write_barrier(This);
   bound_this = This;
 }
 
@@ -72,7 +72,7 @@ void JSBoundFunction::set_args(NjsVM& vm, Span<JSValue> argv) {
   this->args.reserve(argv.size());
   for (size_t i = 0; i < argv.size(); i++) {
     this->args.push_back(argv[i]);
-    WRITE_BARRIER(argv[i]);
+    gc_write_barrier(argv[i]);
   }
 }
 

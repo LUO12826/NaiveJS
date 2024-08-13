@@ -13,7 +13,7 @@ class JSString : public JSObject {
   JSString(NjsVM& vm, PrimitiveString *str) :
       JSObject(vm, CLS_STRING, vm.string_prototype),
       value(str) {
-    WRITE_BARRIER(value);
+    gc_write_barrier(value);
   }
 
   u16string_view get_class_name() override {

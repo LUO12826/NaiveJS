@@ -22,7 +22,6 @@ struct CallFlags {
   int magic : 27;
 };
 
-#define JS_NATIVE_FUNC_PARAMS NjsVM& vm, JSValueRef func, JSValueRef This, Span<JSValue> args, CallFlags flags
 #define vm_func_This_args_flags NjsVM& vm, JSValueRef func, JSValueRef This, Span<JSValue> args, CallFlags flags
 #define JS_NATIVE_FUNC_ARGS vm, func, This, args, flags
 

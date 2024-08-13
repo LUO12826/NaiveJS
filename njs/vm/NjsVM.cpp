@@ -44,7 +44,7 @@
         _temp_result.get_value();                                                             \
     })
 
-#define VM_WRITE_BARRIER(obj, field) heap.write_barrier(obj, field)
+#define vm_write_barrier(obj, field) heap.write_barrier(obj, field)
 
 // required by libregexp
 BOOL lre_check_stack_overflow(void *opaque, size_t alloca_size) {
@@ -800,7 +800,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         for (auto& [var_scope, var_idx] : sp[0].as_func->meta->capture_list) {
           if (var_scope == ScopeType::CLOSURE) [[unlikely]] {
             JSValue& closure_val = this_func->get_captured_var()[var_idx];
-            VM_WRITE_BARRIER(sp[0].as_func->captured_var.as_heap_array, closure_val);
+            vm_write_barrier(sp[0].as_func->captured_var.as_heap_array, closure_val);
             sp[0].as_func->get_captured_var()[i] = closure_val;
           }
           else {
@@ -818,7 +818,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
             if (stack_val->tag != JSValue::HEAP_VAL) {
               stack_val->move_to_heap(*this);
             }
-            VM_WRITE_BARRIER(sp[0].as_func->captured_var.as_heap_array, *stack_val);
+            vm_write_barrier(sp[0].as_func->captured_var.as_heap_array, *stack_val);
             sp[0].as_func->get_captured_var()[i] = *stack_val;
           }
           i += 1;
@@ -1479,7 +1479,7 @@ void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
   // if a function is an arrow function, it captures the `this` value in the environment
   // where the function is created.
   if (func->is_arrow_func) {
-    VM_WRITE_BARRIER(func, env_this);
+    vm_write_barrier(func, env_this);
     func->this_or_auxiliary_data = env_this;
   }
 

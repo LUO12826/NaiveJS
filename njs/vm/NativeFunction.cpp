@@ -2,6 +2,7 @@
 
 #include <random>
 #include "NjsVM.h"
+#include "JSONParser.h"
 #include "njs/basic_types/conversion.h"
 #include "njs/include/httplib.h"
 
@@ -139,6 +140,17 @@ Completion NativeFunction::fetch(vm_func_This_args_flags) {
   }, std::move(url));
 
   return undefined;
+}
+
+Completion NativeFunction::json_parse(vm_func_This_args_flags) {
+  JSValue arg;
+  if (!args.empty()) [[likely]] {
+    arg = args[0];
+  }
+  JSValue arg_str = TRYCC(js_to_string(vm, arg));
+  u16string json_str(arg_str.as_prim_string->view());
+
+  return JSONParser(vm, json_str).parse();
 }
 
 Completion NativeFunction::json_stringify(vm_func_This_args_flags) {

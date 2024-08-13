@@ -187,6 +187,7 @@ void NjsVM::setup() {
   {
     JSObject *obj = add_builtin_object(u"JSON");
     obj->add_method(*this, u"stringify", NativeFunction::json_stringify);
+    obj->add_method(*this, u"parse", NativeFunction::json_parse);
   }
 
   add_builtin_global_var(u"undefined", JSValue());

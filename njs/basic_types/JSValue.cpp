@@ -69,8 +69,8 @@ std::string JSValue::to_string(NjsVM& vm) const {
       break;
     case NUM_FLOAT: {
       char num_buf[40];
-      int len = print_double_string(as_f64, num_buf);
-      output += std::string_view(num_buf, len);
+      print_double_string(as_f64, num_buf);
+      output += num_buf;
       break;
     }
     case HEAP_VAL:
@@ -99,8 +99,8 @@ void JSValue::to_json(u16string& output, NjsVM& vm) const {
   switch (tag) {
     case NUM_FLOAT: {
       char16_t num_buf[40];
-      int len = print_double_u16string(as_f64, num_buf);
-      output += u16string_view(num_buf, len);
+      json_double_u16string(as_f64, num_buf);
+      output += num_buf;
       break;
     }
     case BOOLEAN:

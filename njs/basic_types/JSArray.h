@@ -148,7 +148,7 @@ class JSArray: public JSObject {
       }
       set_length(index + 1);
     }
-    WRITE_BARRIER(val);
+    gc_write_barrier(val);
     dense_array[index] = val;
   }
 
@@ -178,7 +178,7 @@ class JSArray: public JSObject {
 
   size_t push(NjsVM& vm, JSValue value) {
 //    set_referenced(value);
-    WRITE_BARRIER(value);
+    gc_write_barrier(value);
     dense_array.push_back(value);
     update_length();
     return dense_array.size();
@@ -187,7 +187,7 @@ class JSArray: public JSObject {
   size_t push(NjsVM& vm, Span<JSValue> values) {
     for (size_t i = 0; i < values.size(); i++) {
 //      set_referenced(values[i]);
-      WRITE_BARRIER(values[i]);
+      gc_write_barrier(values[i]);
       dense_array.push_back(values[i]);
     }
     update_length();

@@ -29,7 +29,7 @@ class JSArrayIterator : public JSObject {
   JSArrayIterator(NjsVM& vm, JSValue array, JSIteratorKind kind)
     : JSObject(vm, CLS_ARRAY_ITERATOR, vm.iterator_prototype)
     , array(array), kind(kind) {
-    WRITE_BARRIER(array);
+    gc_write_barrier(array);
     add_method(vm, u"next", JSArrayIterator::iter_next);
   }
 

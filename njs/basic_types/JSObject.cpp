@@ -110,7 +110,7 @@ bool JSObject::set_proto(NjsVM& vm, JSValue proto) {
     if (p == this) return false;
     p = p->get_proto().as_object_or_null();
   }
-  WRITE_BARRIER(proto);
+  gc_write_barrier(proto);
 //  set_referenced(proto);
   _proto_ = proto;
   return true;
@@ -128,12 +128,12 @@ ErrorOr<bool> JSObject::define_own_property_impl(NjsVM& vm, JSValue key, JSPropD
     bool has_getter = desc.flag.has_getter;
     target.flag.has_getter = has_getter;
     target.data.getset.getter = has_getter ? desc.data.getset.getter : undefined;
-    WRITE_BARRIER(target.data.getset.getter);
+    gc_write_barrier(target.data.getset.getter);
 
     bool has_setter = desc.flag.has_setter;
     target.flag.has_setter = has_setter;
     target.data.getset.setter = has_setter ? desc.data.getset.setter : undefined;
-    WRITE_BARRIER(target.data.getset.setter);
+    gc_write_barrier(target.data.getset.setter);
   };
 
   if (curr_desc == nullptr) [[likely]] {
@@ -144,7 +144,7 @@ ErrorOr<bool> JSObject::define_own_property_impl(NjsVM& vm, JSValue key, JSPropD
     if (desc.is_data_descriptor() || desc.is_generic_descriptor()) {
       new_desc.flag.has_value = true;
       new_desc.data.value = desc.flag.has_value ? desc.data.value : undefined;
-      WRITE_BARRIER(new_desc.data.value);
+      gc_write_barrier(new_desc.data.value);
       new_desc.flag.writable = desc.flag.has_write & desc.flag.writable;
     }
     else { // desc must be an accessor Property Descriptor
@@ -181,7 +181,7 @@ ErrorOr<bool> JSObject::define_own_property_impl(NjsVM& vm, JSValue key, JSPropD
         curr_desc->flag.has_getter = false;
         curr_desc->flag.has_setter = false;
         curr_desc->data.value = desc.flag.has_value ? desc.data.value : undefined;
-        WRITE_BARRIER(curr_desc->data.value);
+        gc_write_barrier(curr_desc->data.value);
         curr_desc->flag.writable = desc.flag.has_write & desc.flag.writable;
       }
       if (desc.flag.has_enum) curr_desc->flag.enumerable = desc.flag.enumerable;
@@ -201,7 +201,7 @@ ErrorOr<bool> JSObject::define_own_property_impl(NjsVM& vm, JSValue key, JSPropD
       if (desc.flag.has_value) {
         curr_desc->flag.has_value = true;
         curr_desc->data.value = desc.data.value;
-        WRITE_BARRIER(desc.data.value);
+        gc_write_barrier(desc.data.value);
       }
     } else if (curr_desc->is_accessor_descriptor()) {
       if (not curr_desc->flag.configurable) {
@@ -217,12 +217,12 @@ ErrorOr<bool> JSObject::define_own_property_impl(NjsVM& vm, JSValue key, JSPropD
       if (desc.flag.has_getter) {
         curr_desc->flag.has_getter = true;
         curr_desc->data.getset.getter = desc.data.getset.getter;
-        WRITE_BARRIER(curr_desc->data.getset.getter);
+        gc_write_barrier(curr_desc->data.getset.getter);
       }
       if (desc.flag.has_setter) {
         curr_desc->flag.has_setter = true;
         curr_desc->data.getset.setter = desc.data.getset.setter;
-        WRITE_BARRIER(curr_desc->data.getset.setter);
+        gc_write_barrier(curr_desc->data.getset.setter);
       }
     }
     // For each field of Desc that is present,
@@ -261,7 +261,7 @@ ErrorOr<bool> JSObject::set_prop(NjsVM& vm, JSValue key, JSValue value) {
       // return define_own_property_impl(key, existing_desc, desc);
       existing_desc->flag.lazy_kind = NOT_LAZY;
       existing_desc->data.value = value;
-      WRITE_BARRIER(value);
+      gc_write_barrier(value);
       return true;
     }
     // 2.e
@@ -298,7 +298,7 @@ bool JSObject::add_prop_trivial(NjsVM& vm, u32 key_atom, JSValue value, PFlag fl
 
 bool JSObject::add_prop_trivial(NjsVM& vm, JSValue key, JSValue value, PFlag flag) {
 //  set_referenced(value);
-  WRITE_BARRIER(value);
+  gc_write_barrier(value);
   JSPropDesc& prop = storage[JSObjectKey(key)];
   prop.flag = flag;
   prop.data.value = value;
@@ -343,7 +343,7 @@ Completion JSObject::get_prop(NjsVM& vm, JSValue key) {
         JSValue val(new_prototype);
         new_prototype->add_prop_trivial(vm, AtomPool::k_constructor, JSValue(this));
 
-        WRITE_BARRIER(val);
+        gc_write_barrier(val);
         prop->data.value = val;
         prop->flag.lazy_kind = NOT_LAZY;
         return val;

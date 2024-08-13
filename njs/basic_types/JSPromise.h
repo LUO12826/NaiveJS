@@ -314,7 +314,7 @@ friend class JSPromisePrototype;
     if (state != PENDING) return;
     state = s;
     result = data;
-    WRITE_BARRIER(result);
+    gc_write_barrier(result);
     process_then(vm);
   }
 
@@ -444,10 +444,10 @@ friend class JSPromisePrototype;
   void put_then_record(NjsVM& vm, JSValueRef on_fulfilled, JSValueRef on_rejected,
                        JSValueRef next_resolve, JSValueRef next_reject, bool then_relay) {
     if (not vm.heap.object_in_newgen(this)) {
-      WRITE_BARRIER(on_fulfilled);
-      WRITE_BARRIER(on_rejected);
-      WRITE_BARRIER(next_resolve);
-      WRITE_BARRIER(next_reject);
+      gc_write_barrier(on_fulfilled);
+      gc_write_barrier(on_rejected);
+      gc_write_barrier(next_resolve);
+      gc_write_barrier(next_reject);
     }
     if (not then_record_using_inline && then_records.empty()) {
       then_record_using_inline = true;
