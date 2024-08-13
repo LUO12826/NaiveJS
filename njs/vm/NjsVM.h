@@ -119,6 +119,7 @@ friend struct GCHandleCollector;
   JSValue new_primitive_string(u16string_view str);
   JSValue new_primitive_string(const char16_t *str);
   JSValue new_primitive_string(char16_t str);
+  JSValue new_primitive_string_ref(u16string_view str);
 
   void push_temp_root(JSValue& val) {
     if (val.needs_gc()) {

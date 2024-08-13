@@ -192,12 +192,13 @@ friend class GCHeap;
     return view()[index];
   }
 
-  // after c++20: can use operator <=> here
   bool operator==(const PrimitiveString& other) const {
+    if (this == &other) return true;
     return view() == other.view();
   }
 
   bool operator!=(const PrimitiveString& other) const {
+    if (this == &other) return false;
     return view() != other.view();
   }
 

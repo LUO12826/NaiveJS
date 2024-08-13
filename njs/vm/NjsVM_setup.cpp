@@ -198,17 +198,17 @@ void NjsVM::setup() {
   JSFunction::add_internal_function_meta(*this);
 
   string_const.resize(11);
-  string_const[AtomPool::k_] = new_primitive_string(u"");
-  string_const[AtomPool::k_undefined] = new_primitive_string(u"undefined");
-  string_const[AtomPool::k_null] = new_primitive_string(u"null");
-  string_const[AtomPool::k_true] = new_primitive_string(u"true");
-  string_const[AtomPool::k_false] = new_primitive_string(u"false");
-  string_const[AtomPool::k_number] = new_primitive_string(u"number");
-  string_const[AtomPool::k_boolean] = new_primitive_string(u"boolean");
-  string_const[AtomPool::k_string] = new_primitive_string(u"string");
-  string_const[AtomPool::k_object] = new_primitive_string(u"object");
-  string_const[AtomPool::k_symbol] = new_primitive_string(u"symbol");
-  string_const[AtomPool::k_function] = new_primitive_string(u"function");
+  string_const[AtomPool::k_] = new_primitive_string_ref(atom_to_str(AtomPool::k_));
+  string_const[AtomPool::k_undefined] = new_primitive_string_ref(atom_to_str(AtomPool::k_undefined));
+  string_const[AtomPool::k_null] = new_primitive_string_ref(atom_to_str(AtomPool::k_null));
+  string_const[AtomPool::k_true] = new_primitive_string_ref(atom_to_str(AtomPool::k_true));
+  string_const[AtomPool::k_false] = new_primitive_string_ref(atom_to_str(AtomPool::k_false));
+  string_const[AtomPool::k_number] = new_primitive_string_ref(atom_to_str(AtomPool::k_number));
+  string_const[AtomPool::k_boolean] = new_primitive_string_ref(atom_to_str(AtomPool::k_boolean));
+  string_const[AtomPool::k_string] = new_primitive_string_ref(atom_to_str(AtomPool::k_string));
+  string_const[AtomPool::k_object] = new_primitive_string_ref(atom_to_str(AtomPool::k_object));
+  string_const[AtomPool::k_symbol] = new_primitive_string_ref(atom_to_str(AtomPool::k_symbol));
+  string_const[AtomPool::k_function] = new_primitive_string_ref(atom_to_str(AtomPool::k_function));
 }
 
 JSFunction* NjsVM::add_native_func_impl(u16string_view name, NativeFuncType native_func) {

@@ -44,7 +44,7 @@ inline u16string to_u16string(int32_t value) {
     value = (u32)value / 10;
   } while (value != 0);
 
-  if (neg) { *--pos = u'-'; }
+  if (neg) *--pos = u'-';
 
   return u16string(pos, buffer + 11 - pos);
 }
@@ -60,7 +60,7 @@ inline u16string to_u16string(int64_t value) {
     value = (uint64_t)value / 10;
   } while (value != 0);
 
-  if (neg) { *--pos = u'-'; }
+  if (neg) *--pos = u'-';
 
   return u16string(pos, buffer + 20 - pos);
 }
@@ -132,7 +132,9 @@ inline u16string to_escaped_u16string(u16string_view str_view) {
 
   size_t output_ptr = 0;
   for (auto ch : str_view) {
-    if (ch > 31 && ch != '\"' && ch != '\\') { escaped[output_ptr++] = ch; }
+    if (ch > 31 && ch != '\"' && ch != '\\') {
+      escaped[output_ptr++] = ch;
+    }
     else {
       escaped[output_ptr++] = '\\';
       switch (ch) {
@@ -209,9 +211,7 @@ inline double parse_double(u16string_view str) {
   auto start = std::find_if_not(str.begin(), str.end(), predicate);
   auto end = std::find_if_not(str.rbegin(), str.rend(), predicate).base();
 
-  if (start >= end) {
-    return 0;
-  }
+  if (start >= end) return 0;
 
   bool positive = true;
 

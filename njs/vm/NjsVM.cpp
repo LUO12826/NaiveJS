@@ -165,6 +165,10 @@ JSValue NjsVM::new_primitive_string(char16_t ch) {
   return JSValue(heap.new_prim_string(&ch, 1));
 }
 
+JSValue NjsVM::new_primitive_string_ref(u16string_view str) {
+  return JSValue(heap.new_prim_string_ref(str));
+}
+
 void NjsVM::run() {
   memset(inst_counter, 0, sizeof(inst_counter));
   execute_global();
