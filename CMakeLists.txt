@@ -18,7 +18,8 @@ set(SOURCES
     njs/gc/GCHeap.cpp
     njs/parser/ast.cpp
     njs/basic_types/JSArray.cpp
-    njs/vm/NativeFunction.cpp
+    njs/vm/native.cpp
+    njs/vm/object_static_method.cpp
     njs/vm/basic_constructor.cpp
     njs/vm/JSRunLoop.cpp
     njs/basic_types/JSObjectPrototype.cpp

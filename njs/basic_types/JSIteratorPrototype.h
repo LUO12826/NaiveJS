@@ -3,7 +3,7 @@
 
 #include "JSObject.h"
 #include "njs/common/AtomPool.h"
-#include "njs/vm/NativeFunction.h"
+#include "njs/vm/native.h"
 
 namespace njs {
 

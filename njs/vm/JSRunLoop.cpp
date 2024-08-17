@@ -59,7 +59,7 @@ void JSRunLoop::loop() {
   }
 }
 
-void JSRunLoop::post_task(JSTask *task) {
+void JSRunLoop::exec_task(JSTask *task) {
   macro_queue_lock.lock();
   macro_task_queue.push_back(task);
   macro_queue_lock.unlock();
@@ -124,7 +124,7 @@ void JSRunLoop::timer_loop() {
           EV_SET(&event, task->task_id, EVFILT_TIMER, EV_DELETE, 0, 0, nullptr);
           kevent(mux_fd, &event, 1, nullptr, 0, nullptr);
         }
-        post_task(task);
+        exec_task(task);
       }
       else if (event_slot[i].filter == EVFILT_READ && event_slot[i].ident == pipe_read_fd) {
         return;
@@ -156,7 +156,7 @@ void JSRunLoop::timer_loop() {
             epoll_ctl(mux_fd, EPOLL_CTL_DEL, timer_fd, NULL);
           }
         }
-        post_task(task);
+        exec_task(task);
       }
       else {
         return;
@@ -278,7 +278,7 @@ bool JSRunLoop::remove_timer(size_t timer_id) {
   return true;
 }
 
-JSTask *JSRunLoop::add_task(JSFunction* func) {
+JSTask *JSRunLoop::register_task(JSFunction* func) {
   JSTask task {
       .task_id = task_counter++,
       .task_func = JSValue(func),
@@ -287,6 +287,20 @@ JSTask *JSRunLoop::add_task(JSFunction* func) {
 
   auto [iter, succeeded] = task_pool.emplace(task.task_id, task);
   return &iter->second;
+}
+
+void JSRunLoop::gc_gather_roots(std::vector<JSValue *>& roots) {
+  // use const reference to make CLion Nova happy
+  for (const auto& [task_id, task] : task_pool) {
+    if (not task.use_native_func) {
+      roots.push_back(const_cast<JSValue*>(&task.task_func));
+    }
+    for (auto& val : task.args) {
+      if (val.needs_gc()) {
+        roots.push_back(const_cast<JSValue*>(&val));
+      }
+    }
+  }
 }
 
 }

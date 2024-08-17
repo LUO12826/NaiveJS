@@ -1,6 +1,7 @@
 #ifndef NJS_OBJECT_STATIC_METHOD_H
 #define NJS_OBJECT_STATIC_METHOD_H
 
+#include "native.h"
 #include "njs/common/Completion.h"
 #include "njs/basic_types/JSObject.h"
 #include "njs/basic_types/JSObjectPrototype.h"
@@ -12,9 +13,10 @@
 #include "njs/utils/macros.h"
 #include "njs/common/ErrorOr.h"
 
-namespace njs {
 
-inline Completion Object_defineProperty(vm_func_This_args_flags) {
+namespace njs::native {
+
+Completion Object::defineProperty(vm_func_This_args_flags) {
   assert(args.size() >= 3);
   if (not args[0].is_object()) {
     return vm.throw_error(JS_TYPE_ERROR, u"Object.defineProperty called on non-object");
@@ -29,7 +31,7 @@ inline Completion Object_defineProperty(vm_func_This_args_flags) {
   return JSValue(succeeded);
 }
 
-inline Completion Object_hasOwn(vm_func_This_args_flags) {
+Completion Object::hasOwn(vm_func_This_args_flags) {
   assert(args.size() >= 2);
   if (not args[0].is_object()) {
     return vm.throw_error(JS_TYPE_ERROR, u"Object.hasOwn called on non-object");
@@ -51,12 +53,12 @@ inline ErrorOr<JSObject *> check_argument_and_get_object(NjsVM& vm, Span<JSValue
   return obj;
 }
 
-inline Completion Object_getPrototypeOf(vm_func_This_args_flags) {
+Completion Object::getPrototypeOf(vm_func_This_args_flags) {
   JSObject *obj = TRY_COMP(check_argument_and_get_object(vm, args));
   return obj->get_proto();
 }
 
-inline Completion Object_setPrototypeOf(vm_func_This_args_flags) {
+Completion Object::setPrototypeOf(vm_func_This_args_flags) {
   JSObject *obj = TRY_COMP(check_argument_and_get_object(vm, args));
   JSValue proto;
   if (args.size() >= 2) [[likely]] {
@@ -70,18 +72,18 @@ inline Completion Object_setPrototypeOf(vm_func_This_args_flags) {
   }
 }
 
-inline Completion Object_isExtensible(vm_func_This_args_flags) {
+Completion Object::isExtensible(vm_func_This_args_flags) {
   JSObject *obj = TRY_COMP(check_argument_and_get_object(vm, args));
   return JSValue(obj->is_extensible());
 }
 
-inline Completion Object_preventExtensions(vm_func_This_args_flags) {
+Completion Object::preventExtensions(vm_func_This_args_flags) {
   JSObject *obj = TRY_COMP(check_argument_and_get_object(vm, args));
   obj->prevent_extensions();
   return undefined;
 }
 
-inline Completion Object_create(vm_func_This_args_flags) {
+Completion Object::create(vm_func_This_args_flags) {
   JSValue arg;
   if (!args.empty()) [[likely]] {
     arg = args[0];
@@ -94,7 +96,7 @@ inline Completion Object_create(vm_func_This_args_flags) {
   }
 }
 
-inline Completion Object_assign(vm_func_This_args_flags) {
+Completion Object::assign(vm_func_This_args_flags) {
   JSValue arg1;
   if (!args.empty()) {
     arg1 = args[0];
@@ -127,5 +129,6 @@ inline Completion Object_assign(vm_func_This_args_flags) {
 }
 
 }
+
 
 #endif // NJS_OBJECT_STATIC_METHOD_H

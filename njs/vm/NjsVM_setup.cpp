@@ -1,6 +1,6 @@
 #include "NjsVM.h"
 
-#include "object_static_method.h"
+#include "native.h"
 #include "njs/common/common_def.h"
 #include "njs/basic_types/JSNumberPrototype.h"
 #include "njs/basic_types/JSBooleanPrototype.h"
@@ -64,19 +64,19 @@ void NjsVM::init_prototypes() {
 
 
 void NjsVM::setup() {
-  add_native_func_impl(u"log", NativeFunction::debug_log);
-  add_native_func_impl(u"___trap", NativeFunction::debug_trap);
-  add_native_func_impl(u"___dummy", NativeFunction::dummy);
-  add_native_func_impl(u"___test", NativeFunction::_test);
-  add_native_func_impl(u"$gc", NativeFunction::js_gc);
-  add_native_func_impl(u"setTimeout", NativeFunction::set_timeout);
-  add_native_func_impl(u"setInterval", NativeFunction::set_interval);
-  add_native_func_impl(u"clearTimeout", NativeFunction::clear_timeout);
-  add_native_func_impl(u"clearInterval", NativeFunction::clear_interval);
-  add_native_func_impl(u"fetch", NativeFunction::fetch);
-  add_native_func_impl(u"isFinite", NativeFunction::isFinite);
-  add_native_func_impl(u"parseFloat", NativeFunction::parseFloat);
-  add_native_func_impl(u"parseInt", NativeFunction::parseInt);
+  add_native_func_impl(u"log", native::misc::debug_log);
+  add_native_func_impl(u"___trap", native::misc::debug_trap);
+  add_native_func_impl(u"___dummy", native::misc::dummy);
+  add_native_func_impl(u"___test", native::misc::_test);
+  add_native_func_impl(u"$gc", native::misc::js_gc);
+  add_native_func_impl(u"setTimeout", native::misc::set_timeout);
+  add_native_func_impl(u"setInterval", native::misc::set_interval);
+  add_native_func_impl(u"clearTimeout", native::misc::clear_timeout);
+  add_native_func_impl(u"clearInterval", native::misc::clear_interval);
+  add_native_func_impl(u"fetch", native::misc::fetch);
+  add_native_func_impl(u"isFinite", native::misc::isFinite);
+  add_native_func_impl(u"parseFloat", native::misc::parseFloat);
+  add_native_func_impl(u"parseInt", native::misc::parseInt);
 
   add_error_ctor<JS_ERROR>();
   add_error_ctor<JS_EVAL_ERROR>();
@@ -89,28 +89,28 @@ void NjsVM::setup() {
   add_error_ctor<JS_AGGREGATE_ERROR>();
 
   {
-    JSFunction *func = add_native_func_impl(u"Object", NativeFunction::Object_ctor);
+    JSFunction *func = add_native_func_impl(u"Object", native::ctor::Object);
     object_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(*this, AtomPool::k_prototype, object_prototype);
-    func->add_method(*this, u"defineProperty", Object_defineProperty);
-    func->add_method(*this, u"hasOwn", Object_hasOwn);
-    func->add_method(*this, u"getPrototypeOf", Object_getPrototypeOf);
-    func->add_method(*this, u"setPrototypeOf", Object_setPrototypeOf);
-    func->add_method(*this, u"preventExtensions", Object_preventExtensions);
-    func->add_method(*this, u"isExtensible", Object_isExtensible);
-    func->add_method(*this, u"create", Object_create);
-    func->add_method(*this, u"assign", Object_assign);
+    func->add_method(*this, u"defineProperty", native::Object::defineProperty);
+    func->add_method(*this, u"hasOwn", native::Object::hasOwn);
+    func->add_method(*this, u"getPrototypeOf", native::Object::getPrototypeOf);
+    func->add_method(*this, u"setPrototypeOf", native::Object::setPrototypeOf);
+    func->add_method(*this, u"preventExtensions", native::Object::preventExtensions);
+    func->add_method(*this, u"isExtensible", native::Object::isExtensible);
+    func->add_method(*this, u"create", native::Object::create);
+    func->add_method(*this, u"assign", native::Object::assign);
   }
 
   {
-    JSFunction *func = add_native_func_impl(u"Number", NativeFunction::Number_ctor);
+    JSFunction *func = add_native_func_impl(u"Number", native::ctor::Number);
     number_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(*this, AtomPool::k_prototype, number_prototype);
-    func->add_method(*this, u"isFinite", NativeFunction::isFinite);
+    func->add_method(*this, u"isFinite", native::misc::isFinite);
   }
 
   {
-    JSFunction *func = add_native_func_impl(u"String", NativeFunction::String_ctor);
+    JSFunction *func = add_native_func_impl(u"String", native::ctor::String);
     string_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(*this, AtomPool::k_prototype, string_prototype);
     func->add_method(*this, u"fromCharCode", [] (vm_func_This_args_flags) -> Completion {
@@ -121,25 +121,25 @@ void NjsVM::setup() {
   }
 
   {
-    JSFunction *func = add_native_func_impl(u"Array", NativeFunction::Array_ctor);
+    JSFunction *func = add_native_func_impl(u"Array", native::ctor::Array);
     array_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(*this, AtomPool::k_prototype, array_prototype);
   }
 
   {
-    JSFunction *func = add_native_func_impl(u"Date", NativeFunction::Date_ctor);
+    JSFunction *func = add_native_func_impl(u"Date", native::ctor::Date);
     date_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(*this, AtomPool::k_prototype, date_prototype);
   }
 
   {
-    JSFunction *func = add_native_func_impl(u"RegExp", NativeFunction::RegExp_ctor);
+    JSFunction *func = add_native_func_impl(u"RegExp", native::ctor::RegExp);
     regexp_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(*this, AtomPool::k_prototype, regexp_prototype);
   }
 
   {
-    JSFunction *func = add_native_func_impl(u"Symbol", NativeFunction::Symbol);
+    JSFunction *func = add_native_func_impl(u"Symbol", native::ctor::Symbol);
     func->add_prop_trivial(*this, AtomPool::k_iterator, JSSymbol(AtomPool::k_sym_iterator));
     func->add_prop_trivial(*this, AtomPool::k_match, JSSymbol(AtomPool::k_sym_match));
     func->add_prop_trivial(*this, AtomPool::k_matchAll, JSSymbol(AtomPool::k_sym_matchAll));
@@ -149,19 +149,19 @@ void NjsVM::setup() {
   }
 
   {
-    JSFunction *func = add_native_func_impl(u"Function", NativeFunction::Function_ctor);
+    JSFunction *func = add_native_func_impl(u"Function", native::ctor::Function);
     function_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(*this, AtomPool::k_prototype, function_prototype);
   }
 
   {
-    JSFunction *func = add_native_func_impl(u"Promise", NativeFunction::Promise_ctor);
+    JSFunction *func = add_native_func_impl(u"Promise", native::ctor::Promise);
     promise_prototype.as_object->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
     func->add_prop_trivial(*this, AtomPool::k_prototype, promise_prototype);
   }
 
   {
-    auto *meta = build_func_meta(NativeFunction::GeneratorFunction_ctor);
+    auto *meta = build_func_meta(native::ctor::GeneratorFunction);
     func_meta.emplace_back(meta);
     auto *func = heap.new_object<JSFunction>(*this, u"GeneratorFunction", meta);
     func->set_proto(*this, function_prototype);
@@ -173,21 +173,21 @@ void NjsVM::setup() {
 
   {
     JSObject *obj = add_builtin_object(u"console");
-    obj->add_method(*this, u"log", NativeFunction::log);
+    obj->add_method(*this, u"log", native::misc::log);
   }
 
   {
     JSObject *obj = add_builtin_object(u"Math");
-    obj->add_method(*this, u"min", JSMath::min);
-    obj->add_method(*this, u"max", JSMath::max);
-    obj->add_method(*this, u"floor", JSMath::floor);
-    obj->add_method(*this, u"random", JSMath::random);
+    obj->add_method(*this, u"min", native::Math::min);
+    obj->add_method(*this, u"max", native::Math::max);
+    obj->add_method(*this, u"floor", native::Math::floor);
+    obj->add_method(*this, u"random", native::Math::random);
   }
 
   {
     JSObject *obj = add_builtin_object(u"JSON");
-    obj->add_method(*this, u"stringify", NativeFunction::json_stringify);
-    obj->add_method(*this, u"parse", NativeFunction::json_parse);
+    obj->add_method(*this, u"stringify", native::misc::json_stringify);
+    obj->add_method(*this, u"parse", native::misc::json_parse);
   }
 
   add_builtin_global_var(u"undefined", JSValue());

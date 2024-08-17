@@ -3,7 +3,7 @@
 
 #include "JSObject.h"
 #include "JSBoundFunction.h"
-#include "njs/vm/NativeFunction.h"
+#include "njs/vm/native.h"
 #include "njs/common/Completion.h"
 #include "njs/vm/NjsVM.h"
 #include "njs/common/common_def.h"

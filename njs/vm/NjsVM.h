@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "JSRunLoop.h"
-#include "NativeFunction.h"
+#include "native.h"
 #include "Instruction.h"
 #include "njs/gc/GCHeap.h"
 #include "njs/common/enums.h"
@@ -65,9 +65,12 @@ friend class JSFunctionPrototype;
 friend class JSStringPrototype;
 friend class JSErrorPrototype;
 friend class JSGeneratorPrototype;
-friend class NativeFunction;
 friend class JSArrayIterator;
 friend struct GCHandleCollector;
+friend struct native::misc;
+friend struct native::ctor;
+friend struct native::Object;
+friend struct native::Math;
 
  public:
   // These parameters are only for temporary convenience
@@ -77,22 +80,6 @@ friend struct GCHandleCollector;
   JSFunction* add_native_func_impl(u16string_view name, NativeFuncType func);
   JSObject* add_builtin_object(const u16string& name);
   void add_builtin_global_var(const u16string& name, JSValue val);
-
-  template<JSErrorType type>
-  void add_error_ctor() {
-    JSFunction *func = add_native_func_impl(
-        // name
-        native_error_name[type],
-        // function
-        [] (vm_func_This_args_flags) {
-          return NativeFunction::error_ctor_internal(vm, args, type);
-        }
-    );
-
-    native_error_protos[type].as_object
-        ->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
-    func->add_prop_trivial(*this, AtomPool::k_prototype, error_prototype);
-  }
 
   void setup();
   void run();
@@ -172,6 +159,23 @@ friend struct GCHandleCollector;
   GCHeap heap;
   
  private:
+
+  template<JSErrorType type>
+  void add_error_ctor() {
+    JSFunction *func = add_native_func_impl(
+        // name
+        native_error_name[type],
+        // function
+        [] (vm_func_This_args_flags) {
+          return native::ctor::error_ctor_internal(vm, args, type);
+        }
+    );
+
+    native_error_protos[type].as_object
+        ->add_prop_trivial(*this, AtomPool::k_constructor, JSValue(func));
+    func->add_prop_trivial(*this, AtomPool::k_prototype, error_prototype);
+  }
+
   void execute_global();
   void execute_task(JSTask& task);
   void execute_single_task(JSTask& task);

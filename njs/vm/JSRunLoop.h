@@ -43,24 +43,12 @@ class JSRunLoop {
   size_t add_timer(JSFunction* func, size_t timeout, bool repeat);
   bool remove_timer(size_t timer_id);
 
-  JSTask* add_task(JSFunction* func);
-  void post_task(JSTask *task);
+  JSTask* register_task(JSFunction* func);
+  void exec_task(JSTask *task);
 
   BS::thread_pool& get_thread_pool() { return thread_pool; }
 
-  void gc_gather_roots(std::vector<JSValue *>& roots) {
-    // use const reference to make CLion Nova happy
-    for (const auto& [task_id, task] : task_pool) {
-      if (not task.use_native_func) {
-        roots.push_back(const_cast<JSValue*>(&task.task_func));
-      }
-      for (auto& val : task.args) {
-        if (val.needs_gc()) {
-          roots.push_back(const_cast<JSValue*>(&val));
-        }
-      }
-    }
-  }
+  void gc_gather_roots(std::vector<JSValue *>& roots);
 
  private:
   void timer_loop();

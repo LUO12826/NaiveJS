@@ -1,4 +1,4 @@
-#include "NativeFunction.h"
+#include "native.h"
 #include "njs/basic_types/JSValue.h"
 #include "njs/common/AtomPool.h"
 #include "njs/utils/macros.h"
@@ -14,9 +14,9 @@
 #include "njs/common/common_def.h"
 #include "njs/basic_types/qjs_date.h"
 
-namespace njs {
+namespace njs::native {
 
-Completion NativeFunction::Object_ctor(vm_func_This_args_flags) {
+Completion ctor::Object(vm_func_This_args_flags) {
   if (args.empty() || args[0].is_nil()) {
     return JSValue(vm.new_object());
   } else {
@@ -24,7 +24,7 @@ Completion NativeFunction::Object_ctor(vm_func_This_args_flags) {
   }
 }
 
-Completion NativeFunction::Number_ctor(vm_func_This_args_flags) {
+Completion ctor::Number(vm_func_This_args_flags) {
   double num;
   if (args.empty() || args[0].is_nil()) [[unlikely]] {
     num = 0;
@@ -34,7 +34,7 @@ Completion NativeFunction::Number_ctor(vm_func_This_args_flags) {
   return JSValue(vm.heap.new_object<JSNumber>(vm, num));
 }
 
-Completion NativeFunction::String_ctor(vm_func_This_args_flags) {
+Completion ctor::String(vm_func_This_args_flags) {
   JSValue str;
   if (args.empty() || args[0].is_nil()) [[unlikely]] {
     str = vm.get_string_const(AtomPool::k_);
@@ -46,7 +46,7 @@ Completion NativeFunction::String_ctor(vm_func_This_args_flags) {
 }
 
 
-Completion NativeFunction::Array_ctor(vm_func_This_args_flags) {
+Completion ctor::Array(vm_func_This_args_flags) {
   u32 length;
   if (args.empty()) [[likely]] {
     length = 0;
@@ -58,7 +58,7 @@ Completion NativeFunction::Array_ctor(vm_func_This_args_flags) {
 }
 
 
-Completion NativeFunction::RegExp_ctor(vm_func_This_args_flags) {
+Completion ctor::RegExp(vm_func_This_args_flags) {
   NOGC;
   u16string_view pattern;
   if (args.size() > 0) {
@@ -73,7 +73,7 @@ Completion NativeFunction::RegExp_ctor(vm_func_This_args_flags) {
 }
 
 
-Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
+Completion ctor::Date(vm_func_This_args_flags) {
   NOGC;
   // call with `new`
   if (flags.this_is_new_target) {
@@ -105,12 +105,12 @@ Completion NativeFunction::Date_ctor(vm_func_This_args_flags) {
   }
 }
 
-Completion NativeFunction::Function_ctor(vm_func_This_args_flags) {
+Completion ctor::Function(vm_func_This_args_flags) {
   u32 key = vm.str_to_atom(u"___dummy");
   return vm.global_object.as_object->get_prop_trivial(key);
 }
 
-Completion NativeFunction::Promise_ctor(vm_func_This_args_flags) {
+Completion ctor::Promise(vm_func_This_args_flags) {
   if (not flags.this_is_new_target) {
     return vm.throw_error(JS_TYPE_ERROR,
                           u"Promise constructor cannot be invoked without 'new'");
@@ -123,11 +123,11 @@ Completion NativeFunction::Promise_ctor(vm_func_This_args_flags) {
 }
 
 // TODO
-Completion NativeFunction::GeneratorFunction_ctor(vm_func_This_args_flags) {
+Completion ctor::GeneratorFunction(vm_func_This_args_flags) {
   return undefined;
 }
 
-Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArgRef args, JSErrorType type) {
+Completion ctor::error_ctor_internal(NjsVM& vm, ArgRef args, JSErrorType type) {
   auto *err_obj = vm.new_object(CLS_ERROR, vm.native_error_protos[type]);
   if (!args.empty() && args[0].is_string_type()) {
     // only supports primitive string now.
@@ -141,7 +141,7 @@ Completion NativeFunction::error_ctor_internal(NjsVM& vm, ArgRef args, JSErrorTy
   return JSValue(err_obj);
 }
 
-Completion NativeFunction::Symbol(vm_func_This_args_flags) {
+Completion ctor::Symbol(vm_func_This_args_flags) {
   if (flags.this_is_new_target) {
     return vm.throw_error(JS_TYPE_ERROR, u"Symbol() is not a constructor.");
   }

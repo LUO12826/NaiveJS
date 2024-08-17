@@ -4,7 +4,7 @@
 #include "JSObject.h"
 #include "JSBoolean.h"
 #include "njs/vm/NjsVM.h"
-#include "njs/vm/NativeFunction.h"
+#include "njs/vm/native.h"
 #include "njs/common/common_def.h"
 
 namespace njs {

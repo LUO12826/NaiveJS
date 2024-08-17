@@ -587,8 +587,7 @@ class CodegenVisitor {
       case Token::FUTURE_KW:
         if (expr.op.text == u"await") {
           Function *func_env = scope().get_outer_func()->function_ast;
-          assert(func_env);
-          if (not func_env->is_async) {
+          if (func_env == nullptr || not func_env->is_async) {
             report_error(CodegenError {
                 .type = JS_SYNTAX_ERROR,
                 .message = "await can only be used in an async function",

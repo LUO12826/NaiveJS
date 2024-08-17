@@ -84,6 +84,10 @@ inline string to_u8string(const u16string_view u16view) {
   return converter.to_bytes(u16view.data(), u16view.data() + u16view.length());
 }
 
+inline string to_u8string(const char16_t *str) {
+  return to_u8string(u16string_view(str));
+}
+
 inline string to_u8string(bool b) {
   return b ? "true" : "false";
 }
