@@ -89,7 +89,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   Scope& global_scope = *visitor.scope_chain[0];
   auto& global_sym_table = global_scope.get_symbol_table();
 
-  for (auto& [sym_name, sym_rec] : global_sym_table) {
+  for (const auto& [sym_name, sym_rec] : global_sym_table) {
     if (sym_rec.var_kind == VarKind::VAR || sym_rec.var_kind == VarKind::FUNCTION) {
       global_obj->set_prop(*this, sym_name, undefined);
     }
