@@ -208,10 +208,8 @@ Completion Math::floor(vm_func_This_args_flags) {
 }
 
 Completion Math::random(vm_func_This_args_flags) {
-  static auto seed = std::random_device{}();
   static std::uniform_real_distribution<> dis {0.0, 1.0};
-  static std::mt19937 gen(seed);
-  return JSValue(dis(gen));
+  return JSValue(dis(vm.random_engine));
 }
 
 }

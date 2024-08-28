@@ -1,6 +1,7 @@
 #include "NjsVM.h"
 
 #include <iostream>
+#include <random>
 #include "JSStackFrame.h"
 #include "njs/common/Completion.h"
 #include "njs/basic_types/JSValue.h"
@@ -81,6 +82,7 @@ NjsVM::NjsVM(CodegenVisitor& visitor)
   , atom_pool(std::move(visitor.atom_pool))
   , num_list(std::move(visitor.num_list))
   , func_meta(std::move(visitor.func_meta))
+  , random_engine(std::random_device{}())
 {
   init_prototypes();
   JSObject *global_obj = new_object();
@@ -753,7 +755,7 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
         if (not func.is_function()) [[unlikely]] {
           error_throw_handle(sp, JS_TYPE_ERROR,
-                             to_u16string(func.to_string(*this)) + u"value is not callable");
+                             to_u16string(func.to_string(*this)) + u" is not callable");
           Break;
         }
 

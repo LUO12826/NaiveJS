@@ -282,6 +282,7 @@ friend struct native::Math;
   vector<JSValue> string_const;
   unordered_flat_map<u32, REByteCode> regexp_bytecode;
   u16string temp_int_atom_string;
+  std::mt19937 random_engine;
 
   vector<int> make_function_counter;
 };
