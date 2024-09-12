@@ -792,7 +792,7 @@ error:
     return block;
   }
 
-  ASTNode* parse_variable_declaration(bool no_in, VarKind kind) {
+  ASTNode* parse_variable_declaration(bool no_in, VarKind kind, bool is_for_init) {
     START_POS;
     Token id = lexer.current();
     assert(id.is_identifier());
@@ -811,11 +811,18 @@ error:
 
     if (lexer.peek().type != TokenType::ASSIGN) {
       if (kind == VarKind::CONST) {
-        lexer.next();
-        return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
+        if (is_for_init) [[unlikely]] {
+          auto& token = lexer.peek();
+          bool legal = token.text == u"in" || token.text == u"of";
+          if (not legal) {
+            return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
+          }
+        } else {
+          lexer.next();
+          return new ASTNode(ASTNode::ILLEGAL, SOURCE_PARSED_EXPR);
+        }
       }
-      auto* var_decl = new VarDecl(id, SOURCE_PARSED_EXPR);
-      return var_decl;
+      return new VarDecl(id, SOURCE_PARSED_EXPR);;
     }
     
     ASTNode* init = parse_assign_or_arrow_function(no_in);
@@ -837,7 +844,7 @@ error:
 
     while (true) {
       if (lexer.current().text != u",") {
-        decl = parse_variable_declaration(no_in, var_kind);
+        decl = parse_variable_declaration(no_in, var_kind, false);
         if (decl->is_illegal()) {
           delete var_stmt;
           return decl;
@@ -1010,7 +1017,7 @@ error:
       auto var_stmt = new VarStatement(var_kind);
       Defer _defer = [&] { delete var_stmt; };
 
-      init_expr = parse_variable_declaration(true, var_kind);
+      init_expr = parse_variable_declaration(true, var_kind, true);
       if (init_expr->is_illegal()) return init_expr;
       var_stmt->add_decl(init_expr);
 
@@ -1027,7 +1034,7 @@ error:
         if (!token_match(TokenType::COMMA) || !lexer.next().is_identifier()) {
           goto error;
         }
-        init_expr = parse_variable_declaration(true, var_kind);
+        init_expr = parse_variable_declaration(true, var_kind, false);
         
         if (init_expr->is_illegal()) return init_expr;
         var_stmt->add_decl(init_expr);
