@@ -1170,20 +1170,16 @@ vector<StackTraceItem> NjsVM::capture_stack_trace() {
   auto iter = curr_frame;
   while (iter != global_frame) {
     auto func = iter->function.as_func;
-    trace.emplace_back(StackTraceItem {
-        .func_name = func->meta->is_anonymous ? u"(anonymous)" : u16string(func->name),
-        .source_line = func->meta->source_line,
-        .is_native = func->meta->is_native,
-    });
+    trace.emplace_back(
+        func->meta->is_anonymous ? u"(anonymous)" : u16string(func->name),
+        func->meta->source_line,
+        (bool)func->meta->is_native
+    );
     iter = iter->prev_frame;
   }
 
   if (!global_end) {
-    trace.emplace_back(StackTraceItem {
-        .func_name = u"(global)",
-        .source_line = 0,
-        .is_native = false,
-    });
+    trace.emplace_back(u"(global)", 0, false);
   }
 
   return trace;

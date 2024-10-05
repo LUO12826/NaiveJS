@@ -457,9 +457,7 @@ friend class JSPromisePrototype;
       then_record_inline.next_resolve = next_resolve;
       then_record_inline.next_reject = next_reject;
     } else {
-      then_records.push_back(PromiseThenRecord {
-          then_relay, on_fulfilled, on_rejected, next_resolve, next_reject
-      });
+      then_records.emplace_back(then_relay, on_fulfilled, on_rejected, next_resolve, next_reject);
     }
   }
 
