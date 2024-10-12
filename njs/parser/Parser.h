@@ -111,15 +111,9 @@ error:
   }
 
   bool parse_formal_parameter_list(std::vector<u16string_view>& params) {
-    // if (!lexer.current_token().is_identifier()) {
-    //   // This only happens in new Function(...)
-    //   params = {};
-    //   return lexer.current_token().type == TokenType::EOS;
-    // }
     if (!token_match(TokenType::LEFT_PAREN)) return false;
 
     Token token = lexer.next();
-    // NOTE(zhuzilin) the EOS is for new Function("a,b,c", "")
     while (token.type != TokenType::RIGHT_PAREN && token.type != TokenType::EOS) {
       if (token.is_identifier()) {
         params.push_back(token.text);
@@ -580,6 +574,9 @@ error:
     if (token.text == u"new") {    
       lexer.next();
       base = parse_left_hand_side_expression(true);
+      if (base->is_illegal()) {
+        return base;
+      }
       base = new NewExpr(base, SOURCE_PARSED_EXPR);
     }
 
