@@ -193,13 +193,14 @@ friend class GCHeap;
   }
 
   bool operator==(const PrimitiveString& other) const {
-    if (this == &other) return true;
-    return view() == other.view();
+    if (this->str_ref != nullptr && this->str_ref == other.str_ref) {
+      return true;
+    }
+    return this->view() == other.view();
   }
 
   bool operator!=(const PrimitiveString& other) const {
-    if (this == &other) return false;
-    return view() != other.view();
+    return not (*this == other);
   }
 
   bool operator<(const PrimitiveString& other) const {

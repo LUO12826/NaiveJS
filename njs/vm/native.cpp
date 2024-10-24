@@ -65,7 +65,7 @@ Completion misc::js_gc(vm_func_This_args_flags) {
   return undefined;
 }
 
-Completion misc::set_timeout(vm_func_This_args_flags) {
+Completion misc::setTimeout(vm_func_This_args_flags) {
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
@@ -73,7 +73,7 @@ Completion misc::set_timeout(vm_func_This_args_flags) {
   return JSFloat(id);
 }
 
-Completion misc::set_interval(vm_func_This_args_flags) {
+Completion misc::setInterval(vm_func_This_args_flags) {
   assert(args.size() >= 2);
   assert(args[0].is(JSValue::FUNCTION));
   assert(args[1].is(JSValue::NUM_FLOAT));
@@ -81,14 +81,14 @@ Completion misc::set_interval(vm_func_This_args_flags) {
   return JSFloat(id);
 }
 
-Completion misc::clear_interval(vm_func_This_args_flags) {
+Completion misc::clearInterval(vm_func_This_args_flags) {
   assert(args.size() >= 1);
   assert(args[0].is(JSValue::NUM_FLOAT));
   vm.runloop.remove_timer(size_t(args[0].as_f64));
   return undefined;
 }
 
-Completion misc::clear_timeout(vm_func_This_args_flags) {
+Completion misc::clearTimeout(vm_func_This_args_flags) {
   assert(args.size() >= 1);
   assert(args[0].is(JSValue::NUM_FLOAT));
   vm.runloop.remove_timer(size_t(args[0].as_f64));

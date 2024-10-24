@@ -20,10 +20,10 @@ struct misc {
   static Completion dummy(vm_func_This_args_flags);
   static Completion _test(vm_func_This_args_flags);
   static Completion js_gc(vm_func_This_args_flags);
-  static Completion set_timeout(vm_func_This_args_flags);
-  static Completion set_interval(vm_func_This_args_flags);
-  static Completion clear_interval(vm_func_This_args_flags);
-  static Completion clear_timeout(vm_func_This_args_flags);
+  static Completion setTimeout(vm_func_This_args_flags);
+  static Completion setInterval(vm_func_This_args_flags);
+  static Completion clearInterval(vm_func_This_args_flags);
+  static Completion clearTimeout(vm_func_This_args_flags);
   static Completion fetch(vm_func_This_args_flags);
   static Completion json_stringify(vm_func_This_args_flags);
   static Completion json_parse(vm_func_This_args_flags);

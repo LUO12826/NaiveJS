@@ -69,10 +69,10 @@ void NjsVM::setup() {
   add_native_func_impl(u"___dummy", native::misc::dummy);
   add_native_func_impl(u"___test", native::misc::_test);
   add_native_func_impl(u"$gc", native::misc::js_gc);
-  add_native_func_impl(u"setTimeout", native::misc::set_timeout);
-  add_native_func_impl(u"setInterval", native::misc::set_interval);
-  add_native_func_impl(u"clearTimeout", native::misc::clear_timeout);
-  add_native_func_impl(u"clearInterval", native::misc::clear_interval);
+  add_native_func_impl(u"setTimeout", native::misc::setTimeout);
+  add_native_func_impl(u"setInterval", native::misc::setInterval);
+  add_native_func_impl(u"clearTimeout", native::misc::clearTimeout);
+  add_native_func_impl(u"clearInterval", native::misc::clearInterval);
   add_native_func_impl(u"fetch", native::misc::fetch);
   add_native_func_impl(u"isFinite", native::misc::isFinite);
   add_native_func_impl(u"parseFloat", native::misc::parseFloat);
