@@ -16,12 +16,12 @@ Running time comparison of running the Typescript 1 transpiler (The input is a v
 Running time comparison of running the Typescript 2 transpiler:
 
 - Node.js v18.15.0 : 0.52 s
-- QuickJS : 2.73 s
-- NaiveJS : 3.88 s
+- QuickJS (built with clang 18) : 2.70 s
+- NaiveJS (built with clang++ 18) : 3.51 s
 
-This test involves a lot of string concatenation, generating a huge number of temporary strings. This slows down NaiveJS significantly, but QuickJS is still fast.
+This test involves a lot of string concatenation, which indirectly invokes memory copy and creates a lot of temporary strings. This slows down NaiveJS significantly. NaiveJS currently uses char16 arrays to represent strings, while QuickJS uses char8 arrays to represent strings when there are no wide characters in the string, making it more efficient.
 
-This comparison is just for fun. If NaiveJS were implemented strictly according to the ECMA specification, it would be expected to run even slower.
+The comparison is not a rigorous one. If NaiveJS were implemented strictly according to the ECMA specification, it would be expected to run even slower.
 
 ### Language Feature Checklist
 
