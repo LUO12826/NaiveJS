@@ -86,10 +86,9 @@ void JSArray::to_json(u16string& output, NjsVM& vm) const {
     if (first) first = false;
     else output += u',';
 
-    if (val.is(JSValue::JS_NULL) || val.is(JSValue::UNDEFINED)) {
+    if (val.is_nil()) {
       output += u"null";
-    }
-    else {
+    } else {
       val.to_json(output, vm);
     }
   }

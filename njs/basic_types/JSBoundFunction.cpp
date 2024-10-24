@@ -27,7 +27,7 @@ vector<JSValue>& JSBoundFunction::get_args() {
 }
 
 Completion JSBoundFunction::call(NjsVM& vm, JSValueRef This, JSValueRef new_target,
-                                 Span<JSValue> argv, CallFlags flags) {
+                                 ArgRef argv, CallFlags flags) {
   NOGC;
   HANDLE_COLLECTOR;
   SmallVector<JSBoundFunction *, 2> bound_chain;
@@ -68,7 +68,7 @@ Completion JSBoundFunction::call(NjsVM& vm, JSValueRef This, JSValueRef new_targ
   );
 }
 
-void JSBoundFunction::set_args(NjsVM& vm, Span<JSValue> argv) {
+void JSBoundFunction::set_args(NjsVM& vm, ArgRef argv) {
   this->args.reserve(argv.size());
   for (size_t i = 0; i < argv.size(); i++) {
     this->args.push_back(argv[i]);

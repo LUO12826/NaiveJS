@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 
     if (parser.get_errors().size() > 0) {
       printf("Njs: terminated due to parsing errors in program.\n");
-      exit(EXIT_FAILURE);
+      return EXIT_FAILURE;
     }
 
     // show AST
@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
                 << ", line: " << ast->source_start().line
                 << ", col: " << ast->source_start().col
                 << '\n';
-      return 1;
+      return EXIT_FAILURE;
     }
 
     // codegen
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 
     if (visitor.get_errors().size() > 0) {
       printf("Njs: terminated due to codegen errors in program.\n");
-      exit(EXIT_FAILURE);
+      return EXIT_FAILURE;
     }
 
     // execute bytecode
@@ -84,7 +84,10 @@ int main(int argc, char *argv[]) {
   }
   catch (const std::ifstream::failure &e) {
     fprintf(stderr, "%s\n", e.what());
+    return EXIT_FAILURE;
   }
+
+  return EXIT_SUCCESS;
 }
 
 void read_options(int argc, char *argv[]) {

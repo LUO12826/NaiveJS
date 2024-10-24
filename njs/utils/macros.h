@@ -29,7 +29,7 @@ using u32 = uint32_t;
 #define HANDLE_COLLECTOR GCHandleCollector collector(vm);
 #define gc_handle_add(o) collector.collect(o);
 
-/// try something that produces `ErrorOr<>`, return `CompThrow` if get an error.
+/// try something that produces `Completion`, return `CompThrow` if get an error.
 #define TRYCC(expression)                                                                     \
     ({                                                                                        \
         auto _temp_result = (expression);                                                     \
@@ -39,7 +39,7 @@ using u32 = uint32_t;
         _temp_result.get_value();                                                             \
     })
 
-/// try something that produces `ErrorOr<>`, return `Error` if get an error.
+/// try something that produces `Completion` or `ErrorOr<>`, return `Error` if get an error.
 #define TRY_ERR(expression)                                                                   \
     ({                                                                                        \
         auto _temp_result = (expression);                                                     \
@@ -49,7 +49,7 @@ using u32 = uint32_t;
         _temp_result.get_value();                                                             \
     })
 
-/// try something that produces `Completion`, return that `Completion` if get an error.
+/// try something that produces `Completion` or `ErrorOr<>`, return that `Completion` if get an error.
 #define TRY_COMP(expression)                                                                  \
     ({                                                                                        \
         auto _temp_result = (expression);                                                     \

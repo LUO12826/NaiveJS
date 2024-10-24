@@ -184,7 +184,7 @@ class JSArray: public JSObject {
     return dense_array.size();
   }
 
-  size_t push(NjsVM& vm, Span<JSValue> values) {
+  size_t push(NjsVM& vm, ArgRef values) {
     for (size_t i = 0; i < values.size(); i++) {
 //      set_referenced(values[i]);
       gc_write_barrier(values[i]);

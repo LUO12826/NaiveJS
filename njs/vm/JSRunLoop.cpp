@@ -168,6 +168,8 @@ void JSRunLoop::timer_loop() {
 }
 
 size_t JSRunLoop::add_timer(JSFunction* func, size_t timeout, bool repeat) {
+  // For performance reasons, setInterval has a minimum time interval
+  if (repeat) timeout = std::max(timeout, (size_t)10);
   auto& task = task_pool[task_counter];
 
   task.task_id = task_counter;
@@ -182,7 +184,6 @@ size_t JSRunLoop::add_timer(JSFunction* func, size_t timeout, bool repeat) {
     macro_queue_lock.unlock();
   }
   else {
-    if (repeat) assert(timeout != 0);
 
 #ifdef __APPLE__
 

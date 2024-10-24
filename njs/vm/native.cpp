@@ -6,40 +6,38 @@
 #include "njs/basic_types/conversion.h"
 #include "njs/include/httplib.h"
 
-namespace njs {
-namespace native {
+namespace njs::native {
+
 Completion misc::log(vm_func_This_args_flags) {
   std::string output = "\033[32m[LOG] ";
 
-  for (int i = 0; i < args.size(); i++) {
-    output += args[i].to_string(vm);
+  for (auto const& arg : args) {
+    output += arg.to_string(vm);
     output += " ";
   }
 
   output += "\n\033[0m";
   printf("%s", output.c_str());
-  //  vm.log_buffer.push_back(std::move(output));
+  vm.log_buffer.push_back(std::move(output));
 
   return undefined;
 }
 
 Completion misc::debug_log(vm_func_This_args_flags) {
-  //  std::string output = "\033[32m[LOG] ";
   std::string output;
 
-  for (int i = 0; i < args.size(); i++) {
-    output += args[i].to_string(vm);
-    //    output += " ";
+  for (auto const& arg : args) {
+    output += arg.to_string(vm);
+    output += " ";
   }
 
-  //  output += "\n\033[0m";
   printf("%s\n", output.c_str());
 
   return undefined;
 }
 
 Completion misc::debug_trap(vm_func_This_args_flags) {
-  if (args.size() > 0 && args[0].bool_value()) {
+  if (not args.empty() && args[0].bool_value()) {
     return vm.throw_error(JS_INTERNAL_ERROR, u"Trap");
   } else {
     return undefined;
@@ -65,33 +63,41 @@ Completion misc::js_gc(vm_func_This_args_flags) {
   return undefined;
 }
 
-Completion misc::setTimeout(vm_func_This_args_flags) {
-  assert(args.size() >= 2);
-  assert(args[0].is(JSValue::FUNCTION));
-  assert(args[1].is(JSValue::NUM_FLOAT));
-  size_t id = vm.runloop.add_timer(args[0].as_func, (size_t)args[1].as_f64, false);
+Completion misc::set_timer(NjsVM&vm, ArgRef args, bool repeat) {
+  if (args.empty() || not args[0].is_function()) {
+    return vm.throw_error(JS_TYPE_ERROR, u"The first argument must be a function");
+  }
+
+  size_t timeout = 0;
+  if (args.size() > 1) {
+    timeout = (size_t)TRY_COMP(js_to_number(vm, args[1]));
+  }
+  size_t id = vm.runloop.add_timer(args[0].as_func, timeout, repeat);
   return JSFloat(id);
+}
+
+
+Completion misc::setTimeout(vm_func_This_args_flags) {
+  return set_timer(vm, args, false);
 }
 
 Completion misc::setInterval(vm_func_This_args_flags) {
-  assert(args.size() >= 2);
-  assert(args[0].is(JSValue::FUNCTION));
-  assert(args[1].is(JSValue::NUM_FLOAT));
-  size_t id = vm.runloop.add_timer(args[0].as_func, (size_t)args[1].as_f64, true);
-  return JSFloat(id);
+  return set_timer(vm, args, true);
 }
 
 Completion misc::clearInterval(vm_func_This_args_flags) {
-  assert(args.size() >= 1);
-  assert(args[0].is(JSValue::NUM_FLOAT));
-  vm.runloop.remove_timer(size_t(args[0].as_f64));
+  if (not args.empty()) [[likely]] {
+    double val = TRY_COMP(js_to_number(vm, args[0]));
+    vm.runloop.remove_timer(size_t(val));
+  }
   return undefined;
 }
 
 Completion misc::clearTimeout(vm_func_This_args_flags) {
-  assert(args.size() >= 1);
-  assert(args[0].is(JSValue::NUM_FLOAT));
-  vm.runloop.remove_timer(size_t(args[0].as_f64));
+  if (not args.empty()) [[likely]] {
+    double val = TRY_COMP(js_to_number(vm, args[0]));
+    vm.runloop.remove_timer(size_t(val));
+  }
   return undefined;
 }
 
@@ -212,5 +218,4 @@ Completion Math::random(vm_func_This_args_flags) {
   return JSValue(dis(vm.random_engine));
 }
 
-}
 }

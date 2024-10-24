@@ -17,11 +17,11 @@ class JSBoundFunction : public JSObject {
 
   void set_this(NjsVM& vm, JSValue This);
   JSValue get_this();
-  void set_args(NjsVM& vm, Span<JSValue> argv);
+  void set_args(NjsVM& vm, ArgRef argv);
   vector<JSValue>& get_args();
 
   Completion call(NjsVM& vm, JSValueRef This, JSValueRef new_target,
-                  Span<JSValue> argv, CallFlags flags);
+                  ArgRef argv, CallFlags flags);
 
   bool gc_scan_children(GCHeap& heap) override;
   void gc_mark_children() override;

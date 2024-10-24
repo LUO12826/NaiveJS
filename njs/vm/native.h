@@ -30,6 +30,8 @@ struct misc {
   static Completion isFinite(vm_func_This_args_flags);
   static Completion parseFloat(vm_func_This_args_flags);
   static Completion parseInt(vm_func_This_args_flags);
+
+  static Completion set_timer(NjsVM& vm, ArgRef args, bool repeat);
 };
 
 struct ctor {
@@ -42,7 +44,7 @@ struct ctor {
   static Completion Function(vm_func_This_args_flags);
   static Completion Promise(vm_func_This_args_flags);
   static Completion GeneratorFunction(vm_func_This_args_flags);
-  static Completion error_ctor_internal(NjsVM& vm, Span<JSValue> args, JSErrorType type);
+  static Completion error_ctor_internal(NjsVM& vm, ArgRef args, JSErrorType type);
   // `Symbol` is actually not a constructor.
   static Completion Symbol(vm_func_This_args_flags);
 };
