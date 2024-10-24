@@ -190,7 +190,12 @@ void NjsVM::run() {
 
 void NjsVM::execute_global() {
   global_func.set_val(heap.new_object<JSFunction>(*this, &global_meta));
-  call_internal(global_func, global_object, undefined, ArgRef(nullptr, 0), CallFlags());
+  auto comp = call_internal(global_func, global_object, undefined, ArgRef(nullptr, 0), CallFlags());
+
+  last_task_threw = comp.is_throw();
+  if (comp.is_throw()) [[unlikely]] {
+    print_unhandled_error(comp.get_value());
+  }
 }
 
 Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef new_target,
@@ -877,22 +882,32 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         frame.sp = sp;
         return {Completion::Type::YIELD, sp[0]};
       }
-      Case(halt):
-        if (!global_end) {
-          global_end = true;
-          curr_frame = curr_frame->move_to_heap();
-          global_frame = curr_frame;
-          if (Global::show_vm_exec_steps) {
-            printf("\033[33m%-50s pc: %-3u\033[0m\n\n", inst.description().c_str(), pc);
-          }
-          return undefined;
+      Case(halt): {
+        assert(not global_end);
+        assert(sp == curr_frame->stack - 1);
+        global_end = true;
+        curr_frame = curr_frame->move_to_heap();
+        global_frame = curr_frame;
+        if (Global::show_vm_exec_steps) {
+          printf("\033[33m%-50s pc: %-3u\033[0m\n\n", inst.description().c_str(), pc);
         }
-        else {
-          assert(false);
-        }
-      Case(halt_err):
-        exec_halt_err(sp, inst);
         return undefined;
+      }
+      Case(halt_err): {
+        assert(not global_end);
+        assert(sp > curr_frame->stack - 1);
+        global_end = true;
+
+        JSValue err_val = sp[0];
+        sp = curr_frame->stack - 1;
+
+        curr_frame = curr_frame->move_to_heap();
+        global_frame = curr_frame;
+        if (Global::show_vm_exec_steps) {
+          printf("\033[33m%-50s sp: %-3ld\033[0m\n\n", inst.description().c_str(), 0l);
+        }
+        return CompThrow(err_val);
+      }
       Case(nop):
         Break;
       Case(get_prop_atom):
@@ -1132,6 +1147,7 @@ void NjsVM::execute_single_task(JSTask& task) {
     comp = call_function(task.task_func, global_object, undefined, task.args, CallFlags());
   }
 
+  last_task_threw = comp.is_throw();
   if (comp.is_throw()) [[unlikely]] {
     print_unhandled_error(comp.get_value());
   }
@@ -1898,22 +1914,6 @@ void NjsVM::print_unhandled_error(JSValue err) {
   }
   else {
     printf("\033[31mUnhandled throw: %s\033[0m\n", err.to_string(*this).c_str());
-  }
-}
-
-void NjsVM::exec_halt_err(SPRef sp, Instruction &inst) {
-  if (!global_end) global_end = true;
-  assert(sp > curr_frame->stack - 1);
-
-  JSValue err_val = sp[0];
-  print_unhandled_error(err_val);
-
-  sp = curr_frame->stack - 1;
-
-  curr_frame = curr_frame->move_to_heap();
-  global_frame = curr_frame;
-  if (Global::show_vm_exec_steps) {
-    printf("\033[33m%-50s sp: %-3ld\033[0m\n\n", inst.description().c_str(), 0l);
   }
 }
 

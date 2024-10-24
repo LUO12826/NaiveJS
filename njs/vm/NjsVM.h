@@ -96,7 +96,6 @@ friend struct native::Math;
   u16string build_trace_str(bool remove_top = false);
   JSValue build_error(JSErrorType type, u16string_view msg);
   Completion throw_error(JSErrorType type, u16string_view msg);
-
   JSValue build_cannot_access_prop_error(JSValue key, JSValue obj, bool is_set);
 
   JSObject* new_object(ObjClass cls = CLS_OBJECT);
@@ -154,6 +153,10 @@ friend struct native::Math;
 
   JSValue get_string_const(size_t index) {
     return string_const[index];
+  }
+
+  bool terminated_with_throw() {
+    return last_task_threw;
   }
 
   GCHeap heap;
@@ -283,6 +286,7 @@ friend struct native::Math;
   unordered_flat_map<u32, REByteCode> regexp_bytecode;
   u16string temp_int_atom_string;
   std::mt19937 random_engine;
+  bool last_task_threw {false};
 
   vector<int> make_function_counter;
 };

@@ -80,7 +80,10 @@ int main(int argc, char *argv[]) {
     vm.setup();
     vm.run();
     exec_timer.end();
-    
+
+    if (vm.terminated_with_throw()) {
+      return EXIT_FAILURE;
+    }
   }
   catch (const std::ifstream::failure &e) {
     fprintf(stderr, "%s\n", e.what());
