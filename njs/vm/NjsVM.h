@@ -109,7 +109,7 @@ friend struct native::Math;
 
   void push_temp_root(JSValue& val) {
     if (val.needs_gc()) {
-      temp_roots.push_back(&val);
+      temp_roots.push_back(&val.as_GCObject);
     }
   }
 
@@ -257,7 +257,7 @@ friend struct native::Math;
   SmallVector<double, 10> num_list;
   vector<unique_ptr<JSFunctionMeta>> func_meta;
 
-  vector<JSValue *> temp_roots;
+  vector<GCObject **> temp_roots;
 
   JSValue global_object;
   JSValue global_func;
@@ -317,7 +317,7 @@ struct GCHandleCollector {
 
   void collect(JSValue& val) {
     if (val.needs_gc()) {
-      vm.temp_roots.push_back(&val);
+      vm.temp_roots.push_back(&val.as_GCObject);
       handle_cnt += 1;
     }
   }

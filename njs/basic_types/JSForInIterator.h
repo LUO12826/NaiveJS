@@ -61,7 +61,7 @@ class JSForInIterator : public JSObject {
     return JSValue(iter);
   }
 
-  JSForInIterator(NjsVM& vm) : JSObject(vm, CLS_FOR_IN_ITERATOR, vm.iterator_prototype) {}
+  explicit JSForInIterator(NjsVM& vm) : JSObject(vm, CLS_FOR_IN_ITERATOR, vm.iterator_prototype) {}
 
   u16string_view get_class_name() override {
     return u"ForInIterator";
@@ -71,7 +71,7 @@ class JSForInIterator : public JSObject {
     bool child_young = false;
     child_young |= JSObject::gc_scan_children(heap);
     if (object.needs_gc()) [[likely]] {
-      child_young |= heap.gc_visit_object(object);
+      child_young |= heap.gc_visit_object(object.as_GCObject);
     }
     return child_young;
   }

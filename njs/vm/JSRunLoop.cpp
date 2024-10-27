@@ -290,15 +290,15 @@ JSTask *JSRunLoop::register_task(JSFunction* func) {
   return &iter->second;
 }
 
-void JSRunLoop::gc_gather_roots(std::vector<JSValue *>& roots) {
+void JSRunLoop::gc_gather_roots(std::vector<GCObject **>& roots) {
   // use const reference to make CLion Nova happy
   for (const auto& [task_id, task] : task_pool) {
     if (not task.use_native_func) {
-      roots.push_back(const_cast<JSValue *>(&task.task_func));
+      roots.push_back(const_cast<GCObject **>(&task.task_func.as_GCObject));
     }
     for (auto& val : task.args) {
       if (val.needs_gc()) {
-        roots.push_back(const_cast<JSValue *>(&val));
+        roots.push_back(const_cast<GCObject **>(&val.as_GCObject));
       }
     }
   }

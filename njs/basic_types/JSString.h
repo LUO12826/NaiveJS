@@ -29,18 +29,18 @@ class JSString : public JSObject {
 
   void gc_mark_children() override {
     JSObject::gc_mark_children();
-    value.as_GCObject->set_visited();
+    value->set_visited();
   }
 
   bool gc_has_young_child(GCObject *oldgen_start) override {
     return JSObject::gc_has_young_child(oldgen_start)
-           || (value.as_GCObject < oldgen_start);
+           || (value < oldgen_start);
   }
 
   Completion get_property_impl(NjsVM &vm, JSValue key) override {
     JSValue k = TRY_COMP(js_to_property_key(vm, key));
     if (k.is_atom() && k.as_atom == AtomPool::k_length) {
-      return JSFloat(value.as_prim_string->length());
+      return JSFloat(value->length());
     } else {
       return get_prop(vm, k);
     }
@@ -56,14 +56,14 @@ class JSString : public JSObject {
   }
 
   PrimitiveString* get_prim_value() {
-    return value.as_prim_string;
+    return value;
   }
 
 //  std::string description() override;
 //  std::string to_string(NjsVM& vm) override;
 //  void to_json(u16string& output, NjsVM& vm) const override;
  private:
-  JSValue value;
+  PrimitiveString *value;
 };
 
 } // namespace njs

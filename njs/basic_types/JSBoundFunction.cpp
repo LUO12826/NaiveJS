@@ -79,7 +79,7 @@ void JSBoundFunction::set_args(NjsVM& vm, ArgRef argv) {
 bool JSBoundFunction::gc_scan_children(njs::GCHeap& heap) {
   bool child_young = false;
   child_young |= JSObject::gc_scan_children(heap);
-  child_young |= heap.gc_visit_object(func);
+  child_young |= heap.gc_visit_object(func.as_GCObject);
   gc_check_and_visit_object(child_young, bound_this);
   for (auto& val : args) {
     gc_check_and_visit_object(child_young, val);

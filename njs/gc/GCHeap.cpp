@@ -107,11 +107,14 @@ void GCHeap::gc() {
 
 void GCHeap::write_barrier(GCObject *obj, JSValue const& field) {
   if (not field.needs_gc()) return;
-  GCObject *member = field.as_GCObject;
-  member->ref_count_inc();
+  write_barrier(obj, field.as_GCObject);
+}
+
+void GCHeap::write_barrier(GCObject *obj, GCObject *field) {
+  field->ref_count_inc();
 
   if (obj >= reinterpret_cast<GCObject *>(oldgen_start)
-      && member < reinterpret_cast<GCObject *>(oldgen_start)
+      && field < reinterpret_cast<GCObject *>(oldgen_start)
       && not obj->gc_remembered) {
     record_set.push_back(obj);
     obj->gc_remembered = true;
@@ -193,52 +196,39 @@ void GCHeap::major_gc() {
   sweep_phase();
 }
 
-// return if this object is in the new generation area.
-bool GCHeap::gc_visit_object(JSValue& handle) {
-  assert(handle.needs_gc());
-  GCObject *obj = handle.as_GCObject;
-  if (obj < reinterpret_cast<GCObject *>(oldgen_start)) {
-    GCObject *obj_new = copy_object(obj);
-    handle.as_GCObject = obj_new;
-    return obj_new < reinterpret_cast<GCObject *>(oldgen_start);
-  } else {
-    return false;
-  }
-}
-
 void GCHeap::gather_roots() {
   if (const_roots.empty()) [[unlikely]] {
-    const_roots.push_back(&vm.global_object);
-    const_roots.push_back(&vm.global_func);
+    const_roots.push_back(&vm.global_object.as_GCObject);
+    const_roots.push_back(&vm.global_func.as_GCObject);
 
-    const_roots.push_back(&vm.object_prototype);
-    const_roots.push_back(&vm.array_prototype);
-    const_roots.push_back(&vm.number_prototype);
-    const_roots.push_back(&vm.boolean_prototype);
-    const_roots.push_back(&vm.string_prototype);
-    const_roots.push_back(&vm.function_prototype);
-    const_roots.push_back(&vm.error_prototype);
-    const_roots.push_back(&vm.regexp_prototype);
-    const_roots.push_back(&vm.date_prototype);
-    const_roots.push_back(&vm.iterator_prototype);
+    const_roots.push_back(&vm.object_prototype.as_GCObject);
+    const_roots.push_back(&vm.array_prototype.as_GCObject);
+    const_roots.push_back(&vm.number_prototype.as_GCObject);
+    const_roots.push_back(&vm.boolean_prototype.as_GCObject);
+    const_roots.push_back(&vm.string_prototype.as_GCObject);
+    const_roots.push_back(&vm.function_prototype.as_GCObject);
+    const_roots.push_back(&vm.error_prototype.as_GCObject);
+    const_roots.push_back(&vm.regexp_prototype.as_GCObject);
+    const_roots.push_back(&vm.date_prototype.as_GCObject);
+    const_roots.push_back(&vm.iterator_prototype.as_GCObject);
 
     for (auto& val : vm.native_error_protos) {
-      const_roots.push_back(&val);
+      const_roots.push_back(&val.as_GCObject);
     }
 
     for (auto& val : vm.string_const) {
-      const_roots.push_back(&val);
+      const_roots.push_back(&val.as_GCObject);
     }
   }
 
   // All values on the rt_stack are possible roots
   JSStackFrame *frame = vm.curr_frame;
   while (frame) {
-    roots.push_back(&frame->function);
+    roots.push_back(&frame->function.as_GCObject);
     // do we need to check frame->alloc_cnt != 0 here?
     for (JSValue *val = frame->buffer; val <= *frame->sp_ref; val++) {
       if (val->needs_gc()) {
-        roots.push_back(val);
+        roots.push_back(&val->as_GCObject);
       }
     }
     frame = frame->prev_frame;
@@ -246,11 +236,11 @@ void GCHeap::gather_roots() {
 
   for (auto& task : vm.micro_task_queue) {
     if (not task.use_native_func) {
-      roots.push_back(&task.task_func);
+      roots.push_back(&task.task_func.as_GCObject);
     }
     for (auto& val : task.args) {
       if (val.needs_gc()) {
-        roots.push_back(&val);
+        roots.push_back(&val.as_GCObject);
       }
     }
   }
@@ -263,18 +253,18 @@ void GCHeap::newgen_copy_alive() {
   gather_roots();
 
 #define COPY_TASK                                                               \
-  if (root->as_GCObject < reinterpret_cast<GCObject *>(oldgen_start)) {         \
-    root->as_GCObject = copy_object(root->as_GCObject);                         \
+  if (*root < reinterpret_cast<GCObject *>(oldgen_start)) {                     \
+    *root = copy_object(*root);                                                 \
   }
 
-  for (JSValue *root : const_roots) {
+  for (GCObject **root : const_roots) {
     // only copy those in the new generation area
     COPY_TASK
   }
-  for (JSValue *root : roots) {
+  for (GCObject **root : roots) {
     COPY_TASK
   }
-  for (JSValue *root : vm.temp_roots) {
+  for (GCObject **root : vm.temp_roots) {
     COPY_TASK
   }
 
@@ -425,18 +415,18 @@ GCObject* GCHeap::oldgen_alloc(size_t size) {
 
 void GCHeap::mark_phase() {
 #define MARK_TASK                                               \
-  auto *gc_object = root->as_GCObject;                          \
+  auto *gc_object = *root;                                      \
   if (not gc_object->gc_visited) {                              \
     gc_object->set_visited();                                   \
     gc_object->gc_mark_children();                              \
   }
-  for (JSValue *root : roots) {
+  for (GCObject **root : roots) {
     MARK_TASK
   }
-  for (JSValue *root : const_roots) {
+  for (GCObject **root : const_roots) {
     MARK_TASK
   }
-  for (JSValue *root : vm.temp_roots) {
+  for (GCObject **root : vm.temp_roots) {
     MARK_TASK
   }
 }

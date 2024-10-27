@@ -85,10 +85,9 @@ class JSArrayPrototype : public JSObject {
 
   static Completion get_iter(vm_func_This_args_flags) {
     assert(This.is(JSValue::ARRAY));
-    assert(This.is_object());
     assert(object_class(This) == CLS_ARRAY);
 
-    auto *iter = vm.heap.new_object<JSArrayIterator>(vm, This, JSIteratorKind::VALUE);
+    auto *iter = vm.heap.new_object<JSArrayIterator>(vm, This.as_Object<JSArray>(), JSIteratorKind::VALUE);
     return JSValue(iter);
   }
 

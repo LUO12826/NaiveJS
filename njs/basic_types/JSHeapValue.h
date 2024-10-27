@@ -14,7 +14,7 @@ struct JSHeapValue: public GCObject {
 
   bool gc_scan_children(njs::GCHeap &heap) override {
     if (wrapped_val.needs_gc()) {
-      return heap.gc_visit_object(wrapped_val);
+      return heap.gc_visit_object(wrapped_val.as_GCObject);
     }
     return false;
   }

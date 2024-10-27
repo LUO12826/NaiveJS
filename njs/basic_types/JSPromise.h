@@ -225,13 +225,10 @@ friend class JSPromisePrototype;
     JSValue promise = TRYCC(Promise_resolve_reject(vm, undefined, finally_res, false));
     gc_handle_add(promise);
 
-    JSValue then_func;
-    if (state == FULFILLED) {
-      then_func.set_val(vm.new_function(func_return_auxiliary_meta));
-    } else {
-      then_func.set_val(vm.new_function(func_throw_auxiliary_meta));
-    }
+    auto then_func_meta = state == FULFILLED ? func_return_auxiliary_meta : func_throw_auxiliary_meta;
+    JSValue then_func(vm.new_function(then_func_meta));
     gc_handle_add(then_func);
+
     then_func.as_func->has_auxiliary_data = true;
     then_func.as_func->this_or_auxiliary_data = args[0];
 

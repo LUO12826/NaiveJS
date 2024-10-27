@@ -48,7 +48,7 @@ class JSRunLoop {
 
   BS::thread_pool& get_thread_pool() { return thread_pool; }
 
-  void gc_gather_roots(std::vector<JSValue *>& roots);
+  void gc_gather_roots(std::vector<GCObject **>& roots);
 
  private:
   void timer_loop();

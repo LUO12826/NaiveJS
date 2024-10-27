@@ -98,9 +98,22 @@ constexpr static double newgen_gc_threshold_ratio = 0.36;
   // point to the new address. The `copy_object` method copies the child object recursively.
   // This method will be called not only in this class, but also in the `gc_scan_children` method
   // of the GCObject subclasses.
-  bool gc_visit_object(JSValue &handle);
+  //
+  // return if this object is in the new generation area.
+  template <typename T>
+  bool gc_visit_object(T *& obj_handle_ref) {
+    auto *obj = static_cast<GCObject *>(obj_handle_ref);
+    if (obj < reinterpret_cast<GCObject *>(oldgen_start)) {
+      GCObject *obj_new = copy_object(obj);
+      obj_handle_ref = static_cast<T *>(obj_new);
+      return obj_new < reinterpret_cast<GCObject *>(oldgen_start);
+    } else {
+      return false;
+    }
+  }
 
   void write_barrier(GCObject *obj, JSValue const& field);
+  void write_barrier(GCObject *obj, GCObject *field);
   bool object_in_newgen(GCObject *obj) { return obj < reinterpret_cast<GCObject *>(oldgen_start); }
 
   GCStats stats;
@@ -130,8 +143,8 @@ constexpr static double newgen_gc_threshold_ratio = 0.36;
   static void check_fwd_pointer(byte *start, byte *end);
 
   NjsVM& vm;
-  vector<JSValue *> roots;
-  vector<JSValue *> const_roots;
+  vector<GCObject **> roots;
+  vector<GCObject **> const_roots;
 
   size_t heap_size;
   byte *storage;

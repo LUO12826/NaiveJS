@@ -4,7 +4,6 @@
 #include <vector>
 #include "JSObject.h"
 #include "JSArray.h"
-#include "JSString.h"
 #include "njs/vm/NjsVM.h"
 #include "njs/common/AtomPool.h"
 #include "njs/common/common_def.h"
@@ -26,7 +25,7 @@ class JSArrayIterator : public JSObject {
   }
 
  public:
-  JSArrayIterator(NjsVM& vm, JSValue array, JSIteratorKind kind)
+  JSArrayIterator(NjsVM& vm, JSArray *array, JSIteratorKind kind)
     : JSObject(vm, CLS_ARRAY_ITERATOR, vm.iterator_prototype)
     , array(array), kind(kind) {
     gc_write_barrier(array);
@@ -44,17 +43,16 @@ class JSArrayIterator : public JSObject {
 
   void gc_mark_children() override {
     JSObject::gc_mark_children();
-    gc_mark_object(array.as_GCObject);
+    gc_mark_object(array);
   }
 
   bool gc_has_young_child(GCObject *oldgen_start) override {
-    assert(array.is_object());
     return JSObject::gc_has_young_child(oldgen_start)
-           || array.as_GCObject < oldgen_start;
+           || array < oldgen_start;
   }
 
   Completion next(NjsVM& vm) {
-    JSArray& arr = *array.as_Object<JSArray>();
+    JSArray& arr = *array;
     JSValue value;
     bool done;
 
@@ -89,7 +87,7 @@ class JSArrayIterator : public JSObject {
 
  private:
   u32 index {0};
-  JSValue array;
+  JSArray *array;
   JSIteratorKind kind;
 };
 

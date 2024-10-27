@@ -11,7 +11,6 @@ test_ignored = [
     "test_string_lit.js",
     "test_number_lit.js",
     "test_try_catch.js",
-    "test_regexp.js",
     "test_array_exotic.js",
     "test_array.js",
     "test_for_in.js",
@@ -20,6 +19,14 @@ test_ignored = [
 ]
 
 file_and_expected = {
+    "test_regexp.js": '''
+[LOG] Year: 2024 
+[LOG] Month: 05 
+[LOG] Day: 25 
+[LOG] false 
+[LOG] year: 2024, month: 05, day: 31 
+[LOG] time: 14:23:45 
+''',
 
     "test_for_of.js": '''
 [LOG] 0

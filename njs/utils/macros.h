@@ -21,7 +21,7 @@ using u32 = uint32_t;
 #define set_referenced(x) if ((x).needs_gc()) { (x).as_GCObject->ref_count_inc(); }
 #define gc_write_barrier(x) vm.heap.write_barrier(this, x);
 
-#define gc_check_and_visit_object(res, o) if ((o).needs_gc()) { (res) |= heap.gc_visit_object(o); }
+#define gc_check_and_visit_object(res, o) if ((o).needs_gc()) { (res) |= heap.gc_visit_object((o).as_GCObject); }
 #define gc_check_and_mark_object(o) if ((o).needs_gc()) { gc_mark_object((o).as_GCObject); }
 #define gc_check_object_young(o) if ((o).needs_gc() && (o).as_GCObject < oldgen_start) { return true; }
 
