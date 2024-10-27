@@ -108,10 +108,6 @@ ResumableFuncState* JSFunction::build_exec_state(NjsVM& vm, JSValueRef This, Arg
 bool JSFunction::gc_scan_children(GCHeap& heap) {
   bool child_young = false;
   child_young |= JSObject::gc_scan_children(heap);
-//  for (auto& var : captured_var) {
-//    assert(var.is(JSValue::HEAP_VAL));
-//    child_young |= heap.gc_visit_object(var);
-//  }
   gc_check_and_visit_object(child_young, captured_var);
   gc_check_and_visit_object(child_young, this_or_auxiliary_data);
   return child_young;
@@ -119,20 +115,12 @@ bool JSFunction::gc_scan_children(GCHeap& heap) {
 
 void JSFunction::gc_mark_children() {
   JSObject::gc_mark_children();
-//  for (auto& var : captured_var) {
-//    assert(var.is(JSValue::HEAP_VAL));
-//    gc_mark_object(var.as_GCObject);
-//  }
   gc_check_and_mark_object(captured_var);
   gc_check_and_mark_object(this_or_auxiliary_data);
 }
 
 bool JSFunction::gc_has_young_child(GCObject *oldgen_start) {
   if (JSObject::gc_has_young_child(oldgen_start)) return true;
-//  for (auto& var : captured_var) {
-//    assert(var.is(JSValue::HEAP_VAL));
-//    if (var.as_GCObject < oldgen_start) return true;
-//  }
   gc_check_object_young(captured_var);
   gc_check_object_young(this_or_auxiliary_data);
   return false;

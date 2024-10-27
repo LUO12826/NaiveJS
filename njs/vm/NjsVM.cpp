@@ -425,11 +425,37 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         }
         Break;
       }
-      Case(sub):
+      Case(sub): 
+        sp -= 1;
+        if (sp[0].is_float64() && sp[1].is_float64()) [[likely]] {
+          sp[0].as_f64 = sp[0].as_f64 - sp[1].as_f64;
+        } else {
+          exec_binary(sp, OpType::sub);
+        }
+        Break;
       Case(mul):
+        sp -= 1;
+        if (sp[0].is_float64() && sp[1].is_float64()) [[likely]] {
+          sp[0].as_f64 = sp[0].as_f64 * sp[1].as_f64;
+        } else {
+          exec_binary(sp, OpType::mul);
+        }
+        Break;
       Case(div):
+        sp -= 1;
+        if (sp[0].is_float64() && sp[1].is_float64()) [[likely]] {
+          sp[0].as_f64 = sp[0].as_f64 / sp[1].as_f64;
+        } else {
+          exec_binary(sp, OpType::div);
+        }
+        Break;
       Case(mod):
-        exec_binary(sp, inst.op_type);
+        sp -= 1;
+        if (sp[0].is_float64() && sp[1].is_float64()) [[likely]] {
+          sp[0].as_f64 = fmod(sp[0].as_f64, sp[1].as_f64);
+        } else {
+          exec_binary(sp, OpType::mod);
+        }
         Break;
       Case(inc): {
         JSValue& value = get_value(get_scope, opr2);
@@ -1384,15 +1410,10 @@ void NjsVM::exec_binary(SPRef sp, OpType op_type) {
     }
     __builtin_unreachable();
   };
-  sp -= 1;
-  if (sp[0].is_float64() && sp[1].is_float64()) [[likely]] {
-    sp[0].as_f64 = calc(op_type, sp[0].as_f64, sp[1].as_f64);
-  }
-  else {
-    double lhs = VM_TRY_ERR(js_to_number(*this, sp[0]));
-    double rhs = VM_TRY_ERR(js_to_number(*this, sp[1]));
-    sp[0].set_float(calc(op_type, lhs, rhs));
-  }
+
+  double lhs = VM_TRY_ERR(js_to_number(*this, sp[0]));
+  double rhs = VM_TRY_ERR(js_to_number(*this, sp[1]));
+  sp[0].set_float(calc(op_type, lhs, rhs));
 }
 
 void NjsVM::exec_bits(SPRef sp, OpType op_type) {

@@ -105,12 +105,7 @@ JSValue js_op_typeof(NjsVM &vm, JSValue val) {
     case JSValue::STRING_OBJ:
     case JSValue::OBJECT:
     case JSValue::ARRAY:
-      // will this happen?
-      if (object_class(val) == CLS_FUNCTION) {
-        return vm.get_string_const(AtomPool::k_function);
-      } else {
-        return vm.get_string_const(AtomPool::k_object);
-      }
+      return vm.get_string_const(AtomPool::k_object);
     case JSValue::FUNCTION:
       return vm.get_string_const(AtomPool::k_function);
     default:
