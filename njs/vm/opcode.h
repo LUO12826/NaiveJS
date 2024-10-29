@@ -93,6 +93,8 @@ DEF(jmp_true_pop)
 DEF(jmp_false_pop)
 DEF(jmp_cond_pop)
 
+DEF(case_jmp_if_eq)
+
 DEF(make_func)
 DEF(make_obj)
 DEF(make_array)

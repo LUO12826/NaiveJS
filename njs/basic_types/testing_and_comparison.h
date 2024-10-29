@@ -11,7 +11,7 @@
 
 namespace njs {
 
-inline ErrorOr<bool> strict_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
+inline bool strict_equals(NjsVM& vm, JSValue lhs, JSValue rhs) {
   if (lhs.tag == rhs.tag) {
     assert(lhs.tag != JSValue::HEAP_VAL && lhs.tag != JSValue::VALUE_HANDLE);
     assert(lhs.tag != JSValue::JS_ATOM);

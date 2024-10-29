@@ -1433,10 +1433,8 @@ class CodegenVisitor {
     visit(stmt.condition_expr);
     // code gen the cases comparison
     for (auto& case_clause : stmt.cases) {
-      emit(OpType::dup_stack_top);
       visit(case_clause.expr);
-      emit(OpType::eq3);
-      case_clause.jump_point = emit(OpType::jmp_true_pop);
+      case_clause.jump_point = emit(OpType::case_jmp_if_eq);
     }
     u32 jmp_to_default = emit(OpType::jmp);
 

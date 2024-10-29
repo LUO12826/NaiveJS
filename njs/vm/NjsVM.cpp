@@ -1,6 +1,7 @@
 #include "NjsVM.h"
 
 #include <iostream>
+#include <iterator>
 #include <random>
 #include "JSStackFrame.h"
 #include "njs/common/Completion.h"
@@ -216,13 +217,13 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
 
 #define Case(opc) case_op_##opc
 #define Default case_default
-  //#define Break {                                                                           \
-//  if (Global::show_vm_exec_steps) [[unlikely]] show_step(inst);                           \
-//  inst = bytecode[(pc)++];                                                                \
-//  int op_index = static_cast<int>(inst.op_type);                                          \
-//  inst_counter[op_index] += 1;                                                            \
-//  goto *dispatch_table[op_index];                                                         \
-//}
+// #define Break {                                                                           \
+//   if (Global::show_vm_exec_steps) [[unlikely]] show_step(inst);                           \
+//   inst = bytecode[(pc)++];                                                                \
+//   int op_index = static_cast<int>(inst.op_type);                                          \
+//   inst_counter[op_index] += 1;                                                            \
+//   goto *dispatch_table[op_index];                                                         \
+// }
 
 #define Break {                                                                           \
   inst = bytecode[(pc)++];                                                                \
@@ -750,6 +751,12 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         }
         sp -= 1;
         Break;
+      Case(case_jmp_if_eq):
+        sp -= 1;
+        if (strict_equals(*this, sp[0], sp[1])) {
+          pc = opr1;
+        }
+        Break;
       Case(gt):
       Case(lt):
       Case(ge):
@@ -763,19 +770,13 @@ Completion NjsVM::call_internal(JSValueRef callee, JSValueRef This, JSValueRef n
         exec_abstract_equality(sp, false);
         Break;
       Case(ne3):
-      Case(eq3): {
         sp -= 1;
-        ErrorOr<bool> res = strict_equals(*this, sp[0], sp[1]);
-        bool flip = inst.op_type == OpType::ne3;
-
-        if (res.is_value()) {
-          sp[0].set_bool(flip ^ res.get_value());
-        } else {
-          sp[0] = res.get_error();
-          error_handle(sp);
-        }
+        sp[0].set_bool(not strict_equals(*this, sp[0], sp[1]));
         Break;
-      }
+      Case(eq3):
+        sp -= 1;
+        sp[0].set_bool(strict_equals(*this, sp[0], sp[1]));
+        Break;
       Case(call): {
         if (Global::show_vm_exec_steps) {
           printf("%-50s sp: %-3ld   pc: %-3u\n", inst.description().c_str(), (sp - (stack - 1)), pc);
@@ -1511,7 +1512,7 @@ void NjsVM::exec_shift_imm(SPRef sp, OpType op_type, u32 imm) {
 }
 
 void NjsVM::exec_make_func(SPRef sp, int meta_idx, JSValue env_this) {
-//  make_function_counter[meta_idx] += 1;
+  // make_function_counter[meta_idx] += 1;
   auto *meta = func_meta[meta_idx].get();
   auto *func = new_function(meta);
 
@@ -1954,9 +1955,11 @@ void NjsVM::show_stats() {
   }
 
   if (Global::show_vm_stats) {
+    auto num_inst = std::accumulate(std::begin(inst_counter), std::end(inst_counter), (size_t)0);
     printf("\nInstruction counter\n");
+    printf("dynamic instruction count: %lu\n", num_inst);
     for (int i = 0; i < static_cast<int>(OpType::opcode_count); i++) {
-      printf("%20s : %lu\n", opcode_names[i], inst_counter[i]);
+      printf("%25s : %14lu  %lf %%\n", opcode_names[i], inst_counter[i], 100 * ((double)inst_counter[i] / num_inst));
     }
 
     printf("\nmake function counter\n");

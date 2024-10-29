@@ -38,7 +38,8 @@ struct Instruction {
            || op_type == OpType::jmp_pop
            || op_type == OpType::jmp_true_pop
            || op_type == OpType::jmp_false_pop
-           || op_type == OpType::iter_end_jmp;
+           || op_type == OpType::iter_end_jmp
+           || op_type == OpType::case_jmp_if_eq;
   }
 
   bool is_jump_two_target() {

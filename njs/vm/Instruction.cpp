@@ -211,6 +211,9 @@ std::string Instruction::description() const {
     case OpType::jmp_cond_pop:
       sprintf(buffer, "jmp_cond_pop  %d %d", OPR1, OPR2);
       break;
+    case OpType::case_jmp_if_eq:
+      sprintf(buffer, "case_jmp_if_eq  %d", OPR1);
+      break;
     case OpType::make_func:
       sprintf(buffer, "make_func  %d", OPR1);
       break;
@@ -425,6 +428,7 @@ static int op_stack_usage[] = {
     -1, // jmp_true_pop
     -1, // jmp_false_pop
     -1, // jmp_cond_pop
+    -1, // case_jmp_if_eq
 
     1,  // make_func
     1,  // make_obj

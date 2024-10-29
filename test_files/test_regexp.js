@@ -12,7 +12,6 @@ if (match) {
   console.log("No match found.");
 }
 
-console.log(match)
 console.log(regex.test(dateString))
 
 const logString = "Error: 2024-05-31 14:23:45 - System failure";
@@ -30,5 +29,4 @@ if (match) {
 
     console.log("year: " + year + ", month: " + month + ", day: " + day);
     console.log("time: " + hour + ":" + minute + ":" + second);
-    console.log(match)
 }
