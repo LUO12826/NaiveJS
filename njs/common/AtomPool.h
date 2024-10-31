@@ -6,7 +6,6 @@
 #include <unordered_map>
 #include "njs/basic_types/atom.h"
 #include "njs/include/robin_hood.h"
-#include "njs/include/MurmurHash3.h"
 #include "njs/parser/lexing_helper.h"
 #include "njs/common/conversion_helper.h"
 
@@ -174,9 +173,15 @@ class AtomPool {
 
   struct KeyHasher {
     std::size_t operator()(const u16string_view& sv) const {
-      uint64_t output[2];
-      MurmurHash3_x64_128(sv.data(), sv.size() * sizeof(char16_t), 31, &output);
-      return output[0] ^ output[1];
+      const uint64_t fnv_prime = 1099511628211u;
+      const uint64_t offset_basis = 14695981039346656037u;
+
+      uint64_t hash = offset_basis;
+      for (char16_t c : sv) {
+        hash ^= static_cast<uint64_t>(c);
+        hash *= fnv_prime;
+      }
+      return hash;
     }
   };
 
