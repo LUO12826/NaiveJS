@@ -33,7 +33,7 @@ array<JSValue, 2> JSFunction::build_async_then_callback(NjsVM& vm, JSValueRef pr
 Completion JSFunction::async_then_callback(vm_func_This_args_flags) {
   assert(func.as_func->has_auxiliary_data);
   assert(func.as_func->this_or_auxiliary_data.as_object->get_class() == CLS_PROMISE);
-  assert(args.size() > 0);
+  assert(not args.empty());
 
   auto promise_state = static_cast<JSPromise::State>(func.as_func->meta->magic);
   JSValueRef promise = func.as_func->this_or_auxiliary_data;

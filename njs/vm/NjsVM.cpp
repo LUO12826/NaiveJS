@@ -1870,10 +1870,6 @@ void NjsVM::exec_comparison(SPRef sp, OpType type) {
   lhs.set_bool(res);
 }
 
-void NjsVM::error_throw(SPRef sp, const u16string& msg) {
-  error_throw(sp, JS_ERROR, msg);
-}
-
 void NjsVM::error_throw_handle(SPRef sp, JSErrorType type, u16string_view msg) {
   JSValue err_obj = build_error(type, msg);
   *++sp = err_obj;

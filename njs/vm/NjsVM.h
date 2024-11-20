@@ -221,8 +221,6 @@ friend struct native::Math;
 
   void exec_regexp_build(SPRef sp, u32 atom, int reflags);
 
-  void exec_halt_err(SPRef sp, Instruction &inst);
-
   Completion get_prop_on_primitive(JSValue& obj, JSValue key);
   Completion get_prop_common(JSValue obj, JSValue key);
   Completion set_prop_common(JSValue obj, JSValue key, JSValue value);
@@ -230,7 +228,6 @@ friend struct native::Math;
   Completion for_of_get_iterator(JSValue obj);
   Completion for_of_call_next(JSValue iter);
 
-  void error_throw(SPRef sp, const u16string& msg);
   void error_throw(SPRef sp, JSErrorType type, const u16string& msg);
   void error_throw_handle(SPRef sp, JSErrorType type, u16string_view msg);
   void error_handle(SPRef sp);
