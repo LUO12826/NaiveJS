@@ -1,0 +1,13 @@
+name: Tag Push Workflow test
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  print-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print Tag Name
+        run: echo "Pushed tag!!!"
